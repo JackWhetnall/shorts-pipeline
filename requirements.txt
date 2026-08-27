@@ -1,0 +1,5 @@
+edge-tts>=6.1.0
+moviepy>=1.0.3,<2
+requests>=2.31.0
+pillow>=9.0.0,<10
+anthropic>=0.34.0
