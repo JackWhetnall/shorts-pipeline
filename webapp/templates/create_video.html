@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Create Video &mdash; {{ channel.channel_display_name }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('index') }}">&larr; Channels</a></p>
+<h1>Create Video &mdash; {{ channel.channel_display_name }}</h1>
+
+<div id="seed-idle">
+  <button onclick="getSeed('{{ key }}')">
+    Get a candidate {{ 'quote' if channel.content_mode == 'static_corpus' else 'topic' }}
+  </button>
+</div>
+
+<div id="seed-preview" class="hidden">
+  <div id="seed-preview-text"></div>
+  <button onclick="getSeed('{{ key }}')">Reroll</button>
+  <button onclick="startGenerate('{{ key }}')">Use this</button>
+</div>
+
+<div id="job-progress" class="hidden">
+  <h2>Generating&hellip;</h2>
+  <div id="job-current" class="progress-line"></div>
+  <pre id="job-log"></pre>
+</div>
+
+<div id="job-result" class="hidden">
+  <h2>Done</h2>
+  <video id="result-video" controls></video>
+  <p><a id="result-link" href="#" target="_blank">Open video file</a></p>
+</div>
+{% endblock %}

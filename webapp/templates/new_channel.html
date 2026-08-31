@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}New channel{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('index') }}">&larr; Channels</a></p>
+<h1>New channel</h1>
+{% set is_new = true %}
+{% include "_channel_form.html" %}
+{% endblock %}

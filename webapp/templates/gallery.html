@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ channel.channel_display_name }} Gallery{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('index') }}">&larr; Channels</a></p>
+<h1>{{ channel.channel_display_name }} &mdash; Gallery</h1>
+
+{% if not videos %}
+<p>No videos yet. <a href="{{ url_for('create_video', key=key) }}">Create one</a>.</p>
+{% endif %}
+
+<div class="gallery-grid">
+  {% for v in videos %}
+  <div class="gallery-item">
+    <video controls src="{{ url_for('serve_video', relpath=v.relpath) }}"></video>
+    <p class="meta">{{ v.name }}</p>
+    {% if v.meta_text %}
+    <pre class="meta-text">{{ v.meta_text }}</pre>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{
+  "bible_daily": {
+    "content_mode": "static_corpus",
+    "voice": "pNInz6obpgDQGcFmaJgB",
+    "style_prompt": "You are writing a short, warm, non-denominational reflection on a Bible verse for a YouTube Shorts audience. Plain, modern language. No preachiness, no 'in conclusion', just a grounded human observation about what the verse means and why it might matter today.",
+    "channel_display_name": "Daily Bible Verses",
+    "outro_subtext": "Subscribe for more",
+    "output_dir": "output/bible_daily",
+    "avoid_imagery": [
+      "islamic",
+      "muslim",
+      "mosque",
+      "quran",
+      "koran",
+      "ramadan",
+      "hijab",
+      "minaret",
+      "imam",
+      "hajj",
+      "mecca",
+      "judaism",
+      "jewish",
+      "hinduism",
+      "hindu"
+    ],
+    "speed": 1.0,
+    "source": "bible",
+    "pacing": {
+      "pause_after_first_segment": 0.7,
+      "pause_after_citation": 0.5,
+      "pause_between_segments": 0.4,
+      "max_shot_seconds": 5.0,
+      "crossfade": 0.5,
+      "outro_seconds": 3.0,
+      "caption_max_group_size": 4,
+      "caption_pause_gap_threshold": 0.25,
+      "segment_count": 3
+    },
+    "style": {
+      "base_color": "#FFFFFF",
+      "highlight_color": "#FFD400",
+      "stroke_color": "#000000",
+      "outro_title_color": "#FFFFFF",
+      "outro_subtext_color": "#FFD400",
+      "font_size": 68,
+      "stroke_width": 4,
+      "outro_bg_color": [
+        10,
+        10,
+        14,
+        255
+      ]
+    }
+  },
+  "shakespeare_lines": {
+    "content_mode": "static_corpus",
+    "source": "shakespeare",
+    "voice": "ErXwobaYiN019PkySvjV",
+    "style_prompt": "You are writing a short, engaging explainer unpacking a Shakespeare quote for a YouTube Shorts audience with no literary background. Explain what it means in plain English and why it still lands today. No academic tone.",
+    "channel_display_name": "Shakespeare Lines",
+    "outro_subtext": "Subscribe for more",
+    "output_dir": "output/shakespeare_lines"
+  },
+  "topic_demo": {
+    "content_mode": "topic",
+    "topics": [
+      "Mondays",
+      "coffee",
+      "cats",
+      "working from home",
+      "gym memberships"
+    ],
+    "voice": "21m00Tcm4TlvDq8ikWAM",
+    "style_prompt": "You are writing short, punchy original jokes for a YouTube Shorts audience, in the style of quick one-liners. Plain spoken language, one clear joke per segment, no explaining the joke afterward.",
+    "pacing": {
+      "pause_between_segments": 0.6,
+      "segment_count": 3
+    },
+    "channel_display_name": "Topic Demo",
+    "outro_subtext": "Subscribe for more",
+    "output_dir": "output/topic_demo"
+  }
+}

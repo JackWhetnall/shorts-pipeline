@@ -1,20 +1,54 @@
-# UGC book-quote pipeline
+# UGC Shorts pipeline
 
-Quote → script → voiceover+captions → video, per channel, on repeat.
+Seed (quote or topic) → script → voiceover+captions → video, per channel,
+on repeat. Format-agnostic: quote channels (Bible, Shakespeare) and
+topic-driven channels (jokes, explainers) both run through the same
+pipeline — see `config/channels.py` and CLAUDE.md's "Format-agnostic
+architecture" for how a new channel/format gets added without code
+changes.
 
 ## Setup
 
 ```bash
 pip install -r requirements.txt
-# ImageMagick is needed for burned-in captions:
-sudo apt-get install imagemagick
-# then edit /etc/ImageMagick-6/policy.xml and comment out the line
-# that blocks the "text" coder (a common ImageMagick default that
-# breaks moviepy's TextClip) — see:
-# https://stackoverflow.com/questions/52999027
-
 export ANTHROPIC_API_KEY=your-key-here
+export ELEVENLABS_API_KEY=your-key-here
 ```
+Voiceover is ElevenLabs (`tts_captions.py`) — sign up at
+[elevenlabs.io](https://elevenlabs.io/) for a key. It's paid (free tier
+~10k characters/month, then subscription tiers) — this replaced edge-tts,
+which was free but sounded noticeably robotic and had occasional
+streaming glitches (duplicated audio) that couldn't be fixed on our end
+since it's a reverse-engineered wrapper around a free consumer feature,
+not a supported API. `config/channels.py`'s `"voice"` per channel is an
+ElevenLabs voice ID — the ones checked in are ElevenLabs' own stable
+premade voices used as placeholders; swap in your own picks from
+[elevenlabs.io/app/voice-library](https://elevenlabs.io/app/voice-library).
+
+Captions and the outro card are rendered with Pillow directly, not
+moviepy's ImageMagick-backed TextClip — no ImageMagick install needed.
+
+Narration audio used to have a persistent, deterministic stutter — every
+video, not an occasional glitch. It was never ElevenLabs: `audio_utils.py`
+was decoding the synthesized mp3s through moviepy's `AudioFileClip`/
+`iter_chunks`, whose internal rolling-buffer reader has an off-by-one that
+duplicates a sample almost every time the buffer recenters (roughly every
+~2 seconds of audio) — dozens of tiny insertions per narration track,
+100% reproducible, and untouched by retrying synthesis since the bug was
+in decoding our own output, not in generating it. Fixed by decoding via
+one direct linear ffmpeg call instead (`decode_audio_file`) — no
+seeking/buffering internals left to get wrong; verified two independent
+decodes of the same file are now bit-identical.
+
+On top of that fix, every synthesized segment is also independently
+double-checked: the actual rendered audio is transcribed locally with
+`faster-whisper` (no extra API key/cost) and diffed against the intended
+text, retrying synthesis if they don't match closely enough. This is a
+safety net for ElevenLabs occasionally mis-speaking a word — a different,
+low-probability failure mode, not a stand-in for fixing a deterministic
+bug. The Whisper model (`small.en`, ~500MB) downloads automatically the
+first time you run the pipeline — that first run will take noticeably
+longer.
 
 ## One-time setup per source
 
@@ -24,45 +58,231 @@ export ANTHROPIC_API_KEY=your-key-here
   python -c "from quote_source import build_shakespeare_cache; build_shakespeare_cache()"
   ```
 
-## Backgrounds
+## Footage library
 
-Drop ~10 royalty-free vertical (or croppable) video clips of books/pages
-into:
+Footage is shared across all channels, not per-channel — a script is
+broken into segments (the quote, then a few analysis points; or, for a
+topic-driven channel, however many segments the format calls for), each
+split into several shots (capped at the channel's `pacing.max_shot_seconds`)
+so no single piece of footage runs too long, and every shot gets its own
+clip — never the same clip twice in one video. Matching is semantic: each
+clip in `footage/manifest.json` has a natural-language description (not
+hand-picked tags), and one Claude call per video matches every segment
+against every description by meaning — "golden sunlight" matches a
+segment about "sunshine" even without exact word overlap, and works
+identically for concepts like "coffee" or "SpaceX", not just mood
+imagery. See `footage_library.py` for the matching logic.
+
+When a segment doesn't have enough genuinely good matches in the library
+to cover all its shots, the same matching call also asks Claude for a
+stock-footage search phrase for it (no extra request). If
+`PEXELS_API_KEY`/`PIXABAY_API_KEY` is set, that phrase is used to fetch,
+normalize, and describe as many real clips as are needed automatically —
+fully unattended, no prompts. Without a key set, it falls back to asking
+whether to pause and add footage now (then retries the whole match) or
+continue with a
+fallback for just that segment:
+```bash
+python footage/manage_library.py add raw_clip.mp4
+python footage/manage_library.py list   # see what's already in the library
 ```
-backgrounds/bible/*.mp4
-backgrounds/shakespeare/*.mp4
+`add` normalizes the clip (crop/scale to 1080x1920, strips audio) and
+auto-generates its description from a few extracted frames via Claude's
+vision API — no tags to invent by hand. Add `--notes "..."` for context
+Claude can't infer from static frames (e.g. camera motion).
+
+For a batch of new downloads, use the crop-review intake tool instead of
+`add` directly — naive center-cropping is wrong whenever the subject in a
+source clip isn't centered on the axis that gets cropped:
+```bash
+# drop raw clips into footage/new_downloads/, then:
+python footage/review_new_downloads.py
 ```
-Good sources: Pexels, Pixabay, Coverr — all free for commercial use, no
-attribution required (double-check each clip's license page). Keep clips
-20-40s each; the pipeline loops/trims to match voiceover length.
+It's two phases so you're not stuck babysitting one clip at a time: first
+it shows every clip's contact sheet (5 candidate crop positions each) and
+collects all your picks, *then* runs the slow part (encoding + captioning)
+unattended for the whole batch. Each clip normalizes into
+`footage/normalized/`, the original archives into `footage/old_downloads/`,
+and it chains straight into the same description step `add` uses.
+
+### Duplicate clips
+
+Before describing a clip (the expensive step — a Claude vision API call),
+`add`/`review_new_downloads.py`/the auto-fetch path all perceptual-hash
+every sampled frame and compare against every clip already in the
+library. A clip only counts as a duplicate if *every* sampled frame
+matches closely AND the durations are close — a single-frame check
+turned out to false-positive on completely unrelated clips that just
+happened to share a similar bright/dark layout at one moment, so this
+requires agreement across multiple frames plus duration before treating
+anything as already-added: no API call, no new file kept, the existing
+manifest entry is reused — this is also what stops the same physical
+clip getting assigned to two different shots in one video. Audit the
+existing library anytime with:
+```bash
+python footage/manage_library.py find-duplicates
+python footage/manage_library.py find-duplicates --delete   # actually remove them
+```
+By default it only reports what it found. `--delete` removes duplicates,
+but only within a group where every clip matches every other clip
+directly (not just chained through a middle clip) — a group that's
+connected but ambiguous (some pairs match, others don't) is reported but
+never auto-deleted, since that chained-but-not-mutual shape is exactly
+what caused the original false-positive incident.
+
+### Bulk-sourcing footage
+
+To fill `footage/new_downloads/` in bulk instead of downloading clips by
+hand, `footage/bulk_download.py` pulls from Pexels' and Pixabay's official
+free search APIs (not scraping — register your own key at
+[pexels.com/api](https://www.pexels.com/api/) and/or
+[pixabay.com/api/docs](https://pixabay.com/api/docs/)):
+```bash
+export PEXELS_API_KEY=your-key-here
+export PIXABAY_API_KEY=your-key-here
+
+python footage/bulk_download.py                        # default theme pack, both sources
+python footage/bulk_download.py "heaven, storm, dawn"   # your own themes
+python footage/bulk_download.py "prayer" --count 10 --source pexels
+```
+Only the key for the source(s) you use is required. Downloaded clips land
+in `footage/new_downloads/`, ready for `review_new_downloads.py`.
+
+## Directory layout
+
+All footage-related content lives under `footage/` — raw intake, staging,
+archive, and the final described library — so the only other directory
+with video content is `output/` (finished renders):
+```
+footage/
+  manifest.json          # filename, description, duration, source, license, use stats
+  library/                # final clips referenced by the manifest
+  new_downloads/           # drop raw clips here for review_new_downloads.py
+  old_downloads/             # originals, archived after processing
+  normalized/                 # crop-reviewed clips before/alongside the library copy
+  manage_library.py
+  review_new_downloads.py
+output/<channel>/<date>/    # finished videos + _meta.txt per video, dated
+```
+
+Good footage sources: Pexels, Pixabay, Coverr — all free for commercial
+use, no attribution required (double-check each clip's license page, and
+record it via `--source`/`--license`).
 
 ## Run it
 
 ```bash
 python main.py bible_daily --count 5
 python main.py shakespeare_lines --count 5
+python main.py topic_demo --count 1     # throwaway topic-driven example, see below
 ```
 
-Outputs land in `output/<channel>/`, each video alongside a `_meta.txt`
-with the reference and full script text — handy for writing titles/
+Outputs land in `output/<channel>/<YYYY-MM-DD>/`, one dated folder per
+day so you can see what was generated when. Each video's filename is a
+sensible slug — the reference for a quote (`john_3_16.mp4`), the topic
+for topic-driven content — instead of a random hash, so repeats are
+visible at a glance; a genuine repeat within the same day gets `_2`,
+`_3`, etc. appended. Each video sits alongside a `_meta.txt` with the
+citation (if any) and full script text — handy for writing titles/
 descriptions without re-watching the video.
+
+Citations are expanded for speech (and captions, since they reflect
+whatever's actually said) — `"John 3:16"` is spoken as *"John, chapter 3,
+verse 16"*, not read as a raw number/colon; `"Genesis 2:8-9"` becomes
+*"verses 8 to 9"*. See `_expand_citation_for_speech` in
+`tts_captions.py`.
+
+A full run has no fast steps (script generation, several TTS calls,
+footage matching, encoding a 1080x1920 video), so it prints progress the
+whole way: numbered stage headers, which TTS segment is being
+synthesized, footage-matching/shot-prep status, and — for the video
+encode itself, usually the slowest step — a real frame-by-frame progress
+bar with an ETA instead of silence.
+
+## Web GUI
+
+```bash
+python webapp/app.py
+```
+Then open [http://127.0.0.1:5000/](http://127.0.0.1:5000/). A local
+Flask app for everything above without touching the CLI or hand-editing
+`config/channels.py`: browse channels, edit a channel's settings (voice,
+style prompt, pacing, caption/outro style, avoid-imagery list — all the
+same fields described below), create a new channel through a form,
+generate a video with a live progress log, and browse/play finished
+videos. Settings/new-channel saves write straight into
+`config/channels.json` — the CLI picks up any GUI edit immediately, no
+restart, since both read the same file. Only one generation job runs at
+a time; starting a second while one's in progress is rejected.
+
+### Voice Lab
+
+A `/voice-lab` page (linked from the top nav) for auditioning voice ×
+cadence × speed combinations before committing one to a channel, without
+repeatedly spending ElevenLabs quota. Each voice's row plays ElevenLabs'
+own official preview clip for free; picking a voice, a cadence preset
+(Tight/Natural/Relaxed/Dramatic pauses), and a speed and clicking "Test
+this combo" generates a short real snippet through the actual pipeline —
+cached per exact combination, so testing the same one again is instant
+and doesn't hit the API a second time. Once you find something you like,
+copy the voice ID, cadence values, and speed into the channel's settings
+page (which now has a "Speed" field alongside voice/pacing).
+
+The voice list needs your ElevenLabs API key to have the `voices_read`
+permission scope — a key restricted to text-to-speech-only will show a
+clear permissions error on this page even though normal video generation
+still works fine. Add that scope in your ElevenLabs dashboard's API key
+settings if you see this.
 
 ## Adding a channel
 
-Add an entry to `config/channels.py` with a source, voice, backgrounds
-folder, style prompt, and output folder. `main.py` picks it up
-automatically — no other code changes needed.
+The web GUI's "+ New channel" form (above) is the easier way to do this
+now — the notes below describe the underlying fields it's setting.
+Every channel needs a voice, style prompt, display name/outro subtext,
+and output folder, plus a `"content_mode"`:
+- `"static_corpus"` — a fixed source is fetched and read aloud; add
+  `"source"` (a key in `quote_source.SOURCES`, e.g. `"bible"`). The
+  reference/citation is per-quote metadata, not something you configure.
+- `"topic"` — no fixed source text; add `"topics"` (a list to rotate/pick
+  from). Every segment is generated fresh from the topic and your
+  `style_prompt`, which carries the actual format ("write dad jokes
+  about...", "explain one scientific concept about..."). See the
+  `topic_demo` entry in `config/channels.json` for a minimal working
+  example — it's a smoke-test channel, safe to delete once you build a
+  real topic-driven one.
+
+To add a channel by hand instead of the GUI, add an entry directly to
+`config/channels.json` (not `config/channels.py`, which is now just the
+loader — see CLAUDE.md's "Web GUI" section). Optionally override
+`"pacing"` (pause lengths, max shot length, crossfade, caption grouping,
+segment count) and/or `"style"` (caption/outro colors and font size) —
+both default to `DEFAULT_PACING`/`DEFAULT_STYLE` in `config/channels.py`,
+so omitting them just matches the existing channels' feel. `main.py`
+(and the web GUI) pick up any new channel automatically — no code changes
+needed either way. New channels draw from the same shared
+footage library as everyone else — which is exactly why you should also
+set `"avoid_imagery"`: a list of words/phrases (checked against each
+candidate clip's description) that this channel should never show, even
+if a clip is otherwise a good thematic match. `bible_daily` sets Islamic-
+imagery terms, since the shared library isn't curated per-channel and a
+"prayer" clip can just as easily be the wrong religion's prayer. Empty by
+default — pick terms for whatever imagery would be wrong for your
+channel's audience (a science channel might avoid `["church", "mosque",
+"prayer", "worship"]`, for instance).
 
 ## Notes on scaling this up
 
-- **Voices**: run `edge-tts --list-voices` to see all available voices —
-  giving each channel a distinct voice helps them not feel like clones
-  of each other.
-- **Cost**: edge-tts is free. The only paid piece is the Claude API call
-  per script (a few hundred tokens each — cheap even at volume).
-- **Rate limits**: bible-api.com and edge-tts are unauthenticated public
-  services — if you're generating dozens of videos in a tight loop,
-  add a short `time.sleep()` between requests to stay polite.
+- **Voices**: browse [elevenlabs.io/app/voice-library](https://elevenlabs.io/app/voice-library)
+  for voice IDs — giving each channel a distinct voice helps them not feel
+  like clones of each other.
+- **Cost**: ElevenLabs charges per character generated (see their pricing
+  page for current tiers) — the main ongoing cost now, alongside the
+  Claude API call per script (a few hundred tokens each — cheap even at
+  volume).
+- **Rate limits**: bible-api.com is an unauthenticated public service —
+  if you're generating dozens of videos in a tight loop, add a short
+  `time.sleep()` between requests to stay polite. ElevenLabs enforces
+  its own rate limits per plan tier.
 - **Avoiding duplicate quotes**: if you want to guarantee no repeats
   across a channel's history, keep a simple `used_quotes.json` per
   channel and re-roll on a match — not built in yet, easy to add.

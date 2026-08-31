@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Video/audio assets — this repo only ever produces/stores these as
+# generated or downloaded footage (footage/, output/, cache/), never as
+# something meant to be committed.
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.avi
+*.mp3
+*.wav
+
+# Generated/scratch output — the code that produces these is tracked,
+# their output isn't. footage/manifest.json and the .py scripts under
+# footage/ are still tracked (only matched by the media rules above where
+# relevant).
+output/
+cache/
+
+# Env/secrets
+.env
+.env.*
+
+# Editor / OS cruft
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
