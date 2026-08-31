@@ -11,50 +11,67 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
+// Swaps a button's contents for a spinner + label while an async action
+// runs, restoring the original afterward — used anywhere a click kicks
+// off a real API call (Voice Lab test, seed fetch/generate).
+function withButtonLoading(button, loadingLabel, action) {
+  const original = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = `<span class="spinner"></span> ${loadingLabel}`;
+  return Promise.resolve(action()).finally(() => {
+    button.disabled = false;
+    button.innerHTML = original;
+  });
+}
+
 async function getSeed(channelKey) {
-  const res = await fetch(`/api/channels/${channelKey}/seed`, {method: "POST"});
-  const data = await res.json();
-  if (!res.ok) {
-    alert(data.error || "Failed to fetch a candidate.");
-    return;
-  }
-  currentSeed = data.seed;
+  await withButtonLoading(event.target.closest("button"), "Fetching…", async () => {
+    const res = await fetch(`/api/channels/${channelKey}/seed`, {method: "POST"});
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Failed to fetch a candidate.");
+      return;
+    }
+    currentSeed = data.seed;
 
-  const previewEl = document.getElementById("seed-preview-text");
-  if (currentSeed.type === "quote") {
-    previewEl.innerHTML =
-      `<p><strong>Quote:</strong> ${escapeHtml(currentSeed.text)}</p>` +
-      `<p><strong>Reference:</strong> ${escapeHtml(currentSeed.reference)}</p>`;
-  } else {
-    previewEl.innerHTML = `<p><strong>Topic:</strong> ${escapeHtml(currentSeed.topic)}</p>`;
-  }
+    const previewEl = document.getElementById("seed-preview-text");
+    if (currentSeed.type === "quote") {
+      previewEl.innerHTML =
+        `<p><strong>Quote:</strong> ${escapeHtml(currentSeed.text)}</p>` +
+        `<p><strong>Reference:</strong> ${escapeHtml(currentSeed.reference)}</p>`;
+    } else {
+      previewEl.innerHTML = `<p><strong>Topic:</strong> ${escapeHtml(currentSeed.topic)}</p>`;
+    }
 
-  document.getElementById("seed-idle").classList.add("hidden");
-  document.getElementById("seed-preview").classList.remove("hidden");
+    document.getElementById("seed-idle").classList.add("hidden");
+    document.getElementById("seed-preview").classList.remove("hidden");
+  });
 }
 
 async function startGenerate(channelKey) {
   if (!currentSeed) return;
-  const res = await fetch(`/api/channels/${channelKey}/generate`, {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({seed: currentSeed}),
-  });
-  const data = await res.json();
-  if (res.status === 409) {
-    alert("A generation job is already running — wait for it to finish first.");
-    return;
-  }
-  if (!res.ok) {
-    alert(data.error || "Failed to start the job.");
-    return;
-  }
+  await withButtonLoading(event.target.closest("button"), "Starting…", async () => {
+    const res = await fetch(`/api/channels/${channelKey}/generate`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({seed: currentSeed}),
+    });
+    const data = await res.json();
+    if (res.status === 409) {
+      alert("A generation job is already running — wait for it to finish first.");
+      return;
+    }
+    if (!res.ok) {
+      alert(data.error || "Failed to start the job.");
+      return;
+    }
 
-  document.getElementById("seed-preview").classList.add("hidden");
-  document.getElementById("job-progress").classList.remove("hidden");
-  seenLogLength = 0;
-  document.getElementById("job-log").textContent = "";
-  pollJob(data.job_id);
+    document.getElementById("seed-preview").classList.add("hidden");
+    document.getElementById("job-progress").classList.remove("hidden");
+    seenLogLength = 0;
+    document.getElementById("job-log").textContent = "";
+    pollJob(data.job_id);
+  });
 }
 
 function pollJob(jobId) {
@@ -101,13 +118,15 @@ document.addEventListener("DOMContentLoaded", toggleContentModeFields);
 // --- Voice Lab ---
 
 async function refreshVoiceList() {
-  const res = await fetch("/api/voice-lab/refresh-voices", {method: "POST"});
-  const data = await res.json();
-  if (!res.ok) {
-    alert(data.error || "Failed to refresh the voice list.");
-    return;
-  }
-  location.reload();
+  await withButtonLoading(event.target.closest("button"), "Refreshing…", async () => {
+    const res = await fetch("/api/voice-lab/refresh-voices", {method: "POST"});
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Failed to refresh the voice list.");
+      return;
+    }
+    location.reload();
+  });
 }
 
 async function testVoiceCombo() {
@@ -120,12 +139,7 @@ async function testVoiceCombo() {
   const preset = document.getElementById("preset-select").value;
   const speed = parseFloat(document.getElementById("speed-slider").value);
 
-  const button = document.querySelector('button[onclick="testVoiceCombo()"]');
-  const originalText = button.textContent;
-  button.disabled = true;
-  button.textContent = "Generating… (first time for this combo can take a bit)";
-
-  try {
+  await withButtonLoading(event.target.closest("button"), "Generating… (first time for this combo can take a bit)", async () => {
     const res = await fetch("/api/voice-lab/test", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -142,8 +156,60 @@ async function testVoiceCombo() {
     audio.play();
     document.getElementById("voice-lab-combo-summary").textContent =
       `voice_id=${voiceId}  preset=${preset}  speed=${speed.toFixed(2)}`;
-  } finally {
-    button.disabled = false;
-    button.textContent = originalText;
+  });
+}
+
+// --- Logo generation ---
+
+let currentLogoFragment = null;
+
+async function generateLogos(channelKey) {
+  const fragmentInput = document.getElementById("logo-fragment");
+  const fragment = fragmentInput.value.trim();
+  if (!fragment) {
+    alert("Describe what the channel is about first.");
+    return;
   }
+  currentLogoFragment = fragment;
+
+  await withButtonLoading(event.target.closest("button"), "Generating 10 ideas… (this takes a little while)", async () => {
+    const res = await fetch(`/api/channels/${channelKey}/logo/generate`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({fragment}),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Failed to generate logo candidates.");
+      return;
+    }
+
+    const grid = document.getElementById("logo-candidates-grid");
+    grid.innerHTML = "";
+    for (const candidate of data.candidates) {
+      const el = document.createElement("img");
+      el.src = candidate.url;
+      el.className = "logo-candidate";
+      el.onclick = () => selectLogo(channelKey, candidate.filename, el);
+      grid.appendChild(el);
+    }
+    document.getElementById("logo-candidates").classList.remove("hidden");
+  });
+}
+
+async function selectLogo(channelKey, filename, imgEl) {
+  document.querySelectorAll(".logo-candidate").forEach(el => el.classList.remove("selected"));
+  imgEl.classList.add("selected");
+
+  const res = await fetch(`/api/channels/${channelKey}/logo/select`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({filename, fragment: currentLogoFragment}),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    alert(data.error || "Failed to finalize the logo.");
+    return;
+  }
+  location.href = data.redirect;
 }

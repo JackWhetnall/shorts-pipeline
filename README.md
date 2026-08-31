@@ -151,8 +151,10 @@ in `footage/new_downloads/`, ready for `review_new_downloads.py`.
 ## Directory layout
 
 All footage-related content lives under `footage/` — raw intake, staging,
-archive, and the final described library — so the only other directory
-with video content is `output/` (finished renders):
+archive, and the final described library. `output/` is finished renders.
+`channels/` is per-channel brand assets (logos, merch photos) — not
+finished videos and not stock footage, so it gets its own top-level home
+rather than living under either:
 ```
 footage/
   manifest.json          # filename, description, duration, source, license, use stats
@@ -162,7 +164,10 @@ footage/
   normalized/                 # crop-reviewed clips before/alongside the library copy
   manage_library.py
   review_new_downloads.py
-output/<channel>/<date>/    # finished videos + _meta.txt per video, dated
+output/<channel>/<date>/    # finished videos + _meta.txt + _description.txt per video, dated
+channels/<channel>/
+  logo/                        # logo.png + variant_minimalist.png + variant_monochrome.png
+  merch/                        # uploaded product photos
 ```
 
 Good footage sources: Pexels, Pixabay, Coverr — all free for commercial
@@ -233,6 +238,63 @@ permission scope — a key restricted to text-to-speech-only will show a
 clear permissions error on this page even though normal video generation
 still works fine. Add that scope in your ElevenLabs dashboard's API key
 settings if you see this.
+
+### Channel logos
+
+```bash
+export OPENAI_API_KEY=your-key-here
+```
+Each channel's card (on the home page) shows its logo once it has one, or
+a "Create logo" link into `/channels/<key>/logo` otherwise. Generating one
+costs real money (OpenAI's Images API, `gpt-image-1`) — describe what the
+channel is about in a few words (the "professional, no text, vector-
+style, merch-ready" framing is applied automatically, you don't write
+that part), and it generates 10 candidates in one request. Pick the one
+you like; that also auto-generates two merch-ready variants — a
+"minimalist" restyle (another real generation call) and a "monochrome"
+single-ink-color version (free, done locally, good for one-color screen
+printing). All of it lands under `channels/<key>/logo/`. Not happy with
+any of the 10? Tweak the description and generate again — each attempt
+is a fresh paid batch.
+
+### Monetization
+
+Each channel card (and its settings page) has a **Set up monetization**
+link that walks you through a 4-step guided wizard rather than a bare
+form: a dedicated email (Outlook) → Patreon → merch (Printful/Spring,
+using the logo you made if you have one) → Amazon Associates. Each step
+explains what you're actually doing and links straight to the right
+signup page; Back/Next moves between them, and the relevant field (a
+URL, or — for merch — a URL plus product photo uploads) saves the moment
+you hit Next. The Amazon step spells out how their program actually
+works, since it's not obvious: you get one reusable tracking ID (like
+`yourtag-20`), which you append to any product URL yourself (`?tag=
+yourtag-20`) or generate via their SiteStripe tool — paste 2-3 tagged
+evergreen links into the box, that's it.
+
+You can skip the wizard and edit these fields directly on the settings
+page too — a Patreon URL, a merch storefront URL, a small list of Amazon
+affiliate links (`Label | https://...` per line). All of it is plain
+config either way; nothing here is auto-created on your behalf.
+
+An **End screen** section on the settings page turns on an optional
+second outro segment (after the usual channel-branding card). Each CTA
+— Patreon, merch, affiliate — toggles on/off independently with its own
+editable copy (leave the text blank to use its default), and only shows
+up if it's switched on *and* the matching URL/link is actually filled
+in. A single video's end screen shows **one CTA, picked at random** each
+time you generate — not every active one crammed onto one card — and if
+it lands on merch, it shows a random one of your uploaded product photos
+alongside the text.
+
+Every generated video also gets a `_description.txt` alongside its
+`_meta.txt` — a ready-to-paste YouTube description listing *every*
+active CTA (not just the one the end screen happened to show), plus the
+FTC-required disclosure line whenever an affiliate link is included. A
+CTA's "on" switch controls both the end screen and the description
+together, so you can promote a link in the description without
+necessarily spending extra video seconds on it (leave the end screen
+itself off), or the other way around.
 
 ## Adding a channel
 

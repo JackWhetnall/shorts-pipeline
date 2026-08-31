@@ -349,6 +349,66 @@ pipeline modules — no pipeline logic is duplicated in `webapp/`.
   a key restricted to text-to-speech-only will 401 on `/v2/voices` even
   though synthesis works fine; the page surfaces ElevenLabs' actual error
   detail (not just the HTTP status) so this is diagnosable from the UI.
+- **Monetization** (`config/channels.py`'s `monetization`/`end_screen`,
+  `description_gen.py`): plain per-channel config, pasted in manually —
+  Patreon URL, merch URL, a small per-channel list of affiliate
+  `{label, url}` links. Never auto-created — a guided
+  `/channels/<key>/monetize/<step>` wizard (`webapp/app.py`'s
+  `monetize_step`, `step` ∈ email → patreon → merch → amazon, Back/Next
+  between them) links out to where each actually gets created (Outlook
+  for a dedicated inbox, Patreon's creator signup, Printful/Spring for
+  merch, Amazon Associates — the Amazon step's instructions explain the
+  reusable `?tag=yourtag-20` tracking-ID mechanic, since it's not
+  obvious), saving that step's field(s) immediately on Next. Each CTA's
+  own `enabled` flag (not `end_screen.enabled`, which only gates whether
+  the extra video segment renders) is the single source of truth for
+  "this is actively promoted," shared by the video, the description, AND
+  now the merch photo, via `config.channels.resolve_active_ctas` — one
+  function every consumer calls, so none of them can disagree about
+  which CTAs are live. A CTA only ever renders anywhere if its flag is
+  true AND the underlying URL/link list is non-empty. A single generated
+  video's end screen shows **one CTA, chosen at random** each time (not
+  every active one stacked in one card) — description_gen.py's
+  `_description.txt` still lists all of them, only the on-screen card is
+  randomized. The merch CTA additionally composites a random uploaded
+  product photo (`merch_assets.py`, `channels/<key>/merch/`, collected
+  during the wizard's merch step) above its text if any have been
+  uploaded, falling back to text-only like the others otherwise. The
+  wizard's field saves write to the RAW stored entry (`channel_store.
+  get_raw_entries()`), not the DEFAULT_*-merged `channel` dict — merging
+  onto an already-merged dict and saving it back would re-apply
+  `_channel()`'s list-concatenating defaults (e.g. `avoid_imagery`) a
+  second time on next load. Settings-form saves still write the complete
+  merged entry as before (see channel_store.py's docstring) — only the
+  wizard's narrower per-step saves needed this distinction.
+- **Channel logos** (`webapp/logo_gen.py`, `/channels/<key>/logo`): AI-
+  generated via OpenAI's Images API (`gpt-image-1`, `n=10` in one call —
+  the reason OpenAI was picked over Recraft, which needs one call per
+  image; Recraft's actual vector output would otherwise have been the
+  better fit for merch-ready art). The user only edits a short "what's
+  this channel about" fragment — the professional/no-text/vector/merch-
+  suitable framing is a fixed template (`logo_gen.build_prompt`) they
+  never see or edit directly. Picking a candidate
+  (`logo_gen.select_logo`) generates two merch-ready variants: a
+  "minimalist" one via a second real API call (genuine restyling, worth
+  paying for), and a "monochrome" one derived **locally via Pillow**
+  (grayscale + threshold to one ink color) from the chosen logo — no
+  second API call, since flattening to one print color is a deterministic
+  transform, not a creative one. Stored under `channels/<key>/logo/`,
+  parallel to `channels/<key>/merch/` — both live outside `output/`
+  (brand assets, not finished videos) and outside `footage/` (not stock
+  video). The channel list shows the logo if `channels/<key>/logo/
+  logo.png` exists (a plain filesystem check, no config field needed —
+  same pattern `webapp/gallery.py` already uses for videos) or a
+  "Create logo" link into the generator otherwise.
+- **Visual design**: a dark "studio" theme (`webapp/static/style.css`) —
+  CSS custom-property design tokens (spacing scale, two surface tones,
+  the same gold accent (`#FFD400`) already used in generated captions/
+  outro cards, so the tool visually matches what it produces), card
+  elevation with hover lift, hand-rolled inline SVG icons (no external
+  icon font/CDN — stays local/dependency-free), real empty states, and a
+  loading-spinner helper (`app.js`'s `withButtonLoading`) used everywhere
+  a button kicks off an async call.
 
 ## Open/unsolved
 - **Decided**: TTS engine is ElevenLabs (paid — replaced edge-tts, which

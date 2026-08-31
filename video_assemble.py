@@ -38,7 +38,9 @@ from moviepy.video.fx.loop import loop as loop_fx
 from moviepy.video.io.ffmpeg_tools import ffmpeg_merge_video_audio
 
 import footage_library
+import merch_assets
 from audio_utils import silence_array, apply_fade
+from config.channels import resolve_active_ctas
 
 W, H = 1080, 1920
 CAPTION_Y = int(H * 0.72)          # lower-third placement
@@ -174,6 +176,60 @@ def _render_outro_image(channel_name, subtext, style, width=W, height=H):
     return np.array(img)
 
 
+def _render_end_screen_image(cta, style, channel_key, width=W, height=H):
+    """The second, optional end card for ONE randomly-chosen active
+    monetization CTA (see build_video — a video shows a single CTA per
+    generation, not every active one stacked together). Same visual
+    language as the branding outro (_render_outro_image) but its own
+    card so the two can differ in duration/content independently.
+
+    A "merch" CTA additionally shows a random uploaded product photo
+    (merch_assets.list_merch_photos) above its text, if any have been
+    uploaded for this channel — falls back to text-only otherwise, same
+    as patreon/affiliate."""
+    font = _load_font(56)
+    max_width = int(width * 0.85)
+
+    img = Image.new("RGBA", (width, height), style["outro_bg_color"])
+    draw = ImageDraw.Draw(img)
+
+    photo = None
+    if cta["type"] == "merch":
+        photos = merch_assets.list_merch_photos(channel_key)
+        if photos:
+            photo = Image.open(random.choice(photos)).convert("RGBA")
+
+    wrapped = _wrap_words(cta["text"].split(), font, max_width, draw)
+    line_height = int(56 * 1.4)
+    text_height = line_height * len(wrapped)
+
+    if photo is not None:
+        # Photo fills the upper ~55% of the card (preserving aspect
+        # ratio, capped so it never crowds the text below it), text
+        # centered in the remainder.
+        max_photo_height = int(height * 0.55)
+        max_photo_width = int(width * 0.8)
+        scale = min(max_photo_width / photo.width, max_photo_height / photo.height)
+        photo = photo.resize((max(1, int(photo.width * scale)), max(1, int(photo.height * scale))))
+        gap = 48
+        block_height = photo.height + gap + text_height
+        y = (height - block_height) / 2
+        img.paste(photo, (int((width - photo.width) / 2), int(y)), photo)
+        y += photo.height + gap
+    else:
+        y = (height - text_height) / 2
+
+    for sub_line in wrapped:
+        text = " ".join(sub_line)
+        line_width = draw.textlength(text, font=font)
+        x = (width - line_width) / 2
+        draw.text((x, y), text, font=font, fill=style["outro_subtext_color"],
+                   stroke_width=2, stroke_fill="black")
+        y += line_height
+
+    return np.array(img)
+
+
 def _prepare_bg_clip(clip):
     """Crop/resize a raw footage clip to fill the 1080x1920 frame."""
     bg = clip.resize(height=H)
@@ -218,7 +274,8 @@ def _shot_bg_layer(clip_path, target_duration, start_time, is_first, crossfade):
 
 def build_video(narration_array: np.ndarray, fps: int, word_timings: list, segment_timings: list,
                  out_path: str, channel_display_name: str, outro_subtext: str,
-                 pacing: dict, style: dict, avoid_imagery: list = None, interactive: bool = True):
+                 pacing: dict, style: dict, avoid_imagery: list = None, interactive: bool = True,
+                 monetization: dict = None, end_screen: dict = None, channel_key: str = None):
     if narration_array.ndim == 1:
         narration_array = narration_array.reshape(-1, 1)
     narration_duration = len(narration_array) / fps
@@ -275,12 +332,32 @@ def build_video(narration_array: np.ndarray, fps: int, word_timings: list, segme
 
     outro_img = _render_outro_image(channel_display_name, outro_subtext, style)
     outro_clip = ImageClip(outro_img).set_duration(outro_seconds)
+    video_parts = [narration_video, outro_clip]
+    total_outro_seconds = outro_seconds
 
-    final_video = concatenate_videoclips([narration_video, outro_clip], method="compose")
-    final_video = final_video.set_duration(narration_duration + outro_seconds)
+    # Optional second end screen for monetization CTAs (config/channels.py's
+    # DEFAULT_END_SCREEN) — only rendered if the channel has it switched on
+    # AND at least one CTA is both enabled and actually points at something
+    # (resolve_active_ctas is the single shared source of truth for that,
+    # also used by description_gen.py so the video and description never
+    # disagree about which CTAs are "active"). A single video shows ONE
+    # randomly-chosen active CTA, not every active one stacked together —
+    # description_gen.py still lists all of them, only the on-screen card
+    # is randomized, so promoting three things doesn't mean cramming three
+    # onto one screen.
+    active_ctas = resolve_active_ctas(monetization or {}, end_screen or {})
+    if (end_screen or {}).get("enabled") and active_ctas:
+        end_screen_seconds = end_screen["duration_seconds"]
+        chosen_cta = random.choice(active_ctas)
+        end_screen_img = _render_end_screen_image(chosen_cta, style, channel_key)
+        video_parts.append(ImageClip(end_screen_img).set_duration(end_screen_seconds))
+        total_outro_seconds += end_screen_seconds
+
+    final_video = concatenate_videoclips(video_parts, method="compose")
+    final_video = final_video.set_duration(narration_duration + total_outro_seconds)
 
     narration_array = apply_fade(narration_array, fps, fade_out=0.05)
-    silence = silence_array(outro_seconds, fps, narration_array.shape[1])
+    silence = silence_array(total_outro_seconds, fps, narration_array.shape[1])
     full_audio = AudioArrayClip(np.concatenate([narration_array, silence], axis=0), fps=fps)
 
     # Video and audio are rendered and written completely separately, then

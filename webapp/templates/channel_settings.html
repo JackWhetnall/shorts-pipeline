@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% block title %}{{ channel.channel_display_name }} Settings{% endblock %}
 {% block content %}
-<p><a href="{{ url_for('index') }}">&larr; Channels</a></p>
+<a class="back-link" href="{{ url_for('index') }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  Channels
+</a>
 <h1>{{ channel.channel_display_name }} &mdash; Settings</h1>
+<p class="actions">
+  <a href="{{ url_for('logo_page', key=channel.key) }}">Logo</a>
+  <a href="{{ url_for('monetize_step', key=channel.key, step='email') }}">Set up monetization</a>
+</p>
 {% include "_channel_form.html" %}
 {% endblock %}

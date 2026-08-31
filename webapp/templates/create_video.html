@@ -1,22 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Create Video &mdash; {{ channel.channel_display_name }}{% endblock %}
 {% block content %}
-<p><a href="{{ url_for('index') }}">&larr; Channels</a></p>
+<a class="back-link" href="{{ url_for('index') }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  Channels
+</a>
 <h1>Create Video &mdash; {{ channel.channel_display_name }}</h1>
 
-<div id="seed-idle">
+<div id="seed-idle" class="card">
+  <p class="meta">Fetch a candidate {{ 'quote' if channel.content_mode == 'static_corpus' else 'topic' }} to review before generating.</p>
   <button onclick="getSeed('{{ key }}')">
     Get a candidate {{ 'quote' if channel.content_mode == 'static_corpus' else 'topic' }}
   </button>
 </div>
 
-<div id="seed-preview" class="hidden">
+<div id="seed-preview" class="card hidden">
   <div id="seed-preview-text"></div>
-  <button onclick="getSeed('{{ key }}')">Reroll</button>
-  <button onclick="startGenerate('{{ key }}')">Use this</button>
+  <div class="actions">
+    <button class="btn-ghost" onclick="getSeed('{{ key }}')">Reroll</button>
+    <button onclick="startGenerate('{{ key }}')">Use this</button>
+  </div>
 </div>
 
-<div id="job-progress" class="hidden">
+<div id="job-progress" class="card hidden">
   <h2>Generating&hellip;</h2>
   <div id="job-current" class="progress-line"></div>
   <pre id="job-log"></pre>
@@ -25,6 +31,6 @@
 <div id="job-result" class="hidden">
   <h2>Done</h2>
   <video id="result-video" controls></video>
-  <p><a id="result-link" href="#" target="_blank">Open video file</a></p>
+  <p><a id="result-link" class="btn btn-ghost" href="#" target="_blank">Open video file</a></p>
 </div>
 {% endblock %}

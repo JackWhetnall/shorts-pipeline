@@ -87,12 +87,58 @@ DEFAULT_AVOID_IMAGERY = []
 # before you commit a value to a channel.
 DEFAULT_SPEED = 1.0
 
+# Plain config, pasted in manually — this pipeline never creates a
+# Patreon page, merch store, or Amazon Associates account on your behalf
+# (see webapp/templates/_channel_form.html's "setting up monetization"
+# checklist for where those actually get created). Per-channel only, not
+# a shared/global list — a science channel and a Bible channel shouldn't
+# necessarily promote the same products. affiliate_links is a small list
+# of {"label", "url"} — the label is what shows in the description
+# ("My favorite journal: <url>"); falls back to the bare URL if unset.
+DEFAULT_MONETIZATION = {
+    "patreon_url": "",
+    "merch_url": "",
+    "affiliate_links": [],
+}
+
+# An optional second video segment (after the branding outro) surfacing
+# CTAs for the monetization links above. Each CTA's own "enabled" flag is
+# the single source of truth for "this is actively being promoted" — used
+# by BOTH the end-screen visual (video_assemble.build_video, only if
+# end_screen["enabled"] is also true) AND the auto-generated description
+# (description_gen.generate_description, regardless of whether the video
+# segment itself is on) — so a link can be promoted in the description
+# without necessarily spending extra video seconds on it, or vice versa.
+# A CTA only actually renders anywhere if its flag is true AND the
+# matching monetization field is non-empty — an enabled-but-empty CTA is
+# silently skipped rather than showing a blank line.
+DEFAULT_END_SCREEN = {
+    "enabled": False,
+    "duration_seconds": 3.0,
+    "ctas": {
+        "patreon": {"enabled": False, "text": "Support us on Patreon"},
+        "merch": {"enabled": False, "text": "Check out our merch"},
+        "affiliate": {"enabled": False, "text": "Shop our picks below"},
+    },
+}
+
 CHANNELS_JSON_PATH = Path(__file__).parent / "channels.json"
 
 
-def _channel(pacing=None, style=None, avoid_imagery=None, speed=None, **fields):
-    """Merges per-channel pacing/style/avoid_imagery/speed overrides onto
-    the shared defaults."""
+def _merge_end_screen(override: dict = None) -> dict:
+    override = override or {}
+    ctas_override = override.get("ctas") or {}
+    ctas = {
+        key: {**default_cta, **(ctas_override.get(key) or {})}
+        for key, default_cta in DEFAULT_END_SCREEN["ctas"].items()
+    }
+    return {**DEFAULT_END_SCREEN, **override, "ctas": ctas}
+
+
+def _channel(pacing=None, style=None, avoid_imagery=None, speed=None,
+             monetization=None, end_screen=None, **fields):
+    """Merges per-channel pacing/style/avoid_imagery/speed/monetization/
+    end_screen overrides onto the shared defaults."""
     merged_style = {**DEFAULT_STYLE, **(style or {})}
     # channels.json can only store lists, but PIL wants a tuple for a
     # color — round-trips fine as long as this is fixed on the way back in.
@@ -102,7 +148,49 @@ def _channel(pacing=None, style=None, avoid_imagery=None, speed=None, **fields):
     fields["style"] = merged_style
     fields["avoid_imagery"] = list(DEFAULT_AVOID_IMAGERY) + list(avoid_imagery or [])
     fields["speed"] = DEFAULT_SPEED if speed is None else speed
+    fields["monetization"] = {**DEFAULT_MONETIZATION, **(monetization or {})}
+    fields["end_screen"] = _merge_end_screen(end_screen)
     return fields
+
+
+def resolve_active_ctas(monetization: dict, end_screen: dict) -> list:
+    """The single place that decides which monetization CTAs are actually
+    "active" — enabled AND pointing at something real. Both the end-screen
+    video segment (video_assemble.build_video) and the auto-generated
+    description (description_gen.generate_description) call this so they
+    never disagree about which CTAs show. Returns, in a fixed
+    patreon/merch/affiliate order, one dict per active CTA:
+    {"type": "patreon"|"merch", "text": str, "url": str} or
+    {"type": "affiliate", "text": str, "links": [{"label", "url"}, ...]}."""
+    ctas = end_screen.get("ctas", {})
+    active = []
+
+    patreon = ctas.get("patreon", {})
+    if patreon.get("enabled") and monetization.get("patreon_url"):
+        active.append({
+            "type": "patreon",
+            "text": patreon.get("text") or DEFAULT_END_SCREEN["ctas"]["patreon"]["text"],
+            "url": monetization["patreon_url"],
+        })
+
+    merch = ctas.get("merch", {})
+    if merch.get("enabled") and monetization.get("merch_url"):
+        active.append({
+            "type": "merch",
+            "text": merch.get("text") or DEFAULT_END_SCREEN["ctas"]["merch"]["text"],
+            "url": monetization["merch_url"],
+        })
+
+    affiliate = ctas.get("affiliate", {})
+    affiliate_links = monetization.get("affiliate_links") or []
+    if affiliate.get("enabled") and affiliate_links:
+        active.append({
+            "type": "affiliate",
+            "text": affiliate.get("text") or DEFAULT_END_SCREEN["ctas"]["affiliate"]["text"],
+            "links": affiliate_links,
+        })
+
+    return active
 
 
 def load_channels() -> dict:

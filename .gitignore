@@ -6,9 +6,9 @@ __pycache__/
 venv/
 env/
 
-# Video/audio assets — this repo only ever produces/stores these as
-# generated or downloaded footage (footage/, output/, cache/), never as
-# something meant to be committed.
+# Video/audio/image assets — this repo only ever produces/stores these as
+# generated or downloaded footage/logos/merch photos (footage/, output/,
+# cache/, channels/), never as something meant to be committed.
 *.mp4
 *.mov
 *.mkv
@@ -16,6 +16,11 @@ env/
 *.avi
 *.mp3
 *.wav
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
 
 # Generated/scratch output — the code that produces these is tracked,
 # their output isn't. footage/manifest.json and the .py scripts under
@@ -23,6 +28,7 @@ env/
 # relevant).
 output/
 cache/
+channels/
 
 # Env/secrets
 .env

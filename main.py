@@ -18,6 +18,7 @@ from quote_source import get_quote
 from script_gen import generate_script
 from tts_captions import generate_voiceover
 from video_assemble import build_video
+from description_gen import generate_description
 
 
 def fetch_candidate_seed(cfg: dict) -> dict:
@@ -125,17 +126,25 @@ def generate_video_from_seed(channel_key: str, seed: dict, cfg: dict = None,
         style=cfg["style"],
         avoid_imagery=cfg["avoid_imagery"],
         interactive=interactive,
+        monetization=cfg["monetization"],
+        end_screen=cfg["end_screen"],
+        channel_key=channel_key,
     )
 
     print("[4/4] Saving metadata...")
     # save the script alongside the video for your records / for writing
-    # the YouTube description & title
+    # the YouTube title (see _description.txt below for the description
+    # itself, generated automatically)
     with open(out_dir / f"{stem}_meta.txt", "w", encoding="utf-8") as f:
         if script["citation"]:
             f.write(f"Reference: {script['citation']}\n\n")
         for i, seg in enumerate(script["segments"]):
             f.write(f"[segment {i}] (keywords: {', '.join(seg['keywords'])})\n")
             f.write(f"{seg['text']}\n\n")
+
+    description = generate_description(script, cfg["monetization"], cfg["end_screen"])
+    with open(out_dir / f"{stem}_description.txt", "w", encoding="utf-8") as f:
+        f.write(description)
 
     print(f"Done: {video_path}")
     return video_path

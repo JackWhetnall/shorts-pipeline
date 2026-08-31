@@ -1,0 +1,38 @@
+{% extends "_wizard_shell.html" %}
+{% block step_content %}
+<h1>Step 4: Set up Amazon Associates</h1>
+<p class="subtitle">
+  Amazon's affiliate program. A quick rundown since it's not obvious:
+</p>
+<ol class="wizard-instructions">
+  <li>Apply at Amazon Associates with your channel as the traffic source
+    (you'll need an existing channel/site, not a blank application).</li>
+  <li>Once approved, you get a single reusable <strong>tracking ID</strong>
+    (looks like <code>yourtag-20</code>) &mdash; this is what actually
+    earns you commission, not a one-time link.</li>
+  <li>To turn any Amazon product page into an affiliate link, append
+    <code>?tag=yourtag-20</code> to its URL yourself, or use Amazon's own
+    "SiteStripe" toolbar (appears at the top of product pages once you're
+    logged in as an Associate) to generate the link for you.</li>
+  <li>Paste 2-3 evergreen product links below (the same items every video
+    can point to, rather than something per-video).</li>
+</ol>
+<p class="checklist-box">
+  <strong>Worth knowing</strong> &mdash; the tracking cookie only lasts
+  24 hours (90 days if the item's added to a cart first); Amazon closes
+  accounts that don't get 3 qualifying purchases within 180 days of
+  approval; and disclosure is required wherever these links appear
+  (already handled automatically &mdash; see every generated video's
+  description).
+</p>
+<p>
+  <a class="btn btn-ghost" href="https://affiliate-program.amazon.com/" target="_blank" rel="noopener">
+    Amazon Associates &rarr;
+  </a>
+</p>
+{% endblock %}
+{% block step_fields %}
+<label>Affiliate links (one per line, "Label | https://...", label optional)
+  <textarea name="affiliate_links" rows="3" placeholder="My favorite journal | https://amzn.to/xxxxx-20">{{ channel.affiliate_links_text or '' }}</textarea>
+</label>
+{% endblock %}

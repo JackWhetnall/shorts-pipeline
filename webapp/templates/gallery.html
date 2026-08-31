@@ -1,16 +1,22 @@
 {% extends "base.html" %}
 {% block title %}{{ channel.channel_display_name }} Gallery{% endblock %}
 {% block content %}
-<p><a href="{{ url_for('index') }}">&larr; Channels</a></p>
+<a class="back-link" href="{{ url_for('index') }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  Channels
+</a>
 <h1>{{ channel.channel_display_name }} &mdash; Gallery</h1>
 
 {% if not videos %}
-<p>No videos yet. <a href="{{ url_for('create_video', key=key) }}">Create one</a>.</p>
-{% endif %}
-
+<div class="empty-state">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8l-6 4 6 4z"/></svg>
+  <p><strong>No videos yet.</strong></p>
+  <a class="btn btn-primary" href="{{ url_for('create_video', key=key) }}">Create one</a>
+</div>
+{% else %}
 <div class="gallery-grid">
   {% for v in videos %}
-  <div class="gallery-item">
+  <div class="card gallery-item">
     <video controls src="{{ url_for('serve_video', relpath=v.relpath) }}"></video>
     <p class="meta">{{ v.name }}</p>
     {% if v.meta_text %}
@@ -19,4 +25,5 @@
   </div>
   {% endfor %}
 </div>
+{% endif %}
 {% endblock %}

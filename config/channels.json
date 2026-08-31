@@ -50,6 +50,29 @@
         14,
         255
       ]
+    },
+    "monetization": {
+      "patreon_url": "",
+      "merch_url": "",
+      "affiliate_links": []
+    },
+    "end_screen": {
+      "enabled": false,
+      "duration_seconds": 3.0,
+      "ctas": {
+        "patreon": {
+          "enabled": false,
+          "text": "Support us on Patreon"
+        },
+        "merch": {
+          "enabled": false,
+          "text": "Check out our merch"
+        },
+        "affiliate": {
+          "enabled": false,
+          "text": "Shop our picks below"
+        }
+      }
     }
   },
   "shakespeare_lines": {
