@@ -1,11 +1,11 @@
 {
-  "bible_daily": {
+  "minute_pastor": {
     "content_mode": "static_corpus",
     "voice": "pNInz6obpgDQGcFmaJgB",
     "style_prompt": "You are writing a short, warm, non-denominational reflection on a Bible verse for a YouTube Shorts audience. Plain, modern language. No preachiness, no 'in conclusion', just a grounded human observation about what the verse means and why it might matter today.",
-    "channel_display_name": "Daily Bible Verses",
+    "channel_display_name": "Minute Pastor",
     "outro_subtext": "Subscribe for more",
-    "output_dir": "output/bible_daily",
+    "output_dir": "output/minute_pastor",
     "avoid_imagery": [
       "islamic",
       "muslim",
@@ -73,6 +73,11 @@
           "text": "Shop our picks below"
         }
       }
+    },
+    "socials": {
+      "youtube_url": "",
+      "tiktok_url": "",
+      "instagram_url": ""
     }
   },
   "shakespeare_lines": {

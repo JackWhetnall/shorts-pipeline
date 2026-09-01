@@ -133,6 +133,14 @@ DEFAULT_END_SCREEN = {
     },
 }
 
+# Lifecycle/organization for the web GUI's home page — purely a display
+# grouping, nothing in the pipeline itself reads this. "setup" is the
+# default for every new channel (including ones created as a placeholder
+# for a "future" idea — there's no separate lightweight creation path,
+# you just create it normally and move it once it's ready). Valid values:
+# "live", "setup", "future", "archived".
+DEFAULT_STATUS = "setup"
+
 CHANNELS_JSON_PATH = Path(__file__).parent / "channels.json"
 
 
@@ -147,9 +155,9 @@ def _merge_end_screen(override: dict = None) -> dict:
 
 
 def _channel(pacing=None, style=None, avoid_imagery=None, speed=None,
-             monetization=None, end_screen=None, socials=None, **fields):
+             monetization=None, end_screen=None, socials=None, status=None, **fields):
     """Merges per-channel pacing/style/avoid_imagery/speed/monetization/
-    end_screen/socials overrides onto the shared defaults."""
+    end_screen/socials/status overrides onto the shared defaults."""
     merged_style = {**DEFAULT_STYLE, **(style or {})}
     # channels.json can only store lists, but PIL wants a tuple for a
     # color — round-trips fine as long as this is fixed on the way back in.
@@ -162,6 +170,7 @@ def _channel(pacing=None, style=None, avoid_imagery=None, speed=None,
     fields["monetization"] = {**DEFAULT_MONETIZATION, **(monetization or {})}
     fields["end_screen"] = _merge_end_screen(end_screen)
     fields["socials"] = {**DEFAULT_SOCIALS, **(socials or {})}
+    fields["status"] = status or DEFAULT_STATUS
     return fields
 
 

@@ -18,11 +18,11 @@
   </div>
   {% if has_merch_variants %}
   <p class="subtitle">Merch-ready minimalist versions are also ready &mdash;
-    manage them from the <a href="{{ url_for('setup_step', key=key, step='merch') }}">Merch step</a>
+    manage them from the <a href="{{ url_for('setup_step', key=key, step='merch_logo') }}">Merch step</a>
     of channel setup.</p>
   {% else %}
   <p class="subtitle">Want line-art/flat/badge versions for merch printing?
-    Generate those from the <a href="{{ url_for('setup_step', key=key, step='merch') }}">Merch step</a>
+    Generate those from the <a href="{{ url_for('setup_step', key=key, step='merch_logo') }}">Merch step</a>
     of channel setup, once you're ready.</p>
   {% endif %}
 </div>

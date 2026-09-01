@@ -30,10 +30,15 @@ import webapp.voice_lab as voice_lab
 
 OUTPUT_ROOT = (PROJECT_ROOT / "output").resolve()
 CHANNELS_ASSETS_ROOT = (PROJECT_ROOT / "channels").resolve()
-# "socials" first — a channel's social profile links are the natural first
-# thing to set up, before monetization accounts that often depend on the
-# channel already existing somewhere public.
-SETUP_STEPS = ("socials", "email", "patreon", "merch", "amazon")
+# Logo first (every later step benefits from having one - a profile
+# picture for socials, a mark for merch), then a dedicated email, then
+# socials, then monetization accounts in the order they're easiest to set
+# up (Patreon needs nothing else first; merch logos need the primary logo
+# from step 1; the merch store needs those logo variants; Amazon
+# Associates is easiest last since it wants an existing public presence).
+SETUP_STEPS = ("logo", "email", "socials", "patreon", "merch_logo", "merch_store", "amazon")
+# Order here is display order on the home page (top section to bottom).
+CHANNEL_STATUSES = ("live", "setup", "future", "archived")
 PACING_INT_FIELDS = {"caption_max_group_size", "segment_count"}
 STYLE_TEXT_FIELDS = ("base_color", "highlight_color", "stroke_color",
                       "outro_title_color", "outro_subtext_color")
@@ -154,7 +159,17 @@ def index():
     channels = channel_store.get_channels()
     video_counts = {key: gallery.count_videos(ch["output_dir"]) for key, ch in channels.items()}
     has_logo = {key: logo_gen.has_logo(key) for key in channels}
-    return render_template("index.html", channels=channels, video_counts=video_counts, has_logo=has_logo)
+    # Grouped for the home page's sectioned layout - a plain filter, not a
+    # re-sort, so each section keeps channels.json's existing key order
+    # (which IS the display/manual order - see channel_store.reorder_channels).
+    sections = {
+        status: {key: ch for key, ch in channels.items() if ch["status"] == status}
+        for status in CHANNEL_STATUSES
+    }
+    return render_template(
+        "index.html", channels=channels, video_counts=video_counts, has_logo=has_logo,
+        sections=sections, statuses=CHANNEL_STATUSES,
+    )
 
 
 @app.route("/channels/<key>")
@@ -170,15 +185,15 @@ def channel_dashboard(key):
     has_logo = logo_gen.has_logo(key)
     has_merch_variants = logo_gen.has_merch_variants(key)
 
-    # (label, done, link-if-not-done) - what's left to do for this channel.
-    # Every field read here is guaranteed present on the merged `channel`
-    # dict (config.channels._channel() always merges in the DEFAULT_*
-    # dicts), so no None-checks are needed.
+    # (label, done, link-if-not-done) - what's left to do for this channel,
+    # in the same order as SETUP_STEPS (logo -> socials -> monetization),
+    # plus "first video" at the end as a separate milestone outside the
+    # setup wizard entirely. Every field read here is guaranteed present on
+    # the merged `channel` dict (config.channels._channel() always merges
+    # in the DEFAULT_* dicts), so no None-checks are needed.
     checklist = [
         {"label": "Create a logo", "done": has_logo,
          "link": url_for("logo_page", key=key)},
-        {"label": "Generate merch-ready logo versions", "done": has_merch_variants,
-         "link": url_for("setup_step", key=key, step="merch")},
         {"label": "Add a YouTube link", "done": bool(socials["youtube_url"]),
          "link": url_for("setup_step", key=key, step="socials")},
         {"label": "Add a TikTok link", "done": bool(socials["tiktok_url"]),
@@ -187,13 +202,17 @@ def channel_dashboard(key):
          "link": url_for("setup_step", key=key, step="socials")},
         {"label": "Add a Patreon link", "done": bool(monetization["patreon_url"]),
          "link": url_for("setup_step", key=key, step="patreon")},
+        {"label": "Generate merch-ready logo versions", "done": has_merch_variants,
+         "link": url_for("setup_step", key=key, step="merch_logo")},
         {"label": "Add a merch storefront link", "done": bool(monetization["merch_url"]),
-         "link": url_for("setup_step", key=key, step="merch")},
+         "link": url_for("setup_step", key=key, step="merch_store")},
         {"label": "Add affiliate links", "done": bool(monetization["affiliate_links"]),
          "link": url_for("setup_step", key=key, step="amazon")},
         {"label": "Create your first video", "done": video_count > 0,
          "link": url_for("create_video", key=key)},
     ]
+    checklist_remaining = sum(1 for item in checklist if not item["done"])
+    show_go_live = channel["status"] != "live" and checklist_remaining == 0
 
     social_links = [
         {"label": "YouTube", "url": socials["youtube_url"]},
@@ -215,7 +234,9 @@ def channel_dashboard(key):
     return render_template(
         "channel_dashboard.html", key=key, channel=channel,
         video_count=video_count, last_video_at=last_video_at,
-        checklist=checklist, social_links=social_links, monetization_links=monetization_links,
+        checklist=checklist, checklist_remaining=checklist_remaining,
+        show_go_live=show_go_live,
+        social_links=social_links, monetization_links=monetization_links,
         has_logo=has_logo, rename_error=request.args.get("rename_error"),
     )
 
@@ -223,12 +244,39 @@ def channel_dashboard(key):
 @app.route("/channels/<key>/rename", methods=["POST"])
 def rename_channel_route(key):
     _channel_or_404(key)
-    new_key = request.form.get("new_key", "").strip()
+    new_name = request.form.get("new_name", "").strip()
     try:
-        result = channel_store.rename_channel(key, new_key)
+        result = channel_store.rename_channel(key, new_name)
     except ValueError as e:
         return redirect(url_for("channel_dashboard", key=key, rename_error=str(e)))
     return redirect(url_for("channel_dashboard", key=result["new_key"]))
+
+
+@app.route("/channels/<key>/status", methods=["POST"])
+def set_channel_status(key):
+    _channel_or_404(key)
+    status = request.form.get("status", "")
+    if status not in CHANNEL_STATUSES:
+        abort(400)
+    raw = channel_store.get_raw_entries()
+    raw_entry = raw[key]
+    raw_entry["status"] = status
+    channel_store.save_channel(key, raw_entry)
+
+    redirect_to = request.form.get("redirect_to")
+    if redirect_to == "index":
+        return redirect(url_for("index"))
+    return redirect(url_for("channel_dashboard", key=key))
+
+
+@app.route("/api/channels/reorder", methods=["POST"])
+def api_reorder_channels():
+    data = request.get_json(force=True, silent=True) or {}
+    keys = data.get("keys")
+    if not isinstance(keys, list) or not keys:
+        return jsonify({"error": "Missing keys"}), 400
+    channel_store.reorder_channels(keys)
+    return jsonify({"ok": True})
 
 
 @app.route("/channels/<key>/settings", methods=["GET", "POST"])
@@ -389,11 +437,11 @@ def setup_step(key, step):
             socials["tiktok_url"] = request.form.get("tiktok_url", "").strip()
             socials["instagram_url"] = request.form.get("instagram_url", "").strip()
             raw_entry["socials"] = socials
-        else:
+        elif step in ("patreon", "merch_store", "amazon"):
             monetization = dict(raw_entry.get("monetization") or channels_module.DEFAULT_MONETIZATION)
             if step == "patreon":
                 monetization["patreon_url"] = request.form.get("patreon_url", "").strip()
-            elif step == "merch":
+            elif step == "merch_store":
                 monetization["merch_url"] = request.form.get("merch_url", "").strip()
                 for file_storage in request.files.getlist("merch_photos"):
                     if file_storage and file_storage.filename:
@@ -403,8 +451,10 @@ def setup_step(key, step):
                             pass  # unsupported file type — silently skip rather than fail the whole save
             elif step == "amazon":
                 monetization["affiliate_links"] = _parse_affiliate_links(request.form.get("affiliate_links", ""))
-            # "email" has no field to save
             raw_entry["monetization"] = monetization
+        # "logo", "email", "merch_logo" have nothing to save - their own
+        # pages/API calls handle everything, this step is just a guided
+        # checkpoint in the sequence.
 
         channel_store.save_channel(key, raw_entry)
         if next_step:
@@ -413,7 +463,7 @@ def setup_step(key, step):
 
     channel = dict(channel, key=key)
     return render_template(
-        f"setup_{step}.html" if step == "socials" else f"monetize_{step}.html",
+        f"setup_{step}.html",
         key=key, channel=channel, step=step, steps=SETUP_STEPS,
         step_index=step_index, step_count=len(SETUP_STEPS),
         prev_step=prev_step, next_step=next_step,
@@ -429,7 +479,7 @@ def merch_delete(key):
     _channel_or_404(key)
     filename = request.form.get("filename", "")
     merch_assets.delete_merch_photo(key, filename)
-    return redirect(url_for("setup_step", key=key, step="merch"))
+    return redirect(url_for("setup_step", key=key, step="merch_store"))
 
 
 @app.route("/channels/<key>/merch-assets/<path:filename>")
@@ -445,7 +495,31 @@ def serve_merch_asset(key, filename):
 def channel_gallery(key):
     channel = _channel_or_404(key)
     videos = gallery.list_videos(channel["output_dir"])
-    return render_template("gallery.html", key=key, channel=channel, videos=videos)
+    unpublished = [v for v in videos if not v["published"]]
+    published = [v for v in videos if v["published"]]
+    return render_template(
+        "gallery.html", key=key, channel=channel, videos=videos,
+        unpublished=unpublished, published=published,
+    )
+
+
+@app.route("/channels/<key>/videos/<path:relpath>", methods=["GET", "POST"])
+def video_detail(key, relpath):
+    channel = _channel_or_404(key)
+    target = (OUTPUT_ROOT / relpath).resolve()
+    if OUTPUT_ROOT not in target.parents or not target.exists():
+        abort(404)
+
+    if request.method == "POST":
+        links = {field: request.form.get(field, "") for field in gallery.PUBLISH_LINK_FIELDS}
+        gallery.save_publish_info(target, links)
+        return redirect(url_for("video_detail", key=key, relpath=relpath))
+
+    links = gallery.load_publish_info(target)
+    return render_template(
+        "video_detail.html", key=key, channel=channel, relpath=relpath,
+        name=target.name, links=links,
+    )
 
 
 @app.route("/api/channels/<key>/seed", methods=["POST"])

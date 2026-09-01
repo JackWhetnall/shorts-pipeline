@@ -14,16 +14,47 @@
   <a class="btn btn-primary" href="{{ url_for('create_video', key=key) }}">Create one</a>
 </div>
 {% else %}
+
+<h2>Unpublished{% if unpublished %} <span class="badge">{{ unpublished|length }}</span>{% endif %}</h2>
+{% if unpublished %}
 <div class="gallery-grid">
-  {% for v in videos %}
+  {% for v in unpublished %}
   <div class="card gallery-item">
     <video controls src="{{ url_for('serve_video', relpath=v.relpath) }}"></video>
     <p class="meta">{{ v.name }}</p>
     {% if v.meta_text %}
     <pre class="meta-text">{{ v.meta_text }}</pre>
     {% endif %}
+    <a class="btn btn-ghost gallery-publish-btn" href="{{ url_for('video_detail', key=key, relpath=v.relpath) }}">Publish video &rarr;</a>
   </div>
   {% endfor %}
 </div>
+{% else %}
+<p class="meta">Nothing waiting to be published.</p>
+{% endif %}
+
+<h2 class="gallery-section-spaced">Published{% if published %} <span class="badge">{{ published|length }}</span>{% endif %}</h2>
+{% if published %}
+<div class="gallery-grid">
+  {% for v in published %}
+  <div class="card gallery-item">
+    <video controls src="{{ url_for('serve_video', relpath=v.relpath) }}"></video>
+    <p class="meta">{{ v.name }}</p>
+    {% if v.meta_text %}
+    <pre class="meta-text">{{ v.meta_text }}</pre>
+    {% endif %}
+    <div class="tile-row">
+      {% if v.links.youtube_url %}<a class="link-tile" href="{{ v.links.youtube_url }}" target="_blank" rel="noopener">YouTube</a>{% endif %}
+      {% if v.links.tiktok_url %}<a class="link-tile" href="{{ v.links.tiktok_url }}" target="_blank" rel="noopener">TikTok</a>{% endif %}
+      {% if v.links.instagram_url %}<a class="link-tile" href="{{ v.links.instagram_url }}" target="_blank" rel="noopener">Instagram</a>{% endif %}
+    </div>
+    <a class="btn btn-ghost gallery-publish-btn" href="{{ url_for('video_detail', key=key, relpath=v.relpath) }}">Edit links</a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="meta">Nothing published yet.</p>
+{% endif %}
+
 {% endif %}
 {% endblock %}

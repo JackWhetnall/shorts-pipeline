@@ -246,3 +246,88 @@ async function generateMerchVariants(channelKey) {
     document.getElementById("merch-variants").classList.remove("hidden");
   });
 }
+
+// --- Home page: channel section drag-reorder ---
+// Off by default (a stray drag shouldn't silently reorder channels) —
+// toggled on via the "Reorder" button, which flips `reorderMode` and
+// sets `draggable` on every card. Reordering only ever happens WITHIN one
+// section's grid (cross-section moves are the "Move to" dropdown's job,
+// never dragging), so each grid only ever needs to know its own cards'
+// current order.
+
+let reorderMode = false;
+let draggedCard = null;
+
+function toggleReorderMode() {
+  reorderMode = !reorderMode;
+  const wrapper = document.getElementById("channel-sections");
+  if (!wrapper) return;
+  wrapper.classList.toggle("reorder-active", reorderMode);
+  wrapper.querySelectorAll(".channel-card").forEach(card => {
+    card.draggable = reorderMode;
+  });
+  const btn = document.getElementById("reorder-toggle-btn");
+  if (btn) btn.classList.toggle("active", reorderMode);
+}
+
+// .channel-grid is a multi-column CSS grid, not a simple vertical list —
+// so "where should the dragged card land" has to compare the cursor
+// against every OTHER card's center point (nearest wins), not just walk
+// down a single column comparing Y alone.
+function _closestCard(grid, x, y) {
+  const cards = [...grid.querySelectorAll(".channel-card:not(.dragging)")];
+  let closest = {distance: Infinity, element: null, after: false};
+  for (const card of cards) {
+    const box = card.getBoundingClientRect();
+    const cx = box.left + box.width / 2;
+    const cy = box.top + box.height / 2;
+    const distance = Math.hypot(x - cx, y - cy);
+    if (distance < closest.distance) {
+      closest = {distance, element: card, after: x > cx};
+    }
+  }
+  return closest;
+}
+
+function initChannelReorder() {
+  document.querySelectorAll(".channel-grid[data-section]").forEach(grid => {
+    grid.addEventListener("dragstart", e => {
+      const card = e.target.closest(".channel-card");
+      if (!reorderMode || !card) return;
+      draggedCard = card;
+      card.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+    });
+    grid.addEventListener("dragend", () => {
+      if (draggedCard) draggedCard.classList.remove("dragging");
+      draggedCard = null;
+    });
+    grid.addEventListener("dragover", e => {
+      if (!reorderMode || !draggedCard) return;
+      e.preventDefault();
+      const closest = _closestCard(grid, e.clientX, e.clientY);
+      if (!closest.element || closest.element === draggedCard) return;
+      if (closest.after) {
+        closest.element.after(draggedCard);
+      } else {
+        closest.element.before(draggedCard);
+      }
+    });
+    grid.addEventListener("drop", async e => {
+      if (!reorderMode) return;
+      e.preventDefault();
+      const keys = [...grid.querySelectorAll(".channel-card")].map(c => c.dataset.key);
+      try {
+        await fetch("/api/channels/reorder", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({keys}),
+        });
+      } catch (err) {
+        alert("Failed to save the new order.");
+      }
+    });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", initChannelReorder);

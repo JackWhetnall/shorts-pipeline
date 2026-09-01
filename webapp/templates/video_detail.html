@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} &mdash; {{ channel.channel_display_name }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('channel_gallery', key=key) }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  {{ channel.channel_display_name }} gallery
+</a>
+<h1>Publish &mdash; {{ name }}</h1>
+
+<video controls src="{{ url_for('serve_video', relpath=relpath) }}"></video>
+
+<div class="card">
+  <h2>Platform links</h2>
+  <p class="subtitle">
+    Paste the link for wherever you've actually uploaded this specific
+    video. Leave a platform blank if you haven't posted it there &mdash;
+    this video counts as published as soon as any one link is set.
+  </p>
+  <form method="post" action="{{ url_for('video_detail', key=key, relpath=relpath) }}" class="channel-form">
+    <label>YouTube link
+      <input type="text" name="youtube_url" placeholder="https://youtube.com/shorts/..."
+             value="{{ links.youtube_url or '' }}">
+    </label>
+    <label>TikTok link
+      <input type="text" name="tiktok_url" placeholder="https://tiktok.com/@you/video/..."
+             value="{{ links.tiktok_url or '' }}">
+    </label>
+    <label>Instagram link
+      <input type="text" name="instagram_url" placeholder="https://instagram.com/reel/..."
+             value="{{ links.instagram_url or '' }}">
+    </label>
+    <button type="submit">Save</button>
+  </form>
+</div>
+{% endblock %}

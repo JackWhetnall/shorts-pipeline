@@ -401,7 +401,7 @@ pipeline modules — no pipeline logic is duplicated in `webapp/`.
   `_description.txt` still lists all of them, only the on-screen card is
   randomized. The merch CTA additionally composites a random uploaded
   product photo (`merch_assets.py`, `channels/<key>/merch/`, collected
-  during the wizard's merch step) above its text if any have been
+  during the wizard's `merch_store` step) above its text if any have been
   uploaded, falling back to text-only like the others otherwise. The
   wizard's field saves write to the RAW stored entry (`channel_store.
   get_raw_entries()`), not the DEFAULT_*-merged `channel` dict — merging
@@ -419,11 +419,26 @@ pipeline modules — no pipeline logic is duplicated in `webapp/`.
   YouTube/TikTok/Instagram profile links — purely informational (no
   video-assembly or description-generation code reads these), just a
   place to track where the channel actually lives. Set via the wizard's
-  new first step, `setup/socials` (ahead of monetization — a channel's
-  social presence is the natural thing to set up before accounts that
-  often depend on the channel already existing publicly), or via the
-  settings form's own "Socials" fieldset — both write-paths use the same
-  full-entry-vs-raw-mutation split described above.
+  `setup/socials` step, or via the settings form's own "Socials"
+  fieldset — both write-paths use the same full-entry-vs-raw-mutation
+  split described above.
+- **Channel setup wizard order** (`webapp/app.py`'s `SETUP_STEPS`):
+  `logo → email → socials → patreon → merch_logo → merch_store → amazon`.
+  Logo is first since every later step benefits from having one already
+  (a profile picture for socials, a mark for merch); "merch" is two
+  separate steps, not one — `merch_logo` (generating the merch-ready
+  minimalist logo variants, see "Channel logos" below) has to come before
+  `merch_store` (the actual storefront URL + product photos) since the
+  latter's instructions assume you already have print-ready art. Every
+  step template lives at `webapp/templates/setup_<step>.html` (`logo` and
+  `merch_logo` have no `step_fields` block — nothing to save, they're
+  just guided checkpoints pointing at the logo page / the
+  variant-generation button respectively, same as `email` always was).
+  `_wizard_shell.html`'s step-dots loop over a `steps` variable passed
+  from the route rather than a hardcoded list, so this order only needs
+  to change in one place (`SETUP_STEPS`) — every step's own `<h1>` reads
+  its number from `step_index` rather than a hardcoded digit, for the
+  same reason.
 - **Channel dashboard** (`/channels/<key>`, `webapp/templates/
   channel_dashboard.html`): a per-channel home page that used to not
   exist — previously the only per-channel destinations were reached
@@ -433,36 +448,111 @@ pipeline modules — no pipeline logic is duplicated in `webapp/`.
   the new `gallery.latest_video_mtime`, the latter added specifically so
   this didn't need to call `list_videos` — which builds full metadata for
   every video, including reading each paired `_meta.txt` — just to read
-  one timestamp); a **todo checklist** built fresh on every load from
+  one timestamp); a **launch checklist** built fresh on every load from
   real state (no stored "is this done" flag anywhere — `logo_gen.has_logo`/
   `has_merch_variants`, each `socials`/`monetization` field's presence,
-  video count), each unchecked item linking straight to where it gets
-  fixed; and a "Your links" card surfacing whichever socials/monetization
-  URLs are actually set, as external link buttons. Every other per-channel
-  page's back-link now points here instead of straight to Settings or the
-  global channel list — index → dashboard → {settings, logo, gallery,
-  create video, setup wizard} is the intended navigation shape now, with
-  the global channel list's card actions kept as direct shortcuts for
-  anyone who wants to skip the dashboard.
-- **Channel rename** (`channel_store.rename_channel`,
-  `/channels/<key>/rename` on the dashboard): a channel's `key` used to be
-  permanent once created — this matters because the pipeline started
-  naming test/early channels loosely before their real branding was
-  settled. Re-keys the `channels.json` entry AND moves everything on disk
-  that's built directly from the key string: `channels/<key>/` (covers
-  both `logo/` and `merch/` in one move, since `logo_gen.py`'s `_logo_dir`
-  and `merch_assets.py`'s `merch_dir` both derive that path from the key
-  at call time — no code changes needed in either module, the directory
-  move alone is sufficient) and `output/<key>/`, but ONLY the latter if
-  `output_dir` is still the unmodified `output/<key>` default; a channel
-  with a customized `output_dir` (it's a plain editable string field, not
+  video count), in the same order as `SETUP_STEPS`, each unchecked item
+  linking straight to where it gets fixed — collapsed by default (native
+  `<details>`, no `open` attribute) with a `.badge` on the summary showing
+  how many items are left (omitted once nothing's left), and repositioned
+  by a `{% macro launch_checklist() %}` called from two different spots in
+  the template: right after "Quick actions" while `checklist_remaining` is
+  nonzero, or after the "Your links" card (effectively the bottom of the
+  page) once everything's done — the macro avoids duplicating the
+  checklist markup between those two call sites; and a "Your links" card
+  showing socials/monetization URLs as a **tiled board** (`.tile-row`/
+  `.link-tile`, visually distinct from the plain pill-style `.links-row`
+  buttons used for external signup links elsewhere in the wizard) — one
+  row of tiles for socials, one row for monetization. Every other
+  per-channel page's back-link now points here instead of straight to
+  Settings or the global channel list — index → dashboard →
+  {settings, logo, gallery, create video, setup wizard} is the intended
+  navigation shape now, with the global channel list's card actions kept
+  as direct shortcuts for anyone who wants to skip the dashboard.
+- **Channel rename** (`channel_store.rename_channel`, `/channels/<key>/
+  rename` behind a small pencil `.icon-btn` next to the channel name on
+  the dashboard, not a section of its own — a `<details>` whose `summary`
+  IS the icon button; renaming is rare enough that it shouldn't occupy
+  permanent page space, and it's specifically tied to the name it edits
+  rather than living lower on the page as a generic "channel actions"
+  control): renames by DISPLAY NAME, not a raw key — the user types "Minute
+  Pastor", `channel_store.slugify` derives the key ("minute_pastor")
+  automatically, and both `channel_display_name` and the config key are
+  updated together. The first version of this only re-keyed the config
+  and moved directories, silently leaving `channel_display_name`
+  untouched — a real channel got renamed this way and kept showing its
+  old display name everywhere despite the URL/key having changed; fixed
+  by making display name the actual input and deriving the key from it,
+  never the other way around. If the derived key happens to match the
+  channel's current key (a purely cosmetic display-name edit, e.g. fixing
+  capitalization), it's treated as a display-name-only update — no
+  re-keying, no directory moves, no collision check against itself.
+  Otherwise it moves everything on disk that's built directly from the
+  key string: `channels/<key>/` (covers both `logo/` and `merch/` in one
+  move, since `logo_gen.py`'s `_logo_dir` and `merch_assets.py`'s
+  `merch_dir` both derive that path from the key at call time — no code
+  changes needed in either module, the directory move alone is
+  sufficient) and `output/<key>/`, but ONLY the latter if `output_dir` is
+  still the unmodified `output/<key>` default; a channel with a
+  customized `output_dir` (it's a plain editable string field, not
   derived at runtime) is left untouched rather than guessing where to
-  move it. Every check (new key format/uniqueness, target directories not
-  already occupied) runs before anything is written or moved, so a
-  rejected rename never leaves partial state. Not handled: renaming a
-  channel while a generation job is in flight for it (`webapp/jobs.py`'s
-  single-job model) — accepted as an edge case for a local single-user
-  tool.
+  move it. Every check (derived key non-empty, uniqueness, target
+  directories not already occupied) runs before anything is written or
+  moved, so a rejected rename never leaves partial state. Not handled:
+  renaming a channel while a generation job is in flight for it
+  (`webapp/jobs.py`'s single-job model) — accepted as an edge case for a
+  local single-user tool. Re-keying itself has to rebuild the raw dict via
+  `{(new_key if k == old_key else k): v for k, v in raw.items()}` rather
+  than the obvious `raw[new_key] = raw.pop(old_key)` — a pop+reinsert
+  always re-appends at the END of a Python dict, which is exactly what
+  `channels.json`'s key order drives (see "Channel sections" below), so
+  the naive version silently sent every renamed channel to the bottom of
+  the home page — a real regression a user hit directly.
+- **Channel sections, ordering, and lifecycle** (`webapp/app.py`'s
+  `CHANNEL_STATUSES`, `index()`): channels are grouped into four
+  collapsible sections on the home page — Live and Setting up open by
+  default, Future ideas and Archived closed — driven by a plain `status`
+  string field (`config/channels.py`'s `DEFAULT_STATUS = "setup"`, every
+  new channel starts there; no separate lightweight "just an idea" create
+  flow — a Future-ideas channel is created the normal way and just moved
+  there). Moving a channel between sections is a small auto-submitting
+  `<select>` on each card (`POST /channels/<key>/status`), deliberately
+  NOT drag-and-drop — dragging is reserved for *ordering within* a
+  section. Display order within a section is just `channels.json`'s own
+  key order filtered by status — Python dicts (and `json.dump`/`load`)
+  already preserve insertion order, so no separate numeric order field
+  was needed, only `channel_store.reorder_channels(ordered_keys)` (puts
+  the given keys first in that order, leaves every other key's relative
+  position alone — sufficient since display always re-filters by status
+  anyway, so cross-section interleaving in the raw file is never
+  visible). Dragging is off by default behind a "Reorder" toggle button
+  (`app.js`'s `toggleReorderMode`, a hand-rolled six-dot grip icon
+  matching every other icon in this app) so a stray drag can't silently
+  reorder channels; native HTML5 drag-and-drop, with `_closestCard`
+  comparing the cursor against every sibling card's center point (not
+  just Y position) since `.channel-grid` is a multi-column CSS grid, not
+  a vertical list. **Go Live**: the dashboard shows an accent-bordered
+  banner (same slot the launch checklist itself would occupy — empty once
+  it's complete and has moved to the bottom, see "Channel dashboard"
+  above) exactly when `status != "live"` and `checklist_remaining == 0`,
+  a one-click POST to the same status route.
+- **Video publish tracking** (`webapp/gallery.py`'s `{stem}_publish.json`
+  sidecar, `/channels/<key>/videos/<path:relpath>`): finished videos had
+  no record of whether or where they'd actually been posted. Each video
+  gets a sidecar JSON — same naming shape and directory as the
+  `{stem}_meta.txt` sidecar `main.py` already writes — holding
+  `youtube_url`/`tiktok_url`/`instagram_url`; a video counts as
+  **published** iff any one is set, derived rather than a separate stored
+  flag (same idiom `config.channels.resolve_active_ctas` already uses for
+  monetization CTAs — a real URL's presence IS the source of truth, so
+  there's no boolean that could drift out of sync with the actual links).
+  The Gallery page (`channel_gallery()`) splits videos into Unpublished/
+  Published sections; an unpublished card's "Publish video" button goes
+  to a small per-video page (`video_detail.html`, modeled directly on
+  `setup_socials.html`'s three-URL-field shape) where the links get
+  pasted in; once set, they show as clickable `.link-tile`s (the same
+  tile styling as the dashboard's "Your links" board) directly on that
+  video's gallery card.
 - **Channel logos** (`webapp/logo_gen.py`, `/channels/<key>/logo`): AI-
   generated via OpenAI's Images API (`gpt-image-1`, `n=CANDIDATE_COUNT` in
   one call — the reason OpenAI was picked over Recraft, which needs one
@@ -497,8 +587,8 @@ pipeline modules — no pipeline logic is duplicated in `webapp/`.
   kicked off 1-3 more slow paid requests with zero UI feedback,
   indistinguishable from the click having done nothing; merch-variant
   generation (`logo_gen.generate_merch_variants`) is now a separate,
-  explicit action triggered from the merch step of the monetization
-  wizard, never called automatically. It also fixed a real correctness
+  explicit action triggered from the setup wizard's `merch_logo` step,
+  never called automatically. It also fixed a real correctness
   bug, not just a UX one: variants were originally generated via the
   **generations** endpoint from text alone (topic fragment + "redraw the
   same subject as...") — the model was never shown the actual chosen

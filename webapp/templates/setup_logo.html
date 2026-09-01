@@ -1,0 +1,21 @@
+{% extends "_wizard_shell.html" %}
+{% block step_content %}
+<h1>Step {{ step_index + 1 }}: Create a logo</h1>
+<p class="subtitle">
+  {% if has_logo %}
+  This channel already has a logo &mdash; you can regenerate it or just
+  continue.
+  {% else %}
+  A logo gives every other step here something to actually work with (a
+  profile picture for your socials, a mark for merch), so it's worth
+  doing first.
+  {% endif %}
+</p>
+<p>
+  <a class="btn btn-ghost" href="{{ url_for('logo_page', key=key) }}">
+    {{ "Manage your logo" if has_logo else "Create a logo" }} &rarr;
+  </a>
+</p>
+<p class="meta">Nothing to save here &mdash; once you've picked one (or if you're
+  skipping it for now), just continue.</p>
+{% endblock %}
