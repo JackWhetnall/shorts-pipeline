@@ -101,6 +101,17 @@ DEFAULT_MONETIZATION = {
     "affiliate_links": [],
 }
 
+# The channel's own social profile links (not a stock-footage/monetization
+# concept) - set through the webapp's setup wizard's "socials" step, shown
+# on the channel dashboard. Purely informational/organizational for now
+# (no video-assembly or description-generation code reads these) - just a
+# place to keep track of where this channel actually lives.
+DEFAULT_SOCIALS = {
+    "youtube_url": "",
+    "tiktok_url": "",
+    "instagram_url": "",
+}
+
 # An optional second video segment (after the branding outro) surfacing
 # CTAs for the monetization links above. Each CTA's own "enabled" flag is
 # the single source of truth for "this is actively being promoted" — used
@@ -136,9 +147,9 @@ def _merge_end_screen(override: dict = None) -> dict:
 
 
 def _channel(pacing=None, style=None, avoid_imagery=None, speed=None,
-             monetization=None, end_screen=None, **fields):
+             monetization=None, end_screen=None, socials=None, **fields):
     """Merges per-channel pacing/style/avoid_imagery/speed/monetization/
-    end_screen overrides onto the shared defaults."""
+    end_screen/socials overrides onto the shared defaults."""
     merged_style = {**DEFAULT_STYLE, **(style or {})}
     # channels.json can only store lists, but PIL wants a tuple for a
     # color — round-trips fine as long as this is fixed on the way back in.
@@ -150,6 +161,7 @@ def _channel(pacing=None, style=None, avoid_imagery=None, speed=None,
     fields["speed"] = DEFAULT_SPEED if speed is None else speed
     fields["monetization"] = {**DEFAULT_MONETIZATION, **(monetization or {})}
     fields["end_screen"] = _merge_end_screen(end_screen)
+    fields["socials"] = {**DEFAULT_SOCIALS, **(socials or {})}
     return fields
 
 

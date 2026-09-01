@@ -35,6 +35,17 @@ def count_videos(output_dir: str) -> int:
     return sum(1 for _ in d.rglob("*.mp4"))
 
 
+def latest_video_mtime(output_dir: str):
+    """Most recent video's mtime (epoch float), or None if there are no
+    videos yet. Cheaper than list_videos()[0]["mtime"] for a dashboard that
+    only needs this one value, not full metadata for every video."""
+    d = _resolve_output_dir(output_dir)
+    if not d.exists():
+        return None
+    mtimes = [p.stat().st_mtime for p in d.rglob("*.mp4")]
+    return max(mtimes) if mtimes else None
+
+
 def list_videos(output_dir: str) -> list:
     """Newest first. Each entry: {relpath (for the /videos/ route), name,
     mtime, meta_text (contents of the paired _meta.txt, or None)}."""

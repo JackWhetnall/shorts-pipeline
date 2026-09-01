@@ -161,8 +161,6 @@ async function testVoiceCombo() {
 
 // --- Logo generation ---
 
-let currentLogoFragment = null;
-
 async function generateLogos(channelKey) {
   const fragmentInput = document.getElementById("logo-fragment");
   const fragment = fragmentInput.value.trim();
@@ -170,9 +168,10 @@ async function generateLogos(channelKey) {
     alert("Describe what the channel is about first.");
     return;
   }
-  currentLogoFragment = fragment;
+  const button = event.target.closest("button");
+  const count = button.dataset.count || "5";
 
-  await withButtonLoading(event.target.closest("button"), "Generating 10 ideas… (this takes a little while)", async () => {
+  await withButtonLoading(button, `Generating ${count} ideas… (this takes a little while)`, async () => {
     const res = await fetch(`/api/channels/${channelKey}/logo/generate`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -200,16 +199,50 @@ async function generateLogos(channelKey) {
 async function selectLogo(channelKey, filename, imgEl) {
   document.querySelectorAll(".logo-candidate").forEach(el => el.classList.remove("selected"));
   imgEl.classList.add("selected");
+  imgEl.style.opacity = "0.5";
 
+  // Just a file copy server-side now (no more API calls) — should return
+  // almost instantly, but the opacity dip above gives feedback either way
+  // so this never again looks like clicking a candidate did nothing.
   const res = await fetch(`/api/channels/${channelKey}/logo/select`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({filename, fragment: currentLogoFragment}),
+    body: JSON.stringify({filename}),
   });
   const data = await res.json();
   if (!res.ok) {
+    imgEl.style.opacity = "1";
     alert(data.error || "Failed to finalize the logo.");
     return;
   }
   location.href = data.redirect;
+}
+
+// --- Merch logo variants ---
+
+async function generateMerchVariants(channelKey) {
+  await withButtonLoading(event.target.closest("button"), "Generating minimalist versions… (takes a minute or two)", async () => {
+    const res = await fetch(`/api/channels/${channelKey}/logo/variants/generate`, {method: "POST"});
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Failed to generate merch versions.");
+      return;
+    }
+
+    const grid = document.getElementById("merch-variants-grid");
+    grid.innerHTML = "";
+    for (const variant of data.variants) {
+      const wrap = document.createElement("div");
+      const img = document.createElement("img");
+      img.src = variant.url;
+      img.className = "logo-preview";
+      const label = document.createElement("p");
+      label.className = "meta";
+      label.textContent = variant.label;
+      wrap.appendChild(img);
+      wrap.appendChild(label);
+      grid.appendChild(wrap);
+    }
+    document.getElementById("merch-variants").classList.remove("hidden");
+  });
 }

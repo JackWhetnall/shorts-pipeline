@@ -9,8 +9,8 @@ Run with: python webapp/app.py
 Then open http://127.0.0.1:5000/
 """
 
-import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -30,7 +30,10 @@ import webapp.voice_lab as voice_lab
 
 OUTPUT_ROOT = (PROJECT_ROOT / "output").resolve()
 CHANNELS_ASSETS_ROOT = (PROJECT_ROOT / "channels").resolve()
-MONETIZE_STEPS = ("email", "patreon", "merch", "amazon")
+# "socials" first — a channel's social profile links are the natural first
+# thing to set up, before monetization accounts that often depend on the
+# channel already existing somewhere public.
+SETUP_STEPS = ("socials", "email", "patreon", "merch", "amazon")
 PACING_INT_FIELDS = {"caption_max_group_size", "segment_count"}
 STYLE_TEXT_FIELDS = ("base_color", "highlight_color", "stroke_color",
                       "outro_title_color", "outro_subtext_color")
@@ -114,6 +117,11 @@ def _parse_channel_form(form, key: str) -> dict:
         style["outro_bg_color"] = [int(x.strip()) for x in bg_raw.split(",") if x.strip()]
     entry["style"] = style
 
+    entry["socials"] = {
+        "youtube_url": form.get("youtube_url", "").strip(),
+        "tiktok_url": form.get("tiktok_url", "").strip(),
+        "instagram_url": form.get("instagram_url", "").strip(),
+    }
     entry["monetization"] = {
         "patreon_url": form.get("patreon_url", "").strip(),
         "merch_url": form.get("merch_url", "").strip(),
@@ -149,6 +157,80 @@ def index():
     return render_template("index.html", channels=channels, video_counts=video_counts, has_logo=has_logo)
 
 
+@app.route("/channels/<key>")
+def channel_dashboard(key):
+    channel = dict(_channel_or_404(key), key=key)
+    socials = channel["socials"]
+    monetization = channel["monetization"]
+
+    video_count = gallery.count_videos(channel["output_dir"])
+    latest_mtime = gallery.latest_video_mtime(channel["output_dir"])
+    last_video_at = datetime.fromtimestamp(latest_mtime).strftime("%b %d, %Y") if latest_mtime else None
+
+    has_logo = logo_gen.has_logo(key)
+    has_merch_variants = logo_gen.has_merch_variants(key)
+
+    # (label, done, link-if-not-done) - what's left to do for this channel.
+    # Every field read here is guaranteed present on the merged `channel`
+    # dict (config.channels._channel() always merges in the DEFAULT_*
+    # dicts), so no None-checks are needed.
+    checklist = [
+        {"label": "Create a logo", "done": has_logo,
+         "link": url_for("logo_page", key=key)},
+        {"label": "Generate merch-ready logo versions", "done": has_merch_variants,
+         "link": url_for("setup_step", key=key, step="merch")},
+        {"label": "Add a YouTube link", "done": bool(socials["youtube_url"]),
+         "link": url_for("setup_step", key=key, step="socials")},
+        {"label": "Add a TikTok link", "done": bool(socials["tiktok_url"]),
+         "link": url_for("setup_step", key=key, step="socials")},
+        {"label": "Add an Instagram link", "done": bool(socials["instagram_url"]),
+         "link": url_for("setup_step", key=key, step="socials")},
+        {"label": "Add a Patreon link", "done": bool(monetization["patreon_url"]),
+         "link": url_for("setup_step", key=key, step="patreon")},
+        {"label": "Add a merch storefront link", "done": bool(monetization["merch_url"]),
+         "link": url_for("setup_step", key=key, step="merch")},
+        {"label": "Add affiliate links", "done": bool(monetization["affiliate_links"]),
+         "link": url_for("setup_step", key=key, step="amazon")},
+        {"label": "Create your first video", "done": video_count > 0,
+         "link": url_for("create_video", key=key)},
+    ]
+
+    social_links = [
+        {"label": "YouTube", "url": socials["youtube_url"]},
+        {"label": "TikTok", "url": socials["tiktok_url"]},
+        {"label": "Instagram", "url": socials["instagram_url"]},
+    ]
+    social_links = [link for link in social_links if link["url"]]
+
+    monetization_links = [
+        {"label": "Patreon", "url": monetization["patreon_url"]},
+        {"label": "Merch store", "url": monetization["merch_url"]},
+    ]
+    monetization_links = [link for link in monetization_links if link["url"]]
+    monetization_links += [
+        {"label": link.get("label") or "Affiliate link", "url": link["url"]}
+        for link in monetization["affiliate_links"]
+    ]
+
+    return render_template(
+        "channel_dashboard.html", key=key, channel=channel,
+        video_count=video_count, last_video_at=last_video_at,
+        checklist=checklist, social_links=social_links, monetization_links=monetization_links,
+        has_logo=has_logo, rename_error=request.args.get("rename_error"),
+    )
+
+
+@app.route("/channels/<key>/rename", methods=["POST"])
+def rename_channel_route(key):
+    _channel_or_404(key)
+    new_key = request.form.get("new_key", "").strip()
+    try:
+        result = channel_store.rename_channel(key, new_key)
+    except ValueError as e:
+        return redirect(url_for("channel_dashboard", key=key, rename_error=str(e)))
+    return redirect(url_for("channel_dashboard", key=result["new_key"]))
+
+
 @app.route("/channels/<key>/settings", methods=["GET", "POST"])
 def channel_settings(key):
     channel = _channel_or_404(key)
@@ -169,6 +251,7 @@ def new_channel():
         "pacing": channels_module.DEFAULT_PACING,
         "style": channels_module.DEFAULT_STYLE,
         "speed": channels_module.DEFAULT_SPEED,
+        "socials": channels_module.DEFAULT_SOCIALS,
         "monetization": channels_module.DEFAULT_MONETIZATION,
         "end_screen": channels_module.DEFAULT_END_SCREEN,
         "affiliate_links_text": "",
@@ -176,7 +259,7 @@ def new_channel():
     if request.method == "POST":
         key = request.form.get("key", "").strip()
         error = None
-        if not key or not re.match(r"^[a-z0-9_]+$", key):
+        if not key or not channel_store.KEY_RE.match(key):
             error = "Channel key must be lowercase letters, numbers, and underscores only."
         elif key in channel_store.get_raw_entries():
             error = f'Channel "{key}" already exists.'
@@ -207,7 +290,10 @@ def logo_page(key):
     return render_template(
         "logo_gen.html", key=key, channel=channel,
         has_logo=logo_gen.has_logo(key),
+        has_merch_variants=logo_gen.has_merch_variants(key),
         candidates=[c.name for c in candidates],
+        variant_styles=logo_gen.VARIANT_STYLES,
+        candidate_count=logo_gen.CANDIDATE_COUNT,
     )
 
 
@@ -235,19 +321,37 @@ def api_logo_select(key):
     _channel_or_404(key)
     data = request.get_json(force=True, silent=True) or {}
     filename = data.get("filename")
-    fragment = (data.get("fragment") or "").strip()
-    if not filename or not fragment:
-        return jsonify({"error": "Missing filename or fragment"}), 400
+    if not filename:
+        return jsonify({"error": "Missing filename"}), 400
 
     candidate_path = (logo_gen._candidates_dir(key) / filename).resolve()
     if logo_gen._candidates_dir(key).resolve() not in candidate_path.parents or not candidate_path.exists():
         return jsonify({"error": "Unknown candidate"}), 400
 
     try:
-        logo_gen.select_logo(key, candidate_path, fragment)
+        logo_gen.select_logo(key, candidate_path)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     return jsonify({"ok": True, "redirect": url_for("logo_page", key=key)})
+
+
+@app.route("/api/channels/<key>/logo/variants/generate", methods=["POST"])
+def api_logo_variants_generate(key):
+    _channel_or_404(key)
+    try:
+        variant_paths = logo_gen.generate_merch_variants(key)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    labels = {s["key"]: s["label"] for s in logo_gen.VARIANT_STYLES}
+    labels["monochrome"] = "Monochrome (single-color print)"
+    return jsonify({
+        "variants": [
+            {"key": vkey, "label": labels.get(vkey, vkey),
+             "url": url_for("serve_logo_asset", key=key, filename=path.name)}
+            for vkey, path in variant_paths.items()
+        ],
+    })
 
 
 @app.route("/channels/<key>/logo-assets/<path:filename>")
@@ -259,52 +363,64 @@ def serve_logo_asset(key, filename):
     return send_from_directory(logo_dir, filename)
 
 
-# --- Monetization wizard ---
+# --- Channel setup wizard (socials, then monetization) ---
 
-@app.route("/channels/<key>/monetize/<step>", methods=["GET", "POST"])
-def monetize_step(key, step):
-    if step not in MONETIZE_STEPS:
+@app.route("/channels/<key>/setup/<step>", methods=["GET", "POST"])
+def setup_step(key, step):
+    if step not in SETUP_STEPS:
         abort(404)
     channel = _channel_or_404(key)
-    step_index = MONETIZE_STEPS.index(step)
-    prev_step = MONETIZE_STEPS[step_index - 1] if step_index > 0 else None
-    next_step = MONETIZE_STEPS[step_index + 1] if step_index < len(MONETIZE_STEPS) - 1 else None
+    step_index = SETUP_STEPS.index(step)
+    prev_step = SETUP_STEPS[step_index - 1] if step_index > 0 else None
+    next_step = SETUP_STEPS[step_index + 1] if step_index < len(SETUP_STEPS) - 1 else None
 
     if request.method == "POST":
         # Update the RAW stored entry (not the DEFAULT_*-merged `channel`
-        # dict) so this only ever touches "monetization" — merging onto
-        # an already-merged dict and saving it back would re-apply
-        # config.channels._channel()'s list-concatenating defaults (e.g.
-        # avoid_imagery) a second time on next load. See channel_store.py.
+        # dict) so this only ever touches "socials"/"monetization" —
+        # merging onto an already-merged dict and saving it back would
+        # re-apply config.channels._channel()'s list-concatenating
+        # defaults (e.g. avoid_imagery) a second time on next load. See
+        # channel_store.py.
         raw = channel_store.get_raw_entries()
         raw_entry = raw[key]
-        monetization = dict(raw_entry.get("monetization") or channels_module.DEFAULT_MONETIZATION)
-        if step == "patreon":
-            monetization["patreon_url"] = request.form.get("patreon_url", "").strip()
-        elif step == "merch":
-            monetization["merch_url"] = request.form.get("merch_url", "").strip()
-            for file_storage in request.files.getlist("merch_photos"):
-                if file_storage and file_storage.filename:
-                    try:
-                        merch_assets.save_merch_upload(key, file_storage)
-                    except ValueError:
-                        pass  # unsupported file type — silently skip rather than fail the whole save
-        elif step == "amazon":
-            monetization["affiliate_links"] = _parse_affiliate_links(request.form.get("affiliate_links", ""))
-        # "email" has no field to save
+        if step == "socials":
+            socials = dict(raw_entry.get("socials") or channels_module.DEFAULT_SOCIALS)
+            socials["youtube_url"] = request.form.get("youtube_url", "").strip()
+            socials["tiktok_url"] = request.form.get("tiktok_url", "").strip()
+            socials["instagram_url"] = request.form.get("instagram_url", "").strip()
+            raw_entry["socials"] = socials
+        else:
+            monetization = dict(raw_entry.get("monetization") or channels_module.DEFAULT_MONETIZATION)
+            if step == "patreon":
+                monetization["patreon_url"] = request.form.get("patreon_url", "").strip()
+            elif step == "merch":
+                monetization["merch_url"] = request.form.get("merch_url", "").strip()
+                for file_storage in request.files.getlist("merch_photos"):
+                    if file_storage and file_storage.filename:
+                        try:
+                            merch_assets.save_merch_upload(key, file_storage)
+                        except ValueError:
+                            pass  # unsupported file type — silently skip rather than fail the whole save
+            elif step == "amazon":
+                monetization["affiliate_links"] = _parse_affiliate_links(request.form.get("affiliate_links", ""))
+            # "email" has no field to save
+            raw_entry["monetization"] = monetization
 
-        raw_entry["monetization"] = monetization
         channel_store.save_channel(key, raw_entry)
         if next_step:
-            return redirect(url_for("monetize_step", key=key, step=next_step))
-        return redirect(url_for("channel_settings", key=key))
+            return redirect(url_for("setup_step", key=key, step=next_step))
+        return redirect(url_for("channel_dashboard", key=key))
 
     channel = dict(channel, key=key)
     return render_template(
-        f"monetize_{step}.html", key=key, channel=channel, step=step,
-        step_index=step_index, step_count=len(MONETIZE_STEPS),
+        f"setup_{step}.html" if step == "socials" else f"monetize_{step}.html",
+        key=key, channel=channel, step=step, steps=SETUP_STEPS,
+        step_index=step_index, step_count=len(SETUP_STEPS),
         prev_step=prev_step, next_step=next_step,
         merch_photos=[p.name for p in merch_assets.list_merch_photos(key)],
+        has_logo=logo_gen.has_logo(key),
+        has_merch_variants=logo_gen.has_merch_variants(key),
+        variant_styles=logo_gen.VARIANT_STYLES,
     )
 
 
@@ -313,7 +429,7 @@ def merch_delete(key):
     _channel_or_404(key)
     filename = request.form.get("filename", "")
     merch_assets.delete_merch_photo(key, filename)
-    return redirect(url_for("monetize_step", key=key, step="merch"))
+    return redirect(url_for("setup_step", key=key, step="merch"))
 
 
 @app.route("/channels/<key>/merch-assets/<path:filename>")

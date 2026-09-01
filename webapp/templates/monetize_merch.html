@@ -1,6 +1,6 @@
 {% extends "_wizard_shell.html" %}
 {% block step_content %}
-<h1>Step 3: Set up merch</h1>
+<h1>Step {{ step_index + 1 }}: Set up merch</h1>
 <p class="subtitle">
   Printful (and similar print-on-demand services) let you turn a logo
   into real products &mdash; t-shirts, mugs, stickers &mdash; with no
@@ -18,6 +18,43 @@
   <a class="btn btn-ghost" href="https://www.printful.com/" target="_blank" rel="noopener">Printful &rarr;</a>
   <a class="btn btn-ghost" href="https://www.spri.ng/" target="_blank" rel="noopener">Spring &rarr;</a>
 </p>
+
+{% if has_logo %}
+<div class="card">
+  <h2>Merch-ready logo versions</h2>
+  <p class="subtitle">
+    Print-on-demand products look better with a simplified mark than the
+    full detailed logo &mdash; restyles your actual chosen logo into a few
+    DIFFERENT minimalist treatments (line art, flat geometric, badge/emblem)
+    plus a single-color version for one-color printing. Each attempt is a
+    real, paid API call, and only runs when you click the button below
+    &mdash; picking a logo on the Logo page never triggers this
+    automatically.
+  </p>
+  <button onclick="generateMerchVariants('{{ key }}')">
+    {{ "Regenerate merch versions" if has_merch_variants else "Generate merch versions" }}
+  </button>
+
+  {% if has_merch_variants %}
+  <div class="logo-variants">
+    {% for style in variant_styles %}
+    <div>
+      <img class="logo-preview" src="{{ url_for('serve_logo_asset', key=key, filename='variant_' + style.key + '.png') }}?t={{ range(1,999999)|random }}">
+      <p class="meta">{{ style.label }}</p>
+    </div>
+    {% endfor %}
+    <div>
+      <img class="logo-preview" src="{{ url_for('serve_logo_asset', key=key, filename='variant_monochrome.png') }}?t={{ range(1,999999)|random }}">
+      <p class="meta">Monochrome (single-color print)</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <div id="merch-variants" class="hidden">
+    <div id="merch-variants-grid" class="logo-variants"></div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 {% block step_fields %}
 <label>Merch storefront URL

@@ -91,6 +91,22 @@
   </fieldset>
 
   <fieldset>
+    <legend>Socials</legend>
+    <label>YouTube channel URL
+      <input type="text" name="youtube_url" placeholder="https://youtube.com/@yourchannel"
+             value="{{ channel.socials.youtube_url or '' }}">
+    </label>
+    <label>TikTok profile URL
+      <input type="text" name="tiktok_url" placeholder="https://tiktok.com/@yourhandle"
+             value="{{ channel.socials.tiktok_url or '' }}">
+    </label>
+    <label>Instagram profile URL
+      <input type="text" name="instagram_url" placeholder="https://instagram.com/yourhandle"
+             value="{{ channel.socials.instagram_url or '' }}">
+    </label>
+  </fieldset>
+
+  <fieldset>
     <legend>Monetization</legend>
     <p class="checklist-box">
       <strong>Setting up monetization</strong> &mdash; these are created

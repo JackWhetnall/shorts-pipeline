@@ -166,7 +166,7 @@ footage/
   review_new_downloads.py
 output/<channel>/<date>/    # finished videos + _meta.txt + _description.txt per video, dated
 channels/<channel>/
-  logo/                        # logo.png + variant_minimalist.png + variant_monochrome.png
+  logo/                        # logo.png + variant_line/geometric/badge.png + variant_monochrome.png
   merch/                        # uploaded product photos
 ```
 

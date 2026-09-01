@@ -1178,6 +1178,336 @@
       "added": "2026-08-30",
       "use_count": 1,
       "last_used": "2026-08-30T21:46:53.353999+00:00"
+    },
+    {
+      "filename": "empty_road_doubt_auto1.mp4",
+      "description": "A two-lane asphalt road with a single white center line curves gently to the right through a winter landscape, filmed from a moving vehicle at road level. Snow-laden bare trees and low shrubs line both sides of the road, with thick white snow blanketing the ground and vegetation. The sky is a flat, featureless white due to heavy overcast or fog, and light snowflakes are visibly falling. The overall palette is almost entirely monochromatic \u2014 dark grey road against pure white snow and sky \u2014 creating a quiet, still, isolated atmosphere with soft, diffused natural lighting.",
+      "duration": 58.02,
+      "frame_hashes": [
+        18446744073701097472,
+        18446744073696903168,
+        18446744073692774400
+      ],
+      "source": "auto-fetched for \"empty road doubt\": https://videos.pexels.com/video-files/11007491/11007491-hd_1440_2560_30fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "empty_road_doubt_auto2.mp4",
+      "description": "A narrow rural lane lined with bare-branched deciduous trees stretches away into the distance in black and white, filmed from a low angle looking down the road's vanishing point. The trees \u2014 some slender and upright, others gnarled and wide-spreading with thick trunks \u2014 flank both sides of the lane, their leafless branches reaching across a pale, overcast winter sky. A solitary figure can be seen walking away from the camera along the lane in the earlier frames. The camera appears to be moving slowly forward along the road, with the framing shifting between a worm's-eye view looking up through the canopy and a more level perspective showing the hedgerows, rough grass verges, and shallow puddles on the wet tarmac.",
+      "duration": 20.2,
+      "frame_hashes": [
+        220430088988508160,
+        18446744056425676800,
+        63331869709434880
+      ],
+      "source": "auto-fetched for \"empty road doubt\": https://videos.pexels.com/video-files/36939568/15649062_2160_3840_25fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "empty_road_doubt_auto3.mp4",
+      "description": "A two-story abandoned building with red-painted steel columns and a terracotta tile roof \u2014 partially collapsed and open to the elements \u2014 sits against a steep hillside of dark volcanic rock and sparse green shrubs under a clear, pale blue sky. The structure is surrounded by bare concrete retaining walls, a small palm tree, and an orange-paved roadway in the foreground, with patches of dry scrub vegetation and scattered debris throughout. The camera appears to slowly pull back or pan, revealing more of the surrounding unfinished concrete infrastructure and the rocky hillside behind. The light is bright and harsh midday sun, casting sharp shadows and giving the scene a dry, bleached, desolate quality.",
+      "duration": 39.27,
+      "frame_hashes": [
+        18429574808791339024,
+        18446181130234108184,
+        18446462598860016655
+      ],
+      "source": "auto-fetched for \"empty road doubt\": https://cdn.pixabay.com/video/2022/12/16/143222-781982783_large.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "empty_road_doubt_auto4.mp4",
+      "description": "A deteriorating two-story concrete building with open window frames and red metal support columns sits abandoned in front of a steep rocky hillside covered in dark brown stone and scattered green shrubs. The roof is heavily damaged, with terracotta clay roof tiles scattered and collapsed in disarray across exposed black roofing felt, while a separate pyramidal roof section shows orange lichen growth on its remaining slate tiles. The camera slowly pans upward, moving from the building's open lower level \u2014 which shows orange-tiled flooring and dark interior spaces \u2014 up past the crumbling roofline to reveal layered bands of rust-red and ochre exposed earth cuts into the hillside behind. The lighting is harsh, bright midday sun with clear blue sky, casting strong shadows into the building's open interiors and giving the warm-toned stone and tiles a vivid, saturated appearance.",
+      "duration": 22.36,
+      "frame_hashes": [
+        18428729675200134907,
+        18374932765989666822,
+        18374687022984331456
+      ],
+      "source": "auto-fetched for \"empty road doubt\": https://cdn.pixabay.com/video/2022/12/16/143223-781982785_large.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "person_searching_alone_auto1.mp4",
+      "description": "A young man with black braided locs and a thin goatee, wearing a black cap turned backward and a black long-sleeve shirt, stands near a rocky shoreline with a calm turquoise-green lake and a low hill visible in the background under a pale, hazy sky. In the first two frames he gazes off-camera with a focused, slightly furrowed expression; in the third frame he raises black binoculars to his eyes and peers through them into the distance. The lighting is soft and diffused with no harsh shadows, giving the scene a cool, contemplative tone. The camera stays close on his face and hands, with the water and landscape serving as a blurred, muted backdrop.",
+      "duration": 20.72,
+      "frame_hashes": [
+        18442507599168798720,
+        18442786806385770496,
+        18446182231805263872
+      ],
+      "source": "auto-fetched for \"person searching alone\": https://videos.pexels.com/video-files/9909257/9909257-uhd_2160_4096_25fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "person_searching_alone_auto2.mp4",
+      "description": "A young man dressed entirely in dark clothing \u2014 black jacket, black jeans, and dark boots \u2014 and wearing a black baseball cap stands at the rocky, sandy edge of a calm river or reservoir, looking downward. The opposite bank is lined with dense, mist-softened green trees and a chain-link fence, all visible under a flat, overcast grey sky that gives the scene cool, diffused lighting with no visible shadows. The ground beneath him is rust-orange sandy soil mixed with small rocks, and a green plastic bottle sits near the waterline. Across the three frames, the man shifts slightly from facing sideways to turning his back to the camera, suggesting slow, contemplative movement along the water's edge.",
+      "duration": 48.64,
+      "frame_hashes": [
+        18446742974214176768,
+        18446742974212603904,
+        18446742974212866048
+      ],
+      "source": "auto-fetched for \"person searching alone\": https://videos.pexels.com/video-files/36006294/15268924_2160_3840_25fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "person_searching_alone_auto3.mp4",
+      "description": "A pale cream or golden feather drifts and sways in close-up against a blurred, bright lime-green background that appears to be out-of-focus grass or foliage. The camera captures the delicate, wispy filaments of the feather in sharp detail \u2014 including a small tuft of fine barbs at its tip \u2014 while the rest of the frame remains soft and diffused. The lighting is natural and diffuse, shifting between soft daylight and slightly overcast tones across the frames, giving the clip a gentle, airy quality. The feather appears to be in gentle motion, with the filaments splaying and curling loosely as it moves through the frame.",
+      "duration": 17.12,
+      "frame_hashes": [
+        1099511627775,
+        522416591464762896,
+        18446462598733103103
+      ],
+      "source": "auto-fetched for \"person searching alone\": https://cdn.pixabay.com/video/2020/07/02/43633-436237650_large.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "person_searching_alone_auto4.mp4",
+      "description": "A lone guitarist is shown in dark silhouette in the lower right of the frame, seen from behind and slightly to the side, holding an acoustic guitar with the headstock visible in the bottom left corner. The background is a blurred, bokeh-heavy scene of what appears to be a large indoor venue or arena, with a tall illuminated pillar or column lit in shifting purple and blue, diagonal cable or truss lines running across a pale grey-white backdrop, and a row of stage lights along the bottom that cycle through colors \u2014 green, red, and blue across the three frames \u2014 creating soft glowing orbs. The overall mood is contemplative and atmospheric, with the figure rendered anonymous against the colorful, hazy performance environment. The lighting is dim and warm on the subject, cool and colorful in the background, with gentle visual motion implied by the changing light colors between frames.",
+      "duration": 23.52,
+      "frame_hashes": [
+        17578670843175108608,
+        17578670847436521472,
+        17578670847436521472
+      ],
+      "source": "auto-fetched for \"person searching alone\": https://cdn.pixabay.com/video/2020/08/07/46637-448480646_large.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "crumbling_foundation_auto1.mp4",
+      "description": "A close-up shot of a white plaster or stucco wall featuring a single large, jagged crack that runs vertically and curves at the bottom, spanning the full height of the frame. The crack is deep and dark inside, with edges that are slightly raised and chipped, revealing the wall's thickness. The surface is textured and uneven, painted white with minor scuffs, smudges, and small patches of peeling paint scattered across it. The lighting is flat and even with no strong shadows, giving the scene a stark, static quality, and there appears to be little to no camera motion between frames.",
+      "duration": 29.93,
+      "frame_hashes": [
+        12663910194264654840,
+        10353545999614968769,
+        10344697147390205827
+      ],
+      "source": "auto-fetched for \"crumbling foundation\": https://videos.pexels.com/video-files/7830152/7830152-uhd_2160_3840_30fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "crumbling_foundation_auto2.mp4",
+      "description": "A close-up, slow panning shot of a white-painted brick wall fills the entire vertical frame, revealing the rough, textured surface of each individual brick and the dark mortar lines between them. The bricks are coated in thick white paint that has accumulated unevenly, showing chips, flaking, and weathering at the lower portion of the wall where grey concrete and exposed brick edges are visible. The lighting is flat and diffuse, suggesting overcast natural daylight, casting soft shadows that emphasize the three-dimensional texture of the brick faces. The overall mood is clean but aged, quiet and still, with a muted, almost monochromatic palette of white and light grey.",
+      "duration": 30.0,
+      "frame_hashes": [
+        18229722602375876367,
+        18373837926842633999,
+        18445652424657932095
+      ],
+      "source": "auto-fetched for \"crumbling foundation\": https://videos.pexels.com/video-files/7830055/7830055-uhd_2160_3840_30fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "crumbling_foundation_auto3.mp4",
+      "description": "A large active construction site is filmed from directly overhead via drone, revealing a vast excavated pit of dark earth surrounded by interlocking steel sheet pile retaining walls. The concrete foundation slab dominates the center of the frame, showing rows of pile caps, rebar cages, and column starter bars arranged in a grid pattern, while a red-and-white lattice tower crane branded \"JVS\" sweeps across the site alongside yellow excavators moving through the dark soil below. The lighting is flat and overcast, casting no strong shadows, giving the grey concrete and black earth a cold, industrial tone. The camera slowly pans downward across the site, progressively revealing more of the unfinished excavation zone and heavy machinery working at lower elevations.",
+      "duration": 30.16,
+      "frame_hashes": [
+        71776114749405184,
+        16210988333460930688,
+        6988734469834276864
+      ],
+      "source": "auto-fetched for \"crumbling foundation\": https://cdn.pixabay.com/video/2020/10/19/52886-471089084_large.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "crumbling_foundation_auto4.mp4",
+      "description": "A large urban construction excavation site is shown across three sequential shots, featuring yellow heavy machinery (a New Holland wheel loader, a Komatsu excavator, a Liebherr machine), a small orange-and-white compact excavator, and a green road roller working across a wide, deeply dug pit with dark black soil and retained sheet pile walls along the edges. The third frame reveals a freshly poured concrete foundation slab with a grid of rebar stubs and rectangular form impressions, surrounded by workers in red and yellow hard hats, while a large mound of grey rubble sits behind a sheet pile retaining wall. The lighting is flat and overcast with a pale grey sky, giving the scene a cool, muted tone with no strong shadows. The footage moves between vantage points showing progressive stages of foundation construction \u2014 from raw earthmoving to concrete placement \u2014 set against a backdrop of mid-rise urban buildings and mature trees.",
+      "duration": 31.63,
+      "frame_hashes": [
+        18445331201284636672,
+        18432052399541389057,
+        4548072675838230523
+      ],
+      "source": "auto-fetched for \"crumbling foundation\": https://cdn.pixabay.com/video/2020/10/19/52888-471156118_large.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "distant_horizon_truth_auto1.mp4",
+      "description": "A wide, open body of calm water \u2014 likely a sea or large lake \u2014 fills the lower half of the frame, its dark blue-gray surface showing gentle, low ripples. The upper half is a softly lit sky in muted tones of pale blue, dusty pink, and white, with wispy, layered clouds drifting across it. The horizon line sits roughly in the middle of the frame, nearly invisible where the hazy atmosphere blends sky and water together. Several small seabirds are visible in flight at various distances, skimming low over the water or drifting mid-sky, and the overall light suggests either dawn or dusk \u2014 diffuse, cool, and quiet, with no direct sun visible.",
+      "duration": 8.67,
+      "frame_hashes": [
+        18446744069414584320,
+        18446744069414584320,
+        18446744069548802048
+      ],
+      "source": "auto-fetched for \"distant horizon truth\": https://videos.pexels.com/video-files/12152279/12152279-uhd_2160_3840_30fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "distant_horizon_truth_auto2.mp4",
+      "description": "A handheld telescope or binocular lens is held up to a camera on a boat or ship, revealing a wide, calm ocean stretching to a hazy horizon with distant hills or mountains and one or two small sailboats barely visible far away. The view through the circular eyepiece shows a muted, cool-toned seascape under a pale yellowish-grey overcast sky. The final frame transitions to an extreme close-up of the binocular lens itself, blurred and glowing with warm orange-red tones and a prismatic rainbow arc across the glass, with choppy water and an orange railing visible at the edges. The overall mood is quiet, distant, and searching, with soft diffused light throughout and gentle wave motion on the water's surface.",
+      "duration": 6.9,
+      "frame_hashes": [
+        36028797008485888,
+        36028794888207872,
+        18428923662431207679
+      ],
+      "source": "auto-fetched for \"distant horizon truth\": https://videos.pexels.com/video-files/10433273/10433273-hd_1080_1920_30fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "distant_horizon_truth_auto3.mp4",
+      "description": "A wide, nearly empty sandy beach stretches diagonally from the lower right toward the upper middle of the frame, meeting calm green-gray Atlantic Ocean waves that roll in gently with white foam along the shoreline. The camera appears to be positioned slightly offshore or elevated, looking along the coastline, with the open ocean filling the left half of the frame and a low sandy dune visible at the far right edge. Two or three tiny human figures are barely visible in the far distance on the beach, emphasizing the vast, uncrowded expanse. The lighting is bright midday sun under a pale blue hazy sky with soft clouds on the right horizon, giving the scene a serene, open, and quietly expansive mood with subtle camera drift between frames.",
+      "duration": 36.12,
+      "frame_hashes": [
+        18446743519910887680,
+        18446744069532090368,
+        18446744069532024832
+      ],
+      "source": "auto-fetched for \"distant horizon truth\": https://cdn.pixabay.com/video/2017/12/30/13622-249252876_large.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "quiet_resolve_face_auto1.mp4",
+      "description": "A young woman with long straight dark hair, light eyes, and subtle makeup wearing a black top and a delicate chain necklace is filmed in close-up portrait framing against a near-black background with two blurred white diagonal light shapes (resembling angled beams or panels) visible behind her head. The lighting is dramatic and low-key, with a single soft light source illuminating her face from the front while the rest of the scene falls into deep shadow. During the clip she moves from looking directly into the camera to bowing her head and covering her face with both hands, then lifting her gaze upward, suggesting a sequence of emotional states \u2014 introspection, concealment, and upward longing. The overall mood is quiet, serious, and contemplative, with the contrast between the darkness and the lit face giving the footage a cinematic, intimate quality.",
+      "duration": 69.12,
+      "frame_hashes": [
+        7056915457126694912,
+        560408416727597056,
+        1067054302423416832
+      ],
+      "source": "auto-fetched for \"quiet resolve face\": https://videos.pexels.com/video-files/35088455/14864468_1080_1920_25fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "quiet_resolve_face_auto2.mp4",
+      "description": "A tight close-up of a Black person's face shown in profile and near-profile against a pure black background, with warm amber-golden side lighting raking dramatically across the skin and revealing fine pore texture in exceptional detail. The camera slowly pans or zooms across different sections of the face \u2014 forehead, eye, cheek, nose, and lips \u2014 lingering on each feature in extreme macro detail. The eye is partially open, catching a small bright specular highlight, and the skin has a slight luminous sheen suggesting sweat or gloss. The overall mood is still, introspective, and quietly intense, with deep shadow contrasting against the warmly lit contours of the face.",
+      "duration": 16.13,
+      "frame_hashes": [
+        8086279120574281464,
+        2018858366699977788,
+        9006344077297073180
+      ],
+      "source": "auto-fetched for \"quiet resolve face\": https://videos.pexels.com/video-files/7299419/7299419-uhd_2160_3840_30fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "quiet_resolve_face_auto3.mp4",
+      "description": "A close-up, vertically framed shot looking directly into the center of a large sculptural installation made of angular, mirror-polished black and dark steel panels arranged in a radial, pinwheel-like pattern. The faceted triangular and diamond-shaped panels spiral inward toward a densely fractured, crystalline core, creating a tunnel-like sense of infinite depth. Lighting is cool and diffuse, with pale blue-gray reflections bouncing across the glossy surfaces against deep black shadows, giving the overall palette a stark, high-contrast monochromatic quality. Across the frames, the structure appears to slowly rotate or the camera slowly circles it, causing the reflected light to shift and the spiral pattern to subtly animate.",
+      "duration": 15.0,
+      "frame_hashes": [
+        17895132816884155331,
+        1084254805305466687,
+        17307653357667026372
+      ],
+      "source": "auto-fetched for \"quiet resolve face\": https://cdn.pixabay.com/video/2023/02/25/152080-802335484_large.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "quiet_resolve_face_auto4.mp4",
+      "description": "A dark tunnel or vortex composed of interlocking geometric framework \u2014 thin metallic struts and rounded rectangular panels \u2014 spirals inward toward a glowing vanishing point at the center of the frame, with warm golden-amber light reflecting off the curved surfaces against a deep black background. Small bright white pinpoint lights are clustered at the receding center, like distant stars or sparks. The camera appears to move forward through the structure, creating a sense of being pulled or traveling through an infinite, repeating corridor. The overall palette is dark bronze, gold, and near-black, with a mood that is mysterious, expansive, and quietly dramatic.",
+      "duration": 40.0,
+      "frame_hashes": [
+        4665976616973776956,
+        2387332097296305158,
+        4509148761718381
+      ],
+      "source": "auto-fetched for \"quiet resolve face\": https://cdn.pixabay.com/video/2023/02/25/152081-802335490_large.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "grave_tombstone_beyond_auto1.mp4",
+      "description": "A weathered granite cross gravestone sits atop a flat stone tomb slab dusted with small patches of green moss and scattered dead leaves, filmed from a low angle in close-up with shallow depth of field. The camera slowly pulls back or tilts upward across the three frames, gradually revealing more of the cross and the surrounding cemetery \u2014 ornate wrought-iron fencing and additional dark stone monuments are visible but softly blurred in the background. Tall dark tree trunks frame the scene, with a pale overcast sky filtering through a canopy of green foliage, casting cool, diffused grey-green light across everything. The overall mood is quiet and somber, with muted tones of grey stone, dark iron, and muted greens.",
+      "duration": 4.52,
+      "frame_hashes": [
+        17941377829425971103,
+        17941377829425971135,
+        16779449125564383135
+      ],
+      "source": "auto-fetched for \"grave tombstone beyond\": https://videos.pexels.com/video-files/10499738/10499738-uhd_2160_4096_25fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "grave_tombstone_beyond_auto2.mp4",
+      "description": "A young woman with voluminous curly blonde-brown hair, dressed in a dark gray textured short-sleeve blouse and black pants, stands in a sunlit outdoor cemetery among gray stone grave markers, holding white papers and later a single red rose. The camera is positioned close and slightly behind/beside a gravestone, giving a partially obscured, intimate framing as she looks downward at the papers and then kneels beside a headstone. The mood is quiet and contemplative, with bright midday sunlight filtering through trees casting dappled shadows across the grass and stones. She moves slowly \u2014 standing and reading, then crouching down \u2014 suggesting a private, reflective visit to the grave.",
+      "duration": 25.16,
+      "frame_hashes": [
+        778390094872045,
+        55161364638395628,
+        18178779925793142279
+      ],
+      "source": "auto-fetched for \"grave tombstone beyond\": https://videos.pexels.com/video-files/6841017/6841017-hd_1080_1920_30fps.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
+    },
+    {
+      "filename": "grave_tombstone_beyond_auto3.mp4",
+      "description": "A foggy winter cemetery filmed at ground level, panning slowly across frost-covered moss and weathered dark granite and concrete headstones of varying heights, with dormant reddish-brown shrubs clustered around the grave borders. Snow or sleet is lightly falling in the first frame, dusting the stones and vegetation with white specks. The light is flat, diffuse, and cold grey-white, filtered through dense morning fog that obscures bare-branched deciduous trees and an evergreen hedge in the background. The overall palette is muted \u2014 grey stone, pale green frost-bleached grass, dark brown dead foliage \u2014 with no visible sunlight or warmth.",
+      "duration": 35.74,
+      "frame_hashes": [
+        18446673708186599424,
+        18446603336237711360,
+        18446462598749400576
+      ],
+      "source": "auto-fetched for \"grave tombstone beyond\": https://cdn.pixabay.com/video/2021/03/05/67045-521238899_large.mp4",
+      "license": "unverified - confirm before scaling/monetizing",
+      "added": "2026-09-01",
+      "use_count": 0,
+      "last_used": null
     }
   ]
 }
