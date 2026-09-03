@@ -134,12 +134,22 @@ DEFAULT_END_SCREEN = {
 }
 
 # Lifecycle/organization for the web GUI's home page — purely a display
-# grouping, nothing in the pipeline itself reads this. "setup" is the
-# default for every new channel (including ones created as a placeholder
-# for a "future" idea — there's no separate lightweight creation path,
-# you just create it normally and move it once it's ready). Valid values:
-# "live", "setup", "future", "archived".
-DEFAULT_STATUS = "setup"
+# concern, nothing in the pipeline itself reads this. Only "archived" is
+# actually stored/manual; live/setup/future are COMPUTED at display time
+# from real state (launch checklist completeness + whether a video's
+# actually been published — see webapp/app.py's _section_for) rather than
+# hand-set, since those should just follow from what's true, not be
+# something you separately remember to flip.
+DEFAULT_ARCHIVED = False
+
+# Launch-checklist items you can manually mark done without actually
+# completing them — e.g. Patreon's signup flow being annoying enough that
+# you'd rather note "not doing this one" and move on. A list of item ids
+# (see webapp/app.py's _build_checklist for the id set); an item in this
+# list counts as done for section/progress purposes but renders with a
+# neutral "-" instead of a checkmark, so it stays visibly different from
+# something actually completed.
+DEFAULT_MANUAL_CHECKLIST_OVERRIDES = []
 
 CHANNELS_JSON_PATH = Path(__file__).parent / "channels.json"
 
@@ -155,9 +165,11 @@ def _merge_end_screen(override: dict = None) -> dict:
 
 
 def _channel(pacing=None, style=None, avoid_imagery=None, speed=None,
-             monetization=None, end_screen=None, socials=None, status=None, **fields):
+             monetization=None, end_screen=None, socials=None, archived=None,
+             manual_checklist_overrides=None, **fields):
     """Merges per-channel pacing/style/avoid_imagery/speed/monetization/
-    end_screen/socials/status overrides onto the shared defaults."""
+    end_screen/socials/archived/manual_checklist_overrides overrides onto
+    the shared defaults."""
     merged_style = {**DEFAULT_STYLE, **(style or {})}
     # channels.json can only store lists, but PIL wants a tuple for a
     # color — round-trips fine as long as this is fixed on the way back in.
@@ -170,7 +182,8 @@ def _channel(pacing=None, style=None, avoid_imagery=None, speed=None,
     fields["monetization"] = {**DEFAULT_MONETIZATION, **(monetization or {})}
     fields["end_screen"] = _merge_end_screen(end_screen)
     fields["socials"] = {**DEFAULT_SOCIALS, **(socials or {})}
-    fields["status"] = status or DEFAULT_STATUS
+    fields["archived"] = DEFAULT_ARCHIVED if archived is None else bool(archived)
+    fields["manual_checklist_overrides"] = list(manual_checklist_overrides or DEFAULT_MANUAL_CHECKLIST_OVERRIDES)
     return fields
 
 

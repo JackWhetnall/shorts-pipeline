@@ -45,6 +45,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from llm_json import call_for_json
+import job_context
 
 ROOT = Path(__file__).parent
 LIBRARY_DIR = ROOT / "footage" / "library"
@@ -66,7 +67,16 @@ RECENT_WINDOW_HOURS = 48  # clips used within this window get flagged in the pro
 # theme alone). Forcing an explicit numeric self-rating and filtering on it
 # in code is a real mechanism, not just stronger wording in the prompt —
 # the model still has to commit to a score it can't quietly fudge past.
-MATCH_CONFIDENCE_THRESHOLD = 7
+# Originally 7, then 6 - real runs kept coming back with almost nothing
+# matched (near-constant auto-fetch/fallback even for segments the
+# library plainly had reasonable footage for), so lowered again to 5.
+# Still a real bar, not "anything goes": _build_prompt's rubric below
+# defines 5 as a genuine, if generous, pass ("real connection to the
+# subject, not just a shared vibe") and keeps 1-4 as an explicit MISS -
+# the threshold and the rubric band it lands on are edited together on
+# purpose, so the model is never scoring against a different bar than the
+# code actually enforces.
+MATCH_CONFIDENCE_THRESHOLD = 5
 
 MATCH_SYSTEM_PROMPT = "You match short video segments to stock footage clips by visual and thematic meaning."
 
@@ -140,12 +150,21 @@ mood):
 - 9-10: an unmistakable, direct depiction of the segment's actual subject.
 - 7-8: a clear, specific depiction of the same concept, differing only in
   incidental detail (setting, framing, who's in it).
-- 5-6: the same general theme or mood, but not the specific subject — e.g.
-  a generic crowd shot for a segment specifically about doubt or
-  introspection, or open ocean for a segment specifically about calm
-  rather than the ocean itself. This band is a MISS, not a soft yes —
-  rate it honestly even though it's tempting to call it close enough.
-- 1-4: unrelated, or related only by a vague shared vibe.
+- 6: still a real depiction of the specific subject, not just its theme —
+  but weaker or more incidental than 7-8 (e.g. the subject is present but
+  not the focus of the shot). A genuine pass, just not a generous one.
+- 5: a real, honest connection to the specific subject (not just the same
+  mood) but indirect or partial — e.g. footage of rain for a segment
+  about a storm, or a single candle for a segment about warmth in
+  general. Generous, but still a real link to what the segment is
+  actually about, not merely the same vibe. Use this band rather than
+  inventing a 6+ score you don't believe.
+- 1-4: the same general theme or mood ONLY, with no real connection to
+  the specific subject — e.g. a generic crowd shot for a segment
+  specifically about doubt or introspection, or open ocean for a segment
+  specifically about calm rather than the ocean itself. This band is a
+  MISS, not a soft yes — rate it honestly even though it's tempting to
+  call it close enough.
 Match on meaning, not literal word overlap — e.g. a clip described as
 "golden sunlight through a window" can legitimately score 9 for a segment
 about "sunshine" or "dawn" even though those exact words don't appear in
@@ -215,6 +234,27 @@ FETCH_PER_SITE_PER_QUERY = 2
 # can't loop forever.
 MAX_FETCH_ATTEMPTS = 3
 
+# How many clips download+normalize at once. This is network-I/O-bound
+# (waiting on Pexels'/Pixabay's servers, not this machine's CPU), so a
+# wide pool is fine and is what actually fixes "downloads look batched" -
+# the earlier default (parallel_map's generic max_workers=8, sized for
+# CPU-adjacent work) meant any round with more than 8 candidates visibly
+# finished in groups of 8 rather than one continuous stream. This is
+# still a real cap, not "everything at once" — Pexels/Pixabay are free-
+# tier APIs, and a genuinely unbounded burst risks tripping their own
+# rate limiting, which would look like failures, not speed.
+FETCH_MAX_WORKERS = 16
+
+# Hard cap on how many clips one fetch round downloads at once, regardless
+# of how many segments are short or how many queries that produces -
+# without this, combining every shortfalled segment's queries into one
+# round (see the "batching" fix above pick_clips_for_shots) could balloon
+# into dozens of simultaneous downloads for a video with several weak
+# segments. A capped round that sometimes needs a second round (the
+# fetch-and-recheck loop already supports that, up to MAX_FETCH_ATTEMPTS)
+# is a much better experience than one enormous round.
+MAX_CANDIDATES_PER_ROUND = 12
+
 
 def _auto_fetch_and_add(queries, min_count: int = 1) -> list:
     """Downloads stock-footage matches for EACH of `queries` (a list of
@@ -234,8 +274,15 @@ def _auto_fetch_and_add(queries, min_count: int = 1) -> list:
     NORMALIZED_DIR.mkdir(parents=True, exist_ok=True)
     OLD_DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
-    added = []
-    seen_paths = set()
+    # Search is quick metadata; download+normalize (network transfer + an
+    # ffmpeg subprocess per clip) is the actually-slow, fully independent
+    # part, so gather every candidate across all queries first, then fetch
+    # them all concurrently. add_normalized_clip (perceptual-duplicate
+    # check + Claude vision describe + manifest write) stays sequential
+    # afterward - it reads and mutates the SHARED manifest, so two threads
+    # racing there could each miss the other's just-added entry and create
+    # duplicate clips from the same batch.
+    by_query = {}  # query -> [(url, dest_name), ...]
     for query in queries:
         urls = []
         if os.environ.get("PEXELS_API_KEY"):
@@ -255,29 +302,90 @@ def _auto_fetch_and_add(queries, min_count: int = 1) -> list:
         seen_urls = set()
         urls = [u for u in urls if not (u in seen_urls or seen_urls.add(u))]
         slug = re.sub(r"[^a-z0-9]+", "_", query.lower()).strip("_") or "clip"
+        by_query[query] = [(url, f"{slug}_auto{idx}.mp4") for idx, url in enumerate(urls, 1)]
 
-        for idx, url in enumerate(urls, 1):
-            dest_name = f"{slug}_auto{idx}.mp4"
-            raw_path = OLD_DOWNLOADS_DIR / dest_name
-            try:
-                _download(url, raw_path)
-                normalized_path = NORMALIZED_DIR / dest_name
-                _normalize(raw_path, normalized_path)
-                # add_normalized_clip does its own perceptual-duplicate check
-                # (footage/manage_library.py) before spending an API call — if
-                # this download turns out to match a clip already in the
-                # library (including one added earlier in this same batch,
-                # e.g. two different queries or both Pexels and Pixabay
-                # returning the same underlying stock clip), it returns that
-                # EXISTING entry instead of a new one.
-                entry = add_normalized_clip(normalized_path, dest_name=dest_name,
-                                             source=f"auto-fetched for \"{query}\": {url}")
-                path = LIBRARY_DIR / entry["filename"]
-                if path not in seen_paths:
-                    seen_paths.add(path)
-                    added.append(path)
-            except Exception as e:
-                print(f"  [footage] auto-fetch failed for one clip (\"{query}\"): {e}")
+    # Combining every shortfalled segment's queries into one round (the
+    # earlier "batching" fix) means a video with several segments short on
+    # footage can generate a LOT of queries at once - unchecked, that's
+    # what produced a real run with 36 simultaneous downloads queued, way
+    # more than anyone can usefully watch progress on or than is a
+    # reasonable amount of work for one round. Capped here, round-robin
+    # across queries (one from each query, then a second pass, etc.) so
+    # the cap doesn't just favor whichever segment's queries happened to
+    # be built first - every shortfalled segment gets a fair shot within
+    # the round even when the total had to be trimmed.
+    candidates = []  # (query, url, dest_name)
+    query_order = list(by_query.keys())
+    round_idx = 0
+    while len(candidates) < MAX_CANDIDATES_PER_ROUND and any(by_query.values()):
+        added_this_pass = False
+        for query in query_order:
+            if len(candidates) >= MAX_CANDIDATES_PER_ROUND:
+                break
+            bucket = by_query[query]
+            if round_idx < len(bucket):
+                url, dest_name = bucket[round_idx]
+                candidates.append((query, url, dest_name))
+                added_this_pass = True
+        if not added_this_pass:
+            break
+        round_idx += 1
+
+    # Each round replaces the detail panel's clip tower rather than
+    # appending to it - a previous round's rows are no longer live once a
+    # new round starts. Each clip moves through ordered "step" values
+    # (see FOOTAGE_STEPS below) - a single field rather than two
+    # coarse booleans, so the frontend can render an actual multi-segment
+    # progress bar per clip instead of two flashing dots that look
+    # identical whether a step is active or already done.
+    job_context.report_detail("footage", None, {"items": [], "total_candidates": len(candidates)})
+    for item_index, (query, url, dest_name) in enumerate(candidates):
+        job_context.report_detail("footage", item_index, {
+            "query": query, "filename": dest_name, "step": "queued",
+        })
+
+    def _fetch_one(indexed):
+        item_index, (query, url, dest_name) = indexed
+        raw_path = OLD_DOWNLOADS_DIR / dest_name
+        normalized_path = NORMALIZED_DIR / dest_name
+        job_context.report_detail("footage", item_index, {"step": "downloading"})
+        try:
+            print(f"  [footage] downloading \"{dest_name}\" for \"{query}\"...")
+            _download(url, raw_path)
+            job_context.report_detail("footage", item_index, {"step": "normalizing"})
+            _normalize(raw_path, normalized_path)
+            return item_index, query, url, dest_name, normalized_path, None
+        except Exception as e:
+            job_context.report_detail("footage", item_index, {"step": "failed"})
+            return item_index, query, url, dest_name, None, e
+
+    fetched = job_context.parallel_map(_fetch_one, list(enumerate(candidates)), max_workers=FETCH_MAX_WORKERS)
+
+    added = []
+    seen_paths = set()
+    for item_index, query, url, dest_name, normalized_path, error in fetched:
+        if error is not None:
+            print(f"  [footage] auto-fetch failed for one clip (\"{query}\"): {error}")
+            continue
+        job_context.report_detail("footage", item_index, {"step": "analyzing"})
+        try:
+            # add_normalized_clip does its own perceptual-duplicate check
+            # (footage/manage_library.py) before spending an API call — if
+            # this download turns out to match a clip already in the
+            # library (including one added earlier in this same batch,
+            # e.g. two different queries or both Pexels and Pixabay
+            # returning the same underlying stock clip), it returns that
+            # EXISTING entry instead of a new one.
+            entry = add_normalized_clip(normalized_path, dest_name=dest_name,
+                                         source=f"auto-fetched for \"{query}\": {url}")
+            job_context.report_detail("footage", item_index, {"step": "done"})
+            path = LIBRARY_DIR / entry["filename"]
+            if path not in seen_paths:
+                seen_paths.add(path)
+                added.append(path)
+        except Exception as e:
+            job_context.report_detail("footage", item_index, {"step": "failed"})
+            print(f"  [footage] auto-fetch failed for one clip (\"{query}\"): {e}")
 
     return added
 
@@ -312,6 +420,28 @@ def pick_clips_for_shots(segment_timings: list, shot_counts: list, avoid_imagery
     avoid_imagery = avoid_imagery or []
     fetch_attempt = 0
     tried_queries_by_segment = {}
+    job_context.report_detail("footage", None, {"total_shots": sum(shot_counts)})
+
+    # This is the single most expensive part of a video to redo after an
+    # interruption (a Claude matching call per round, plus real fetches) -
+    # a retry (see webapp/jobs.py's retry_job) reuses this exact pick if
+    # the checkpoint is for the SAME shot_counts (a different script would
+    # need different shots, so a stale checkpoint from a differently-
+    # shaped script must never be reused blindly).
+    cached = job_context.load_json_checkpoint("footage_picks")
+    if cached and cached.get("shot_counts") == shot_counts:
+        cached_picks = cached["picks"]
+        manifest_now = {c["filename"] for c in _load_manifest()["clips"]}
+        if all(f in manifest_now for group in cached_picks for f in group):
+            print("  [footage] reusing previously matched footage (resumed from checkpoint)...")
+            return [[LIBRARY_DIR / f for f in group] for group in cached_picks]
+
+    def _finalize(result: list) -> list:
+        try:
+            job_context.save_json_checkpoint("footage_picks", {"shot_counts": shot_counts, "picks": result})
+        except Exception:
+            pass  # checkpointing is best-effort, never block a real result on it
+        return [[LIBRARY_DIR / f for f in fnames] for fnames in result]
 
     while True:
         manifest = _load_manifest()
@@ -362,31 +492,46 @@ def pick_clips_for_shots(segment_timings: list, shot_counts: list, avoid_imagery
                 shortfalls.append((i, deficit, queries))
 
         if not shortfalls:
-            return [[LIBRARY_DIR / f for f in fnames] for fnames in result]
+            return _finalize(result)
 
         if auto_fetch_available and fetch_attempt < MAX_FETCH_ATTEMPTS:
             fetch_attempt += 1
+            job_context.report_detail("footage", None, {"round": fetch_attempt, "total_rounds": MAX_FETCH_ATTEMPTS})
+            # Every shortfalled segment's queries are fetched in ONE
+            # combined call, not one call per segment — a separate call
+            # per segment meant a separate sequential search-then-download
+            # round-trip for EACH segment, which is what actually looked
+            # like "batching" from outside even though downloads within
+            # any one call were already parallel. Segment-level detail
+            # doesn't need to survive into the fetch itself: the search
+            # queries carry everything the fetch needs to know, and the
+            # NEXT matching call re-scores the whole (now bigger) library
+            # against every segment fresh, so it doesn't matter which
+            # segment's shortfall originally requested which query.
+            all_queries = []
             for i, deficit, queries in shortfalls:
                 segment = segment_timings[i]
                 query_desc = ", ".join(f'"{q}"' for q in queries)
                 print(f"\n  [footage] segment #{i} (\"{segment['text'][:40]}...\") needs {deficit} more "
-                      f"distinct clip(s) - fetching stock footage for {query_desc} "
+                      f"distinct clip(s) - queuing fetch for {query_desc} "
                       f"(attempt {fetch_attempt}/{MAX_FETCH_ATTEMPTS}) ...")
-                fetched = _auto_fetch_and_add(queries, min_count=deficit)
+                all_queries.extend(queries)
                 tried_queries_by_segment.setdefault(i, set()).update(q.lower() for q in queries)
-                # The search queries are steered away from avoid_imagery in
-                # the prompt, but that's not a guarantee — check each
-                # fetched clip's real (just-generated) description before
-                # it's even eligible to be picked. A violating clip stays in
-                # the shared library either way, just unused here.
-                fresh_by_name = {c["filename"]: c for c in _load_manifest()["clips"]}
-                violating = [p for p in fetched
-                             if _clip_violates_avoid_list(fresh_by_name.get(p.name, {"filename": p.name}), avoid_imagery)]
-                if violating:
-                    print(f"  [footage] {len(violating)} fetched clip(s) matched this channel's "
-                          f"avoid list - added to the shared library but skipped for this segment.")
-                if not fetched:
-                    print(f"  [footage] no usable results this attempt for segment #{i}.")
+            total_deficit = sum(deficit for _, deficit, _ in shortfalls)
+            fetched = _auto_fetch_and_add(all_queries, min_count=total_deficit)
+            # The search queries are steered away from avoid_imagery in
+            # the prompt, but that's not a guarantee — check each
+            # fetched clip's real (just-generated) description before
+            # it's even eligible to be picked. A violating clip stays in
+            # the shared library either way, just unused here.
+            fresh_by_name = {c["filename"]: c for c in _load_manifest()["clips"]}
+            violating = [p for p in fetched
+                         if _clip_violates_avoid_list(fresh_by_name.get(p.name, {"filename": p.name}), avoid_imagery)]
+            if violating:
+                print(f"  [footage] {len(violating)} fetched clip(s) matched this channel's "
+                      f"avoid list - added to the shared library but skipped this round.")
+            if not fetched:
+                print("  [footage] no usable results this attempt.")
             print(f"  [footage] rechecking relevance of the updated library "
                   f"(attempt {fetch_attempt}/{MAX_FETCH_ATTEMPTS}) ...")
             # Loop back to the full matching call instead of trusting the
@@ -409,7 +554,7 @@ def pick_clips_for_shots(segment_timings: list, shot_counts: list, avoid_imagery
                     fallback = _pick_fallback(clips, used)
                     result[i].append(fallback)
                     used.add(fallback)
-            return [[LIBRARY_DIR / f for f in fnames] for fnames in result]
+            return _finalize(result)
 
         summary = ", ".join(f"#{i} (needs {n} more)" for i, n, _ in shortfalls)
         print(f"\n  [footage] not enough distinct matches for segment(s): {summary}")
@@ -423,7 +568,7 @@ def pick_clips_for_shots(segment_timings: list, shot_counts: list, avoid_imagery
                     fallback = _pick_fallback(clips, used)
                     result[i].append(fallback)
                     used.add(fallback)
-            return [[LIBRARY_DIR / f for f in fnames] for fnames in result]
+            return _finalize(result)
 
         answer = input("  Pause here to add footage now? [y/N] ").strip().lower()
         if answer in ("y", "yes"):
@@ -435,7 +580,7 @@ def pick_clips_for_shots(segment_timings: list, shot_counts: list, avoid_imagery
                 fallback = _pick_fallback(clips, used)
                 result[i].append(fallback)
                 used.add(fallback)
-        return [[LIBRARY_DIR / f for f in fnames] for fnames in result]
+        return _finalize(result)
 
 
 def mark_used(clip_path):

@@ -17,6 +17,8 @@
   --accent-contrast: #14151c;
   --danger: #ff5c72;
   --danger-bg: #2a1620;
+  --success: #3ddc97;
+  --success-bg: #14261f;
 
   --radius-sm: 6px;
   --radius: 12px;
@@ -144,9 +146,17 @@ p.subtitle { color: var(--text-dim); max-width: 640px; }
   border-color: var(--border-light);
   box-shadow: var(--shadow);
 }
-.channel-card h2 { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-1); }
-.channel-card h2 a { color: var(--text); text-decoration: none; }
-.channel-card h2 a:hover { color: var(--accent); text-decoration: none; }
+/* The whole card is clickable (a "stretched link": .card-link-overlay is
+   an absolutely-positioned <a> covering the whole card, as a SIBLING of
+   the visible content, not a wrapper around it) - a real element (the
+   Generate button, a progress bar) can still sit on top of it and stay
+   independently clickable via its own z-index, which a single wrapping
+   <a> around everything couldn't support (nested interactive content is
+   invalid HTML, and a click on the button would also fire the link). */
+.channel-card { position: relative; }
+.card-link-overlay { position: absolute; inset: 0; z-index: 0; }
+.channel-card:hover h2 { color: var(--accent); }
+.channel-card h2 { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-1); transition: color 0.15s ease; }
 .channel-card .icon-badge { color: var(--accent); flex-shrink: 0; }
 .channel-logo-link { display: block; }
 .channel-logo, .channel-logo-placeholder {
@@ -567,9 +577,26 @@ video { max-width: 100%; width: 100%; border-radius: var(--radius-sm); backgroun
 }
 .todo-item.done .todo-check { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
 .todo-item.done .todo-check::after { content: "✓"; }
+/* Manually marked done (see channel_dashboard.html's "Mark done") gets a
+   neutral dash, not the accent checkmark - stays visibly different from
+   something actually completed. Same specificity as .done above, so this
+   only wins by appearing later in the stylesheet - keep it after. */
+.todo-item.manual .todo-check { background: var(--surface-2); border-color: var(--border-light); color: var(--text-dim); }
+.todo-item.manual .todo-check::after { content: "\2212"; }
 .todo-item:not(.done) .todo-label { color: var(--text-dim); }
 .todo-item.done .todo-label { color: var(--text); }
-.todo-item .todo-action { margin-left: auto; }
+.todo-item .todo-actions { margin-left: auto; display: flex; align-items: center; gap: var(--sp-3); }
+.todo-item .todo-action {
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.todo-item .todo-action:hover { text-decoration: underline; }
 
 .links-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-3); }
 .links-row-label { margin-top: var(--sp-4); }
@@ -657,7 +684,6 @@ details[open] > .summary-heading::before { transform: rotate(90deg); }
 .channel-section { margin-bottom: var(--sp-5); }
 .channel-section .channel-grid { margin-top: var(--sp-3); }
 
-.channel-card { position: relative; }
 .drag-handle {
   position: absolute;
   top: var(--sp-2);
@@ -677,30 +703,263 @@ details[open] > .summary-heading::before { transform: rotate(90deg); }
 #channel-sections.reorder-active .channel-card { cursor: grab; }
 #channel-sections.reorder-active .channel-card.dragging { opacity: 0.4; cursor: grabbing; }
 
-.status-move-form { margin-top: var(--sp-3); }
-.status-move-label {
+/* Generate button / progress bar - both need to sit ABOVE the card's
+   stretched-link overlay (z-index 0) to stay independently clickable /
+   visible, rather than just triggering navigation to the dashboard. */
+.card-action { position: relative; z-index: 1; margin-top: var(--sp-3); width: 100%; justify-content: center; }
+.job-progress-bar { position: relative; z-index: 1; margin-top: var(--sp-3); }
+.job-progress-bar-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  overflow: hidden;
+}
+.job-progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.job-progress-bar-fill.indeterminate {
+  width: 40% !important;
+  animation: job-progress-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes job-progress-indeterminate {
+  0% { margin-left: -40%; }
+  100% { margin-left: 100%; }
+}
+.job-progress-label { margin-top: var(--sp-1); margin-bottom: 0; }
+
+/* --- Generation stage tracker (create-video page) --- */
+.stage-tracker {
+  display: flex;
+  align-items: flex-start;
+  margin: var(--sp-5) 0 var(--sp-4);
+}
+.stage-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 0 1 120px;
+  text-align: center;
+}
+.stage-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  color: var(--text-dim);
+  flex-shrink: 0;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.stage-item.active .stage-icon {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  animation: stage-pulse-ring 1.6s ease-out infinite;
+}
+.stage-item.done .stage-icon {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+@keyframes stage-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 212, 0, 0.55); }
+  100% { box-shadow: 0 0 0 12px rgba(255, 212, 0, 0); }
+}
+.stage-icon-done { display: none; }
+.stage-item.done .stage-icon-default { display: none; }
+.stage-item.done .stage-icon-done { display: block; }
+.stage-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.stage-item.active .stage-label, .stage-item.done .stage-label { color: var(--text); }
+.stage-line {
+  flex: 1 1 auto;
+  height: 2px;
+  background: var(--border-light);
+  margin-top: 23px;
+  transition: background 0.3s ease;
+}
+.stage-line.done { background: var(--accent); }
+.stage-item .job-progress-bar { width: 100%; margin-top: var(--sp-2); }
+#job-log-details { margin-top: var(--sp-5); }
+#job-log-details #job-log { margin-top: var(--sp-2); }
+#job-heading { margin-bottom: var(--sp-1); }
+#job-queue-note { margin-bottom: var(--sp-3); }
+#job-banner { margin-bottom: var(--sp-4); }
+#job-banner-message { margin: 0; }
+#job-retry-btn { margin-top: var(--sp-3); }
+
+/* --- Granular progress "Details" box (between the stage tracker and the
+   raw log) - a per-segment voiceover list, and a per-clip footage
+   "tower" where each row is a real multi-step progress bar (queued ->
+   downloading -> normalizing -> analyzing -> done), not same-colored
+   dots that looked identical whether a step was active or finished.
+   More useful than the 5-card tracker alone, far less noisy than the raw
+   text log. --- */
+#job-detail-details { margin-top: var(--sp-5); }
+#job-detail-details #job-detail-content { margin-top: var(--sp-3); }
+.detail-block { margin-bottom: var(--sp-4); }
+.detail-block:last-child { margin-bottom: 0; }
+.detail-block-title { font-weight: 700; font-size: 0.9rem; margin-bottom: var(--sp-2); }
+.detail-list { list-style: none; margin: 0; padding: 0; }
+.detail-list-item {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  font-size: 0.8rem;
+  padding: var(--sp-1) 0;
+  font-size: 0.85rem;
   color: var(--text-dim);
-  font-weight: 600;
 }
-.status-move-label select {
-  flex: 1;
-  padding: 0.3rem 0.5rem;
-  font-size: 0.82rem;
-  font-family: inherit;
-  color: var(--text);
+.detail-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+}
+.detail-dot-active { background: var(--accent); border-color: var(--accent); animation: stage-pulse-ring 1.6s ease-out infinite; }
+.detail-dot-done { background: var(--success); border-color: var(--success); }
+.detail-dot-error { background: var(--danger); border-color: var(--danger); }
+
+/* Sized generously (up to MAX_CANDIDATES_PER_ROUND = 12 real rows, each
+   now two lines tall) so a full round is comfortably visible without
+   feeling cramped - a fixed height with its own scroll is still needed
+   since 12 rows won't always fit the viewport, but this is well past
+   the old 260px that made even a modest round feel squeezed. */
+.detail-tower {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: var(--sp-1);
+}
+.detail-tower-item {
   background: var(--surface-2);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 0.82rem;
 }
+.detail-tower-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-1);
+}
+.detail-tower-label {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.detail-tower-step-text { color: var(--text-dim); font-size: 0.75rem; flex-shrink: 0; }
+.detail-tower-step-text.done { color: var(--success); font-weight: 600; }
+.detail-tower-step-text.failed { color: var(--danger); font-weight: 600; }
+.detail-tower-bar-track { height: 5px; }
+.job-progress-bar-fill.done { background: var(--success); }
+.job-progress-bar-fill.failed { background: var(--danger); }
 
-.go-live-banner { margin-top: var(--sp-5); border-color: var(--accent); }
-.go-live-banner form { margin-top: var(--sp-3); }
+.job-progress-bar-queued .job-progress-bar-fill { background: var(--border-light); }
 
-/* --- Gallery: publish tracking --- */
+.ready-to-publish { margin-top: var(--sp-5); }
+.info-banner { margin-bottom: var(--sp-4); }
+.info-banner code { font-family: var(--font-mono); font-size: 0.85em; }
+
+/* --- Danger zone (settings page) --- */
+.danger-zone { margin-top: var(--sp-5); border-color: rgba(255, 92, 114, 0.3); }
+.danger-zone form { margin: var(--sp-3) 0; }
+.danger-zone-delete-note { margin-top: var(--sp-4); }
+.btn-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: rgba(255, 92, 114, 0.4);
+}
+.btn-danger:hover:not(:disabled) { background: rgba(255, 92, 114, 0.18); }
+
+/* --- Gallery: thumbnail cards --- */
 .gallery-section-spaced { margin-top: var(--sp-5); }
-.gallery-publish-btn { display: inline-flex; margin-top: var(--sp-3); }
-.gallery-item .tile-row { margin-top: var(--sp-3); }
+.gallery-section-header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.gallery-item { display: block; position: relative; text-decoration: none; }
+.gallery-item:hover { text-decoration: none; }
+.gallery-thumb {
+  display: block;
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  margin-bottom: var(--sp-3);
+}
+.gallery-item-title { font-weight: 700; color: var(--text); margin: 0 0 var(--sp-1); text-transform: capitalize; }
+.gallery-item-discarded { opacity: 0.6; }
+.gallery-item-discarded:hover { opacity: 1; }
+
+/* --- Gallery: multi-select discard (off by default, same "Reorder"-style
+   toggle-button interaction as the home page) --- */
+#gallery-select-toggle-btn.active { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+#discard-actions { margin: var(--sp-3) 0; }
+.gallery-select-check {
+  display: none;
+  position: absolute;
+  top: var(--sp-2);
+  left: var(--sp-2);
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: var(--surface-2);
+  z-index: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-contrast);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+#unpublished-grid.select-active .gallery-select-check { display: flex; }
+#unpublished-grid.select-active .gallery-item.selected { border-color: var(--accent); }
+#unpublished-grid.select-active .gallery-item.selected .gallery-select-check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+#unpublished-grid.select-active .gallery-item.selected .gallery-select-check::after { content: "✓"; }
+
+/* --- Video detail page --- */
+.video-detail-layout { display: flex; gap: var(--sp-5); align-items: flex-start; }
+.video-detail-info { flex: 1; min-width: 0; }
+.video-detail-info .tile-row { margin: var(--sp-3) 0; }
+.video-detail-info .card { margin-top: var(--sp-4); }
+.discarded-banner { border-color: var(--border-light); }
+.discarded-banner form { margin-top: var(--sp-3); }
+.video-detail-player {
+  flex-shrink: 0;
+  width: min(320px, 40vw);
+  position: sticky;
+  top: var(--sp-5);
+}
+.video-detail-player video {
+  width: 100%;
+  max-height: 80vh;
+  display: block;
+  border-radius: var(--radius);
+  background: #000;
+}
+@media (max-width: 800px) {
+  .video-detail-layout { flex-direction: column-reverse; }
+  .video-detail-player { position: static; width: 100%; max-width: 320px; margin: 0 auto; }
+}

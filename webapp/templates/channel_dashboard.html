@@ -9,12 +9,21 @@
   </summary>
   <ul class="todo-list">
     {% for item in checklist %}
-    <li class="todo-item {{ 'done' if item.done else '' }}">
+    <li class="todo-item {{ 'done' if item.done else '' }} {{ 'manual' if item.manual else '' }}">
       <span class="todo-check"></span>
       <span class="todo-label">{{ item.label }}</span>
-      {% if not item.done %}
-      <a class="todo-action" href="{{ item.link }}">Fix &rarr;</a>
-      {% endif %}
+      <div class="todo-actions">
+        {% if item.manual %}
+        <form method="post" action="{{ item.toggle_link }}">
+          <button type="submit" class="todo-action">Unmark</button>
+        </form>
+        {% elif not item.done %}
+        <a class="todo-action" href="{{ item.link }}">Fix &rarr;</a>
+        <form method="post" action="{{ item.toggle_link }}">
+          <button type="submit" class="todo-action">Mark done</button>
+        </form>
+        {% endif %}
+      </div>
     </li>
     {% endfor %}
   </ul>
@@ -90,15 +99,12 @@
 
 {% if checklist_remaining %}
 {{ launch_checklist() }}
-{% elif show_go_live %}
-<div class="card go-live-banner">
-  <h2>Setup complete</h2>
-  <p class="subtitle">Everything on the launch checklist is done &mdash; ready to go live.</p>
-  <form method="post" action="{{ url_for('set_channel_status', key=key) }}">
-    <input type="hidden" name="status" value="live">
-    <button type="submit">Go Live</button>
-  </form>
-</div>
+{% elif ready_to_publish %}
+<p class="meta ready-to-publish">
+  Everything on the launch checklist is done &mdash; this channel goes
+  live automatically as soon as a video is published from its
+  <a href="{{ url_for('channel_gallery', key=key) }}">gallery</a>.
+</p>
 {% endif %}
 
 {% if social_links or monetization_links %}

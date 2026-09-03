@@ -7,7 +7,7 @@
 </a>
 <h1>{{ channel.channel_display_name }} &mdash; Gallery</h1>
 
-{% if not videos %}
+{% if not unpublished and not published and not discarded %}
 <div class="empty-state">
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8l-6 4 6 4z"/></svg>
   <p><strong>No videos yet.</strong></p>
@@ -15,17 +15,24 @@
 </div>
 {% else %}
 
-<h2>Unpublished{% if unpublished %} <span class="badge">{{ unpublished|length }}</span>{% endif %}</h2>
+<div class="gallery-section-header">
+  <h2>Unpublished{% if unpublished %} <span class="badge">{{ unpublished|length }}</span>{% endif %}</h2>
+  {% if unpublished %}
+  <button type="button" id="gallery-select-toggle-btn" class="btn-ghost" onclick="toggleSelectMode()">Select</button>
+  {% endif %}
+</div>
 {% if unpublished %}
-<div class="gallery-grid">
+<div id="discard-actions" class="hidden">
+  <button type="button" id="discard-selected-btn" class="btn-danger" disabled onclick="discardSelected('{{ key }}')">Discard selected (0)</button>
+</div>
+<div class="gallery-grid" id="unpublished-grid">
   {% for v in unpublished %}
-  <div class="card gallery-item">
-    <video controls src="{{ url_for('serve_video', relpath=v.relpath) }}"></video>
-    <p class="meta">{{ v.name }}</p>
-    {% if v.meta_text %}
-    <pre class="meta-text">{{ v.meta_text }}</pre>
-    {% endif %}
-    <a class="btn btn-ghost gallery-publish-btn" href="{{ url_for('video_detail', key=key, relpath=v.relpath) }}">Publish video &rarr;</a>
+  <div class="card gallery-item" data-relpath="{{ v.relpath }}">
+    <a class="card-link-overlay" href="{{ url_for('video_detail', key=key, relpath=v.relpath) }}"></a>
+    <span class="gallery-select-check" aria-hidden="true"></span>
+    <img class="gallery-thumb" src="{{ url_for('serve_video_thumbnail', key=key, relpath=v.relpath) }}" alt="">
+    <p class="gallery-item-title">{{ v.title }}</p>
+    <p class="meta">{{ v.date_label }}</p>
   </div>
   {% endfor %}
 </div>
@@ -37,24 +44,37 @@
 {% if published %}
 <div class="gallery-grid">
   {% for v in published %}
-  <div class="card gallery-item">
-    <video controls src="{{ url_for('serve_video', relpath=v.relpath) }}"></video>
-    <p class="meta">{{ v.name }}</p>
-    {% if v.meta_text %}
-    <pre class="meta-text">{{ v.meta_text }}</pre>
-    {% endif %}
-    <div class="tile-row">
-      {% if v.links.youtube_url %}<a class="link-tile" href="{{ v.links.youtube_url }}" target="_blank" rel="noopener">YouTube</a>{% endif %}
-      {% if v.links.tiktok_url %}<a class="link-tile" href="{{ v.links.tiktok_url }}" target="_blank" rel="noopener">TikTok</a>{% endif %}
-      {% if v.links.instagram_url %}<a class="link-tile" href="{{ v.links.instagram_url }}" target="_blank" rel="noopener">Instagram</a>{% endif %}
-    </div>
-    <a class="btn btn-ghost gallery-publish-btn" href="{{ url_for('video_detail', key=key, relpath=v.relpath) }}">Edit links</a>
-  </div>
+  <a class="card gallery-item" href="{{ url_for('video_detail', key=key, relpath=v.relpath) }}">
+    <img class="gallery-thumb" src="{{ url_for('serve_video_thumbnail', key=key, relpath=v.relpath) }}" alt="">
+    <p class="gallery-item-title">{{ v.title }}</p>
+    <p class="meta">{{ v.date_label }}</p>
+  </a>
   {% endfor %}
 </div>
 {% else %}
 <p class="meta">Nothing published yet.</p>
 {% endif %}
+
+<details class="gallery-section-spaced">
+  <summary class="summary-heading">Discarded{% if discarded %} <span class="badge">{{ discarded|length }}</span>{% endif %}</summary>
+  {% if discarded %}
+  <div class="gallery-grid">
+    {% for v in discarded %}
+    <div class="card gallery-item gallery-item-discarded">
+      <a class="card-link-overlay" href="{{ url_for('video_detail', key=key, relpath=v.relpath) }}"></a>
+      <img class="gallery-thumb" src="{{ url_for('serve_video_thumbnail', key=key, relpath=v.relpath) }}" alt="">
+      <p class="gallery-item-title">{{ v.title }}</p>
+      <p class="meta">{{ v.date_label }}</p>
+      <form method="post" action="{{ url_for('restore_video_route', key=key, relpath=v.relpath) }}">
+        <button type="submit" class="btn-ghost card-action">Restore</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="meta">Nothing discarded.</p>
+  {% endif %}
+</details>
 
 {% endif %}
 {% endblock %}

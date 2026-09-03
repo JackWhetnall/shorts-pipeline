@@ -5,6 +5,12 @@
 <h1>Channels</h1>
 <p class="subtitle">Pick a channel to generate a video, tune its settings, or browse what it's already made.</p>
 
+{% if deleted_key %}
+<p class="meta info-banner">
+  Deleted "{{ deleted_key }}". Backup saved to <code>{{ backup_path }}</code> just in case.
+</p>
+{% endif %}
+
 {% if not channels %}
 <div class="empty-state">
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l4-4 3 3 4-4 3 3v14a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M4 8h16"/></svg>
@@ -15,6 +21,7 @@
 {% else %}
 
 <div class="index-toolbar">
+  <button type="button" class="btn-ghost" onclick="generateAll()">Generate all</button>
   <button id="reorder-toggle-btn" type="button" class="btn-ghost" onclick="toggleReorderMode()">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
     Reorder
@@ -33,40 +40,39 @@
     <div class="channel-grid" data-section="{{ status }}">
       {% for key, ch in section_channels.items() %}
       <div class="card channel-card interactive" data-key="{{ key }}">
+        <a class="card-link-overlay" href="{{ url_for('channel_dashboard', key=key) }}" aria-label="{{ ch.channel_display_name }}" draggable="false"></a>
         <span class="drag-handle" aria-hidden="true">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
         </span>
         {% if has_logo[key] %}
-        <a href="{{ url_for('logo_page', key=key) }}" class="channel-logo-link">
-          <img class="channel-logo" src="{{ url_for('serve_logo_asset', key=key, filename='logo.png') }}" alt="">
-        </a>
+        <img class="channel-logo" src="{{ url_for('serve_logo_asset', key=key, filename='logo.png') }}" alt="">
         {% else %}
-        <a href="{{ url_for('logo_page', key=key) }}" class="channel-logo-placeholder">
+        <div class="channel-logo-placeholder">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
-          Create logo
-        </a>
+          No logo yet
+        </div>
         {% endif %}
         <h2>
           <svg class="icon-badge" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8l-6 4 6 4z"/></svg>
-          <a href="{{ url_for('channel_dashboard', key=key) }}">{{ ch.channel_display_name }}</a>
+          {{ ch.channel_display_name }}
         </h2>
-        <p class="meta">{{ key }} &middot; {{ ch.content_mode }} &middot; {{ video_counts[key] }} video{{ 's' if video_counts[key] != 1 else '' }}</p>
-        <div class="actions">
-          <a href="{{ url_for('create_video', key=key) }}">Create Video</a>
-          <a href="{{ url_for('channel_settings', key=key) }}">Settings</a>
-          <a href="{{ url_for('channel_gallery', key=key) }}">Gallery</a>
-          <a href="{{ url_for('setup_step', key=key, step='logo') }}">Channel setup</a>
+        <p class="meta">{{ key }} &middot; {{ ch.content_mode }} &middot; {{ progress[key].video_count }} video{{ 's' if progress[key].video_count != 1 else '' }}</p>
+        {% if status == 'live' %}
+        <p class="meta">{{ progress[key].published_count }} published{% if progress[key].last_published_label %} &middot; last published {{ progress[key].last_published_label }}{% endif %}</p>
+        {% endif %}
+
+        {% if progress[key].active_job %}
+        {% set aj = progress[key].active_job %}
+        <div class="job-progress-bar {{ 'job-progress-bar-queued' if aj.status == 'queued' else '' }}" data-job-id="{{ aj.id }}">
+          <div class="job-progress-bar-track">
+            <div class="job-progress-bar-fill {{ 'indeterminate' if (aj.status != 'queued' and aj.progress_percent is none) else '' }}"
+                 {% if aj.status == 'queued' %}style="width: 0%"{% elif aj.progress_percent is not none %}style="width: {{ aj.progress_percent }}%"{% endif %}></div>
+          </div>
+          <p class="meta job-progress-label">{% if aj.status == 'queued' %}Queued{% if aj.queue_position %} &middot; position {{ aj.queue_position }}{% endif %}{% else %}Generating&hellip;{% endif %}</p>
         </div>
-        <form method="post" action="{{ url_for('set_channel_status', key=key) }}" class="status-move-form">
-          <input type="hidden" name="redirect_to" value="index">
-          <label class="status-move-label">Move to
-            <select name="status" onchange="this.form.submit()">
-              {% for s in statuses %}
-              <option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ section_titles[s] }}</option>
-              {% endfor %}
-            </select>
-          </label>
-        </form>
+        {% elif progress[key].can_generate %}
+        <button type="button" class="btn-ghost card-action" onclick="quickGenerate(event, '{{ key }}')">Generate video</button>
+        {% endif %}
       </div>
       {% endfor %}
     </div>

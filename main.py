@@ -19,6 +19,7 @@ from script_gen import generate_script
 from tts_captions import generate_voiceover
 from video_assemble import build_video
 from description_gen import generate_description
+import job_context
 
 
 def fetch_candidate_seed(cfg: dict) -> dict:
@@ -96,13 +97,35 @@ def generate_video_from_seed(channel_key: str, seed: dict, cfg: dict = None,
     which would otherwise hang forever. The CLI never passes False."""
     cfg = cfg or CHANNELS[channel_key]
 
-    print("[1/4] Generating script...")
-    script = generate_script(seed, cfg["style_prompt"], cfg["pacing"])
-    print(f"      {len(script['segments'])} segment(s) generated.")
+    # A retry of an interrupted/failed job (webapp/jobs.py's retry_job)
+    # reuses the SAME job id, so this checkpoint - if present - is from
+    # an earlier attempt at this exact seed. Script generation is a real
+    # Claude call, not free to redo for no reason; the paths need to be
+    # resumed alongside it too (see below), not just the script text,
+    # since generating a NEW stem here would leave the checkpointed
+    # audio/video paths from the earlier attempt orphaned.
+    progress = job_context.load_json_checkpoint("progress")
 
-    out_dir = Path(cfg["output_dir"]) / date.today().isoformat()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    stem = _unique_stem(out_dir, _title_for_seed(seed))
+    if progress:
+        script = progress["script"]
+        out_dir = Path(progress["out_dir"])
+        out_dir.mkdir(parents=True, exist_ok=True)
+        stem = progress["stem"]
+        print("[1/4] Reusing previously generated script (resumed)...")
+    else:
+        print("[1/4] Generating script...")
+        script = generate_script(seed, cfg["style_prompt"], cfg["pacing"])
+        print(f"      {len(script['segments'])} segment(s) generated.")
+
+        out_dir = Path(cfg["output_dir"]) / date.today().isoformat()
+        out_dir.mkdir(parents=True, exist_ok=True)
+        stem = _unique_stem(out_dir, _title_for_seed(seed))
+        try:
+            job_context.save_json_checkpoint("progress", {
+                "script": script, "out_dir": str(out_dir), "stem": stem,
+            })
+        except Exception:
+            pass  # checkpointing is best-effort, never block a real result on it
 
     audio_path = out_dir / f"{stem}_audio.mp3"
     video_path = out_dir / f"{stem}.mp4"

@@ -23,6 +23,8 @@ import base64
 import difflib
 import os
 import re
+import shutil
+import time
 from pathlib import Path
 
 import numpy as np
@@ -30,11 +32,55 @@ import requests
 from moviepy.audio.AudioClip import AudioArrayClip
 
 from audio_utils import decode_audio_file, apply_fade
+import job_context
 
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
 ELEVENLABS_MODEL = "eleven_turbo_v2_5"
 ELEVENLABS_SAMPLE_RATE = 44100
 ELEVENLABS_OUTPUT_FORMAT = f"mp3_{ELEVENLABS_SAMPLE_RATE}_128"
+
+# How many segments synthesize at once (see _synthesize's job_context.
+# parallel_map call). ElevenLabs' concurrent-request limit is tied to
+# account tier and can be as low as 2-3 on lower tiers - deliberately
+# conservative rather than the generic parallel_map default of 8, since
+# tripping it doesn't just slow things down, it 429s. _post_with_backoff
+# below is the real safety net regardless of tier; this just makes
+# hitting the limit at all less likely in the first place.
+TTS_MAX_WORKERS = 3
+
+# _post_with_backoff's retry budget for 429 (rate limit) / 5xx (transient
+# service error) responses - independent of _tts_segment's own retry loop
+# below, which is about SYNTHESIS QUALITY (a garbled result), not the
+# request itself failing. A 429 used to propagate straight out of
+# raise_for_status() and kill the whole video generation on the first
+# occurrence - exactly the kind of transient condition a short wait
+# resolves, not a reason to fail the job outright.
+TTS_RATE_LIMIT_MAX_RETRIES = 5
+TTS_RATE_LIMIT_BACKOFF_BASE = 2.0  # seconds; doubles each retry (2, 4, 8, 16, 32)
+
+
+def _post_with_backoff(voice_id: str, payload: dict):
+    delay = TTS_RATE_LIMIT_BACKOFF_BASE
+    for attempt in range(TTS_RATE_LIMIT_MAX_RETRIES + 1):
+        response = requests.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps",
+            headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
+            json=payload,
+            timeout=60,
+        )
+        if response.status_code == 429 or response.status_code >= 500:
+            if attempt == TTS_RATE_LIMIT_MAX_RETRIES:
+                response.raise_for_status()
+            retry_after = response.headers.get("Retry-After")
+            wait = float(retry_after) if retry_after else delay
+            print(f"  [tts] ElevenLabs returned {response.status_code} "
+                  f"(attempt {attempt + 1}/{TTS_RATE_LIMIT_MAX_RETRIES}), "
+                  f"retrying in {wait:.0f}s...")
+            time.sleep(wait)
+            delay *= 2
+            continue
+        response.raise_for_status()
+        return response
 
 # Independent verification that the rendered audio actually says what the
 # script says. _looks_glitched (below) only inspects ElevenLabs' own
@@ -265,18 +311,12 @@ def _tts_segment(text: str, voice_id: str, out_path: str, speed: float = 1.0, ma
     tts_text = _apply_pronunciation_overrides(text)
 
     for attempt in range(max_attempts):
-        response = requests.post(
-            f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps",
-            headers={"xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json"},
-            json={
-                "text": tts_text,
-                "model_id": ELEVENLABS_MODEL,
-                "output_format": ELEVENLABS_OUTPUT_FORMAT,
-                "voice_settings": {"speed": speed},
-            },
-            timeout=60,
-        )
-        response.raise_for_status()
+        response = _post_with_backoff(voice_id, {
+            "text": tts_text,
+            "model_id": ELEVENLABS_MODEL,
+            "output_format": ELEVENLABS_OUTPUT_FORMAT,
+            "voice_settings": {"speed": speed},
+        })
         data = response.json()
 
         with open(out_path, "wb") as audio_file:
@@ -310,6 +350,23 @@ def _tts_segment(text: str, voice_id: str, out_path: str, speed: float = 1.0, ma
 
 
 def _synthesize(segments: list, citation: str, voice_id: str, out_audio_path: str, pacing: dict, speed: float = 1.0):
+    # A retry of an interrupted/failed job (webapp/jobs.py's retry_job)
+    # reuses the same job id - if this exact voiceover was already
+    # synthesized before whatever interrupted the job, reuse it rather
+    # than paying for several ElevenLabs calls (plus Whisper verification)
+    # a second time. The cached mp3 is decoded fresh rather than trusting
+    # a stored array, for the same reason the rest of this file always
+    # decodes rather than round-tripping raw samples (see audio_utils.py's
+    # decode_audio_file docstring).
+    checkpoint = job_context.load_json_checkpoint("voiceover")
+    cached_audio = job_context.checkpoint_artifact_path("voiceover.mp3")
+    if checkpoint and cached_audio and cached_audio.exists():
+        print("  [tts] reusing previously synthesized voiceover (resumed)...")
+        shutil.copyfile(cached_audio, out_audio_path)
+        fps = checkpoint["fps"]
+        final_array = decode_audio_file(out_audio_path, fps=fps)
+        return out_audio_path, checkpoint["all_timings"], checkpoint["segment_timings"], final_array, fps
+
     plan = _build_tts_plan(segments, citation, pacing)
 
     out_path = Path(out_audio_path)
@@ -326,11 +383,34 @@ def _synthesize(segments: list, citation: str, voice_id: str, out_audio_path: st
     fps = None
     nchannels = None
 
-    try:
-        for i, (text, pause, segment_index) in enumerate(plan):
-            preview = text if len(text) <= 50 else text[:47] + "..."
-            print(f"  [tts] synthesizing {i + 1}/{len(plan)}: \"{preview}\"")
+    job_context.report_detail("tts", None, {"total": len(plan), "items": []})
+    for i, (text, _, _) in enumerate(plan):
+        preview = text if len(text) <= 50 else text[:47] + "..."
+        job_context.report_detail("tts", i, {"preview": preview, "status": "pending"})
+
+    # The actual ElevenLabs + Whisper-verification work per segment
+    # (_tts_segment) is fully independent per segment - only the stitching
+    # below (offsets, fades, concatenation) genuinely needs order, since
+    # each segment's start time depends on the cumulative duration of
+    # everything before it. Run the slow, independent part concurrently,
+    # then walk the results in plan order for stitching.
+    def _synth_one(item):
+        i, (text, pause, segment_index) = item
+        preview = text if len(text) <= 50 else text[:47] + "..."
+        print(f"  [tts] synthesizing {i + 1}/{len(plan)}: \"{preview}\"")
+        job_context.report_detail("tts", i, {"status": "active"})
+        try:
             timings, arr, seg_fps = _tts_segment(text, voice_id, str(seg_paths[i]), speed=speed)
+        except Exception:
+            job_context.report_detail("tts", i, {"status": "error"})
+            raise
+        job_context.report_detail("tts", i, {"status": "done"})
+        return pause, segment_index, timings, arr, seg_fps
+
+    results = job_context.parallel_map(_synth_one, list(enumerate(plan)), max_workers=TTS_MAX_WORKERS)
+
+    try:
+        for pause, segment_index, timings, arr, seg_fps in results:
             fps = fps or seg_fps
 
             if arr.ndim == 1:
@@ -382,6 +462,16 @@ def _synthesize(segments: list, citation: str, voice_id: str, out_audio_path: st
         {**seg, "start": start, "end": end}
         for seg, start, end in zip(segments, starts, ends)
     ]
+
+    try:
+        cache_target = job_context.checkpoint_artifact_path("voiceover.mp3")
+        if cache_target is not None:
+            shutil.copyfile(out_audio_path, cache_target)
+            job_context.save_json_checkpoint("voiceover", {
+                "all_timings": all_timings, "segment_timings": segment_timings, "fps": fps,
+            })
+    except Exception:
+        pass  # checkpointing is best-effort, never block a real result on it
 
     return out_audio_path, all_timings, segment_timings, final_array, fps
 

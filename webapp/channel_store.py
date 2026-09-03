@@ -18,6 +18,8 @@ did the user actually override" from a merged dict.
 import json
 import re
 import shutil
+import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import config.channels as channels_module
@@ -159,14 +161,57 @@ def reorder_channels(ordered_keys: list):
     etc.) are silently ignored rather than erroring — this is only ever
     called with keys read back from the page's own DOM a moment earlier, so
     a mismatch means the page was already stale, not a real error to
-    surface. Since display always groups channels by `status` before
-    rendering (see webapp/app.py's index()), the interleaving between
-    differently-statused keys in the raw file is never visible — only
-    relative order WITHIN one status group is — so reordering just the
-    keys from one on-screen section is sufficient; there's no need to also
-    know or preserve where OTHER sections' keys sit relative to these."""
+    surface. Since display always groups channels into sections before
+    rendering (see webapp/app.py's index()/_section_for()), the
+    interleaving between keys in different sections in the raw file is
+    never visible — only relative order WITHIN one section is — so
+    reordering just the keys from one on-screen section is sufficient;
+    there's no need to also know or preserve where OTHER sections' keys
+    sit relative to these."""
     raw = get_raw_entries()
     remaining_keys = [k for k in raw if k not in ordered_keys]
     new_raw = {k: raw[k] for k in ordered_keys if k in raw}
     new_raw.update({k: raw[k] for k in remaining_keys})
     _write_raw(new_raw)
+
+
+def delete_channel(key: str) -> Path:
+    """Permanently deletes a channel: config entry, its whole
+    output/<key>/ tree (every generated video), and channels/<key>/
+    (logo + merch assets) — but writes a zip backup of all of it to
+    deleted_channels/<key>_<timestamp>.zip FIRST, since none of this is
+    cheap to regenerate (real API cost went into the videos/logo) and a
+    misclick shouldn't be able to destroy it with no way back. Returns
+    the backup zip's path. Raises ValueError if the channel doesn't
+    exist — nothing is touched in that case."""
+    raw = get_raw_entries()
+    if key not in raw:
+        raise ValueError(f'Channel "{key}" does not exist.')
+    entry = raw[key]
+
+    output_dir = PROJECT_ROOT / entry.get("output_dir", f"output/{key}")
+    channels_dir = PROJECT_ROOT / "channels" / key
+
+    backup_dir = PROJECT_ROOT / "deleted_channels"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    zip_path = backup_dir / f"{key}_{timestamp}.zip"
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("channel.json", json.dumps(entry, indent=2))
+        for base, arc_prefix in ((output_dir, "output"), (channels_dir, "channels")):
+            if not base.exists():
+                continue
+            for file_path in base.rglob("*"):
+                if file_path.is_file():
+                    zf.write(file_path, arcname=f"{arc_prefix}/{file_path.relative_to(base)}")
+
+    del raw[key]
+    _write_raw(raw)
+
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    if channels_dir.exists():
+        shutil.rmtree(channels_dir)
+
+    return zip_path

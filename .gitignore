@@ -29,6 +29,8 @@ env/
 output/
 cache/
 channels/
+deleted_channels/
+job_state/
 
 # Env/secrets
 .env

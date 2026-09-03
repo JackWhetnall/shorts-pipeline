@@ -383,10 +383,11 @@ pipeline modules — no pipeline logic is duplicated in `webapp/`.
   Patreon URL, merch URL, a small per-channel list of affiliate
   `{label, url}` links. Never auto-created — a guided
   `/channels/<key>/setup/<step>` wizard (`webapp/app.py`'s `setup_step`,
-  `step` ∈ socials → email → patreon → merch → amazon, Back/Next
-  between them) links out to where each actually gets created (Outlook
-  for a dedicated inbox, Patreon's creator signup, Printful/Spring for
-  merch, Amazon Associates — the Amazon step's instructions explain the
+  `step` ∈ logo → email → socials → patreon → merch_logo → merch_store →
+  amazon, Back/Next between them) links out to where each actually gets
+  created (Outlook for a dedicated inbox, Patreon's creator signup,
+  Printify's popup store for merch, Amazon Associates — the Amazon step's
+  instructions explain the
   reusable `?tag=yourtag-20` tracking-ID mechanic, since it's not
   obvious), saving that step's field(s) immediately on Next. Each CTA's
   own `enabled` flag (not `end_screen.enabled`, which only gates whether
@@ -508,51 +509,568 @@ pipeline modules — no pipeline logic is duplicated in `webapp/`.
   `channels.json`'s key order drives (see "Channel sections" below), so
   the naive version silently sent every renamed channel to the bottom of
   the home page — a real regression a user hit directly.
-- **Channel sections, ordering, and lifecycle** (`webapp/app.py`'s
-  `CHANNEL_STATUSES`, `index()`): channels are grouped into four
-  collapsible sections on the home page — Live and Setting up open by
-  default, Future ideas and Archived closed — driven by a plain `status`
-  string field (`config/channels.py`'s `DEFAULT_STATUS = "setup"`, every
-  new channel starts there; no separate lightweight "just an idea" create
-  flow — a Future-ideas channel is created the normal way and just moved
-  there). Moving a channel between sections is a small auto-submitting
-  `<select>` on each card (`POST /channels/<key>/status`), deliberately
-  NOT drag-and-drop — dragging is reserved for *ordering within* a
-  section. Display order within a section is just `channels.json`'s own
-  key order filtered by status — Python dicts (and `json.dump`/`load`)
-  already preserve insertion order, so no separate numeric order field
-  was needed, only `channel_store.reorder_channels(ordered_keys)` (puts
-  the given keys first in that order, leaves every other key's relative
-  position alone — sufficient since display always re-filters by status
-  anyway, so cross-section interleaving in the raw file is never
+- **Channel sections and lifecycle** (`webapp/app.py`'s `CHANNEL_SECTIONS`,
+  `_section_for()`, `index()`): channels are grouped into four collapsible
+  sections on the home page — Live and Setting up open by default, Future
+  ideas and Archived closed. Only **archived** is an actual stored field
+  (`config/channels.py`'s `DEFAULT_ARCHIVED = False`) — live/setup/future
+  are COMPUTED at display time from real state, never hand-set: live
+  needs the launch checklist complete AND at least one video actually
+  *published* (`gallery.video_state_counts`'s `"published"` count,
+  stricter than the checklist's own "created a video" item), setup is
+  any checklist
+  progress at all, future is none. This replaced an earlier manual
+  `status` dropdown per card — moving a channel between Live/Setup/Future
+  was busywork for something that should just follow from what's
+  actually true; only Archive/Unarchive stayed manual (a channel doesn't
+  "flop" its way there on its own), and moved to the settings page's
+  Danger zone (see below) since it's a rare, deliberate action, not
+  something to expose on every card. `_build_checklist()` (the launch
+  checklist's one definition, used by both `index()` — just the
+  remaining-count, for every channel — and `channel_dashboard()` — the
+  full labeled list) keeps the two pages from ever disagreeing about
+  what's actually done. Once the checklist's complete but nothing's
+  published yet, the dashboard shows a plain sentence instead of a
+  button — going live isn't a click anymore, it happens the moment a
+  video is published from the gallery.
+- **Channel ordering / drag-reorder**: display order within a section is
+  just `channels.json`'s own key order filtered into that section —
+  Python dicts (and `json.dump`/`load`) already preserve insertion order,
+  so no separate numeric order field was needed, only
+  `channel_store.reorder_channels(ordered_keys)` (puts the given keys
+  first in that order, leaves every other key's relative position alone
+  — sufficient since display always re-filters into sections anyway, so
+  interleaving between different sections' keys in the raw file is never
   visible). Dragging is off by default behind a "Reorder" toggle button
   (`app.js`'s `toggleReorderMode`, a hand-rolled six-dot grip icon
   matching every other icon in this app) so a stray drag can't silently
   reorder channels; native HTML5 drag-and-drop, with `_closestCard`
   comparing the cursor against every sibling card's center point (not
   just Y position) since `.channel-grid` is a multi-column CSS grid, not
-  a vertical list. **Go Live**: the dashboard shows an accent-bordered
-  banner (same slot the launch checklist itself would occupy — empty once
-  it's complete and has moved to the bottom, see "Channel dashboard"
-  above) exactly when `status != "live"` and `checklist_remaining == 0`,
-  a one-click POST to the same status route.
+  a vertical list — always within one section's grid only, cross-section
+  moves are never a drag, that's what Archive/Unarchive and the
+  automatic live/setup/future computation are for.
+- **Archive / Delete** (`channel_store.delete_channel`, settings page's
+  "Danger zone"): two deliberately DIFFERENT confirmation mechanisms, not
+  the same dialog twice — Archive is reversible and low-stakes (a plain
+  form with `onsubmit="return confirm(...)"`); Delete is real, permanent
+  data loss (config entry + the ENTIRE `output/<key>/` and
+  `channels/<key>/` trees — every generated video, logo, merch photo) so
+  it gets its own confirmation PAGE (`delete_channel_confirm.html`)
+  requiring you to type the channel's key before the submit button even
+  enables (client-side for immediate feedback, but the POST handler
+  re-validates `confirm_key == key` server-side too — the disabled
+  attribute alone is never trusted). Before deleting anything,
+  `delete_channel()` writes a zip backup to
+  `deleted_channels/<key>_<timestamp>.zip` (stdlib `zipfile`, no new
+  dependency) containing the raw config entry as `channel.json` plus both
+  directories' full contents — real API cost went into that logo and
+  those videos, so a misclick shouldn't be able to destroy it with
+  actually no way back. `deleted_channels/` is gitignored alongside
+  `output/`/`channels/`.
 - **Video publish tracking** (`webapp/gallery.py`'s `{stem}_publish.json`
   sidecar, `/channels/<key>/videos/<path:relpath>`): finished videos had
   no record of whether or where they'd actually been posted. Each video
   gets a sidecar JSON — same naming shape and directory as the
   `{stem}_meta.txt` sidecar `main.py` already writes — holding
-  `youtube_url`/`tiktok_url`/`instagram_url`; a video counts as
-  **published** iff any one is set, derived rather than a separate stored
-  flag (same idiom `config.channels.resolve_active_ctas` already uses for
-  monetization CTAs — a real URL's presence IS the source of truth, so
-  there's no boolean that could drift out of sync with the actual links).
-  The Gallery page (`channel_gallery()`) splits videos into Unpublished/
-  Published sections; an unpublished card's "Publish video" button goes
-  to a small per-video page (`video_detail.html`, modeled directly on
-  `setup_socials.html`'s three-URL-field shape) where the links get
-  pasted in; once set, they show as clickable `.link-tile`s (the same
-  tile styling as the dashboard's "Your links" board) directly on that
-  video's gallery card.
+  `youtube_url`/`tiktok_url`/`instagram_url` plus `published_at`, an ISO
+  timestamp stamped the moment the video FIRST goes from no links to any
+  link set (later edits to an already-published video don't reset it;
+  clearing every link back out clears it too) — genuinely different from
+  the video file's own mtime (when it was rendered, not when it went
+  out), which is what "time since published" on the home page's Live
+  section actually needs. A video counts as **published** iff any link
+  is set, derived rather than a separate stored flag (same idiom
+  `config.channels.resolve_active_ctas` already uses for monetization
+  CTAs — a real URL's presence IS the source of truth, so there's no
+  boolean that could drift out of sync with the actual links). The
+  Gallery page splits into Unpublished/Published/**Discarded** sections
+  (Discarded new — see below), each card now a cropped thumbnail
+  (`gallery.get_or_create_thumbnail` — one `moviepy.VideoFileClip.
+  save_frame` call, cached as a `{stem}_thumb.jpg` sidecar the first time
+  it's requested rather than regenerated on every gallery load, served
+  via its own route so the gallery listing itself stays cheap) + title
+  (the filename slug with underscores swapped for spaces — `main.py`'s
+  filenames are already sensible, no separate title field needed) + a
+  publish/creation date, no inline video player and no script text (that
+  clutter belonged on the video's own page, not a list view). Published
+  cards are one plain `<a>` straight to `video_detail`; Unpublished and
+  Discarded cards are a `<div>` with a stretched-link `<a class="card-
+  link-overlay">` sibling instead (same pattern as the home page's
+  channel cards, below) since they each need a second independently-
+  clickable control on top — the multi-select checkbox and the Restore
+  button respectively — which can't live nested inside a single wrapping
+  `<a>`. `video_detail.html` itself is two columns: a scrollable info
+  panel (script, dates, the publish-links
+  form) on the left, and the actual video on the right in a `position:
+  sticky` column capped at `max-height: 80vh` so it can't blow out past a
+  laptop screen regardless of aspect ratio — reading and watching can
+  happen at the same time. Platform links render as `.btn.btn-ghost`
+  pills at the top once published (text-label, matching every other
+  external link in this app rather than inventing brand-logo icon
+  buttons); unpublished, a "Publish video" button jumps down to the same
+  links form instead.
+- **Discard workflow**: a generated video that just isn't good enough to
+  publish needed somewhere to go besides sitting in Unpublished forever
+  or being deleted outright (losing the real generation cost for no
+  reason if it turns out to be usable after all). The publish sidecar
+  gains a `discarded` bool (`gallery.set_discarded`, preserves whatever
+  links/`published_at` are already there — discarding doesn't touch
+  publish state, restoring doesn't invent any); `gallery.
+  video_state_counts(output_dir)` replaced separate `count_videos`/
+  `count_published_videos` calls with ONE `rglob` pass reading each
+  sidecar once (`{"total", "active" (= total - discarded), "published",
+  "unpublished", "discarded"}`) since the home page now wants several of
+  these numbers per channel on every load — `active` is what "video
+  count"/the checklist's "created a video" item mean now, a discarded
+  take was never a real deliverable. Discarding is one mechanism for
+  both a single bad take and true bulk cleanup: the gallery's Unpublished
+  section has a "Select" toggle (off by default, same interaction
+  pattern as the home page's "Reorder" toggle) that turns each card's
+  link-overlay click into a selection toggle instead of navigation
+  (`app.js`'s `gallerySelectMode`/`selectedRelpaths`), revealing a
+  "Discard selected (N)" button that POSTs the whole relpath list to
+  `POST /channels/<key>/videos/discard` in one call — no separate
+  single-video discard route to keep in sync with the bulk one. Restore
+  is the safety net (same instinct as Archive/Unarchive) — a plain
+  single-video `POST .../restore`, available both on a Discarded card and
+  on that video's own detail page.
+- **Parallel video generation** (`webapp/jobs.py`): generation is slow
+  (minutes, multi-stage), so triggering one and walking away needed to
+  actually work — which meant fixing the real reason only one job could
+  ever run at a time. The old design captured a job's output by
+  temporarily swapping `sys.stdout`/`stderr` process-wide
+  (`contextlib.redirect_stdout`) for the job's duration — fine for
+  exactly one job, actively wrong for two, since `sys.stdout` is one
+  global object every thread's `print()` reads, not something each
+  thread gets its own copy of; two concurrent jobs would interleave and
+  corrupt each other's captured logs. Fixed with a **thread-local
+  dispatch stream** instead of swapping anything per-job: a single
+  `_DispatchStream` is installed ONCE as the real `sys.stdout`/`stderr`
+  (idempotent — `start_job` only installs it if it isn't already there).
+  Each job thread stamps its own job id into `threading.local()` the
+  moment it starts (`_run_job`); the dispatcher's `write()` reads THAT to
+  route into that job's own buffer, falling back to the real original
+  stream for anything running outside a tracked job thread (the Flask
+  main thread, etc). Verified live: two jobs started back to back for
+  different channels, each printing/reporting progress on its own
+  timer, produced completely isolated captured logs with zero cross-
+  contamination — the actual constraint the old single-job design was
+  built around no longer applies. `start_job`'s "already running" check
+  is now per-channel (`get_running_job_for_channel`), not global — a
+  different channel can start a job while another's still running, the
+  SAME channel still can't run two at once. `current_progress` (moviepy's
+  tqdm encode line) gets a small regex (`r"(\d{1,3})\s*%"`) pulled into a
+  `progress_percent` field on the job dict — `None` whenever the current
+  line doesn't carry one (most pipeline stages just print status text,
+  only the final encode step reports a real percentage).
+- **Intra-job parallelism, video-page reuse, and a real stage tracker**:
+  three real problems with actually using the generate flow — generation
+  was slow beyond what a single unattended run needs to be, the finished
+  video showed in an oversized unstyled inline `<video>` instead of the
+  real per-video page, and the only progress signal was a scrolling wall
+  of text. `tts_captions.py`'s `_synthesize` used to call ElevenLabs (+
+  local Whisper verification) for each script segment ONE AT A TIME in a
+  loop, even though each segment's synthesis is fully independent of the
+  others — only the final stitching (offsets, fades, concatenation)
+  genuinely needs order, since each segment's start time depends on the
+  cumulative duration of everything before it. Same shape in
+  `footage_library.py`'s `_auto_fetch_and_add`: every candidate stock-
+  footage URL was downloaded-then-normalized ONE AT A TIME, though one
+  clip's download+normalize doesn't depend on any other clip. Both now
+  run their slow, independent part concurrently and only the
+  correctness-sensitive part sequentially afterward (`_synthesize`'s
+  offset/fade bookkeeping; `_auto_fetch_and_add`'s
+  `add_normalized_clip`, which reads and mutates the SHARED manifest —
+  parallelizing that risks two threads both missing each other's
+  just-added entry and creating duplicate clips from the same batch).
+  `video_assemble.py`'s composition/encode step is deliberately NOT
+  touched — it's inherently one sequential ffmpeg pass over one timeline
+  (libx264 already threads the encode itself internally), with no
+  independent-units-of-work shape the way "N API calls" or "N downloads"
+  has.
+
+  The correctness catch this ran into: the prior round's per-job output
+  capture (above) keys off `threading.local()` set once per JOB thread —
+  a job spawning its OWN worker threads (a `ThreadPoolExecutor` for
+  parallel TTS/downloads) gets workers with their OWN empty
+  `threading.local()`, so without fixing this, their `print()` calls
+  would silently leak onto the real stdout instead of the job's visible
+  log. Fixed by extracting the thread-local tracking into a new shared
+  module, **`job_context.py`** (project root, not `webapp/` — so plain
+  CLI usage of the pipeline never needs to import Flask). Its
+  `parallel_map(fn, items, max_workers=8)` captures the CALLING thread's
+  job id, propagates it into each spawned worker before running `fn`,
+  and returns results in the SAME ORDER as `items` (via `pool.map`, not
+  `as_completed`) — not completion order — so callers can stitch results
+  back together positionally, which is exactly what `_synthesize` needs
+  for segment offsets. `webapp/jobs.py` was refactored to use this SAME
+  module instead of its own private `_THREAD_STATE`, so there's one
+  source of truth for "which job is the current thread working on."
+  Verified live: two jobs' worker-thread output stayed in completely
+  separate captured logs with zero cross-contamination even though the
+  worker lines themselves completed out of order (proving real
+  concurrency), while `parallel_map`'s returned results still matched
+  input order exactly.
+
+  The finished-video view now redirects to the real page instead of
+  showing a second, worse one: `create_video.html`'s bare `#job-result`
+  block is gone; `app.js`'s `pollJob`, on `job.status === "done"`, does
+  `window.location.href = \`/channels/${job.channel_key}/videos/${job.result_path_rel}\``
+  — the exact same `video_detail` route (sized player, sticky layout)
+  the gallery already links to, no second video-display implementation
+  to keep in sync.
+
+  The progress wall-of-text is now a 5-card **stage tracker** (Script /
+  Voiceover / Footage / Assembling / Finishing) above a collapsed-by-
+  default `<details>` holding the full log — piggybacking on print
+  statements the pipeline ALREADY makes (`main.py`'s `[1/4]`..`[4/4]`
+  headers, `video_assemble.py`'s own `"  [video] matching footage"`/
+  `"  [video] rendering video"` lines) rather than adding new
+  instrumentation. `webapp/jobs.py`'s `_JobCaptureStream._append_log`
+  matches each completed line against an ordered `_STAGE_MARKERS` list
+  and sets `job["stage"] = max(job.get("stage", 0), matched_index)` —
+  monotonic, so an unrelated line in between two markers never moves it
+  backward; `stage`/`stage_total` ride along in `/api/jobs/<id>`'s
+  existing JSON for free (`api_job` already spreads the whole job dict).
+  Each stage card is pending (dim) / active (accent-colored + a CSS
+  `@keyframes` pulse-ring on the icon, conveying "actively working"
+  without a GIF) / done (checkmark) — visually the same connecting-line
+  language as the setup wizard's `.wizard-step-dot`/`.wizard-step-line`,
+  so it reads as consistent with the rest of the app. The Assembling
+  card additionally reuses the existing `.job-progress-bar` component
+  (built for home-page cards) once a real `progress_percent` is
+  available — indeterminate fill before that, since only the final
+  encode step reports a real percentage.
+- **Global job queue, granular progress, and never-silently-hang polling**:
+  a real production incident drove this round — an in-flight job's dev
+  server process got killed and restarted (during unrelated verification
+  work), which wiped its in-memory `_JOBS` state; the browser kept
+  polling the now-nonexistent job id, got `404` every second, and
+  `pollJob`'s old code did `if (!res.ok) return;` — silently doing
+  nothing forever, no error shown, indistinguishable from a genuinely
+  stuck job. `pollJob` now treats a `404` as definitive (the job is gone,
+  never worth retrying) and shows an error banner (`#job-banner`)
+  immediately; a network error or non-2xx gets a few retries first
+  (`MAX_POLL_FAILURES`) in case it's a momentary blip, then also banners
+  instead of hanging. The home page's per-card poller
+  (`initHomeJobPolling`) got the same `404` → `location.reload()` fix.
+  All the pipeline's real HTTP calls (ElevenLabs, Pexels, Pixabay) already
+  had `timeout=` set, so a hung socket wasn't the mechanism here — this
+  was purely the frontend silently swallowing a failed poll.
+
+  **Jobs now queue instead of running across channels in parallel.**
+  Previously different channels' jobs ran fully concurrently — but each
+  job already fans out several parallel ElevenLabs calls and stock-
+  footage downloads internally (see below), so two channels generating
+  at once multiplies that fan-out and risks hammering the same external
+  APIs harder than intended. `webapp/jobs.py` now runs only ONE job at a
+  time, globally: `start_job` either starts a job immediately (nothing
+  else running) or gives it `status: "queued"` and appends it to `_QUEUE`
+  (FIFO); `_advance_queue`, called from `_run_job`'s `finally` block,
+  pops and starts the next queued job the moment the running one finishes
+  (done or error). A channel still can't queue a second job behind its
+  own first one. `get_running_job_for_channel`/`list_active_jobs`/
+  `get_job` were broadened from `status == "running"` to `status in
+  ("running", "queued")` so queued jobs are visible everywhere a running
+  one used to be (resuming the create-video page while queued, the home
+  page's per-card state) — each also gets a computed `queue_position`
+  (1-indexed position in `_QUEUE`) for "position 2 in the queue" copy.
+  `create_video.html` shows a "Queued…" heading + note instead of
+  "Generating…" while `status == "queued"`; the home page's progress bar
+  renders dimmed and empty (`.job-progress-bar-queued`, explicit
+  `width: 0%` — the first version left the fill with no width at all,
+  which defaults a block-level div to 100%, i.e. looked exactly like a
+  FINISHED bar for a job that hadn't started; caught by a Flask-test-
+  client render check before it shipped). No app.py changes were needed
+  for this — `_channel_progress`'s `can_generate` already keyed off
+  `active_job is None`, so broadening what counts as "active" was
+  sufficient to make `generate-all` correctly queue every eligible
+  channel instead of skipping all but one.
+
+  **A granular "Details" panel** sits between the 5-card stage tracker
+  and the collapsed raw log — more specific than "Voiceover is active"
+  but far less noisy than the full text dump. Fed by a new structured
+  side-channel through `job_context.py`: `report_detail(section,
+  item_index, patch)` looks up the calling thread's job id and, if
+  `webapp/jobs.py` has registered itself as the sink (`set_detail_sink`,
+  at import time — a plain CLI run never imports `webapp.jobs`, so this
+  stays a safe no-op there, same pattern as `parallel_map`), merges
+  `patch` into `job["detail"][section]` (`item_index=None`) or
+  `job["detail"][section]["items"][item_index]` (growing the list as
+  needed) under `webapp/jobs.py`'s own `_LOCK` — safe to call from
+  several `parallel_map` worker threads at once. `tts_captions.py`'s
+  `_synth_one` reports each segment's preview text and
+  pending/active/done/error status; `footage_library.py` reports the
+  **exact** total shot count the moment it's known
+  (`pick_clips_for_shots` already computed `sum(shot_counts)` for its own
+  log line — now also reported as `detail.footage.total_shots`) and,
+  once a fetch round starts, the **exact** number of download calls about
+  to be made (`len(candidates)`, gathered from every query's search
+  results before any download starts) plus a per-clip row with two
+  independent statuses — `status_download` (the raw fetch) and
+  `status_process` (normalize's center-crop + the perceptual-duplicate
+  check + the Claude vision describe call + the manifest write, lumped
+  together since visually they're one "processing" step even though
+  normalize runs in the parallel phase and the rest runs in the
+  sequential phase after). The frontend (`updateDetailPanel` in
+  `app.js`) redraws this from scratch every poll tick — cheap at this
+  size — as a voiceover checklist and a scrollable "tower" of clip rows,
+  each with two small status dots (pending/active/done/error, `.detail-
+  dot`), reusing the stage tracker's own pulse-ring animation for
+  "active" so the whole page reads as one visual language.
+
+  **The "batching" the user could see in the download step turned out to
+  be two separate causes, not one.** First, `job_context.parallel_map`'s
+  default `max_workers=8` (sized for generic use, not specifically for
+  network-bound work) meant any round with more than 8 candidate clips
+  visibly finished in groups of 8 — `footage_library.py`'s fetch call now
+  passes an explicit `FETCH_MAX_WORKERS = 16`, wide enough to matter for
+  I/O-bound downloads while still bounded (an unbounded burst risks
+  tripping Pexels'/Pixabay's own free-tier rate limiting, which would
+  surface as failures, not speed). Second, and the bigger effect:
+  `pick_clips_for_shots`'s shortfall loop used to call
+  `_auto_fetch_and_add` ONCE PER SEGMENT that needed more footage — each
+  call already parallelized its OWN downloads, but two segments both
+  needing footage meant two full sequential search-then-download round-
+  trips, which is what actually looked like hard batching from outside.
+  Fixed by collecting every shortfalled segment's search queries into ONE
+  combined list and making a SINGLE `_auto_fetch_and_add` call per fetch-
+  and-recheck round — safe because the next matching call re-scores the
+  WHOLE library against every segment fresh regardless of which
+  segment's shortfall originally triggered which query, so there was
+  never a real reason to keep the fetches segment-scoped.
+
+  **`MATCH_CONFIDENCE_THRESHOLD` lowered from 7 to 6** (`footage_
+  library.py`) — real runs showed it behaving as "assume nothing is
+  relevant," triggering far more auto-fetch/fallback than the library's
+  actual coverage justified. `_build_prompt`'s scoring rubric was edited
+  to match rather than just lowering the code-side cutoff in isolation:
+  a new explicit "6" band ("a real depiction of the specific subject, but
+  weaker/more incidental than 7-8 — a genuine pass, just not a generous
+  one") replaces the old undefined gap where 6 fell inside a band
+  explicitly labeled a MISS — keeping what the model is told consistent
+  with what the code actually accepts, rather than quietly overruling the
+  prompt's own rubric from outside it. Bands 1-5 are still an explicit
+  miss, so this is deliberately a small lean, not a loosening of the bar.
+- **TTS parallelization vs. ElevenLabs rate limits**: parallelizing per-
+  segment synthesis (above) surfaced a real regression — several segments
+  now hit ElevenLabs at the same instant, and a `429 Too Many Requests`
+  used to propagate straight through `response.raise_for_status()` and
+  kill the whole video generation on the FIRST occurrence, since
+  `_tts_segment`'s existing retry loop (`max_attempts`) only covers
+  synthesis-quality problems (a garbled result, a transcript mismatch),
+  never the request itself failing to complete. Fixed with two
+  independent changes: `tts_captions.py`'s `_post_with_backoff` now wraps
+  the actual POST, retrying a `429` or any `5xx` with exponential backoff
+  (`TTS_RATE_LIMIT_MAX_RETRIES = 5`, `2s → 4s → 8s → 16s → 32s`,
+  honoring a `Retry-After` header when ElevenLabs sends one) before
+  finally raising — this is the real safety net and matters regardless of
+  concurrency level, since even sequential requests can hit a transient
+  429 under load. Separately, `_synthesize`'s `job_context.parallel_map`
+  call now passes an explicit `TTS_MAX_WORKERS = 3` instead of the
+  generic default of 8 — ElevenLabs' concurrent-request limit is tied to
+  account tier and can be as low as 2-3 on lower tiers, so a lower cap
+  makes tripping the limit at all less likely in the first place, while
+  still meaningfully parallelizing most videos' handful of segments.
+- **Job persistence, checkpointing, and retry — "why isn't this
+  recoverable"**: a real incident (a job died when its process was
+  restarted mid-generation, then the browser polled a now-nonexistent id
+  forever with no error) exposed two separate problems: the job registry
+  was purely in-memory, so a restart didn't just interrupt one video, it
+  erased all record that generation had ever been attempted; and even
+  setting that aside, a fresh retry re-paid for every stage from scratch
+  — including the ones (script, voiceover) that had already completed
+  and cost real API calls. Both are fixed now, not just papered over with
+  a friendlier error message.
+
+  **Persistence**: `job_context.py` gained a `job_state/<job_id>/`
+  checkpoint directory per job (project root, gitignored like `output/`)
+  holding `job.json` (the full job record) plus per-stage checkpoint
+  files. `webapp/jobs.py`'s `_persist(job_id)` writes `job.json` after
+  every meaningful state change (log line, detail update, status/stage
+  change) — always called OUTSIDE any `_LOCK` block it's nested in
+  (`_persist` briefly takes its own lock just to snapshot the dict, and
+  `threading.Lock` isn't reentrant, so nesting would deadlock).
+  `load_persisted_jobs()`, called once at startup
+  (`if __name__ == "__main__":` in `webapp/app.py`, not at import time,
+  so test scripts importing `webapp.app` don't have this side effect),
+  reloads every `job.json` into `_JOBS`. A job whose persisted status was
+  still `"running"` or `"queued"` — meaning the process that would have
+  finished it is gone — becomes a NEW status, `"interrupted"` (never
+  silently resumed), with a specific message built from `job["stage"]`
+  via `_STAGE_LABELS` ("...interrupted while matching footage", not a
+  generic "something went wrong").
+
+  **Checkpointing**: the three genuinely expensive stages each check for
+  a prior checkpoint before doing their real work, and save one after —
+  `main.py`'s `generate_video_from_seed` for the script (a real Claude
+  call) AND the output paths together (`stem`/`out_dir`, under
+  `"progress"` — checkpointing the script alone isn't enough, since a
+  freshly recomputed stem would orphan the already-written audio/video
+  files from the interrupted attempt); `tts_captions.py`'s `_synthesize`
+  for the finished voiceover (copies the actual mp3 into the checkpoint
+  dir, since decoding a saved copy is more reliable than trying to
+  serialize raw sample arrays — same reasoning as the rest of this file's
+  audio handling); `footage_library.py`'s `pick_clips_for_shots` for the
+  matched clip list (only reused if `shot_counts` matches exactly AND
+  every referenced clip still exists in the library — a stale or
+  invalidated checkpoint is silently ignored rather than trusted). All
+  three checkpoint functions (`job_context.save_json_checkpoint`/
+  `load_json_checkpoint`/`checkpoint_artifact_path`) key off
+  `job_context.get_job_id()` implicitly, so no function signature needed
+  to change to thread a job id through — they're no-ops outside a job
+  (plain CLI use), consistent with how `report_detail`/`parallel_map`
+  already worked. A SUCCESSFUL job's checkpoints are deleted
+  (`job_context.clear_checkpoints`, called right after the final
+  `status="done"` update) — nothing in them is needed once the real
+  output exists; a failed/interrupted job keeps its checkpoints
+  specifically so a retry has something to resume from.
+
+  **Retry**: `webapp/jobs.py`'s `retry_job(job_id)` re-runs an
+  `"error"`/`"interrupted"` job under the SAME job id (unlike `start_job`,
+  which always mints a fresh one) — checkpoints are keyed by job id, so
+  reusing it is what makes the pipeline's checkpoint checks actually find
+  anything. `POST /api/jobs/<id>/retry`; the create-video page's
+  `#job-banner` grows a Retry button (`retryCurrentJob()` in `app.js`)
+  whenever a job is in a retryable state. Since nothing else exposes a
+  job id, `get_latest_terminal_job_for_channel` + a new
+  `GET /api/channels/<key>/last-failed-job` route lets the page
+  proactively surface "your last attempt was interrupted while X — retry?"
+  on load (`resumeRunningJob`, extended past its original running/queued
+  check) even though the user never navigated there with a job id in
+  hand.
+
+  **Friendly errors**: `job["error"]` used to be a raw
+  `traceback.format_exc()` dumped straight into the log — exactly the
+  "404 from some server" technical noise a user without this code open
+  shouldn't have to parse. `_run_job` now calls `_friendly_error(exc)`
+  to build a short, specific, plain-English `job["error"]` (shown
+  prominently in the banner) and keeps the real traceback in a separate
+  `job["error_traceback"]` field (only surfaced in the collapsed log, for
+  actual debugging) — a 429 becomes "the voice service (ElevenLabs) is
+  temporarily rate-limiting requests, this usually resolves on its own",
+  a connection failure becomes "check your internet connection", and
+  only a genuinely-unrecognized exception falls back to naming its
+  Python type. `_guess_service` reads the failed request's URL to name
+  which external service was involved, since "an external service failed"
+  alone isn't specific enough to act on.
+
+  Verified end-to-end (not just each piece in isolation): a fabricated
+  "crashed mid-footage-matching" job, persisted to disk, survives having
+  its in-memory state wiped (simulating a real restart), reloads as
+  `"interrupted"` with the correct stage-specific message, and a
+  `retry_job` call on it reuses the on-disk checkpoint and completes —
+  proving the checkpoint directory genuinely survives the full cycle, not
+  just that each function individually returns the right shape.
+- **Footage matching: still too strict, and one big fetch round instead
+  of many small ones**: two follow-up problems from real use after the
+  round above. First, `MATCH_CONFIDENCE_THRESHOLD` (7, then 6) was STILL
+  behaving as "almost nothing matches" — lowered again to 5, with
+  `_build_prompt`'s rubric edited alongside it (a new "5" band describing
+  a real-but-indirect connection to the subject, e.g. rain footage for a
+  segment about a storm) so the threshold and what the model is actually
+  told to score against stay in sync; bands 1-4 are still an explicit
+  MISS, so this is a real bar, not "anything goes." Second, and the
+  bigger UX problem: combining every shortfalled segment's queries into
+  ONE fetch call per round (a prior round's fix for sequential
+  "batching") had an unintended side effect — a video with several weak
+  segments could queue up dozens of simultaneous downloads at once (a
+  real run hit 36), far more than is a reasonable single round of work or
+  fits comfortably in the UI. `_auto_fetch_and_add` now caps a round at
+  `MAX_CANDIDATES_PER_ROUND = 12`, selected via ROUND-ROBIN across
+  queries (one candidate from each query, then a second pass, etc.) so
+  the cap doesn't just let whichever segment's queries were searched
+  first eat the entire round — verified with a unit test that an 18-query
+  scenario spreads one clip per query in the first pass, and a 2-query
+  scenario still splits evenly (6/6) across passes. The existing
+  fetch-and-recheck loop (`MAX_FETCH_ATTEMPTS`) already means a capped
+  round that's still short just tries again with different search terms
+  next round, rather than needing to fetch everything in one shot.
+- **Footage progress: a real multi-step bar per clip, not two flashing
+  dots**: `status_download`/`status_process` (two coarse booleans, both
+  rendered as the same gold dot whether active or done — indistinguishable
+  at a glance, which is exactly what was reported) are replaced by a
+  single ordered `step` field per clip
+  (`"queued" → "downloading" → "normalizing" → "analyzing" → "done"`,
+  or `"failed"`) reported at each real transition in
+  `_auto_fetch_and_add`/`_fetch_one` — "analyzing" covers the perceptual-
+  duplicate check + Claude vision describe call + manifest write (the
+  sequential, manifest-mutating phase), matching what's actually
+  happening instead of a vague "processing." `app.js`'s
+  `footageStepInfo(step)` maps a step to a fill percentage
+  (`index / (steps.length - 1)`) and a text label, rendered as a real
+  `.job-progress-bar`-style bar per clip instead of dots. Done is
+  `var(--success)` (new token, green) and failed is `var(--danger)`
+  (red) — previously both active and done used the same accent gold,
+  which was the actual "why doesn't this go green" complaint; a failed
+  clip's row is labeled "Failed" in red with explanatory copy above the
+  tower ("a failed clip is skipped automatically, nothing to do") since
+  a single bad download is expected and handled, not something the user
+  needs to act on. The tower's `max-height` grew from 260px to 420px to
+  comfortably fit a full capped round (12 rows) without feeling cramped.
+  Separately, `updateDetailPanel`'s full `innerHTML` replace every poll
+  tick was resetting the tower's scroll position to the top on every
+  tick — reported as "scrolling down jumps back to the top" — fixed by
+  capturing `.detail-tower`'s `scrollTop` before the replace and
+  restoring it on the newly-created element after; verified in the
+  browser that a manually-scrolled position survives a re-render even
+  though the DOM node itself is provably a different object each time
+  (`innerHTML` always fully replaces, never patches).
+- **Home page: progress bars, quick-generate, generate-all**: each
+  channel card became a **stretched link** (`.card-link-overlay`, an
+  absolutely-positioned `<a>` covering the whole card as a SIBLING of the
+  visible content, not a wrapper around it) instead of the card itself
+  being one `<a>` — needed the moment the card had to host a second real
+  interactive element (the Generate button, a progress bar), which can't
+  nest inside a single wrapping link (invalid HTML, and clicking the
+  button would also fire the link); any element that needs to stay
+  independently clickable on top of the overlay just needs `position:
+  relative` + a higher `z-index` (`.card-action`, reused by the gallery's
+  Restore button too). A card shows exactly one of: a **progress bar**
+  (`.job-progress-bar`, real width once `progress_percent` is known, an
+  animated indeterminate fill while it's `None`) if
+  `jobs.get_running_job_for_channel` finds one running — polled by ONE
+  shared `setInterval` in `app.js` that walks every
+  `.job-progress-bar[data-job-id]` on the page each tick (not one
+  interval per card), and on that job finishing just does
+  `location.reload()` (simplest correct way to reset the card AND pick up
+  any section change); or a **"Generate video"** button, only for
+  `status == 'live'` channels with zero unpublished videos and no job
+  already running (`_channel_progress`'s `can_generate`, the single
+  definition both the per-card check and "Generate all" use so they can
+  never disagree) — calls `POST /channels/<key>/generate-now`
+  (`main_module.fetch_candidate_seed` + `jobs.start_job` in one call,
+  deliberately skipping `create_video.html`'s manual seed-preview step,
+  which is useful when you're watching but pointless for something
+  you're about to walk away from); or nothing. A toolbar "Generate all"
+  button (`POST /api/channels/generate-all`) runs that same eligibility
+  check across every channel and starts all the genuinely-eligible ones
+  at once, returning which started and which were skipped and why.
+  `create_video.html` also gained `GET /api/channels/<key>/current-job` +
+  a small on-load check (`resumeRunningJob`) so navigating back to a
+  channel's create-video page while its job is still running resumes the
+  progress view instead of showing the idle "get a candidate" state —
+  the job itself never stopped (it's a daemon thread independent of any
+  request), only the page's earlier connection to it was lost by
+  navigating away. **Not a goal**: surviving an actual server restart —
+  job state is in-memory (`webapp/jobs.py`'s `_JOBS`), so restarting the
+  dev process (an explicit action) still loses whatever was running, same
+  as before this round.
+- **Manual checklist override**: some launch-checklist steps (Patreon's
+  signup flow, say) are genuinely annoying enough that "note I'm skipping
+  this one" beats leaving it permanently unchecked forever. Every
+  checklist item now has a stable id (`webapp/app.py`'s
+  `CHECKLIST_ITEM_IDS`, independent of its label text) and can be toggled
+  into `channel["manual_checklist_overrides"]`
+  (`config/channels.py`'s `DEFAULT_MANUAL_CHECKLIST_OVERRIDES`, a plain
+  list) via `POST /channels/<key>/checklist/<item_id>/toggle-manual`. An
+  item in that list counts as done for section/progress purposes exactly
+  like the real thing, but renders with a neutral "−" (`.todo-item.manual
+  .todo-check`, overriding the accent checkmark by appearing later in the
+  stylesheet at equal specificity) instead of a checkmark, so it stays
+  visibly different from something actually completed — an "Unmark" link
+  replaces "Fix →" for a manually-done item.
 - **Channel logos** (`webapp/logo_gen.py`, `/channels/<key>/logo`): AI-
   generated via OpenAI's Images API (`gpt-image-1`, `n=CANDIDATE_COUNT` in
   one call — the reason OpenAI was picked over Recraft, which needs one

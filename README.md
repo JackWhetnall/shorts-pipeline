@@ -257,20 +257,21 @@ printing). All of it lands under `channels/<key>/logo/`. Not happy with
 any of the 10? Tweak the description and generate again — each attempt
 is a fresh paid batch.
 
-### Monetization
+### Channel setup wizard
 
-Each channel card (and its settings page) has a **Set up monetization**
-link that walks you through a 4-step guided wizard rather than a bare
-form: a dedicated email (Outlook) → Patreon → merch (Printful/Spring,
-using the logo you made if you have one) → Amazon Associates. Each step
-explains what you're actually doing and links straight to the right
-signup page; Back/Next moves between them, and the relevant field (a
-URL, or — for merch — a URL plus product photo uploads) saves the moment
-you hit Next. The Amazon step spells out how their program actually
-works, since it's not obvious: you get one reusable tracking ID (like
-`yourtag-20`), which you append to any product URL yourself (`?tag=
-yourtag-20`) or generate via their SiteStripe tool — paste 2-3 tagged
-evergreen links into the box, that's it.
+Each channel's dashboard has a **Channel setup** link that walks you
+through a guided wizard rather than a bare form: create a logo → get a
+dedicated email (Outlook) → link your socials → Patreon → merch-ready
+logo versions → a merch store (Printify's popup store, using the logo
+you made) → Amazon Associates. Each step explains what you're actually
+doing and links straight to the right signup page; Back/Next moves
+between them, and the relevant field (a URL, or — for the merch store —
+a URL plus product photo uploads) saves the moment you hit Next. The
+Amazon step spells out how their program actually works, since it's not
+obvious: you get one reusable tracking ID (like `yourtag-20`), which you
+append to any product URL yourself (`?tag=yourtag-20`) or generate via
+their SiteStripe tool — paste 2-3 tagged evergreen links into the box,
+that's it.
 
 You can skip the wizard and edit these fields directly on the settings
 page too — a Patreon URL, a merch storefront URL, a small list of Amazon

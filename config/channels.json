@@ -53,7 +53,7 @@
     },
     "monetization": {
       "patreon_url": "",
-      "merch_url": "",
+      "merch_url": "https://minute-pastor.printify.me/",
       "affiliate_links": []
     },
     "end_screen": {
@@ -75,10 +75,14 @@
       }
     },
     "socials": {
-      "youtube_url": "",
-      "tiktok_url": "",
-      "instagram_url": ""
-    }
+      "youtube_url": "https://www.youtube.com/@MinutePastor",
+      "tiktok_url": "https://www.tiktok.com/@minutepastor?lang=en-GB",
+      "instagram_url": "https://www.instagram.com/minutepastor/"
+    },
+    "manual_checklist_overrides": [
+      "affiliate",
+      "patreon"
+    ]
   },
   "shakespeare_lines": {
     "content_mode": "static_corpus",
@@ -88,24 +92,5 @@
     "channel_display_name": "Shakespeare Lines",
     "outro_subtext": "Subscribe for more",
     "output_dir": "output/shakespeare_lines"
-  },
-  "topic_demo": {
-    "content_mode": "topic",
-    "topics": [
-      "Mondays",
-      "coffee",
-      "cats",
-      "working from home",
-      "gym memberships"
-    ],
-    "voice": "21m00Tcm4TlvDq8ikWAM",
-    "style_prompt": "You are writing short, punchy original jokes for a YouTube Shorts audience, in the style of quick one-liners. Plain spoken language, one clear joke per segment, no explaining the joke afterward.",
-    "pacing": {
-      "pause_between_segments": 0.6,
-      "segment_count": 3
-    },
-    "channel_display_name": "Topic Demo",
-    "outro_subtext": "Subscribe for more",
-    "output_dir": "output/topic_demo"
   }
 }
