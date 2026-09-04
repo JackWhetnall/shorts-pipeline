@@ -25,6 +25,7 @@ from core.footage_stats import library_stats
 from core.paths import PROJECT_ROOT, slugify
 from pipeline.run import fetch_seed
 from web import checklist
+from web.blueprints.curriculum import channels_running_low
 from web.forms import apply_channel_form, format_affiliate_links
 from web.helpers import (
     all_channels, as_int, channel_or_404, channel_progress, format_date,
@@ -58,6 +59,9 @@ def index():
         section_titles=SECTION_TITLES, progress=progress,
         has_logo={key: has_logo(key) for key in channels},
         library=library_stats(),
+        # Running out of topics stops generation dead, and the warning is
+        # only useful in advance — so it goes where you look daily.
+        topics_running_low=channels_running_low(),
         deleted_key=request.args.get("deleted"),
         backup_path=request.args.get("backup"),
     )

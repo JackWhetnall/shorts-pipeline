@@ -582,3 +582,18 @@ class TestWebRoutes:
         html = client.get("/channels/c").get_data(as_text=True)
         assert "/channels/c/curriculum" in html
         assert "5 left" in html
+
+    def test_the_home_page_warns_before_a_channel_runs_out(self, client, planned):
+        """Running out stops generation dead, so the warning is only
+        useful in advance."""
+        html = client.get("/").get_data(as_text=True)
+        assert "Running low on topics" in html
+        assert "5 left" in html
+
+    def test_no_warning_when_there_is_plenty_of_runway(self, client, isolated):
+        curriculum.start("c", "S", [
+            {"title": "A", "summary": "", "level": "foundation",
+             "target_topics": 100}])
+        curriculum.add_topics("c", "u01", [
+            {"title": "Topic " + str(i), "angle": ""} for i in range(100)])
+        assert "Running low on topics" not in client.get("/").get_data(as_text=True)

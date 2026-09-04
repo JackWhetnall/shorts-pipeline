@@ -24,6 +24,17 @@
 </p>
 {% endif %}
 
+{% if topics_running_low %}
+<p class="meta info-banner">
+  Running low on topics:
+  {% for row in topics_running_low %}
+    <a href="{{ url_for('curriculum.page', key=row.key) }}">{{ row.name }}</a>
+    ({{ row.pending }} left, ~{{ row.runway_days }} days){% if not loop.last %};{% endif %}
+  {% endfor %}
+  &mdash; generation stops when a plan runs out.
+</p>
+{% endif %}
+
 {% if not channels %}
 <div class="empty-state">
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l4-4 3 3 4-4 3 3v14a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M4 8h16"/></svg>
