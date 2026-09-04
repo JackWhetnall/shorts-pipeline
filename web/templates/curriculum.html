@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ channel.channel_display_name }} — Topics{% endblock %}
+{% block title %}{{ channel.channel_display_name }} — Topic plan{% endblock %}
 {% block content %}
 <a class="back-link" href="{{ url_for('channels.dashboard', key=key) }}">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
@@ -10,29 +10,30 @@
 {% if not progress.has_curriculum %}
 
 <p class="subtitle">
-  This channel picks a topic at random from its list, so the same one can
-  come up twice and there is no sense of easy before hard. A plan fixes
-  both: an ordered syllabus, each topic used once, running from what
-  anyone could follow to what only an enthusiast would search for.
+  This channel picks from a flat list at random, so the same thing can come
+  up twice and there is no sense of easy before hard. A plan fixes both: an
+  ordered syllabus of <strong>topics</strong>, each holding the
+  <strong>subtopics</strong> that become individual videos, running from
+  what anyone could follow to what only an enthusiast would search for.
 </p>
 
 <div class="card">
   <h2>How it works</h2>
   <p class="meta">
-    First an <strong>outline</strong> is designed &mdash; one call, about
+    First an <strong>outline</strong> &mdash; one call, about
     {{ '%.2f'|format(cost.outline_usd) }} dollars &mdash; giving
-    {{ default_units }} units in teaching order. You read those
-    {{ default_units }} unit titles and decide whether the arc is right,
-    which is a thing a person can actually do; {{ default_topics }} topics
+    {{ default_topics }} topics in teaching order. You read those
+    {{ default_topics }} titles and decide whether the arc is right, which
+    is a thing a person can actually do; {{ default_subtopics }} subtopics
     is not.
   </p>
   <p class="meta">
-    Then topics are written <strong>one unit at a time</strong>, as you
+    Then subtopics are written <strong>one topic at a time</strong>, as you
     approach needing them, each costing about
-    {{ '%.2f'|format(cost.per_unit_usd) }} dollars. Filling the whole
+    {{ '%.2f'|format(cost.per_topic_usd) }} dollars. Filling the whole
     syllabus eventually comes to roughly
     <strong>{{ '%.2f'|format(cost.full_usd) }} dollars</strong>, spread
-    over the eighteen months it takes to use.
+    across the eighteen months it takes to use.
   </p>
 
   <form class="channel-form" onsubmit="return makeOutline(event, '{{ key }}')">
@@ -42,15 +43,17 @@
       <span class="hint">Worth filling in if the style prompt describes a
         format ("write dad jokes about&hellip;") rather than a subject.</span>
     </label>
-    <label>Units
-      <input type="number" name="unit_count" id="curriculum-units"
-             value="{{ default_units }}" min="5" max="60">
+    <label>Topics
+      <input type="number" name="topic_count" id="curriculum-topics"
+             value="{{ default_topics }}" min="5" max="80">
     </label>
-    <label>Topics in total
-      <input type="number" name="total_topics" id="curriculum-topics"
-             value="{{ default_topics }}" min="50" max="3000">
-      <span class="hint">At two videos a day, {{ default_topics }} is about
-        {{ (default_topics / 730)|round(1) }} years.</span>
+    <label>Subtopics in total
+      <input type="number" name="total_subtopics" id="curriculum-subtopics"
+             value="{{ default_subtopics }}" min="50" max="3000">
+      <span class="hint">One subtopic is one video. At two a day,
+        {{ default_subtopics }} is about
+        {{ (default_subtopics / 730)|round(1) }} years &mdash; roughly
+        {{ (default_subtopics / default_topics)|int }} per topic.</span>
     </label>
     <div class="actions">
       <button type="submit" class="btn btn-primary" id="curriculum-outline-btn">
@@ -66,7 +69,7 @@
 <p class="subtitle">{{ progress.subject }}</p>
 
 <div class="stat-strip">
-  <div class="stat"><span class="stat-num">{{ progress.total }}</span> topics written</div>
+  <div class="stat"><span class="stat-num">{{ progress.total }}</span> subtopics written</div>
   <div class="stat"><span class="stat-num">{{ progress.done }}</span> made</div>
   <div class="stat"><span class="stat-num">{{ progress.pending }}</span> waiting</div>
   <div class="stat"><span class="stat-num">{{ progress.skipped }}</span> skipped</div>
@@ -75,7 +78,7 @@
 
 {% if progress.running_low %}
 <p class="error-banner">
-  Only {{ progress.pending }} topics left &mdash; about
+  Only {{ progress.pending }} subtopics left &mdash; about
   {{ progress.runway_days }} days at two a day. Generation stops when this
   reaches zero.
 </p>
@@ -83,66 +86,67 @@
 
 <div class="card">
   <p class="meta">
-    {{ progress.units_filled }} of {{ progress.unit_count }} units have their
-    topics.
-    {% if next_unit %}
-      Next up: <strong>{{ next_unit.title }}</strong> ({{ next_unit.level }}).
+    {{ progress.topics_filled }} of {{ progress.topic_count }} topics have
+    their subtopics.
+    {% if next_topic %}
+      Next up: <strong>{{ next_topic.title }}</strong> ({{ next_topic.level }}).
     {% else %}
-      Every unit is filled.
+      Every topic is filled.
     {% endif %}
   </p>
-  {% if next_unit %}
+  {% if next_topic %}
   <div class="actions">
     <button type="button" class="btn btn-primary" id="curriculum-fill-btn"
-            onclick="fillUnits('{{ key }}', 1)">
-      Write the next unit (~{{ '%.2f'|format(cost.per_unit_usd) }} dollars)
+            onclick="fillTopics('{{ key }}', 1)">
+      Write the next topic (~{{ '%.2f'|format(cost.per_topic_usd) }} dollars)
     </button>
     <button type="button" class="btn-ghost" id="curriculum-fill-many-btn"
-            onclick="fillUnits('{{ key }}', 5)">
-      Write the next 5 (~{{ '%.2f'|format(cost.per_unit_usd * 5) }} dollars)
+            onclick="fillTopics('{{ key }}', 5)">
+      Write the next 5 (~{{ '%.2f'|format(cost.per_topic_usd * 5) }} dollars)
     </button>
   </div>
   {% endif %}
   <p class="hint" id="curriculum-status"></p>
 </div>
 
-{% for unit in units %}
-<details class="card" {% if unit.topics and unit.done < unit.topics|length %}open{% endif %}>
+{% for topic in topics %}
+<details class="card" id="{{ topic.id }}"
+         {% if topic.subtopics and topic.pending %}open{% endif %}>
   <summary class="summary-heading">
-    {{ loop.index }}. {{ unit.title }}
-    <span class="badge">{{ unit.level }}</span>
-    {% if unit.topics %}
-      <span class="meta">{{ unit.done }}/{{ unit.topics|length }} made</span>
+    {{ loop.index }}. {{ topic.title }}
+    <span class="badge">{{ topic.level }}</span>
+    {% if topic.subtopics %}
+      <span class="meta">{{ topic.done }}/{{ topic.subtopics|length }} made</span>
     {% else %}
       <span class="meta">not written yet</span>
     {% endif %}
   </summary>
-  <p class="meta">{{ unit.summary }}</p>
+  <p class="meta">{{ topic.summary }}</p>
 
-  {% if unit.topics %}
+  {% if topic.subtopics %}
   <ol class="todo-list">
-    {% for topic in unit.topics %}
-    <li class="todo-item {{ 'done' if topic.status in ('used', 'published') }}"
-        id="{{ topic.id }}">
+    {% for sub in topic.subtopics %}
+    <li class="todo-item {{ 'done' if sub.status in ('used', 'published') }}"
+        id="{{ sub.id }}">
       <span class="todo-check"></span>
       <span class="todo-label">
-        {{ topic.title }}
-        {% if topic.angle %}<span class="hint">{{ topic.angle }}</span>{% endif %}
-        {% if topic.status == 'skipped' %}<span class="hint">Skipped{% if topic.note %} &mdash; {{ topic.note }}{% endif %}</span>{% endif %}
+        {{ sub.title }}
+        {% if sub.angle %}<span class="hint">{{ sub.angle }}</span>{% endif %}
+        {% if sub.status == 'skipped' %}<span class="hint">Skipped{% if sub.note %} &mdash; {{ sub.note }}{% endif %}</span>{% endif %}
       </span>
       <span class="todo-actions">
-        <span class="meta">{{ topic.status }}</span>
-        {% if topic.status == 'pending' %}
-          <form method="post" action="{{ url_for('curriculum.make_next', key=key, topic_id=topic.id) }}">
+        <span class="meta">{{ sub.status }}</span>
+        {% if sub.status == 'pending' %}
+          <form method="post" action="{{ url_for('curriculum.make_next', key=key, subtopic_id=sub.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="todo-action">Make next</button>
           </form>
-          <form method="post" action="{{ url_for('curriculum.skip', key=key, topic_id=topic.id) }}">
+          <form method="post" action="{{ url_for('curriculum.skip', key=key, subtopic_id=sub.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="todo-action">Skip</button>
           </form>
-        {% elif topic.status == 'skipped' %}
-          <form method="post" action="{{ url_for('curriculum.unskip', key=key, topic_id=topic.id) }}">
+        {% elif sub.status == 'skipped' %}
+          <form method="post" action="{{ url_for('curriculum.unskip', key=key, subtopic_id=sub.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="todo-action">Put back</button>
           </form>
@@ -151,6 +155,15 @@
     </li>
     {% endfor %}
   </ol>
+  {% else %}
+  <div class="actions">
+    <button type="button" class="btn-ghost"
+            id="curriculum-fill-{{ topic.id }}"
+            onclick="fillTopics('{{ key }}', 1, '{{ topic.id }}')">
+      Write this topic's {{ topic.target_subtopics }} subtopics
+      (~{{ '%.2f'|format(cost.per_topic_usd) }} dollars)
+    </button>
+  </div>
   {% endif %}
 </details>
 {% endfor %}
@@ -158,11 +171,11 @@
 <fieldset class="card danger-zone">
   <legend>Start over</legend>
   <p class="meta">
-    Deleting the plan loses the record of which topics have been covered.
-    The channel goes back to picking at random from its topic list.
+    Deleting the plan loses the record of what has been covered. The channel
+    goes back to picking at random from its topic list.
   </p>
   <form method="post" action="{{ url_for('curriculum.delete', key=key) }}"
-        onsubmit="return confirm('Delete this topic plan and its record of {{ progress.done }} covered topics?');">
+        onsubmit="return confirm('Delete this topic plan and its record of {{ progress.done }} covered subtopics?');">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="btn-danger">Delete the plan</button>
   </form>

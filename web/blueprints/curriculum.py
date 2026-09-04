@@ -22,35 +22,36 @@ log = get_logger(__name__)
 
 bp = Blueprint("curriculum", __name__)
 
-# Bounds on what the outline form will accept. A syllabus of two units is
+# Bounds on what the outline form will accept. A syllabus of two topics is
 # not a syllabus, and one of two hundred is a list wearing a costume.
-MIN_UNITS, MAX_UNITS = 5, 60
-MIN_TOPICS, MAX_TOPICS = 50, 3000
+MIN_TOPICS, MAX_TOPICS = 5, 80
+MIN_SUBTOPICS, MAX_SUBTOPICS = 50, 3000
 
 
 @bp.route("/channels/<key>/curriculum")
 def page(key):
     channel = channel_or_404(key)
-    from pipeline.curriculum_gen import DEFAULT_TOTAL_TOPICS, DEFAULT_UNIT_COUNT, estimate_cost
+    from pipeline.curriculum_gen import (
+        DEFAULT_TOPIC_COUNT, DEFAULT_TOTAL_SUBTOPICS, estimate_cost)
 
     return render_template(
         "curriculum.html",
         key=key, channel=channel,
         progress=curriculum.progress(key),
-        units=curriculum.units_with_topics(key),
-        next_unit=curriculum.next_unfilled_unit(key),
-        cost=estimate_cost(DEFAULT_UNIT_COUNT),
-        default_units=DEFAULT_UNIT_COUNT,
-        default_topics=DEFAULT_TOTAL_TOPICS,
+        topics=curriculum.topics_with_subtopics(key),
+        next_topic=curriculum.next_unfilled_topic(key),
+        cost=estimate_cost(DEFAULT_TOPIC_COUNT),
+        default_topics=DEFAULT_TOPIC_COUNT,
+        default_subtopics=DEFAULT_TOTAL_SUBTOPICS,
     )
 
 
 @bp.route("/api/channels/<key>/curriculum/outline", methods=["POST"])
 def make_outline(key):
-    """Design the syllabus. One call; no topics yet.
+    """Design the syllabus. One call; no subtopics yet.
 
-    Refuses to overwrite a syllabus that has been used, because the units
-    are what every topic is positioned against — replacing them would
+    Refuses to overwrite a syllabus that has been used, because the topics
+    are what every subtopic is positioned against — replacing them would
     orphan the record of what has already been made.
     """
     channel = channel_or_404(key)
@@ -64,84 +65,92 @@ def make_outline(key):
 
     from pipeline.curriculum_gen import plan_outline
 
-    unit_count = as_int(data.get("unit_count"), 25, MIN_UNITS, MAX_UNITS)
-    total = as_int(data.get("total_topics"), 1000, MIN_TOPICS, MAX_TOPICS)
+    topic_count = as_int(data.get("topic_count"), 40, MIN_TOPICS, MAX_TOPICS)
+    total = as_int(data.get("total_subtopics"), 1000, MIN_SUBTOPICS, MAX_SUBTOPICS)
     try:
-        outline = plan_outline(channel, unit_count, total,
+        outline = plan_outline(channel, topic_count, total,
                                subject_hint=(data.get("subject") or "").strip())
     except PipelineError as exc:
         log.warning(f"{key}: outline generation failed: {exc}")
         return jsonify({"error": exc.user_message}), 502
 
-    curriculum.start(key, outline.get("subject", ""), outline["units"])
-    return jsonify({"ok": True, "units": len(outline["units"])})
+    curriculum.start(key, outline.get("subject", ""), outline["topics"])
+    return jsonify({"ok": True, "topics": len(outline["topics"])})
 
 
 @bp.route("/api/channels/<key>/curriculum/fill", methods=["POST"])
 def fill(key):
-    """Write topics for the next unfilled unit, or for several.
+    """Write subtopics for the next unfilled topic, or for several.
 
-    One unit per call rather than the whole syllabus in one go: the
+    One topic per call rather than the whole syllabus in one go: the
     response has to fit in a token budget, and generating only what is
-    about to be used is what keeps a thousand-topic plan cheap.
+    about to be used is what keeps a thousand-video plan cheap.
+
+    `topic_id` fills one specific topic instead of the next unfilled one —
+    what the create page uses when you pick a topic that has no subtopics
+    written yet.
     """
     channel = channel_or_404(key)
     data = request.get_json(force=True, silent=True) or {}
-    wanted = as_int(data.get("units"), 1, 1, 10)
+    wanted = as_int(data.get("count"), 1, 1, 10)
+    only = (data.get("topic_id") or "").strip()
 
-    from pipeline.curriculum_gen import write_unit_topics
+    from pipeline.curriculum_gen import write_subtopics
 
     filled, added = [], 0
     for _ in range(wanted):
-        unit = curriculum.next_unfilled_unit(key)
-        if unit is None:
+        topic = (curriculum.find_topic(key, only) if only
+                 else curriculum.next_unfilled_topic(key))
+        if topic is None or (only and topic.get("filled")):
             break
         try:
-            topics = write_unit_topics(channel, curriculum.load(key), unit)
+            subtopics = write_subtopics(channel, curriculum.load(key), topic)
         except PipelineError as exc:
-            log.warning(f"{key}: topics for {unit['id']} failed: {exc}")
+            log.warning(f"{key}: subtopics for {topic['id']} failed: {exc}")
             # Partial success is still success: report what was written
-            # rather than throwing away units that worked.
+            # rather than throwing away topics that worked.
             if filled:
                 break
             return jsonify({"error": exc.user_message}), 502
         before = curriculum.progress(key)["total"]
-        curriculum.add_topics(key, unit["id"], topics)
+        curriculum.add_subtopics(key, topic["id"], subtopics)
         added += curriculum.progress(key)["total"] - before
-        filled.append(unit["title"])
+        filled.append(topic["title"])
+        if only:
+            break
 
     if not filled:
-        return jsonify({"error": "Every unit already has its topics."}), 400
-    return jsonify({"ok": True, "units": filled, "topics_added": added,
+        return jsonify({"error": "Every topic already has its subtopics."}), 400
+    return jsonify({"ok": True, "topics": filled, "subtopics_added": added,
                     "pending": curriculum.pending_count(key)})
 
 
-@bp.route("/channels/<key>/curriculum/<topic_id>/skip", methods=["POST"])
-def skip(key, topic_id):
+@bp.route("/channels/<key>/curriculum/<subtopic_id>/skip", methods=["POST"])
+def skip(key, subtopic_id):
     channel_or_404(key)
     try:
-        curriculum.skip(key, topic_id, request.form.get("note", ""))
+        curriculum.skip(key, subtopic_id, request.form.get("note", ""))
     except PipelineError:
-        abort(404, description="That topic is no longer in the plan.")
-    return redirect(url_for("curriculum.page", key=key) + f"#{topic_id}")
+        abort(404, description="That subtopic is no longer in the plan.")
+    return redirect(url_for("curriculum.page", key=key) + f"#{subtopic_id}")
 
 
-@bp.route("/channels/<key>/curriculum/<topic_id>/unskip", methods=["POST"])
-def unskip(key, topic_id):
+@bp.route("/channels/<key>/curriculum/<subtopic_id>/unskip", methods=["POST"])
+def unskip(key, subtopic_id):
     channel_or_404(key)
     try:
-        curriculum.unskip(key, topic_id)
+        curriculum.unskip(key, subtopic_id)
     except PipelineError:
-        abort(404, description="That topic is no longer in the plan.")
-    return redirect(url_for("curriculum.page", key=key) + f"#{topic_id}")
+        abort(404, description="That subtopic is no longer in the plan.")
+    return redirect(url_for("curriculum.page", key=key) + f"#{subtopic_id}")
 
 
-@bp.route("/channels/<key>/curriculum/<topic_id>/next", methods=["POST"])
-def make_next(key, topic_id):
-    """Jump one topic to the front of the queue."""
+@bp.route("/channels/<key>/curriculum/<subtopic_id>/next", methods=["POST"])
+def make_next(key, subtopic_id):
+    """Jump one subtopic to the front of the queue."""
     channel_or_404(key)
     try:
-        curriculum.move_to_front(key, topic_id)
+        curriculum.move_to_front(key, subtopic_id)
     except PipelineError as exc:
         abort(400, description=exc.user_message)
     return redirect(url_for("curriculum.page", key=key))
@@ -156,7 +165,7 @@ def delete(key):
 
 
 def channels_running_low() -> list:
-    """Channels close to running out of topics, for the home page.
+    """Channels close to running out of subtopics, for the home page.
 
     Surfaced there because running out is the one failure mode of this
     design: it stops generation dead, and the warning is only useful in

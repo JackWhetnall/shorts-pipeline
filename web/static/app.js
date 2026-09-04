@@ -1399,8 +1399,8 @@ async function makeOutline(event, key) {
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
         subject: document.getElementById("curriculum-subject").value,
-        unit_count: document.getElementById("curriculum-units").value,
-        total_topics: document.getElementById("curriculum-topics").value,
+        topic_count: document.getElementById("curriculum-topics").value,
+        total_subtopics: document.getElementById("curriculum-subtopics").value,
       }),
     });
     const data = await res.json();
@@ -1410,9 +1410,10 @@ async function makeOutline(event, key) {
   return false;
 }
 
-async function fillUnits(key, count) {
+async function fillTopics(key, count, topicId) {
   const button = document.getElementById(
-    count > 1 ? "curriculum-fill-many-btn" : "curriculum-fill-btn");
+    topicId ? `curriculum-fill-${topicId}`
+            : count > 1 ? "curriculum-fill-many-btn" : "curriculum-fill-btn");
   const status = document.getElementById("curriculum-status");
   status.textContent = "";
 
@@ -1420,10 +1421,10 @@ async function fillUnits(key, count) {
     const res = await apiFetch(`/api/channels/${key}/curriculum/fill`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({units: count}),
+      body: JSON.stringify({count, topic_id: topicId || ""}),
     });
     const data = await res.json();
-    if (!res.ok) { status.textContent = data.error || "Couldn't write those topics."; return; }
+    if (!res.ok) { status.textContent = data.error || "Couldn't write those subtopics."; return; }
     window.location.reload();
   });
 }

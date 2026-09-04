@@ -32,18 +32,18 @@ def planned(isolated):
     """A three-unit syllabus with topics in the first two."""
     curriculum.start("c", "Testing things", [
         {"title": "Basics", "summary": "The obvious ground.",
-         "level": "foundation", "target_topics": 3},
+         "level": "foundation", "target_subtopics": 3},
         {"title": "Middle", "summary": "Builds on the basics.",
-         "level": "intermediate", "target_topics": 2},
+         "level": "intermediate", "target_subtopics": 2},
         {"title": "Deep", "summary": "For enthusiasts.",
-         "level": "specialist", "target_topics": 2},
+         "level": "specialist", "target_subtopics": 2},
     ])
-    curriculum.add_topics("c", "u01", [
+    curriculum.add_subtopics("c", "u01", [
         {"title": "First thing", "angle": "a"},
         {"title": "Second thing", "angle": "b"},
         {"title": "Third thing", "angle": "c"},
     ])
-    curriculum.add_topics("c", "u02", [
+    curriculum.add_subtopics("c", "u02", [
         {"title": "Fourth thing", "angle": "d"},
         {"title": "Fifth thing", "angle": "e"},
     ])
@@ -58,19 +58,19 @@ class TestBuilding:
 
     def test_units_are_numbered_in_the_order_given(self, isolated):
         data = curriculum.start("c", "S", [
-            {"title": "A", "level": "foundation", "target_topics": 5},
-            {"title": "B", "level": "advanced", "target_topics": 5},
+            {"title": "A", "level": "foundation", "target_subtopics": 5},
+            {"title": "B", "level": "advanced", "target_subtopics": 5},
         ])
-        assert [u["id"] for u in data["units"]] == ["u01", "u02"]
-        assert [u["title"] for u in data["units"]] == ["A", "B"]
+        assert [u["id"] for u in data["topics"]] == ["u01", "u02"]
+        assert [u["title"] for u in data["topics"]] == ["A", "B"]
 
     def test_an_unknown_level_becomes_intermediate_rather_than_being_stored(self, isolated):
         data = curriculum.start("c", "S", [
-            {"title": "A", "level": "impossible", "target_topics": 5}])
-        assert data["units"][0]["level"] == "intermediate"
+            {"title": "A", "level": "impossible", "target_subtopics": 5}])
+        assert data["topics"][0]["level"] == "intermediate"
 
     def test_topics_keep_the_order_they_were_written_in(self, planned):
-        titles = [t["title"] for t in curriculum.topics("c")]
+        titles = [t["title"] for t in curriculum.subtopics("c")]
         assert titles == ["First thing", "Second thing", "Third thing",
                           "Fourth thing", "Fifth thing"]
 
@@ -78,12 +78,12 @@ class TestBuilding:
         """The generator is told not to repeat, but 'told not to' is not a
         guarantee, and a duplicate topic is the exact failure this whole
         system exists to prevent."""
-        curriculum.add_topics("c", "u03", [
+        curriculum.add_subtopics("c", "u03", [
             {"title": "First thing", "angle": "different angle, same topic"},
             {"title": "  SECOND THING  ", "angle": "case and spacing"},
             {"title": "Genuinely new", "angle": "x"},
         ])
-        titles = [t["title"] for t in curriculum.topics("c")]
+        titles = [t["title"] for t in curriculum.subtopics("c")]
         assert titles.count("First thing") == 1
         assert len(titles) == 6
         assert "Genuinely new" in titles
@@ -92,18 +92,18 @@ class TestBuilding:
         """Filling out of order would let the pending buffer jump ahead of
         the arc it was ordered into."""
         curriculum.start("c", "S", [
-            {"title": "A", "level": "foundation", "target_topics": 2},
-            {"title": "B", "level": "advanced", "target_topics": 2},
+            {"title": "A", "level": "foundation", "target_subtopics": 2},
+            {"title": "B", "level": "advanced", "target_subtopics": 2},
         ])
-        assert curriculum.next_unfilled_unit("c")["id"] == "u01"
-        curriculum.add_topics("c", "u01", [{"title": "x", "angle": ""}])
-        assert curriculum.next_unfilled_unit("c")["id"] == "u02"
-        curriculum.add_topics("c", "u02", [{"title": "y", "angle": ""}])
-        assert curriculum.next_unfilled_unit("c") is None
+        assert curriculum.next_unfilled_topic("c")["id"] == "u01"
+        curriculum.add_subtopics("c", "u01", [{"title": "x", "angle": ""}])
+        assert curriculum.next_unfilled_topic("c")["id"] == "u02"
+        curriculum.add_subtopics("c", "u02", [{"title": "y", "angle": ""}])
+        assert curriculum.next_unfilled_topic("c") is None
 
     def test_adding_to_a_unit_that_does_not_exist_is_refused(self, planned):
         with pytest.raises(curriculum.CurriculumError):
-            curriculum.add_topics("c", "u99", [{"title": "x", "angle": ""}])
+            curriculum.add_subtopics("c", "u99", [{"title": "x", "angle": ""}])
 
     def test_a_damaged_file_names_itself(self, isolated):
         curriculum.CURRICULA_DIR.mkdir(parents=True, exist_ok=True)
@@ -123,7 +123,7 @@ class TestBuilding:
         record of what has already been published."""
         assert list(curriculum.CURRICULA_DIR.glob("*.tmp")) == []
         data = json.loads(curriculum.path_for("c").read_text(encoding="utf-8"))
-        assert len(data["topics"]) == 5
+        assert len(data["subtopics"]) == 5
 
 
 class TestOrderAndClaiming:
@@ -169,7 +169,7 @@ class TestOrderAndClaiming:
     def test_move_to_front_leaves_the_rest_in_order(self, planned):
         curriculum.move_to_front("c", "t0005")
         curriculum.claim("c")
-        assert [t["title"] for t in curriculum.topics("c", status="pending")] == [
+        assert [t["title"] for t in curriculum.subtopics("c", status="pending")] == [
             "First thing", "Second thing", "Third thing", "Fourth thing"]
 
 
@@ -230,17 +230,17 @@ class TestProgress:
 
     def test_a_full_syllabus_is_not_flagged(self, isolated):
         curriculum.start("c", "S", [
-            {"title": "A", "level": "foundation", "target_topics": 100}])
-        curriculum.add_topics("c", "u01", [
+            {"title": "A", "level": "foundation", "target_subtopics": 100}])
+        curriculum.add_subtopics("c", "u01", [
             {"title": f"Topic {i}", "angle": ""} for i in range(100)])
         assert curriculum.progress("c")["running_low"] is False
 
-    def test_units_with_topics_reports_per_unit_progress(self, planned):
+    def test_topics_with_subtopics_reports_per_topic_progress(self, planned):
         curriculum.claim("c", "t0001")
-        units = curriculum.units_with_topics("c")
+        units = curriculum.topics_with_subtopics("c")
         assert units[0]["done"] == 1
-        assert len(units[0]["topics"]) == 3
-        assert units[2]["topics"] == []
+        assert len(units[0]["subtopics"]) == 3
+        assert units[2]["subtopics"] == []
 
 
 class TestSeedSelection:
@@ -312,35 +312,35 @@ class TestGenerationPrompts:
         def fake(system, user, schema, **kwargs):
             captured["system"] = " ".join(b.text for b in system)
             captured["user"] = user
-            return {"subject": "Maths", "units": [
+            return {"subject": "Maths", "topics": [
                 {"title": "A", "summary": "", "level": "foundation",
-                 "target_topics": 40}]}
+                 "target_subtopics": 40}]}
 
         monkeypatch.setattr(curriculum_gen, "call_json", fake)
-        curriculum_gen.plan_outline(channel, unit_count=25, total_topics=1000)
+        curriculum_gen.plan_outline(channel, topic_count=25, total_subtopics=1000)
 
         assert "depend on an idea that has not appeared" in captured["system"]
         assert "Explain one idea about maths." in captured["system"]
-        assert "25 units" in captured["user"]
+        assert "25 topics" in captured["user"]
 
     def test_an_empty_outline_is_an_error_not_an_empty_plan(self, channel, monkeypatch):
         from pipeline import curriculum_gen
 
         monkeypatch.setattr(curriculum_gen, "call_json",
-                            lambda *a, **k: {"subject": "x", "units": []})
+                            lambda *a, **k: {"subject": "x", "topics": []})
         with pytest.raises(PipelineError):
             curriculum_gen.plan_outline(channel)
 
     def test_a_short_outline_is_kept_rather_than_thrown_away(self, channel, monkeypatch):
-        """Ordering is what matters; 23 units is as usable as 25, and
+        """Ordering is what matters; 37 topics is as usable as 40, and
         failing over the number would discard a good answer."""
         from pipeline import curriculum_gen
 
         monkeypatch.setattr(curriculum_gen, "call_json", lambda *a, **k: {
             "subject": "x",
-            "units": [{"title": str(i), "summary": "", "level": "foundation",
-                       "target_topics": 40} for i in range(23)]})
-        assert len(curriculum_gen.plan_outline(channel, 25)["units"]) == 23
+            "topics": [{"title": str(i), "summary": "", "level": "foundation",
+                        "target_subtopics": 25} for i in range(37)]})
+        assert len(curriculum_gen.plan_outline(channel, 40)["topics"]) == 37
 
     def test_topic_generation_is_told_what_already_exists(self, planned, channel,
                                                           monkeypatch):
@@ -351,11 +351,11 @@ class TestGenerationPrompts:
         def fake(system, user, schema, **kwargs):
             captured["user"] = user
             captured["system"] = " ".join(b.text for b in system)
-            return {"topics": []}
+            return {"subtopics": []}
 
         monkeypatch.setattr(curriculum_gen, "call_json", fake)
         data = curriculum.load("c")
-        curriculum_gen.write_unit_topics(channel, data, data["units"][1])
+        curriculum_gen.write_subtopics(channel, data, data["topics"][1])
 
         assert "First thing" in captured["user"]
         assert "Do not repeat" in captured["user"]
@@ -371,14 +371,14 @@ class TestGenerationPrompts:
         captured = {}
         monkeypatch.setattr(curriculum_gen, "call_json",
                             lambda system, user, schema, **k:
-                            (captured.update(user=user), {"topics": []})[1])
+                            (captured.update(user=user), {"subtopics": []})[1])
         data = curriculum.load("c")
-        curriculum_gen.write_unit_topics(channel, data, data["units"][0])
+        curriculum_gen.write_subtopics(channel, data, data["topics"][0])
 
         assert "First thing" in captured["user"]
         assert "Fourth thing" not in captured["user"]
 
-    def test_a_single_call_is_never_asked_for_too_many_topics(self, planned, channel,
+    def test_a_single_call_is_never_asked_for_too_many_subtopics(self, planned, channel,
                                                               monkeypatch):
         """Asking for 80 in one response is how a unit silently ends
         halfway through."""
@@ -387,12 +387,12 @@ class TestGenerationPrompts:
         captured = {}
         monkeypatch.setattr(curriculum_gen, "call_json",
                             lambda system, user, schema, **k:
-                            (captured.update(user=user), {"topics": []})[1])
+                            (captured.update(user=user), {"subtopics": []})[1])
         data = curriculum.load("c")
-        data["units"][2]["target_topics"] = 200
-        curriculum_gen.write_unit_topics(channel, data, data["units"][2])
+        data["topics"][2]["target_subtopics"] = 200
+        curriculum_gen.write_subtopics(channel, data, data["topics"][2])
 
-        assert f"Write {curriculum_gen.MAX_TOPICS_PER_CALL} topics" in captured["user"]
+        assert f"Write {curriculum_gen.MAX_SUBTOPICS_PER_CALL} subtopics" in captured["user"]
 
     def test_no_schema_uses_array_bounds(self):
         """The API rejects minItems/maxItems other than 0 and 1, which is
@@ -409,7 +409,7 @@ class TestGenerationPrompts:
                     walk(item)
 
         walk(curriculum_gen._outline_schema())
-        walk(curriculum_gen._topics_schema())
+        walk(curriculum_gen._subtopics_schema())
 
 
 class TestWebRoutes:
@@ -471,30 +471,30 @@ class TestWebRoutes:
         from pipeline import curriculum_gen
 
         monkeypatch.setattr(curriculum_gen, "plan_outline", lambda *a, **k: {
-            "subject": "New", "units": [{"title": "Fresh", "summary": "",
-                                         "level": "foundation", "target_topics": 10}]})
+            "subject": "New", "topics": [{"title": "Fresh", "summary": "",
+                                         "level": "foundation", "target_subtopics": 10}]})
         response = client.post("/api/channels/c/curriculum/outline", json={},
                                headers={"X-CSRF-Token": self._csrf(client)})
         assert response.status_code == 200
-        assert curriculum.load("c")["units"][0]["title"] == "Fresh"
+        assert curriculum.load("c")["topics"][0]["title"] == "Fresh"
 
-    def test_unit_counts_outside_the_sane_range_are_clamped(self, client, monkeypatch):
+    def test_topic_counts_outside_the_sane_range_are_clamped(self, client, monkeypatch):
         from pipeline import curriculum_gen
 
         captured = {}
 
-        def fake(channel, unit_count, total_topics, subject_hint=""):
-            captured.update(unit_count=unit_count, total_topics=total_topics)
-            return {"subject": "x", "units": [{"title": "A", "summary": "",
+        def fake(channel, topic_count, total_subtopics, subject_hint=""):
+            captured.update(topic_count=topic_count, total_subtopics=total_subtopics)
+            return {"subject": "x", "topics": [{"title": "A", "summary": "",
                                                "level": "foundation",
-                                               "target_topics": 1}]}
+                                               "target_subtopics": 1}]}
 
         monkeypatch.setattr(curriculum_gen, "plan_outline", fake)
         client.post("/api/channels/c/curriculum/outline",
-                    json={"unit_count": 9999, "total_topics": -5},
+                    json={"topic_count": 9999, "total_subtopics": -5},
                     headers={"X-CSRF-Token": self._csrf(client)})
-        assert captured["unit_count"] == curriculum_web.MAX_UNITS
-        assert captured["total_topics"] == curriculum_web.MIN_TOPICS
+        assert captured["topic_count"] == curriculum_web.MAX_TOPICS
+        assert captured["total_subtopics"] == curriculum_web.MIN_SUBTOPICS
 
     def test_a_generation_failure_returns_a_sentence(self, client, monkeypatch):
         from pipeline import curriculum_gen
@@ -508,29 +508,29 @@ class TestWebRoutes:
         assert response.status_code == 502
         assert response.get_json()["error"] == "Couldn't design a plan."
 
-    def test_filling_writes_the_next_unfilled_unit(self, client, planned, monkeypatch):
+    def test_filling_writes_the_next_unfilled_topic(self, client, planned, monkeypatch):
         from pipeline import curriculum_gen
 
-        monkeypatch.setattr(curriculum_gen, "write_unit_topics", lambda *a, **k: [
+        monkeypatch.setattr(curriculum_gen, "write_subtopics", lambda *a, **k: [
             {"title": "Sixth thing", "angle": "f"}])
-        response = client.post("/api/channels/c/curriculum/fill", json={"units": 1},
+        response = client.post("/api/channels/c/curriculum/fill", json={"count": 1},
                                headers={"X-CSRF-Token": self._csrf(client)})
-        assert response.get_json()["units"] == ["Deep"]
+        assert response.get_json()["topics"] == ["Deep"]
         assert curriculum.next_pending("c")["title"] == "First thing"
         assert curriculum.progress("c")["total"] == 6
 
     def test_filling_a_complete_syllabus_says_so(self, client, planned, monkeypatch):
         from pipeline import curriculum_gen
 
-        monkeypatch.setattr(curriculum_gen, "write_unit_topics",
+        monkeypatch.setattr(curriculum_gen, "write_subtopics",
                             lambda *a, **k: [{"title": "x", "angle": ""}])
-        client.post("/api/channels/c/curriculum/fill", json={"units": 1},
+        client.post("/api/channels/c/curriculum/fill", json={"count": 1},
                     headers={"X-CSRF-Token": self._csrf(client)})
-        response = client.post("/api/channels/c/curriculum/fill", json={"units": 1},
+        response = client.post("/api/channels/c/curriculum/fill", json={"count": 1},
                                headers={"X-CSRF-Token": self._csrf(client)})
         assert response.status_code == 400
 
-    def test_a_partial_multi_unit_fill_keeps_what_worked(self, client, isolated,
+    def test_a_partial_multi_topic_fill_keeps_what_worked(self, client, isolated,
                                                          monkeypatch):
         """Three units requested, the second one fails: the first must
         still be saved rather than the whole call being thrown away."""
@@ -538,7 +538,7 @@ class TestWebRoutes:
 
         curriculum.start("c", "S", [
             {"title": "U" + str(i), "summary": "", "level": "foundation",
-             "target_topics": 2} for i in range(3)])
+             "target_subtopics": 2} for i in range(3)])
 
         calls = {"n": 0}
 
@@ -548,11 +548,11 @@ class TestWebRoutes:
                 raise PipelineError("boom", user_message="Failed.")
             return [{"title": "Topic " + str(calls["n"]), "angle": ""}]
 
-        monkeypatch.setattr(curriculum_gen, "write_unit_topics", flaky)
-        response = client.post("/api/channels/c/curriculum/fill", json={"units": 3},
+        monkeypatch.setattr(curriculum_gen, "write_subtopics", flaky)
+        response = client.post("/api/channels/c/curriculum/fill", json={"count": 3},
                                headers={"X-CSRF-Token": self._csrf(client)})
         assert response.status_code == 200
-        assert response.get_json()["units"] == ["U0"]
+        assert response.get_json()["topics"] == ["U0"]
         assert curriculum.progress("c")["total"] == 1
 
     def test_skip_and_put_back_round_trip(self, client, planned):
@@ -593,8 +593,8 @@ class TestWebRoutes:
     def test_no_warning_when_there_is_plenty_of_runway(self, client, isolated):
         curriculum.start("c", "S", [
             {"title": "A", "summary": "", "level": "foundation",
-             "target_topics": 100}])
-        curriculum.add_topics("c", "u01", [
+             "target_subtopics": 100}])
+        curriculum.add_subtopics("c", "u01", [
             {"title": "Topic " + str(i), "angle": ""} for i in range(100)])
         assert "Running low on topics" not in client.get("/").get_data(as_text=True)
 
@@ -1067,3 +1067,80 @@ class TestCustomQuoteCorpus:
         with pytest.raises(ConfigError) as caught:
             get_quote(channel)
         assert "your own quote list" in caught.value.user_message
+
+
+class TestSchemaMigration:
+    """Version 1 called topics "units" and subtopics "topics".
+
+    There is real data in that shape — a syllabus with a video already made
+    from it — so the rename has to be a migration, not a rename.
+    """
+
+    V1 = {
+        "version": 1, "channel": "c", "subject": "Witchcraft",
+        "generated_at": "2026-09-04T00:00:00+00:00",
+        "units": [
+            {"id": "u01", "title": "Basics", "summary": "The obvious ground.",
+             "level": "foundation", "target_topics": 45, "filled": True},
+            {"id": "u02", "title": "Deeper", "summary": "Later.",
+             "level": "advanced", "target_topics": 30, "filled": False},
+        ],
+        "topics": [
+            {"id": "t0001", "unit": "u01", "position": 1, "title": "First",
+             "angle": "a", "status": "used", "video_stem": "first",
+             "used_at": "2026-09-04T00:00:00+00:00", "note": ""},
+            {"id": "t0002", "unit": "u01", "position": 2, "title": "Second",
+             "angle": "b", "status": "pending", "video_stem": "",
+             "used_at": "", "note": ""},
+        ],
+    }
+
+    @pytest.fixture
+    def migrated(self, isolated):
+        import json
+
+        curriculum.CURRICULA_DIR.mkdir(parents=True, exist_ok=True)
+        curriculum.path_for("c").write_text(json.dumps(self.V1), encoding="utf-8")
+        return curriculum.load("c")
+
+    def test_units_become_topics(self, migrated):
+        assert [t["title"] for t in migrated["topics"]] == ["Basics", "Deeper"]
+        assert migrated["topics"][0]["target_subtopics"] == 45
+        assert migrated["topics"][0]["filled"] is True
+
+    def test_topics_become_subtopics(self, migrated):
+        """The old file had BOTH keys, and "topics" meant subtopics — so
+        writing the new "topics" before reading the old one destroys the
+        subtopics. It did, once."""
+        assert [t["title"] for t in migrated["subtopics"]] == ["First", "Second"]
+        assert len(migrated["subtopics"]) == 2
+
+    def test_the_link_from_a_subtopic_to_its_topic_survives(self, migrated):
+        assert all(t["topic"] == "u01" for t in migrated["subtopics"])
+
+    def test_what_was_already_made_is_not_lost(self, migrated):
+        used = [t for t in migrated["subtopics"] if t["status"] == "used"]
+        assert len(used) == 1
+        assert used[0]["video_stem"] == "first"
+
+    def test_progress_reads_the_migrated_shape(self, migrated):
+        state = curriculum.progress("c")
+        assert state["topic_count"] == 2
+        assert state["total"] == 2
+        assert state["done"] == 1
+        assert state["pending"] == 1
+
+    def test_the_next_write_persists_version_2(self, migrated):
+        import json
+
+        curriculum.skip("c", "t0002")
+        stored = json.loads(curriculum.path_for("c").read_text(encoding="utf-8"))
+        assert stored["version"] == 2
+        assert "units" not in stored
+        assert "subtopics" in stored
+
+    def test_migrating_twice_is_harmless(self, migrated):
+        curriculum.save(migrated)
+        again = curriculum.load("c")
+        assert len(again["topics"]) == 2
+        assert len(again["subtopics"]) == 2

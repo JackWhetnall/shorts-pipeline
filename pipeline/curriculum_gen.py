@@ -1,28 +1,29 @@
 """
-Generating a channel's syllabus: the outline, then a unit's topics.
+Generating a channel's syllabus: the outline, then one topic's subtopics.
 
 Two calls with very different jobs.
 
 `plan_outline` is asked for a *teaching order*, and that is the whole
-point of it. Left alone, a model asked for topics about mathematics
-produces a list that is interesting and arbitrary — the Banach-Tarski
-paradox next to how percentages work. The prompt below is mostly
-constraints on ordering, because ordering is the thing that cannot be
-fixed later without rewriting everything downstream of it.
+point of it. Left alone, a model asked about mathematics produces a list
+that is interesting and arbitrary — the Banach-Tarski paradox next to how
+percentages work. The prompt below is mostly constraints on ordering,
+because ordering is the thing that cannot be fixed later without
+rewriting everything downstream of it.
 
-`write_unit_topics` is asked for a specific unit's worth, given the
-outline for context and every title already in the syllabus so it cannot
-repeat one. Repetition is the failure this exists to prevent, so it is
-constrained twice: stated in the prompt, and enforced in
-`core.curriculum.add_topics`, which drops duplicates whatever the model
-says.
+`write_subtopics` is asked for one topic's worth, given the outline for
+context and every title already in the syllabus so it cannot repeat one.
+Repetition is the failure this exists to prevent, so it is constrained
+twice: stated in the prompt, and enforced in
+`core.curriculum.add_subtopics`, which drops duplicates whatever the
+model says.
 
-## Cost
+## Shape and cost
 
-Measured on a real 8-unit maths syllabus: the outline cost $0.008 and a
-unit of topics about $0.010. A full 25-unit, 1000-topic plan is 26 calls
-and lands comfortably under a dollar — spread over the eighteen months it
-takes to use, and never made before the topics are needed.
+40 topics of 25 subtopics is 1000 videos — about eighteen months at two a
+day. Measured on a real syllabus: an 8-topic outline cost $0.008 and a
+call for a topic's subtopics about $0.010. A full 40-topic plan is 41
+calls, lands comfortably under a dollar, is spread across the months it
+takes to use, and is never made before the subtopics are needed.
 """
 
 from __future__ import annotations
@@ -32,24 +33,24 @@ from pipeline.llm import SystemBlock, call_json
 
 log = get_logger(__name__)
 
-# Enough for the outline's reasoning and its answer. Thinking is billed
-# from this, so a budget sized to the JSON alone would return nothing.
+# Enough for the reasoning and the answer. Thinking is billed from this,
+# so a budget sized to the JSON alone would return nothing.
 OUTLINE_MAX_TOKENS = 8000
-TOPICS_MAX_TOKENS = 8000
+SUBTOPICS_MAX_TOKENS = 8000
 
 # Ordering is a judgement about an audience, which is what effort buys.
-# The topics themselves are a listing task and do not need it.
+# Listing a topic's subtopics does not need it.
 OUTLINE_EFFORT = "medium"
-TOPICS_EFFORT = "low"
+SUBTOPICS_EFFORT = "low"
 
-DEFAULT_UNIT_COUNT = 25
-DEFAULT_TOTAL_TOPICS = 1000
+DEFAULT_TOPIC_COUNT = 40
+DEFAULT_TOTAL_SUBTOPICS = 1000
 
-# Per call, not per unit: a unit's target can exceed this and simply takes
-# two calls. Sized so the response comfortably fits the budget above —
-# asking for 80 in one go is how you get a truncated response and a unit
-# that silently ends halfway.
-MAX_TOPICS_PER_CALL = 40
+# Per call, not per topic: a topic wanting more simply takes two calls.
+# Sized so the response comfortably fits the budget above — asking for 80
+# in one go is how you get a truncated response and a topic that silently
+# ends halfway.
+MAX_SUBTOPICS_PER_CALL = 30
 
 
 ORDERING_RULES = """\
@@ -57,21 +58,21 @@ The order is the point of this task. Judge it as if you were designing the
 running order of a channel someone will watch from the beginning.
 
 - Start with what the largest number of people can already follow. The
-  first unit should contain the ideas someone with no background would
+  first topic should contain the ideas someone with no background would
   recognise and want explained. Save what only an enthusiast would search
   for until late.
-- Nothing may depend on an idea that has not appeared in an earlier unit.
-  If unit 9 needs a term, unit 1-8 must have covered it.
-- Move outward, not sideways. Each unit should feel like a step further
+- Nothing may depend on an idea that has not appeared in an earlier topic.
+  If topic 9 needs a term, topics 1-8 must have covered it.
+- Move outward, not sideways. Each topic should feel like a step further
   in rather than a different corner of the same ground.
 - Breadth first within a level. Cover the obvious things at one level of
   difficulty before going deeper on any one of them.
-- The last units should be genuinely specialist: the material an audience
+- The last topics should be genuinely specialist: the material an audience
   earns its way to, not filler.
 
-A concrete test: someone who watches unit 1 and knows nothing about the
+A concrete test: someone who watches topic 1 and knows nothing about the
 subject should understand every video in it. Someone who has watched
-everything up to unit N should understand every video in unit N+1."""
+everything up to topic N should understand every video in topic N+1."""
 
 
 def _outline_schema() -> dict:
@@ -88,7 +89,7 @@ def _outline_schema() -> dict:
                 "type": "string",
                 "description": "One sentence naming what this channel covers.",
             },
-            "units": {
+            "topics": {
                 "type": "array",
                 "items": {
                     "type": "object",
@@ -99,7 +100,7 @@ def _outline_schema() -> dict:
                         },
                         "summary": {
                             "type": "string",
-                            "description": "One or two sentences: what this unit "
+                            "description": "One or two sentences: what this topic "
                                            "covers and what it assumes the viewer "
                                            "already knows.",
                         },
@@ -108,26 +109,26 @@ def _outline_schema() -> dict:
                             "enum": ["foundation", "intermediate", "advanced",
                                      "specialist"],
                         },
-                        "target_topics": {
+                        "target_subtopics": {
                             "type": "integer",
-                            "description": "How many videos this unit should hold.",
+                            "description": "How many videos this topic should hold.",
                         },
                     },
-                    "required": ["title", "summary", "level", "target_topics"],
+                    "required": ["title", "summary", "level", "target_subtopics"],
                     "additionalProperties": False,
                 },
             },
         },
-        "required": ["subject", "units"],
+        "required": ["subject", "topics"],
         "additionalProperties": False,
     }
 
 
-def _topics_schema() -> dict:
+def _subtopics_schema() -> dict:
     return {
         "type": "object",
         "properties": {
-            "topics": {
+            "subtopics": {
                 "type": "array",
                 "items": {
                     "type": "object",
@@ -135,14 +136,15 @@ def _topics_schema() -> dict:
                         "title": {
                             "type": "string",
                             "description": "The subject of one video, specific "
-                                           "enough that two topics in this unit "
-                                           "could never produce the same script.",
+                                           "enough that two subtopics in this "
+                                           "topic could never produce the same "
+                                           "script.",
                         },
                         "angle": {
                             "type": "string",
                             "description": "One sentence on what this particular "
-                                           "video should do with the topic — the "
-                                           "hook, the surprise, or the point.",
+                                           "video should do with it — the hook, "
+                                           "the surprise, or the point.",
                         },
                     },
                     "required": ["title", "angle"],
@@ -150,19 +152,19 @@ def _topics_schema() -> dict:
                 },
             },
         },
-        "required": ["topics"],
+        "required": ["subtopics"],
         "additionalProperties": False,
     }
 
 
-def plan_outline(channel, unit_count: int = DEFAULT_UNIT_COUNT,
-                 total_topics: int = DEFAULT_TOTAL_TOPICS,
+def plan_outline(channel, topic_count: int = DEFAULT_TOPIC_COUNT,
+                 total_subtopics: int = DEFAULT_TOTAL_SUBTOPICS,
                  subject_hint: str = "") -> dict:
-    """The syllabus outline: ordered units, no topics yet.
+    """The syllabus outline: ordered topics, no subtopics yet.
 
-    `subject_hint` overrides what the channel's style prompt implies,
-    for a channel whose prompt describes a format ("write dad jokes
-    about…") rather than a subject.
+    `subject_hint` overrides what the channel's style prompt implies, for
+    a channel whose prompt describes a format ("write dad jokes about…")
+    rather than a subject.
     """
     system = [
         SystemBlock(
@@ -176,14 +178,15 @@ def plan_outline(channel, unit_count: int = DEFAULT_UNIT_COUNT,
     ]
 
     subject_line = (f"The subject is: {subject_hint}\n\n" if subject_hint else "")
+    per_topic = max(1, total_subtopics // max(1, topic_count))
     user = (
         f"{subject_line}"
-        f"Design a syllabus of exactly {unit_count} units covering roughly "
-        f"{total_topics} short videos in total, so the unit targets should sum "
-        f"to about {total_topics}.\n\n"
-        f"Sizes need not be equal: an early unit covering the obvious ground "
-        f"can be large, a late specialist unit small.\n\n"
-        f"Order the units so that the level rises steadily from foundation to "
+        f"Design a syllabus of exactly {topic_count} topics covering roughly "
+        f"{total_subtopics} short videos in total — about {per_topic} videos "
+        f"per topic, with the targets summing to about {total_subtopics}.\n\n"
+        f"Sizes need not be equal: an early topic covering the obvious ground "
+        f"can be larger, a late specialist one smaller.\n\n"
+        f"Order them so the level rises steadily from foundation to "
         f"specialist, and put the levels in that order."
     )
 
@@ -191,55 +194,56 @@ def plan_outline(channel, unit_count: int = DEFAULT_UNIT_COUNT,
                      operation="curriculum_outline",
                      max_tokens=OUTLINE_MAX_TOKENS, effort=OUTLINE_EFFORT)
 
-    units = data.get("units") or []
-    if not units:
+    topics = data.get("topics") or []
+    if not topics:
         from core.errors import PipelineError
         raise PipelineError(
-            "The outline came back with no units.",
+            "The outline came back with no topics.",
             user_message="Couldn't design a topic plan for this channel. Its "
                          "style prompt may be too vague to plan a syllabus from "
                          "— try again with a subject.",
         )
-    if len(units) != unit_count:
-        # Not fatal. The ordering is what matters and a syllabus of 23
-        # units is as usable as one of 25; failing here would throw away
+    if len(topics) != topic_count:
+        # Not fatal. The ordering is what matters and a syllabus of 37
+        # topics is as usable as one of 40; failing here would throw away
         # a good answer over a number nobody will notice.
-        log.warning(f"Asked for {unit_count} units, got {len(units)}")
+        log.warning(f"Asked for {topic_count} topics, got {len(topics)}")
     return data
 
 
-def write_unit_topics(channel, curriculum: dict, unit: dict,
-                      count: int = None) -> list:
-    """One unit's topics, in the order they should be made.
+def write_subtopics(channel, curriculum: dict, topic: dict,
+                    count: int = None) -> list:
+    """One topic's subtopics, in the order they should be made.
 
-    The outline goes in every call so a unit knows what came before it and
-    what comes after — without that, unit 12 restates unit 4 in different
-    words, which is the same failure as repeating a topic but harder to
-    notice.
+    The outline goes in every call so a topic knows what came before it
+    and what comes after — without that, topic 12 restates topic 4 in
+    different words, which is the same failure as repeating a subtopic but
+    harder to notice.
     """
-    count = min(count or unit.get("target_topics", 40), MAX_TOPICS_PER_CALL)
+    count = min(count or topic.get("target_subtopics", 25), MAX_SUBTOPICS_PER_CALL)
 
     outline = "\n".join(
-        f"{i + 1}. [{u['level']}] {u['title']} — {u.get('summary', '')}"
-        for i, u in enumerate(curriculum["units"]))
+        f"{i + 1}. [{row['level']}] {row['title']} — {row.get('summary', '')}"
+        for i, row in enumerate(curriculum["topics"]))
 
-    # Titles only, and only from earlier units plus this one. The whole
+    # Titles only, and only from earlier topics plus this one. The whole
     # syllabus would grow this prompt without bound as the channel runs,
-    # and a unit cannot repeat something that has not been written yet.
-    position = next((i for i, u in enumerate(curriculum["units"])
-                     if u["id"] == unit["id"]), 0)
-    earlier_ids = {u["id"] for u in curriculum["units"][:position + 1]}
-    existing = [t["title"] for t in curriculum["topics"] if t["unit"] in earlier_ids]
+    # and a topic cannot repeat something that has not been written yet.
+    position = next((i for i, row in enumerate(curriculum["topics"])
+                     if row["id"] == topic["id"]), 0)
+    earlier_ids = {row["id"] for row in curriculum["topics"][:position + 1]}
+    existing = [row["title"] for row in curriculum["subtopics"]
+                if row["topic"] in earlier_ids]
 
     system = [
         SystemBlock(
-            "You write the topic list for one unit of a short-form video "
-            "channel's syllabus. Each topic is one video.\n\n"
-            "A topic must be narrow enough that it could not be confused with "
-            "any other in the list — 'how interest works' and 'compound "
-            "interest' are two videos; 'money' is not a topic at all. Stay "
-            "inside the unit you are given: material belonging to a later unit "
-            "must be left for it.",
+            "You write the video list for one topic of a short-form video "
+            "channel's syllabus. Each subtopic is one video.\n\n"
+            "A subtopic must be narrow enough that it could not be confused "
+            "with any other in the list — 'how interest works' and 'compound "
+            "interest' are two videos; 'money' is not a subtopic at all. Stay "
+            "inside the topic you are given: material belonging to a later "
+            "topic must be left for it.",
             cacheable=True),
         SystemBlock(f"This channel's own description of what it makes:\n\n"
                     f"{channel.style_prompt}", cacheable=True),
@@ -249,45 +253,45 @@ def write_unit_topics(channel, curriculum: dict, unit: dict,
     already = ""
     if existing:
         listed = "\n".join(f"- {title}" for title in existing[-300:])
-        already = (f"\n\nThese topics are already in the syllabus. Do not repeat "
-                   f"any of them, and do not write a near-duplicate under a "
-                   f"different name:\n{listed}")
+        already = (f"\n\nThese are already in the syllabus. Do not repeat any of "
+                   f"them, and do not write a near-duplicate under a different "
+                   f"name:\n{listed}")
 
     user = (
-        f"Write {count} topics for unit {position + 1}, "
-        f"\"{unit['title']}\" ({unit['level']}).\n\n"
-        f"What this unit covers: {unit.get('summary', '')}\n\n"
-        f"Order them so the easier ones come first within the unit."
+        f"Write {count} subtopics for topic {position + 1}, "
+        f"\"{topic['title']}\" ({topic['level']}).\n\n"
+        f"What this topic covers: {topic.get('summary', '')}\n\n"
+        f"Order them so the easier ones come first within the topic."
         f"{already}"
     )
 
-    data = call_json(system, user, _topics_schema(),
-                     operation="curriculum_topics",
-                     max_tokens=TOPICS_MAX_TOKENS, effort=TOPICS_EFFORT)
+    data = call_json(system, user, _subtopics_schema(),
+                     operation="curriculum_subtopics",
+                     max_tokens=SUBTOPICS_MAX_TOKENS, effort=SUBTOPICS_EFFORT)
 
-    written = data.get("topics") or []
+    written = data.get("subtopics") or []
     if len(written) < count:
-        log.info(f"Unit {unit['id']}: asked for {count} topics, got {len(written)}")
+        log.info(f"Topic {topic['id']}: asked for {count} subtopics, "
+                 f"got {len(written)}")
     return written
 
 
-def estimate_cost(unit_count: int = DEFAULT_UNIT_COUNT) -> dict:
+def estimate_cost(topic_count: int = DEFAULT_TOPIC_COUNT) -> dict:
     """Roughly what a full syllabus costs, for the confirmation prompt.
 
     Deliberately an over-estimate. Someone deciding whether to spend money
     is better served by a figure that turns out generous than one that
     turns out short.
     """
-    # Grounded in a real run: an 8-unit outline came in at 1016 in / 630
-    # out ($0.008), and a 15-topic unit at ~1.1k in / 730 out ($0.010).
-    # Scaled up to 25 units and 40 topics and then rounded up again, which
-    # is why a full plan quotes near a dollar and has cost about half that
-    # in practice.
+    # Grounded in a real run: an 8-topic outline came in at 1016 in / 630
+    # out ($0.0083), and a 15-subtopic call at ~1.1k in / 730 out
+    # ($0.0095). Scaled up and then rounded up again, which is why a full
+    # plan quotes near a dollar and has cost about half that.
     outline = (1_500 * 3 / 1e6) + (3_000 * 15 / 1e6)
-    per_unit = (2_000 * 3 / 1e6) + (2_500 * 15 / 1e6)
+    per_topic = (2_000 * 3 / 1e6) + (2_500 * 15 / 1e6)
     return {
         "outline_usd": outline,
-        "per_unit_usd": per_unit,
-        "full_usd": outline + per_unit * unit_count,
-        "unit_count": unit_count,
+        "per_topic_usd": per_topic,
+        "full_usd": outline + per_topic * topic_count,
+        "topic_count": topic_count,
     }

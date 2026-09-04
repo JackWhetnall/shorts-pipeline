@@ -2,21 +2,21 @@
 Build and inspect a channel's topic syllabus from the command line.
 
     python tools/curriculum.py status minute_pastor
-    python tools/curriculum.py outline my_channel --units 25 --topics 1000
-    python tools/curriculum.py fill my_channel --units 5
+    python tools/curriculum.py outline my_channel --topics 25 --topics 1000
+    python tools/curriculum.py fill my_channel --count 5
     python tools/curriculum.py fill my_channel --all
     python tools/curriculum.py list my_channel --pending
     python tools/curriculum.py skip my_channel t0042 --note "covered elsewhere"
 
-`outline` designs the running order; `fill` writes the topics for units
+`outline` designs the running order; `fill` writes the subtopics for topics
 that do not have them yet. Both cost money and both say what they will
 cost before doing it — `--yes` skips the confirmation, for a scheduled
 run.
 
 `fill --all` is the one worth thinking about: it writes every remaining
-unit in one go, which is a real cost and generates topics long before
-they are needed. Filling as you approach each unit is cheaper and lets
-later units be written knowing what has already been discarded.
+topic in one go, which is a real cost and generates subtopics long
+before they are needed. Filling as you approach each topic is cheaper and
+lets later ones be written knowing what has already been discarded.
 """
 
 from __future__ import annotations
@@ -57,8 +57,8 @@ def cmd_status(args) -> None:
         return
 
     print(f"\n{args.channel}: {state['subject']}\n")
-    print(f"  units       {state['units_filled']}/{state['unit_count']} filled")
-    print(f"  topics      {state['total']} written "
+    print(f"  topics      {state['topics_filled']}/{state['topic_count']} filled")
+    print(f"  subtopics   {state['total']} written "
           f"(planned {state['planned_total']})")
     print(f"  made        {state['done']} ({state['percent_done']:.0f}%)")
     print(f"  waiting     {state['pending']}  "
@@ -83,60 +83,60 @@ def cmd_outline(args) -> None:
         if not _confirm("Replace it anyway?", args.yes):
             return
 
-    cost = estimate_cost(args.units)
+    cost = estimate_cost(args.topics)
     print(f"Designing a {args.units}-unit outline for {args.channel}. "
           f"About ${cost['outline_usd']:.2f}.")
     if not _confirm("Go ahead?", args.yes):
         return
 
-    outline = plan_outline(channel, args.units, args.topics, args.subject or "")
-    curriculum.start(args.channel, outline.get("subject", ""), outline["units"])
+    outline = plan_outline(channel, args.topics, args.subtopics, args.subject or "")
+    curriculum.start(args.channel, outline.get("subject", ""), outline["topics"])
 
     print(f"\n{outline.get('subject', '')}\n")
-    for i, unit in enumerate(outline["units"], 1):
-        print(f"{i:2d}. [{unit['level']:12s}] {unit['title']}  "
+    for i, topic in enumerate(outline["topics"], 1):
+        print(f"{i:2d}. [{unit['level']:12s}] {topic['title']}  "
               f"({unit['target_topics']} topics)")
     print(f"\nNow write the topics:\n"
-          f"  python tools/curriculum.py fill {args.channel} --units 5")
+          f"  python tools/curriculum.py fill {args.channel} --count 5")
 
 
 def cmd_fill(args) -> None:
-    from pipeline.curriculum_gen import estimate_cost, write_unit_topics
+    from pipeline.curriculum_gen import estimate_cost, write_subtopics
 
     channel = _channel(args.channel)
     if not curriculum.progress(args.channel)["has_curriculum"]:
         raise SystemExit(f"{args.channel} has no outline yet. Run `outline` first.")
 
-    remaining = sum(1 for u in curriculum.load(args.channel)["units"]
-                    if not u.get("filled"))
+    remaining = sum(1 for t in curriculum.load(args.channel)["topics"]
+                    if not t.get("filled"))
     if not remaining:
-        print("Every unit already has its topics.")
+        print("Every topic already has its subtopics.")
         return
 
     wanted = remaining if args.all else min(args.units, remaining)
     cost = estimate_cost()
-    print(f"Writing topics for {wanted} unit(s). "
+    print(f"Writing subtopics for {wanted} topic(s). "
           f"About ${cost['per_unit_usd'] * wanted:.2f}.")
     if not _confirm("Go ahead?", args.yes):
         return
 
     added = 0
     for _ in range(wanted):
-        unit = curriculum.next_unfilled_unit(args.channel)
-        if unit is None:
+        topic = curriculum.next_unfilled_topic(args.channel)
+        if topic is None:
             break
         try:
-            topics = write_unit_topics(channel, curriculum.load(args.channel), unit)
+            subtopics = write_subtopics(channel, curriculum.load(args.channel), topic)
         except PipelineError as exc:
             # Stop, keep what worked. Partial progress is saved after each
             # unit, so nothing already paid for is lost.
-            print(f"\n{unit['title']} failed: {exc.user_message}")
+            print(f"\n{topic['title']} failed: {exc.user_message}")
             break
         before = curriculum.progress(args.channel)["total"]
-        curriculum.add_topics(args.channel, unit["id"], topics)
+        curriculum.add_subtopics(args.channel, topic["id"], subtopics)
         written = curriculum.progress(args.channel)["total"] - before
         added += written
-        print(f"  {unit['title']}: {written} topics")
+        print(f"  {topic['title']}: {written} topics")
 
     state = curriculum.progress(args.channel)
     print(f"\n{added} topics added. {state['pending']} waiting "
@@ -152,7 +152,7 @@ def cmd_list(args) -> None:
     elif args.done:
         status = curriculum.PUBLISHED
 
-    rows = curriculum.topics(args.channel, status=status)
+    rows = curriculum.subtopics(args.channel, status=status)
     if not rows:
         print("Nothing to show.")
         return
@@ -165,13 +165,13 @@ def cmd_list(args) -> None:
 
 
 def cmd_skip(args) -> None:
-    curriculum.skip(args.channel, args.topic_id, args.note or "")
-    print(f"Skipped {args.topic_id}.")
+    curriculum.skip(args.channel, args.subtopic_id, args.note or "")
+    print(f"Skipped {args.subtopic_id}.")
 
 
 def cmd_unskip(args) -> None:
-    curriculum.unskip(args.channel, args.topic_id)
-    print(f"{args.topic_id} is back in the queue.")
+    curriculum.unskip(args.channel, args.subtopic_id)
+    print(f"{args.subtopic_id} is back in the queue.")
 
 
 def main() -> None:
@@ -187,19 +187,21 @@ def main() -> None:
 
     p = subparsers.add_parser("outline", help="Design the running order.")
     p.add_argument("channel")
-    p.add_argument("--units", type=int, default=25)
-    p.add_argument("--topics", type=int, default=1000,
-                   help="Roughly how many topics in total.")
+    p.add_argument("--topics", type=int, default=40,
+                   help="How many topics the syllabus has.")
+    p.add_argument("--subtopics", type=int, default=1000,
+                   help="Roughly how many subtopics (videos) in total.")
     p.add_argument("--subject", help="Overrides what the style prompt implies.")
     p.set_defaults(func=cmd_outline)
 
-    p = subparsers.add_parser("fill", help="Write topics for unfilled units.")
+    p = subparsers.add_parser("fill", help="Write subtopics for unfilled topics.")
     p.add_argument("channel")
-    p.add_argument("--units", type=int, default=1, help="How many units to write.")
-    p.add_argument("--all", action="store_true", help="Every remaining unit.")
+    p.add_argument("--count", type=int, default=1,
+                   help="How many topics to fill.")
+    p.add_argument("--all", action="store_true", help="Every remaining topic.")
     p.set_defaults(func=cmd_fill)
 
-    p = subparsers.add_parser("list", help="The topics themselves.")
+    p = subparsers.add_parser("list", help="The subtopics themselves.")
     p.add_argument("channel")
     p.add_argument("--pending", action="store_true")
     p.add_argument("--skipped", action="store_true")
@@ -207,15 +209,15 @@ def main() -> None:
     p.add_argument("-v", "--verbose", action="store_true", help="Show the angles.")
     p.set_defaults(func=cmd_list)
 
-    p = subparsers.add_parser("skip", help="Take one topic out of the queue.")
+    p = subparsers.add_parser("skip", help="Take one subtopic out of the queue.")
     p.add_argument("channel")
-    p.add_argument("topic_id")
+    p.add_argument("subtopic_id")
     p.add_argument("--note")
     p.set_defaults(func=cmd_skip)
 
-    p = subparsers.add_parser("unskip", help="Put a skipped topic back.")
+    p = subparsers.add_parser("unskip", help="Put a skipped subtopic back.")
     p.add_argument("channel")
-    p.add_argument("topic_id")
+    p.add_argument("subtopic_id")
     p.set_defaults(func=cmd_unskip)
 
     args = parser.parse_args()
