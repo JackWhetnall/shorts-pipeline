@@ -591,3 +591,112 @@ class TestRequestShapeIsValid:
         # be misleading.
         rendered = llm._render_system([llm.SystemBlock("tiny", cacheable=True)])
         assert "cache_control" not in rendered[0]
+
+
+class TestPurgingDiscardedVideos:
+    """Deleting output is the one operation here that cannot be undone,
+    so its refusals matter more than its successes."""
+
+    @pytest.fixture
+    def video(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("core.gallery.DISCARD_HISTORY_PATH",
+                            tmp_path / "discard_history.jsonl")
+        path = tmp_path / "john_3_16.mp4"
+        path.write_bytes(b"video")
+        for suffix in ("audio.mp3", "meta.txt", "publish.json", "thumb.jpg"):
+            (tmp_path / f"john_3_16_{suffix}").write_text("x")
+        return path
+
+    def test_refuses_a_video_that_is_not_discarded(self, video):
+        from core import gallery
+
+        with pytest.raises(ValueError):
+            gallery.purge(video)
+        assert video.exists()
+
+    def test_refuses_a_published_video(self, video):
+        from core import gallery
+
+        gallery.save_publish_info(video, {"youtube_url": "https://y/1"})
+        with pytest.raises(ValueError):
+            gallery.purge(video)
+        assert video.exists()
+
+    def test_removes_the_video_and_its_sidecars(self, video):
+        from core import gallery
+
+        gallery.set_discarded(video, True, "footage")
+        result = gallery.purge(video, "test_channel")
+
+        assert not video.exists()
+        assert list(video.parent.glob("john_3_16*")) == []
+        assert result["files"] == 5
+        assert result["bytes"] > 0
+
+    def test_keeps_a_tombstone_so_the_statistics_survive(self, video):
+        """The point of the whole design: a purge must not make the
+        discard rate look better than it was."""
+        from core import gallery
+
+        gallery.set_discarded(video, True, "footage")
+        gallery.purge(video, "test_channel")
+
+        records = gallery.purged_records("test_channel")
+        assert len(records) == 1
+        assert records[0]["stem"] == "john_3_16"
+        assert records[0]["discard_reason"] == "footage"
+
+    def test_a_stem_that_prefixes_another_is_not_swept_up(self, video):
+        """`john_3_1` is a prefix of `john_3_16`. A glob on the stem would
+        take the wrong video's files with it."""
+        from core import gallery
+
+        neighbour = video.parent / "john_3_1.mp4"
+        neighbour.write_bytes(b"other")
+        (video.parent / "john_3_1_audio.mp3").write_text("x")
+
+        gallery.set_discarded(neighbour, True, "script")
+        gallery.purge(neighbour, "test_channel")
+
+        assert video.exists()
+        assert (video.parent / "john_3_16_audio.mp3").exists()
+
+    def test_corrupt_history_costs_a_statistic_not_a_crash(self, video, tmp_path):
+        from core import gallery
+
+        gallery.set_discarded(video, True, "footage")
+        gallery.purge(video, "test_channel")
+        path = tmp_path / "discard_history.jsonl"
+        path.write_text(path.read_text() + "{not json\n")
+
+        assert len(gallery.purged_records()) == 1
+
+    def test_purged_videos_still_count_toward_the_discard_rate(self, monkeypatch):
+        from core import gallery, insights
+
+        monkeypatch.setattr(gallery, "purged_records",
+                            lambda key=None: [{"channel": "c", "stem": "a",
+                                               "discard_reason": "footage"}] * 3)
+        monkeypatch.setattr(insights, "load_channels", lambda validate=True: {})
+
+        data = insights.collect()
+        assert data["totals"]["total"] == 3
+        assert data["totals"]["discard_rate"] == 1.0
+        assert data["discard_reasons"]["rows"][0]["id"] == "footage"
+
+
+class TestOrphanDetection:
+    def test_finds_audio_with_no_video(self, tmp_path):
+        from core import gallery
+
+        (tmp_path / "kept.mp4").write_bytes(b"v")
+        (tmp_path / "kept_audio.mp3").write_text("x")
+        (tmp_path / "crashed_audio_seg0.mp3").write_text("x")
+        (tmp_path / "crashed_audio_seg1.mp3").write_text("x")
+
+        orphans = [p.name for p in gallery.orphaned_files(str(tmp_path))]
+        assert orphans == ["crashed_audio_seg0.mp3", "crashed_audio_seg1.mp3"]
+
+    def test_no_output_directory_is_not_an_error(self, tmp_path):
+        from core import gallery
+        assert gallery.orphaned_files(str(tmp_path / "nope")) == []

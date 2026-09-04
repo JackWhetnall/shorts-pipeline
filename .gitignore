@@ -38,6 +38,7 @@ footage/library.db-shm
 # Per-installation and per-run state, not shared between checkouts.
 config/cost_log.jsonl
 config/script_history.json
+config/discard_history.jsonl
 config/schedule.json
 config/channels.json.v1.bak
 

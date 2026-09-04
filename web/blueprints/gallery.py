@@ -10,8 +10,11 @@ from flask import (
 )
 
 from core import gallery as gallery_core
+from core.logging_setup import get_logger
 from core.paths import OUTPUT_DIR
 from web.helpers import channel_or_404, format_date, format_iso_date, video_or_404
+
+log = get_logger(__name__)
 
 bp = Blueprint("gallery", __name__)
 
@@ -27,12 +30,27 @@ def channel_gallery(key):
             video["date_label"] = f"Created {format_date(video['mtime'])}"
 
     active = [v for v in videos if not v["discarded"]]
+    discarded = [v for v in videos if v["discarded"]]
     return render_template(
         "gallery.html", key=key, channel=channel,
         unpublished=[v for v in active if not v["published"]],
         published=[v for v in active if v["published"]],
-        discarded=[v for v in videos if v["discarded"]],
+        discarded=discarded,
+        # Shown on the delete button, because "delete 19 videos" is a
+        # different decision from "reclaim 416 MB" and the second one is
+        # the reason anybody does it.
+        discarded_bytes=sum(_disk_size(v) for v in discarded),
     )
+
+
+def _disk_size(video: dict) -> int:
+    """A video plus its sidecars. Best-effort: a file that vanished between
+    the listing and this call should not 500 the gallery."""
+    try:
+        return sum(f.stat().st_size
+                   for f in gallery_core.sidecars_of(OUTPUT_DIR / video["relpath"]))
+    except OSError:
+        return 0
 
 
 @bp.route("/channels/<key>/videos/<path:relpath>/thumbnail")
@@ -94,6 +112,48 @@ def discard(key):
 def restore(key, relpath):
     channel_or_404(key)
     gallery_core.set_discarded(video_or_404(relpath), False)
+    return redirect(url_for("gallery.channel_gallery", key=key))
+
+
+@bp.route("/channels/<key>/videos/<path:relpath>/delete", methods=["POST"])
+def delete_video(key, relpath):
+    """Permanently remove one discarded video.
+
+    `gallery.purge` refuses anything not marked discarded, so the only
+    route to deleting a video is to discard it first — a decision made in
+    the review queue, with a reason attached, and reversible until this
+    point.
+    """
+    channel_or_404(key)
+    try:
+        gallery_core.purge(video_or_404(relpath), key)
+    except ValueError:
+        abort(400, description="That video isn't discarded, so it can't be deleted.")
+    except OSError:
+        abort(400, description="Some of that video's files are in use. "
+                               "Close anything playing it and try again.")
+    return redirect(url_for("gallery.channel_gallery", key=key))
+
+
+@bp.route("/channels/<key>/videos/delete-discarded", methods=["POST"])
+def delete_all_discarded(key):
+    """Empty the discarded section in one go.
+
+    Failures are counted rather than raised: one file locked by a media
+    player should not leave the other eighteen behind.
+    """
+    channel = channel_or_404(key)
+    removed = failed = 0
+    for video in gallery_core.list_videos(channel.output_dir):
+        if not video["discarded"]:
+            continue
+        try:
+            gallery_core.purge(OUTPUT_DIR / video["relpath"], key)
+            removed += 1
+        except (OSError, ValueError):
+            failed += 1
+    if failed:
+        log.warning(f"{key}: deleted {removed} discarded videos, {failed} could not be removed")
     return redirect(url_for("gallery.channel_gallery", key=key))
 
 

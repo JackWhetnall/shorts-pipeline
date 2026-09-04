@@ -401,3 +401,69 @@ class TestLookSettings:
             "csrf_token": csrf(client),
         })
         assert load_channels(validate=False)["test_channel"].style.font_face == "arial_bold"
+
+
+class TestDeletingDiscardedVideos:
+    """The only irreversible action in the web UI."""
+
+    @pytest.fixture
+    def video(self, client, tmp_path, monkeypatch):
+        from core import gallery
+
+        monkeypatch.setattr("core.gallery.DISCARD_HISTORY_PATH",
+                            tmp_path / "discard_history.jsonl")
+        out = tmp_path / "out"
+        out.mkdir(exist_ok=True)
+        path = out / "clip.mp4"
+        path.write_bytes(b"video")
+        (out / "clip_audio.mp3").write_text("x")
+        monkeypatch.setattr("web.helpers.OUTPUT_DIR", out)
+        monkeypatch.setattr("web.blueprints.gallery.OUTPUT_DIR", out)
+        monkeypatch.setattr("core.gallery.OUTPUT_DIR", out)
+        return path
+
+    def test_deletes_a_discarded_video(self, client, video):
+        from core import gallery
+
+        gallery.set_discarded(video, True, "footage")
+        response = client.post(
+            "/channels/test_channel/videos/clip.mp4/delete",
+            data={"csrf_token": csrf(client)})
+        assert response.status_code == 302
+        assert not video.exists()
+        assert not (video.parent / "clip_audio.mp3").exists()
+
+    def test_refuses_a_video_that_is_not_discarded(self, client, video):
+        """The route is reachable by URL for any video, so the guard has
+        to be on the server, not on which button the template renders."""
+        response = client.post(
+            "/channels/test_channel/videos/clip.mp4/delete",
+            data={"csrf_token": csrf(client)})
+        assert response.status_code == 400
+        assert video.exists()
+
+    def test_requires_csrf(self, client, video):
+        from core import gallery
+
+        gallery.set_discarded(video, True, "footage")
+        assert client.post(
+            "/channels/test_channel/videos/clip.mp4/delete").status_code == 400
+        assert video.exists()
+
+    def test_refuses_a_path_outside_output(self, client, video):
+        response = client.post(
+            "/channels/test_channel/videos/..%2f..%2fsecret.mp4/delete",
+            data={"csrf_token": csrf(client)})
+        assert response.status_code == 404
+
+    def test_bulk_delete_leaves_undiscarded_videos_alone(self, client, video):
+        from core import gallery
+
+        keeper = video.parent / "keep.mp4"
+        keeper.write_bytes(b"video")
+        gallery.set_discarded(video, True, "footage")
+
+        client.post("/channels/test_channel/videos/delete-discarded",
+                    data={"csrf_token": csrf(client)})
+        assert not video.exists()
+        assert keeper.exists()

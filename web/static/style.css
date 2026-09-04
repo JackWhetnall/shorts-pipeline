@@ -1422,3 +1422,33 @@ label > .hint {
   font-size: 0.82rem;
   font-weight: 400;
 }
+
+/* --- Deleting discarded takes --------------------------------------- */
+.discard-bulk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4, 1.25rem);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4, 1.25rem);
+  padding: var(--sp-3, 0.85rem) var(--sp-4, 1.25rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.discard-bulk .meta { margin: 0; max-width: 52ch; }
+.discard-bulk form { margin: 0; }
+
+.card-action-row {
+  display: flex;
+  gap: var(--sp-2, 0.5rem);
+}
+.card-action-row form { flex: 1; margin: 0; }
+.card-action-row .card-action { width: 100%; }
+
+/* A ghost button that means it. Full danger styling on a card action
+   would shout louder than Restore beside it, when the point is that they
+   are two equal choices with different consequences. */
+.danger-text { color: var(--danger); }
+.danger-text:hover { background: var(--danger-bg); }

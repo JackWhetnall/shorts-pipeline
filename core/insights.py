@@ -43,20 +43,31 @@ def collect(channel_keys=None) -> dict:
             videos.append(video)
     videos.sort(key=lambda v: v["mtime"])
 
+    # Videos that were discarded and then deleted. They still happened, so
+    # they still count toward the discard rate and its reasons — a loop of
+    # "discard, then reclaim the disk" would otherwise show a keep rate of
+    # 100% precisely because everything unkept had been thrown away. They
+    # deliberately do NOT reach quality, spend or the recent list: their
+    # render report and cost sidecar are gone, and inventing values there
+    # would be worse than the gap.
+    purged = [r for r in gallery.purged_records()
+              if not channel_keys or r.get("channel") in channel_keys]
+
     return {
-        "totals": _totals(videos),
-        "discard_reasons": _discard_reasons(videos),
+        "totals": _totals(videos, purged),
+        "discard_reasons": _discard_reasons(videos, purged),
         "quality": _quality(videos),
         "spend": _spend(videos),
         "recent": _recent(videos, limit=30),
         "by_channel": _by_channel(videos, channels),
         "video_count": len(videos),
+        "purged_count": len(purged),
     }
 
 
-def _totals(videos: list) -> dict:
-    total = len(videos)
-    discarded = sum(1 for v in videos if v["discarded"])
+def _totals(videos: list, purged: list = ()) -> dict:
+    total = len(videos) + len(purged)
+    discarded = sum(1 for v in videos if v["discarded"]) + len(purged)
     published = sum(1 for v in videos if v["published"])
     kept = total - discarded
     return {
@@ -71,7 +82,7 @@ def _totals(videos: list) -> dict:
     }
 
 
-def _discard_reasons(videos: list) -> list:
+def _discard_reasons(videos: list, purged: list = ()) -> list:
     """Reasons, most common first.
 
     Videos discarded before reasons were recorded have none, and are
@@ -80,10 +91,9 @@ def _discard_reasons(videos: list) -> list:
     """
     counts = Counter()
     unrecorded = 0
-    for video in videos:
-        if not video["discarded"]:
-            continue
-        reason = video["links"].get("discard_reason")
+    reasons = [v["links"].get("discard_reason") for v in videos if v["discarded"]]
+    reasons += [r.get("discard_reason") for r in purged]
+    for reason in reasons:
         if reason:
             counts[reason] += 1
         else:

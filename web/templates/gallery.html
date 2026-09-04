@@ -58,6 +58,18 @@
 <details class="gallery-section-spaced">
   <summary class="summary-heading">Discarded{% if discarded %} <span class="badge">{{ discarded|length }}</span>{% endif %}</summary>
   {% if discarded %}
+  <div class="discard-bulk">
+    <p class="meta">Discarded takes keep their files so the decision stays
+      reversible. Deleting them frees the disk and keeps the discard reasons
+      on <a href="{{ url_for('review.insights_page') }}">Insights</a>.</p>
+    <form method="post" action="{{ url_for('gallery.delete_all_discarded', key=key) }}"
+          onsubmit="return confirm('Permanently delete {{ discarded|length }} discarded video{{ '' if discarded|length == 1 else 's' }}? This cannot be undone.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-danger">
+        Delete all {{ discarded|length }} ({{ '%.0f'|format(discarded_bytes / 1000000) }} MB)
+      </button>
+    </form>
+  </div>
   <div class="gallery-grid">
     {% for v in discarded %}
     <div class="card gallery-item gallery-item-discarded">
@@ -65,10 +77,17 @@
       <img class="gallery-thumb" src="{{ url_for('gallery.thumbnail', key=key, relpath=v.relpath) }}" alt="">
       <p class="gallery-item-title">{{ v.title }}</p>
       <p class="meta">{{ v.date_label }}</p>
-      <form method="post" action="{{ url_for('gallery.restore', key=key, relpath=v.relpath) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn-ghost card-action">Restore</button>
-      </form>
+      <div class="card-action-row">
+        <form method="post" action="{{ url_for('gallery.restore', key=key, relpath=v.relpath) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-ghost card-action">Restore</button>
+        </form>
+        <form method="post" action="{{ url_for('gallery.delete_video', key=key, relpath=v.relpath) }}"
+              onsubmit="return confirm('Permanently delete this video and its files? This cannot be undone.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-ghost card-action danger-text">Delete</button>
+        </form>
+      </div>
     </div>
     {% endfor %}
   </div>

@@ -33,7 +33,8 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   job_context   Which job the current work belongs to; progress reporting.
   logging_setup Logging for CLI and web, and the per-job log handler.
   progress      moviepy encode progress, as a number rather than scraped text.
-  gallery       Finished videos: publish state, discard, thumbnails, cost.
+  gallery       Finished videos: publish state, discard, thumbnails, cost,
+                and purging a discarded take without losing why it was discarded.
   assets        Logos and merch photos on disk.
   fonts         The caption faces this machine can render, by key not path.
   caption_preview  One real caption frame, for the Look settings.
@@ -180,6 +181,20 @@ log lines append to their own file, and a job still marked running when
 the process died reloads as `interrupted`. Retrying reuses the same job
 id, so the checkpoints for script, voiceover and footage picks are found
 and the completed work isn't paid for twice.
+
+## Deleting output
+
+Discarded videos and their sidecars can be removed, from
+`tools/clean_output.py` or the gallery. `gallery.purge` refuses anything
+not marked discarded, so the only route to deleting a video is to discard
+it first.
+
+Every listing in the app enumerates `output/**/*.mp4`, which means
+deleting the file would also delete the fact that it was ever discarded.
+So a purge appends a tombstone to `config/discard_history.jsonl` —
+channel, stem, reason, dates — and `insights.collect` folds those into the
+totals and the discard reasons, but deliberately not into quality, spend
+or the recent list, whose sidecars are gone.
 
 ## Costs
 

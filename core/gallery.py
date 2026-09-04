@@ -24,7 +24,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from core.paths import OUTPUT_DIR, PROJECT_ROOT
+from core.paths import DISCARD_HISTORY_PATH, OUTPUT_DIR, PROJECT_ROOT
 
 PUBLISH_LINK_FIELDS = ("youtube_url", "tiktok_url", "instagram_url")
 
@@ -333,3 +333,120 @@ def list_videos(output_dir: str) -> list:
         })
     videos.sort(key=lambda v: v["mtime"], reverse=True)
     return videos
+
+
+# --- deleting a discarded take ----------------------------------------
+#
+# Discarding is reversible and cheap: the files stay, the flag flips. That
+# is right for a decision made in the review queue, and wrong forever —
+# this project's own output directory reached 416 MB of discarded takes
+# before anything could remove one.
+#
+# The catch is that /insights is built entirely on `rglob("*.mp4")`, so
+# deleting the video deletes the fact that it was ever discarded and why.
+# A daily loop of "discard, then clean up" would quietly erase the only
+# measurement of whether the output is getting better. So a purge leaves a
+# tombstone behind: one line per video, enough for the statistics and
+# nothing else.
+
+# Everything written beside a video, by suffix. Explicit rather than
+# `glob(stem + "_*")` because a stem is a prefix of other stems —
+# `john_3_1` would sweep up `john_3_16`'s files.
+SIDECAR_SUFFIXES = (
+    "audio.mp3", "meta.txt", "description.txt", "publish.json",
+    "thumb.jpg", "cost.json", "report.json",
+)
+
+
+def sidecars_of(video_path: Path) -> list:
+    """Every file belonging to one video, the video itself included."""
+    video_path = Path(video_path)
+    found = [video_path] if video_path.exists() else []
+    found += [p for p in (_sidecar(video_path, s) for s in SIDECAR_SUFFIXES) if p.exists()]
+    # Per-segment audio: numbered, so it can't be listed by suffix.
+    found += sorted(video_path.parent.glob(f"{video_path.stem}_audio_seg*.mp3"))
+    return found
+
+
+def purge(video_path: Path, channel_key: str = "") -> dict:
+    """Delete a discarded video and everything beside it, keeping a
+    tombstone so it still counts in the discard statistics.
+
+    Refuses anything not marked discarded. A published or waiting video is
+    never deletable by accident — the only route to deleting one is to
+    discard it first, which is a decision made in the review queue with a
+    reason attached.
+    """
+    video_path = Path(video_path)
+    info = load_publish_info(video_path)
+    if not info["discarded"]:
+        raise ValueError(f"{video_path.name} is not discarded")
+
+    files = sidecars_of(video_path)
+    freed = sum(f.stat().st_size for f in files)
+    _write_tombstone(video_path, info, channel_key, freed)
+    for path in files:
+        path.unlink()
+    return {"files": len(files), "bytes": freed}
+
+
+def _write_tombstone(video_path: Path, info: dict, channel_key: str, freed: int) -> None:
+    record = {
+        "channel": channel_key,
+        "stem": Path(video_path).stem,
+        "discard_reason": info.get("discard_reason"),
+        "discarded_at": info.get("discarded_at"),
+        "purged_at": datetime.now(timezone.utc).isoformat(),
+        "bytes_freed": freed,
+    }
+    DISCARD_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with DISCARD_HISTORY_PATH.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record) + "\n")
+
+
+def purged_records(channel_key: str = None) -> list:
+    """Tombstones, optionally for one channel.
+
+    Returns [] rather than raising if the file is missing or a line is
+    corrupt: a damaged history should cost you a statistic, not a page.
+    """
+    if not DISCARD_HISTORY_PATH.exists():
+        return []
+    records = []
+    for line in DISCARD_HISTORY_PATH.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if channel_key is None or record.get("channel") == channel_key:
+            records.append(record)
+    return records
+
+
+def orphaned_files(output_dir: str) -> list:
+    """Sidecars whose video no longer exists.
+
+    A crashed run leaves its per-segment audio behind — the voiceover
+    stage writes those before the render that would have consumed them.
+    Nothing else notices, because every listing enumerates mp4s.
+    """
+    directory = resolve_output_dir(output_dir)
+    if not directory.exists():
+        return []
+    stems = {p.stem for p in directory.rglob("*.mp4")}
+    orphans = []
+    for path in directory.rglob("*"):
+        if not path.is_file() or path.suffix == ".mp4":
+            continue
+        stem = path.stem
+        for suffix in ("_audio", "_meta", "_description", "_publish",
+                       "_thumb", "_cost", "_report"):
+            if suffix in stem:
+                stem = stem[:stem.rindex(suffix)]
+                break
+        if stem and stem not in stems:
+            orphans.append(path)
+    return sorted(orphans)

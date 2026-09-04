@@ -78,6 +78,27 @@ discarding actually costs you.
 same index the matcher uses, watch a clip on hover, re-describe one whose
 description is wrong, confirm a licence, or delete it.
 
+## Housekeeping
+
+Discarding a video is reversible on purpose — the files stay, a flag
+flips — which is right in the review queue and wrong forever. Nothing
+removed one until this existed, and a crashed run leaves its per-segment
+audio behind where no listing looks.
+
+```bash
+python tools/clean_output.py                  # report
+python tools/clean_output.py --delete         # act
+python tools/clean_output.py --older-than 30  # keep recent discards
+```
+
+The gallery's **Discarded** section has the same thing as a button.
+
+Deleting a discarded video does not delete the fact that it was
+discarded: a line goes to `config/discard_history.jsonl` first, so the
+discard rate and its reasons on `/insights` survive the cleanup. Without
+that, a habit of clearing up after each review would drive the keep rate
+to 100% precisely by throwing away everything that wasn't kept.
+
 ## Footage
 
 One shared library across every channel, in `footage/library.db` with the
