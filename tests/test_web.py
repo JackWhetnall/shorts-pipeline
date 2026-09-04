@@ -467,3 +467,15 @@ class TestDeletingDiscardedVideos:
                     data={"csrf_token": csrf(client)})
         assert not video.exists()
         assert keeper.exists()
+
+    def test_a_deleted_channels_tombstones_do_not_count(self, config_path, monkeypatch):
+        """Tombstones outlive the channel they belonged to. Counting them
+        would let a channel that no longer exists keep dragging down a
+        discard rate computed over the channels that do."""
+        from core import gallery, insights
+
+        monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", config_path)
+        monkeypatch.setattr(gallery, "purged_records",
+                            lambda key=None: [{"channel": "deleted_channel",
+                                               "discard_reason": "footage"}])
+        assert insights.collect()["totals"]["total"] == 0

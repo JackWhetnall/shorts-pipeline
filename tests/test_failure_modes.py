@@ -671,13 +671,19 @@ class TestPurgingDiscardedVideos:
 
         assert len(gallery.purged_records()) == 1
 
-    def test_purged_videos_still_count_toward_the_discard_rate(self, monkeypatch):
+    def test_purged_videos_still_count_toward_the_discard_rate(self, monkeypatch, tmp_path):
         from core import gallery, insights
+        from core.channels import ChannelConfig
 
         monkeypatch.setattr(gallery, "purged_records",
                             lambda key=None: [{"channel": "c", "stem": "a",
                                                "discard_reason": "footage"}] * 3)
-        monkeypatch.setattr(insights, "load_channels", lambda validate=True: {})
+        # A channel that still exists but whose output directory is gone:
+        # every video it made was discarded and then deleted.
+        channel = ChannelConfig(key="c", channel_display_name="C", voice="v",
+                                style_prompt="p", content_mode="topic", topics=["x"])
+        channel.output_dir = str(tmp_path / "nothing_here")
+        monkeypatch.setattr(insights, "load_channels", lambda validate=True: {"c": channel})
 
         data = insights.collect()
         assert data["totals"]["total"] == 3

@@ -50,8 +50,11 @@ def collect(channel_keys=None) -> dict:
     # deliberately do NOT reach quality, spend or the recent list: their
     # render report and cost sidecar are gone, and inventing values there
     # would be worse than the gap.
-    purged = [r for r in gallery.purged_records()
-              if not channel_keys or r.get("channel") in channel_keys]
+    # Scoped to the channels being reported on, not to `channel_keys`:
+    # tombstones outlive the channel they belonged to, and a deleted
+    # channel's discards should not keep dragging down a rate computed
+    # over the channels that still exist.
+    purged = [r for r in gallery.purged_records() if r.get("channel") in channels]
 
     return {
         "totals": _totals(videos, purged),
