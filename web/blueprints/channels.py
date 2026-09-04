@@ -4,13 +4,19 @@ Channel list, dashboard, settings, creation, and lifecycle.
 
 from __future__ import annotations
 
+import re
+
 from flask import (
-    Blueprint, abort, jsonify, redirect, render_template, request, url_for,
+    Blueprint, Response, abort, jsonify, redirect, render_template, request,
+    url_for,
 )
 
-from core import channel_admin, gallery, jobs, scheduler
+from core import caption_preview, channel_admin, fonts, gallery, jobs, scheduler
 from core.assets import has_logo
-from core.channels import ChannelConfig, channel_to_sparse_dict, read_raw, save_channel
+from core.channels import (
+    ChannelConfig, Pacing, Style, channel_to_sparse_dict, read_raw, save_channel,
+)
+from core.logging_setup import get_logger
 from core.errors import ConfigError
 from core.footage_stats import library_stats
 from core.paths import PROJECT_ROOT, slugify
@@ -20,6 +26,8 @@ from web.forms import apply_channel_form, format_affiliate_links
 from web.helpers import (
     all_channels, as_int, channel_or_404, channel_progress, format_date,
 )
+
+log = get_logger(__name__)
 
 bp = Blueprint("channels", __name__)
 
@@ -390,3 +398,38 @@ def _why_not(info: dict) -> str:
     if info["unpublished_count"]:
         return f"{info['unpublished_count']} video(s) still unpublished"
     return "not eligible"
+
+
+@bp.route("/api/caption-preview", methods=["POST"])
+def caption_preview_image():
+    """A real caption frame, rendered from the Look form's current values.
+
+    POST rather than GET because the values come from the form as it is
+    being edited, not from what is saved — the whole point is to see an
+    unsaved change before committing to it. Unknown or malformed values
+    fall back to the schema defaults, so a half-typed hex colour renders
+    the previous frame instead of a 500.
+    """
+    style = Style(
+        font_face=request.form.get("font_face") or Style.font_face,
+        font_size=as_int(request.form.get("font_size"), Style.font_size, 12, 200),
+        base_color=_hex(request.form.get("base_color"), Style.base_color),
+        highlight_color=_hex(request.form.get("highlight_color"), Style.highlight_color),
+        stroke_color=_hex(request.form.get("stroke_color"), Style.stroke_color),
+        stroke_width=as_int(request.form.get("stroke_width"), Style.stroke_width, 0, 30),
+    )
+    try:
+        png = caption_preview.render(style, Pacing())
+    except Exception:
+        log.exception("Caption preview failed")
+        return jsonify({"error": "Could not render a preview."}), 500
+    return Response(png, mimetype="image/png",
+                    headers={"Cache-Control": "no-store"})
+
+
+_HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _hex(value: str, fallback: str) -> str:
+    value = (value or "").strip()
+    return value if _HEX_RE.match(value) else fallback

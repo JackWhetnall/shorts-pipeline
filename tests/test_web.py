@@ -330,3 +330,74 @@ class TestPublishTracking:
         video.with_name("john_3_16_publish.json").write_text("{broken", encoding="utf-8")
         info = gallery.load_publish_info(video)
         assert info["published_at"] is None
+
+
+class TestCaptionPreview:
+    """The Look tab's preview.
+
+    Worth testing rather than eyeballing because it renders from *unsaved*
+    form values, which means it is fed half-typed input on every keystroke
+    — a partially entered hex colour, a cleared number field. Every one of
+    those must produce a frame, not a 500 in the middle of typing.
+    """
+
+    def test_renders_a_png(self, client):
+        response = client.post("/api/caption-preview", data={
+            "font_face": "impact", "font_size": "84", "stroke_width": "6",
+            "base_color": "#FFFFFF", "highlight_color": "#FF3B30",
+            "stroke_color": "#000000",
+        }, headers={"X-CSRF-Token": csrf(client)})
+        assert response.status_code == 200
+        assert response.mimetype == "image/png"
+        assert response.get_data()[:8] == b"\x89PNG\r\n\x1a\n"
+
+    @pytest.mark.parametrize("payload", [
+        {},                                                  # nothing typed yet
+        {"base_color": "#FF"},                               # mid-type
+        {"font_size": "", "stroke_width": ""},               # cleared
+        {"font_size": "1e999"},                              # overflows int()
+        {"font_face": "no_such_face", "stroke_color": "red"},
+        {"font_size": "-40", "stroke_width": "9999"},        # out of range
+    ])
+    def test_bad_input_still_renders(self, client, payload):
+        response = client.post("/api/caption-preview", data=payload,
+                               headers={"X-CSRF-Token": csrf(client)})
+        assert response.status_code == 200
+        assert response.mimetype == "image/png"
+
+    def test_requires_csrf(self, client):
+        assert client.post("/api/caption-preview", data={}).status_code == 400
+
+
+class TestLookSettings:
+    def test_form_offers_every_installed_face(self, client):
+        from core import fonts
+
+        html = client.get("/channels/test_channel/settings").get_data(as_text=True)
+        assert 'name="style_font_face"' in html
+        for face in fonts.available():
+            assert f'value="{face.key}"' in html
+
+    def test_font_face_saves(self, client):
+        from core.channels import load_channels
+
+        client.post("/channels/test_channel/settings", data={
+            "channel_display_name": "Test Channel", "content_mode": "topic",
+            "voice": "voice-id", "style_prompt": "Write something.",
+            "topics": "coffee", "style_font_face": "impact",
+            "csrf_token": csrf(client),
+        })
+        assert load_channels(validate=False)["test_channel"].style.font_face == "impact"
+
+    def test_unknown_font_face_is_rejected_not_stored(self, client):
+        """An unresolvable face would fall back silently at render time,
+        months after the setting was made."""
+        from core.channels import load_channels
+
+        client.post("/channels/test_channel/settings", data={
+            "channel_display_name": "Test Channel", "content_mode": "topic",
+            "voice": "voice-id", "style_prompt": "Write something.",
+            "topics": "coffee", "style_font_face": "../../etc/passwd",
+            "csrf_token": csrf(client),
+        })
+        assert load_channels(validate=False)["test_channel"].style.font_face == "arial_bold"

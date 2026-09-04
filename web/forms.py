@@ -14,6 +14,7 @@ a field the form doesn't mention simply isn't touched.
 
 from __future__ import annotations
 
+from core import fonts
 from core.channels import (
     Cta, EndScreen, ChannelConfig, Monetization, Pacing, Socials, Style,
 )
@@ -98,6 +99,12 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
                 else _maybe_float(form, name, current))
 
     style = channel.style
+    face = form.get("style_font_face", "").strip()
+    # Validated against the curated list rather than stored as given: this
+    # ends up as a filename lookup at render time, and an unknown value
+    # would silently fall back to the default months later.
+    if face in fonts.FACES_BY_KEY:
+        style.font_face = face
     for field in STYLE_TEXT_FIELDS:
         value = form.get(f"style_{field}")
         if value:

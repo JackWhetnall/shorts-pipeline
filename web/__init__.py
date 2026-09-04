@@ -111,6 +111,18 @@ def create_app(debug: bool = False) -> Flask:
         except Exception:  # noqa: BLE001 - chrome must never break a page
             return {"review_waiting": 0, "active_job_count": 0}
 
+    @app.context_processor
+    def inject_fonts():
+        """The caption faces this machine can actually render.
+
+        A context processor rather than an argument to each render call:
+        both pages that carry the channel form need it, the answer is
+        cached for the process, and passing it by hand is exactly the kind
+        of thing one of the two call sites eventually forgets.
+        """
+        from core import fonts
+        return {"font_faces": fonts.available()}
+
     @app.errorhandler(PipelineError)
     def handle_pipeline_error(exc):
         log.warning(f"{type(exc).__name__}: {exc}")

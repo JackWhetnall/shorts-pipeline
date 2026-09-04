@@ -666,3 +666,34 @@ class TestSimilarity:
         path = tmp_path / "h.json"
         path.write_text("{not json", encoding="utf-8")
         assert similarity.check("ch", self._script("x"), path=path).compared_against == 0
+
+
+class TestFonts:
+    """Font resolution has to degrade, never raise: a channel configured
+    on a machine with Impact installed still has to render on one
+    without."""
+
+    def test_default_face_resolves_here(self):
+        from core import fonts
+        assert fonts.resolve(fonts.DEFAULT_FACE) is not None
+
+    def test_available_only_returns_resolvable_faces(self):
+        from core import fonts
+        for face in fonts.available():
+            assert fonts.resolve(face.key) is not None
+
+    @pytest.mark.parametrize("face", ["", None, "no_such_face"])
+    def test_unknown_face_falls_back_to_the_default(self, face):
+        from core import fonts
+        assert fonts.resolve(face) is None
+        assert fonts.resolve_or_default(face) == fonts.resolve(fonts.DEFAULT_FACE)
+
+    def test_load_font_never_raises(self):
+        from pipeline.assemble import load_font
+        assert load_font(40, "no_such_face") is not None
+        assert load_font(40) is not None
+
+    def test_faces_have_unique_keys(self):
+        from core import fonts
+        keys = [f.key for f in fonts.FACES]
+        assert len(keys) == len(set(keys))

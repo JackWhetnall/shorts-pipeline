@@ -97,19 +97,94 @@
   </div>
 
   <div class="form-panel" data-panel="look">
+  <div class="look-layout" data-caption-preview>
+
+  <div class="look-controls">
   <fieldset>
-    <legend>Caption / outro style</legend>
-    <label>Font size <input type="number" name="style_font_size" value="{{ channel.style.font_size }}"></label>
-    <label>Base color <input type="text" name="style_base_color" value="{{ channel.style.base_color }}"></label>
-    <label>Highlight color <input type="text" name="style_highlight_color" value="{{ channel.style.highlight_color }}"></label>
-    <label>Stroke color <input type="text" name="style_stroke_color" value="{{ channel.style.stroke_color }}"></label>
-    <label>Stroke width <input type="number" name="style_stroke_width" value="{{ channel.style.stroke_width }}"></label>
-    <label>Outro title color <input type="text" name="style_outro_title_color" value="{{ channel.style.outro_title_color }}"></label>
-    <label>Outro subtext color <input type="text" name="style_outro_subtext_color" value="{{ channel.style.outro_subtext_color }}"></label>
-    <label>Outro background color (R,G,B,A)
-      <input type="text" name="style_outro_bg_color" value="{{ channel.style.outro_bg_color|join(',') }}">
+    <legend>Captions</legend>
+    <label>Font
+      <select name="style_font_face" data-preview-field="font_face" data-font-select>
+        {% for face in font_faces %}
+          <option value="{{ face.key }}" data-note="{{ face.note }}"
+                  {% if face.key == channel.style.font_face %}selected{% endif %}>
+            {{ face.label }}
+          </option>
+        {% endfor %}
+      </select>
+      <span class="hint" data-font-note></span>
+    </label>
+
+    <label>Size
+      <span class="slider-row">
+        <input type="range" name="style_font_size" min="36" max="120" step="2"
+               value="{{ channel.style.font_size }}" data-preview-field="font_size">
+        <output class="slider-value">{{ channel.style.font_size }}</output>
+      </span>
+    </label>
+
+    <label>Outline thickness
+      <span class="slider-row">
+        <input type="range" name="style_stroke_width" min="0" max="12"
+               value="{{ channel.style.stroke_width }}" data-preview-field="stroke_width">
+        <output class="slider-value">{{ channel.style.stroke_width }}</output>
+      </span>
+    </label>
+
+    {% for field, label in [("base_color", "Word colour"),
+                            ("highlight_color", "Spoken word"),
+                            ("stroke_color", "Outline")] %}
+      <label>{{ label }}
+        <span class="color-row">
+          <input type="color" value="{{ channel.style[field] }}"
+                 data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
+          <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
+                 spellcheck="false" data-preview-field="{{ field }}">
+        </span>
+      </label>
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend>Outro card</legend>
+    <p class="hint">The branded card after the narration ends. Not
+      shown in the preview.</p>
+    {% for field, label in [("outro_title_color", "Title colour"),
+                            ("outro_subtext_color", "Subtext colour")] %}
+      <label>{{ label }}
+        <span class="color-row">
+          <input type="color" value="{{ channel.style[field] }}"
+                 data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
+          <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
+                 spellcheck="false">
+        </span>
+      </label>
+    {% endfor %}
+    <label>Background colour
+      <span class="color-row">
+        <input type="color" data-color-for="style_outro_bg_color" data-rgba
+               aria-label="Outro background picker">
+        <input type="text" name="style_outro_bg_color"
+               value="{{ channel.style.outro_bg_color|join(',') }}" spellcheck="false">
+      </span>
+      <span class="hint">Red, green, blue, opacity &mdash; each 0&ndash;255.</span>
     </label>
   </fieldset>
+  </div>
+
+  <div class="look-preview">
+    <p class="preview-label">Preview</p>
+    <div class="preview-frame">
+      <img alt="A sample caption rendered with these settings"
+           data-preview-image
+           src="" hidden>
+      <span class="preview-spinner" hidden></span>
+    </div>
+    <p class="hint">A real frame, drawn by the same code that renders
+      the video, over a bright clip from your own library &mdash; the
+      hardest case for white captions.</p>
+  </div>
+
+  </div>
 
   </div>
 

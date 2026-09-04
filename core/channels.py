@@ -92,6 +92,10 @@ class Pacing(_MappingLike):
 class Style(_MappingLike):
     """Caption and outro visuals."""
 
+    # A key from core.fonts, not a filename: the same typeface ships
+    # under different names across platforms, and a channel set up on one
+    # machine has to still render on another.
+    font_face: str = "arial_bold"
     font_size: int = 68
     base_color: str = "#FFFFFF"
     highlight_color: str = "#FFD400"

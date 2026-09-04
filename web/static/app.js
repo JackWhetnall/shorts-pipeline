@@ -1180,3 +1180,136 @@ document.addEventListener("DOMContentLoaded", () => {
   const target = saved && document.querySelector(`.form-tab[data-tab="${saved}"]`);
   if (target) showFormTab(target);
 });
+
+// --- Caption preview --------------------------------------------------
+//
+// The Look tab used to be six hex strings in text boxes. You could not
+// tell from them whether a 4px outline held up against bright footage or
+// where 68px wrapped. So every change here re-renders a real frame
+// server-side, through the same code that renders the video — no CSS
+// impression of a caption, which would be a different thing looking
+// approximately right.
+//
+// Debounced, because a colour picker fires continuously while dragging
+// and each render is a real Pillow composite.
+const PREVIEW_DEBOUNCE_MS = 220;
+
+let previewTimer = null;
+let previewPending = null;
+
+function captionPreviewPayload(root) {
+  const body = new URLSearchParams();
+  for (const field of root.querySelectorAll("[data-preview-field]")) {
+    body.set(field.dataset.previewField, field.value);
+  }
+  return body;
+}
+
+async function renderCaptionPreview(root) {
+  const image = root.querySelector("[data-preview-image]");
+  const spinner = root.querySelector(".preview-spinner");
+  if (!image) return;
+  if (spinner) spinner.hidden = false;
+
+  // Newest request wins: dragging a slider queues several, and they can
+  // come back out of order, which would leave the preview showing a
+  // value the form no longer holds.
+  const token = {};
+  previewPending = token;
+  try {
+    const response = await apiFetch("/api/caption-preview", {
+      method: "POST",
+      body: captionPreviewPayload(root),
+    });
+    if (!response.ok) throw new Error(response.status);
+    const blob = await response.blob();
+    if (previewPending !== token) return;
+    const url = URL.createObjectURL(blob);
+    const previous = image.src;
+    image.src = url;
+    image.hidden = false;
+    if (previous.startsWith("blob:")) URL.revokeObjectURL(previous);
+  } catch (e) {
+    // A failed preview is cosmetic: keep the last good frame rather than
+    // replacing the panel with an error the user can't act on.
+    console.warn("Caption preview failed", e);
+  } finally {
+    if (previewPending === token && spinner) spinner.hidden = true;
+  }
+}
+
+function queueCaptionPreview(root) {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => renderCaptionPreview(root), PREVIEW_DEBOUNCE_MS);
+}
+
+// Keeps a <input type="color"> and its hex text box in step, in both
+// directions. Two controls rather than one because the picker cannot be
+// typed into and the text box cannot be browsed — and because the outro
+// background is stored as R,G,B,A, which no colour input speaks.
+function bindColorPickers(root) {
+  for (const picker of root.querySelectorAll("[data-color-for]")) {
+    const text = root.querySelector(`[name="${picker.dataset.colorFor}"]`);
+    if (!text) continue;
+    const rgba = picker.hasAttribute("data-rgba");
+
+    if (rgba) picker.value = rgbaToHex(text.value);
+
+    picker.addEventListener("input", () => {
+      text.value = rgba ? hexToRgba(picker.value, text.value) : picker.value.toUpperCase();
+      text.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    text.addEventListener("input", () => {
+      const hex = rgba ? rgbaToHex(text.value) : text.value.trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(hex)) picker.value = hex;
+    });
+  }
+}
+
+function rgbaToHex(value) {
+  const parts = (value || "").split(",").map((n) => parseInt(n.trim(), 10));
+  if (parts.length < 3 || parts.slice(0, 3).some((n) => Number.isNaN(n))) return "#000000";
+  return "#" + parts.slice(0, 3)
+    .map((n) => Math.min(255, Math.max(0, n)).toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// Preserves whatever alpha was already there: the picker has no opacity
+// channel, and silently resetting it to 255 would quietly un-fade an
+// outro someone had deliberately made translucent.
+function hexToRgba(hex, current) {
+  const alpha = (current || "").split(",")[3];
+  const rgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return rgb.concat([alpha !== undefined ? alpha.trim() : "255"]).join(",");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const root = document.querySelector("[data-caption-preview]");
+  if (!root) return;
+
+  bindColorPickers(root);
+
+  // The note lives under the select rather than inside each option: the
+  // dropdown is only as wide as its column, and "Very heavy and
+  // condensed. Fits more words per line" truncated to "Very heavy and
+  // cond…" told you nothing.
+  const fontSelect = root.querySelector("[data-font-select]");
+  const fontNote = root.querySelector("[data-font-note]");
+  if (fontSelect && fontNote) {
+    const showNote = () => {
+      fontNote.textContent = fontSelect.selectedOptions[0]?.dataset.note || "";
+    };
+    fontSelect.addEventListener("change", showNote);
+    showNote();
+  }
+
+  for (const field of root.querySelectorAll("[data-preview-field]")) {
+    field.addEventListener("input", () => {
+      const output = field.parentElement.querySelector(".slider-value");
+      if (output) output.value = field.value;
+      queueCaptionPreview(root);
+    });
+  }
+
+  renderCaptionPreview(root);
+});

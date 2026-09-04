@@ -4,8 +4,24 @@
     {
       "name": "shorts-pipeline-web",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "web", "--no-scheduler"],
+      "runtimeArgs": [
+        "-m",
+        "web",
+        "--no-scheduler"
+      ],
       "port": 5000
+    },
+    {
+      "name": "shorts-pipeline-web-preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "web",
+        "--no-scheduler",
+        "--port",
+        "5055"
+      ],
+      "port": 5055
     }
   ]
 }

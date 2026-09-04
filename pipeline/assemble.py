@@ -37,7 +37,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from core import job_context
+from core import fonts, job_context
 from core.channels import resolve_active_ctas
 from core.errors import FootageLibraryError
 from core.logging_setup import get_logger
@@ -56,23 +56,22 @@ OUTRO_TITLE_SIZE = 84
 OUTRO_SUBTEXT_SIZE = 48
 END_SCREEN_TEXT_SIZE = 56
 
-# Tried in order; first found wins. Falls back to Pillow's built-in
-# bitmap font, which works everywhere and looks plainer.
-FONT_CANDIDATES = (
-    r"C:\Windows\Fonts\arialbd.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-)
+@lru_cache(maxsize=32)
+def load_font(size: int, face: str = None):
+    """The channel's caption face, at one size.
 
-
-@lru_cache(maxsize=8)
-def load_font(size: int):
-    """Cached: this used to be called inside the per-word caption loop,
-    doing up to three filesystem probes and a truetype parse for every
-    word in the video."""
-    for candidate in FONT_CANDIDATES:
-        if Path(candidate).exists():
-            return ImageFont.truetype(candidate, size)
+    Cached on (size, face): this is called once per caption group and once
+    per word overlay, and re-parsing a TrueType file every time was
+    measurable. A face that isn't installed falls back to the default one,
+    then to Pillow's built-in bitmap font — a channel configured on a
+    machine with Impact still has to render on one without it.
+    """
+    path = fonts.resolve_or_default(face)
+    if path is not None:
+        try:
+            return ImageFont.truetype(str(path), size)
+        except OSError:
+            log.warning("Could not load font %s; using the built-in face.", path)
     return ImageFont.load_default()
 
 
@@ -139,7 +138,7 @@ class CaptionLayout:
 def layout_caption(words: list, style) -> CaptionLayout:
     """Lay out and render one caption group once, all words in the base
     colour, recording each word's box."""
-    font = load_font(style.font_size)
+    font = load_font(style.font_size, style.font_face)
     draw_measure = _measurer()
     lines = wrap_words(words, font, CAPTION_MAX_WIDTH)
 
@@ -174,7 +173,7 @@ def render_word_overlay(word: str, box, style) -> np.ndarray:
     word. It draws one word into an image a few hundred pixels wide
     instead of redrawing the full 972-pixel-wide group.
     """
-    font = load_font(style.font_size)
+    font = load_font(style.font_size, style.font_face)
     stroke = style.stroke_width
     _, _, width, line_height = box
     image = Image.new("RGBA", (int(width) + stroke * 2 + 4, line_height + stroke * 2), (0, 0, 0, 0))
@@ -244,8 +243,8 @@ def render_outro(channel_display_name: str, subtext: str, style) -> np.ndarray:
     """The channel-branded end card — the only branding overlay in the
     video. There is deliberately no title card: for short-form, viewers
     should land straight in the content."""
-    font_title = load_font(OUTRO_TITLE_SIZE)
-    font_subtext = load_font(OUTRO_SUBTEXT_SIZE)
+    font_title = load_font(OUTRO_TITLE_SIZE, style.font_face)
+    font_subtext = load_font(OUTRO_SUBTEXT_SIZE, style.font_face)
     max_width = int(W * 0.85)
 
     image = Image.new("RGBA", (W, H), tuple(style.outro_bg_color))
@@ -276,7 +275,7 @@ def render_end_screen(cta: dict, style, channel_key: str) -> np.ndarray:
     """
     from core.assets import list_merch_photos
 
-    font = load_font(END_SCREEN_TEXT_SIZE)
+    font = load_font(END_SCREEN_TEXT_SIZE, style.font_face)
     max_width = int(W * 0.85)
     image = Image.new("RGBA", (W, H), tuple(style.outro_bg_color))
     draw = ImageDraw.Draw(image)

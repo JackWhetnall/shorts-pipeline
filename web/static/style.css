@@ -1306,3 +1306,119 @@ a.tick:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
   letter-spacing: 0.01em;
   color: var(--accent);
 }
+
+/* --- Look tab: controls beside a live preview ----------------------- */
+/* The preview is the point of the panel, so it gets its own column and
+   stays put while the controls scroll past it. Below 900px it stacks and
+   sticks to the top instead, which keeps it on screen on a laptop where
+   the two columns would each be too narrow to use. */
+.look-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--sp-5, 1.75rem);
+  align-items: start;
+}
+
+.look-controls { min-width: 0; }
+
+.look-preview {
+  position: sticky;
+  top: var(--sp-4, 1.25rem);
+}
+
+.preview-label {
+  margin: 0 0 var(--sp-2, 0.5rem);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.preview-frame {
+  position: relative;
+  aspect-ratio: 9 / 16;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.preview-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Sits over the last good frame rather than replacing it: swapping the
+   image for a spinner on every keystroke makes the panel flicker, and
+   the previous frame is still the more useful thing to look at. */
+.preview-spinner {
+  position: absolute;
+  top: var(--sp-2, 0.5rem);
+  right: var(--sp-2, 0.5rem);
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.color-row,
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2, 0.5rem);
+}
+
+.color-row input[type="text"] { flex: 1; min-width: 0; }
+
+/* Browsers draw a chunky bordered box around a colour input by default;
+   this makes it read as a swatch. */
+.color-row input[type="color"] {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.color-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.color-row input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.slider-value {
+  flex: 0 0 2.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+@media (max-width: 900px) {
+  .look-layout { grid-template-columns: 1fr; }
+  .look-preview {
+    position: static;
+    max-width: 280px;
+  }
+}
+
+/* A hint sitting inside a label needs to break onto its own line and sit
+   tight under the control rather than inheriting the label's spacing. */
+label > .hint {
+  display: block;
+  margin-top: var(--sp-1, 0.25rem);
+  font-size: 0.82rem;
+  font-weight: 400;
+}

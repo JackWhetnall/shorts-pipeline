@@ -146,6 +146,19 @@ settings page has a **Preview a script** button that runs script
 generation alone — a few seconds, about a penny, no render — so you can
 tune it without committing a whole video to find out what changed.
 
+### The Look tab
+
+Font, size, outline and colours, previewed as you change them. The
+preview is a real frame drawn by the same code that renders the video,
+over the brightest clip in your own library — so "is 68px readable over
+bright footage with a 4px outline" is a question you answer by looking
+rather than by rendering a video to find out.
+
+Thirteen caption faces are offered, chosen for holding a stroke outline
+and staying legible at a glance. A channel stores which face it wants,
+not a font path, so it still renders on a machine that has a different
+set installed.
+
 ## Channels
 
 Add one through the web UI's **+ New channel**, or by hand in

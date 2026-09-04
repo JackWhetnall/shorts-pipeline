@@ -35,6 +35,8 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   progress      moviepy encode progress, as a number rather than scraped text.
   gallery       Finished videos: publish state, discard, thumbnails, cost.
   assets        Logos and merch photos on disk.
+  fonts         The caption faces this machine can render, by key not path.
+  caption_preview  One real caption frame, for the Look settings.
   logos         Logo generation via the image API.
   voice_lab     Voice/cadence/speed auditioning.
   costs         What every API call cost.
