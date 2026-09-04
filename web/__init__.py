@@ -147,10 +147,11 @@ def create_app(debug: bool = False) -> Flask:
         return render_template("error.html", message=message), 500
 
     from web.blueprints import (
-        channels, footage, gallery, jobs as jobs_bp, logos, review, setup,
-        voice_lab, youtube,
+        channels, curriculum, footage, gallery, jobs as jobs_bp, logos,
+        review, setup, voice_lab, youtube,
     )
     app.register_blueprint(channels.bp)
+    app.register_blueprint(curriculum.bp)
     app.register_blueprint(gallery.bp)
     app.register_blueprint(jobs_bp.bp)
     app.register_blueprint(footage.bp)

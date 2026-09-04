@@ -39,6 +39,7 @@ footage/library.db-shm
 config/cost_log.jsonl
 config/script_history.json
 config/discard_history.jsonl
+config/curricula/
 # OAuth client secret and per-channel refresh tokens. Real credentials.
 config/youtube_client.json
 config/youtube_tokens/

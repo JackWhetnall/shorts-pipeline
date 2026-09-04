@@ -44,6 +44,10 @@ class Seed:
     text: str = ""            # quote only: the source text, used verbatim
     reference: str = ""       # quote only: e.g. "John 3:16"
     topic: str = ""           # topic only
+    # topic only, and only when the channel has a syllabus: which entry
+    # this came from, so generating can claim that exact one rather than
+    # whatever happens to be next by the time the job runs.
+    topic_id: str = ""
 
     @property
     def title(self) -> str:
@@ -59,12 +63,14 @@ class Seed:
 
     def to_jsonable(self) -> dict:
         return {"type": self.type, "text": self.text,
-                "reference": self.reference, "topic": self.topic}
+                "reference": self.reference, "topic": self.topic,
+                "topic_id": self.topic_id}
 
     @classmethod
     def from_jsonable(cls, data: dict) -> "Seed":
         return cls(type=data["type"], text=data.get("text", ""),
-                   reference=data.get("reference", ""), topic=data.get("topic", ""))
+                   reference=data.get("reference", ""), topic=data.get("topic", ""),
+                   topic_id=data.get("topic_id", ""))
 
 
 @dataclass

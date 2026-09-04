@@ -44,6 +44,7 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   insights      Aggregate quality and spend — the improvement loop.
   scheduler     Recurring generation.
   youtube       OAuth and resumable upload to YouTube.
+  curriculum    A channel's ordered syllabus of topics, and where it has got to.
   footage_stats Library health and clip poster frames.
 
 pipeline/     The generation stages. No web dependency at all.
@@ -52,6 +53,7 @@ pipeline/     The generation stages. No web dependency at all.
   llm           The single Claude client: prompt caching, structured outputs,
                 usage recording.
   quote_source  Source text for static-corpus channels.
+  curriculum_gen  Designs a syllabus outline, then one unit's topics at a time.
   script_gen    Seed -> Script.
   tts           Script -> narration + word timings + real segment spans.
   assemble      Footage + narration + captions -> the video file.
@@ -70,8 +72,8 @@ pipeline/     The generation stages. No web dependency at all.
 
 web/          Flask only.
   __init__      App factory: CSRF, error handling, blueprint registration.
-  blueprints/   channels, footage, gallery, jobs, logos, review, setup,
-                voice_lab, youtube.
+  blueprints/   channels, curriculum, footage, gallery, jobs, logos, review,
+                setup, voice_lab, youtube.
   checklist     The launch checklist — one definition, no Flask import.
   forms, helpers
 
@@ -197,6 +199,28 @@ So a purge appends a tombstone to `config/discard_history.jsonl` —
 channel, stem, reason, dates — and `insights.collect` folds those into the
 totals and the discard reasons, but deliberately not into quality, spend
 or the recent list, whose sidecars are gone.
+
+## Topics
+
+A `topic` channel can have a **syllabus**: an ordered list of topics used
+one at a time, in a deliberate progression from what anyone could follow
+to what only an enthusiast would search for.
+
+It is built in two layers. One call designs an outline of 20-30 units in
+teaching order — that is where the ordering lives, and 25 unit titles are
+something a person can actually review. Topics are then written one unit
+at a time as they are needed, each call seeing the whole outline and every
+title already used so it cannot repeat one; `add_topics` drops duplicates
+regardless, because repetition is what this exists to prevent.
+
+`pending` → `used` → `published`, and **a discarded video returns its
+topic to pending** — a take that did not work is not a topic that has been
+covered. The claim happens at the top of `run.generate`, not in
+`fetch_seed`, which must stay free of side effects so a seed can be
+rerolled.
+
+A channel without a syllabus keeps drawing from its flat `topics` list.
+See decision [018](docs/decisions/018-topic-curriculum.md).
 
 ## Publishing
 

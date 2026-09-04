@@ -20,7 +20,7 @@ from pathlib import Path
 
 import time
 
-from core import costs, gallery, job_context
+from core import costs, curriculum, gallery, job_context
 from core.errors import ConfigError
 from core.logging_setup import get_logger
 from core.paths import PROJECT_ROOT, slugify, unique_stem
@@ -38,6 +38,19 @@ def fetch_seed(channel) -> Seed:
         quote = get_quote(channel.source)
         return Seed(type="quote", text=quote["text"], reference=quote["reference"])
     if channel.content_mode == "topic":
+        # A syllabus, when the channel has one, is the whole point: topics
+        # in a deliberate order, each used once. Channels without one keep
+        # drawing from their flat list exactly as before.
+        entry = curriculum.next_pending(channel.key)
+        if entry:
+            return Seed(type="topic", topic=entry["title"], topic_id=entry["id"])
+        if curriculum.exists(channel.key):
+            raise ConfigError(
+                f"{channel.key} has a curriculum with nothing pending",
+                user_message=f'"{channel.channel_display_name or channel.key}" has '
+                             f"used every topic in its plan. Generate more topics, "
+                             f"or un-skip some.",
+            )
         return Seed(type="topic", topic=random.choice(channel.topics))
     raise ConfigError(
         f"unknown content_mode {channel.content_mode!r}",
@@ -80,6 +93,14 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
     log.info("[5/5] Writing metadata...")
     description.write_meta(plan)
     description.write_description(plan)
+
+    # Which video this topic became, so discarding it can hand the topic
+    # back and publishing can mark it covered.
+    if plan.seed.topic_id:
+        try:
+            curriculum.attach_video(plan.channel.key, plan.seed.topic_id, plan.stem)
+        except Exception:  # noqa: BLE001 - bookkeeping never fails a finished video
+            log.exception("Could not link this video to its curriculum topic")
 
     report = similarity.check(plan.channel.key, plan.script)
     if report.flagged:
@@ -131,6 +152,36 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
     return plan
 
 
+def _claim_topic(channel, seed: Seed) -> Seed:
+    """Take this video's topic out of the pending queue.
+
+    Claimed here rather than in `fetch_seed`, which is explicitly free of
+    side effects so a seed can be rerolled. Here is the first moment a
+    video is definitely being made.
+
+    Queueing several videos at once captures the same "next" topic in each
+    seed, so a claim that finds its topic already taken moves to the next
+    pending one — five queued videos become five different videos rather
+    than the same one five times.
+
+    Best-effort: a syllabus that cannot be written must not lose a video
+    that is otherwise ready to make.
+    """
+    if seed.type != "topic" or not curriculum.exists(channel.key):
+        return seed
+    try:
+        claimed = curriculum.claim(channel.key, seed.topic_id)
+    except Exception:  # noqa: BLE001 - bookkeeping never blocks a render
+        log.exception(f"{channel.key}: could not claim a curriculum topic")
+        return seed
+    if claimed is None:
+        return seed
+    if claimed["id"] != seed.topic_id:
+        log.info(f"{channel.key}: topic {seed.topic_id or '(none)'} was already "
+                 f"taken; using {claimed['id']} instead")
+    return Seed(type="topic", topic=claimed["title"], topic_id=claimed["id"])
+
+
 def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
     """Run the whole pipeline for one video and return the finished plan.
 
@@ -145,6 +196,7 @@ def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
 
     job_context.set_channel_key(channel.key)
     started_at = time.time()
+    seed = _claim_topic(channel, seed)
     plan = RenderPlan(channel=channel, seed=seed, interactive=interactive)
 
     _prepare_output(plan)

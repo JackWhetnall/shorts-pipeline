@@ -30,3 +30,4 @@ reason for a change stays true forever.
 | [015](015-library-storage.md) | Three copies of everything | Active |
 | [016](016-caption-preview.md) | Showing the captions instead of describing them | Active |
 | [017](017-youtube-upload.md) | Uploading to YouTube, and what that cannot mean | Active |
+| [018](018-topic-curriculum.md) | A syllabus, not a bag of topics | Supersedes the random topic list |

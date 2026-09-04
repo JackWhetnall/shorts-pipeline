@@ -1357,3 +1357,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
   renderCaptionPreview(root);
 });
+
+// --- Topic plan -------------------------------------------------------
+//
+// Both actions cost real money, so both say what they are doing and
+// neither is silent while it works — an outline call takes ten seconds or
+// so, and a page that looks frozen invites a second click.
+
+async function makeOutline(event, key) {
+  event.preventDefault();
+  const button = document.getElementById("curriculum-outline-btn");
+  const status = document.getElementById("curriculum-status");
+  status.textContent = "";
+
+  await withButtonLoading(button, "Designing…", async () => {
+    const res = await apiFetch(`/api/channels/${key}/curriculum/outline`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        subject: document.getElementById("curriculum-subject").value,
+        unit_count: document.getElementById("curriculum-units").value,
+        total_topics: document.getElementById("curriculum-topics").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { status.textContent = data.error || "Couldn't design a plan."; return; }
+    window.location.reload();
+  });
+  return false;
+}
+
+async function fillUnits(key, count) {
+  const button = document.getElementById(
+    count > 1 ? "curriculum-fill-many-btn" : "curriculum-fill-btn");
+  const status = document.getElementById("curriculum-status");
+  status.textContent = "";
+
+  await withButtonLoading(button, "Writing…", async () => {
+    const res = await apiFetch(`/api/channels/${key}/curriculum/fill`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({units: count}),
+    });
+    const data = await res.json();
+    if (!res.ok) { status.textContent = data.error || "Couldn't write those topics."; return; }
+    window.location.reload();
+  });
+}

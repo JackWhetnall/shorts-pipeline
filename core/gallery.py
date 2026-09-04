@@ -24,7 +24,10 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from core.logging_setup import get_logger
 from core.paths import DISCARD_HISTORY_PATH, OUTPUT_DIR, PROJECT_ROOT
+
+log = get_logger(__name__)
 
 PUBLISH_LINK_FIELDS = ("youtube_url", "tiktok_url", "instagram_url")
 
@@ -131,7 +134,40 @@ def save_publish_info(video_path: Path, links: dict) -> dict:
         "description": links.get("description", existing["description"]),
     }
     _write_publish(video_path, data)
+    if now and not was:
+        _sync_curriculum(video_path, "published")
+    elif was and not now:
+        _sync_curriculum(video_path, "released")
     return data
+
+
+def _sync_curriculum(video_path: Path, action: str) -> None:
+    """Keep a channel's syllabus in step with what happened to a video.
+
+    Best-effort and quiet: a channel with no syllabus is the normal case,
+    and a bookkeeping failure must never stop a publish or a discard —
+    those are decisions the user has already made.
+
+    The channel is derived from the path because publish and discard
+    address videos by path alone; that is deliberate (the review queue is
+    cross-channel) and this is the one place that needs the channel back.
+    """
+    try:
+        from core import curriculum
+        from core.channels import load_channels
+
+        video_path = Path(video_path)
+        for key, channel in load_channels(validate=False).items():
+            directory = resolve_output_dir(channel.output_dir)
+            if directory not in video_path.parents:
+                continue
+            if action == "published":
+                curriculum.mark_published(key, video_path.stem)
+            else:
+                curriculum.release(key, video_path.stem)
+            return
+    except Exception:  # noqa: BLE001 - never blocks the decision itself
+        log.debug("Could not update the curriculum for %s", video_path, exc_info=True)
 
 
 def set_discarded(video_path: Path, discarded: bool, reason: str = None) -> None:
@@ -157,6 +193,10 @@ def set_discarded(video_path: Path, discarded: bool, reason: str = None) -> None
     # video for a weak script says nothing about the clips in it — and
     # only on the transition, so toggling discard twice doesn't count
     # twice.
+    # A discarded take is not a topic that has been covered, so its topic
+    # goes back in the queue rather than leaving a hole in the syllabus.
+    _sync_curriculum(video_path, "released" if discarded else "published")
+
     now_footage_reject = bool(discarded) and info["discard_reason"] == "footage"
     if now_footage_reject and not was_footage_reject:
         _record_footage_rejection(video_path)

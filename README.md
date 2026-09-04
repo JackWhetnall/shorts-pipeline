@@ -78,6 +78,41 @@ discarding actually costs you.
 same index the matcher uses, watch a clip on hover, re-describe one whose
 description is wrong, confirm a licence, or delete it.
 
+## Topic plans
+
+A random list of topics repeats itself, has no sense of easy before hard,
+and runs out in a fortnight at two videos a day. A **topic plan** fixes
+all three: an ordered syllabus, each topic used once, running from what
+anyone could follow to what only an enthusiast would search for.
+
+Each channel's dashboard links to **Topic plan**, or:
+
+```bash
+python tools/curriculum.py outline my_channel --units 25 --topics 1000
+python tools/curriculum.py fill my_channel --units 5
+python tools/curriculum.py status my_channel
+python tools/curriculum.py list my_channel --pending -v
+```
+
+It is built in two steps. First an **outline** — one call, under a penny
+— giving 25 units in teaching order. You read those 25 titles and decide
+whether the arc is right, which is a thing a person can do; a thousand
+topics is not. Then **topics are written a unit at a time**, as you
+approach needing them, at about a penny each.
+
+A real eight-unit maths outline came out as: numbers we already use →
+shapes and space → patterns and puzzles → chance and data → algebra and
+functions → structures in mathematics → calculus and change → deep
+mathematical ideas. Fractions first, topology last.
+
+Topics are used in order, can be skipped or pulled to the front, and a
+**discarded video puts its topic back in the queue** — a take that did
+not work is not a topic that has been covered. The dashboard shows how
+many are left and roughly how many days that is.
+
+A full 25-unit, 1000-topic plan costs well under a dollar in total, and
+you only pay for units as you reach them.
+
 ## Uploading to YouTube
 
 `/youtube/setup` walks through making a Google Cloud OAuth client and
@@ -208,10 +243,11 @@ voice ID, a style prompt, and a content mode:
 - `static_corpus` — a fixed source is fetched and read aloud. Set
   `source` to a key in `pipeline/quote_source.py` (`bible`,
   `shakespeare`).
-- `topic` — nothing is fixed. Set `topics` to a list; every segment is
-  generated from one of them plus your style prompt, which is where the
-  actual format lives ("write dad jokes about…", "explain one scientific
-  idea about…").
+- `topic` — nothing is fixed. Every segment is generated from a topic
+  plus your style prompt, which is where the actual format lives ("write
+  dad jokes about…", "explain one scientific idea about…"). Either set
+  `topics` to a list to draw from at random, or give the channel a
+  **topic plan** (below), which is better in every way that matters.
 
 Optionally override `pacing` (pause lengths, shot length, crossfade,
 caption grouping, segment count) and `style` (caption and outro colours).

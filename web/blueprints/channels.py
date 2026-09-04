@@ -11,7 +11,10 @@ from flask import (
     url_for,
 )
 
-from core import caption_preview, channel_admin, fonts, gallery, jobs, scheduler, youtube
+from core import (
+    caption_preview, channel_admin, curriculum, fonts, gallery, jobs,
+    scheduler, youtube,
+)
 from core.assets import has_logo
 from core.channels import (
     ChannelConfig, Pacing, Style, channel_to_sparse_dict, read_raw, save_channel,
@@ -85,6 +88,7 @@ def dashboard(key):
     return render_template(
         "channel_dashboard.html",
         key=key, channel=channel,
+        topic_plan=curriculum.progress(key) if channel.content_mode == "topic" else None,
         video_count=info["video_count"],
         published_count=info["published_count"],
         unpublished_count=info["unpublished_count"],

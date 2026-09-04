@@ -95,6 +95,12 @@
     <a href="{{ url_for('channels.create_video', key=key) }}">Create Video</a>
     <a href="{{ url_for('channels.settings', key=key) }}">Settings</a>
     <a href="{{ url_for('gallery.channel_gallery', key=key) }}">Gallery</a>
+    {% if channel.content_mode == 'topic' %}
+    <a href="{{ url_for('curriculum.page', key=key) }}">
+      Topic plan{% if topic_plan and topic_plan.has_curriculum %}
+        ({{ topic_plan.pending }} left){% endif %}
+    </a>
+    {% endif %}
     <a href="{{ url_for('logos.logo_page', key=key) }}">Logo</a>
     <a href="{{ url_for('setup.setup_step', key=key, step='logo') }}">Channel setup</a>
   </div>

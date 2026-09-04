@@ -1452,3 +1452,22 @@ label > .hint {
    are two equal choices with different consequences. */
 .danger-text { color: var(--danger); }
 .danger-text:hover { background: var(--danger-bg); }
+
+/* --- Topic plan ----------------------------------------------------- */
+/* A topic's angle belongs under its title, not run on after it — the two
+   read as one sentence otherwise, which is how "What a Fraction Really
+   Means Show a pizza split into slices" happens. */
+.todo-label .hint {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+/* Topics are a long list, so the rows are tighter than a checklist's and
+   the label takes the space rather than the actions. */
+.todo-list .todo-item { align-items: flex-start; padding: var(--sp-2) 0; }
+.todo-list .todo-label { flex: 1; min-width: 0; }
+.todo-list .todo-actions { flex-shrink: 0; }
+
+.summary-heading .badge { text-transform: capitalize; }
