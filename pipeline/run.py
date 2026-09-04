@@ -31,31 +31,71 @@ from pipeline.quote_source import get_quote
 log = get_logger(__name__)
 
 
-def fetch_seed(channel) -> Seed:
+def fetch_seed(channel, pick: dict = None) -> Seed:
     """One candidate seed. No prompts, no side effects — safe to call
-    repeatedly while someone rerolls."""
+    repeatedly while someone rerolls.
+
+    `pick` narrows which subtopic a planned channel offers:
+    `{"topic_id": ...}` to stay inside one topic, `{"subtopic_id": ...}`
+    for a specific one, `{"mode": "random"}` to shuffle rather than take
+    the next in order. Absent, it is the next one in syllabus order — the
+    "just make me the next video" case, which is the common one.
+    """
     if channel.content_mode == "static_corpus":
         quote = get_quote(channel)
         return Seed(type="quote", text=quote["text"], reference=quote["reference"])
     if channel.content_mode == "topic":
-        # A syllabus, when the channel has one, is the whole point: topics
-        # in a deliberate order, each used once. Channels without one keep
-        # drawing from their flat list exactly as before.
-        entry = curriculum.next_pending(channel.key)
-        if entry:
-            return Seed(type="topic", topic=entry["title"], topic_id=entry["id"])
+        # A syllabus, when the channel has one, is the whole point:
+        # subtopics in a deliberate order, each used once. Channels without
+        # one keep drawing from their flat list exactly as before.
         if curriculum.exists(channel.key):
-            raise ConfigError(
-                f"{channel.key} has a curriculum with nothing pending",
-                user_message=f'"{channel.channel_display_name or channel.key}" has '
-                             f"used every topic in its plan. Generate more topics, "
-                             f"or un-skip some.",
-            )
+            entry = _pick_subtopic(channel, pick)
+            if entry is None:
+                raise ConfigError(
+                    f"{channel.key} has a curriculum with nothing pending",
+                    user_message=(
+                        f'"{channel.channel_display_name or channel.key}" has used '
+                        f"every subtopic available. Write more on its topic plan, "
+                        f"or un-skip some."),
+                )
+            return Seed(type="topic", topic=entry["title"], topic_id=entry["id"])
         return Seed(type="topic", topic=random.choice(channel.topics))
     raise ConfigError(
         f"unknown content_mode {channel.content_mode!r}",
         user_message=f'Channel "{channel.key}" has an unrecognised content mode.',
     )
+
+
+def _pick_subtopic(channel, pick: dict = None):
+    """Which subtopic this video should be about.
+
+    Order of preference: an explicitly named one, then the next pending
+    inside a named topic, then a random pending one, then the next pending
+    overall. A named subtopic that has already been used falls through to
+    the rest rather than failing — the plan page and this page can be open
+    at once, and a stale id should not be an error.
+    """
+    pick = pick or {}
+    subtopic_id = (pick.get("subtopic_id") or "").strip()
+    topic_id = (pick.get("topic_id") or "").strip()
+
+    if subtopic_id:
+        entry = curriculum.find(channel.key, subtopic_id)
+        if entry and entry["status"] == curriculum.PENDING:
+            return entry
+
+    if pick.get("mode") == "random":
+        candidates = curriculum.subtopics(
+            channel.key, status=curriculum.PENDING, topic_id=topic_id or None)
+        if candidates:
+            return random.choice(candidates)
+
+    if topic_id:
+        entry = curriculum.next_pending(channel.key, topic_id=topic_id)
+        if entry:
+            return entry
+
+    return curriculum.next_pending(channel.key)
 
 
 def _prepare_output(plan: RenderPlan) -> RenderPlan:

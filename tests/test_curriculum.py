@@ -284,7 +284,7 @@ class TestSeedSelection:
             curriculum.claim("c")
         with pytest.raises(ConfigError) as caught:
             fetch_seed(channel)
-        assert "every topic" in caught.value.user_message
+        assert "every subtopic" in caught.value.user_message
 
     def test_the_topic_id_survives_the_job_queue(self):
         from pipeline.plan import Seed
@@ -1144,3 +1144,177 @@ class TestSchemaMigration:
         again = curriculum.load("c")
         assert len(again["topics"]) == 2
         assert len(again["subtopics"]) == 2
+
+
+class TestChoosingWhatToMake:
+    """The create page offers the whole plan, not just "the next one".
+
+    Every one of these goes through `fetch_seed`, which must stay free of
+    side effects — it is called repeatedly while someone rerolls.
+    """
+
+    @pytest.fixture
+    def channel(self, planned):
+        from core.channels import ChannelConfig
+        return ChannelConfig(key="c", channel_display_name="C",
+                             content_mode="topic", voice="21m00Tcm4TlvDq8ikWAM",
+                             style_prompt="p")
+
+    def test_no_pick_is_the_next_one_in_order(self, channel):
+        from pipeline.run import fetch_seed
+        assert fetch_seed(channel).title == "First thing"
+
+    def test_a_topic_narrows_to_its_own_subtopics(self, channel):
+        from pipeline.run import fetch_seed
+        assert fetch_seed(channel, {"topic_id": "u02"}).topic == "Fourth thing"
+
+    def test_a_specific_subtopic_is_honoured(self, channel):
+        from pipeline.run import fetch_seed
+        seed = fetch_seed(channel, {"subtopic_id": "t0003"})
+        assert seed.topic == "Third thing"
+        assert seed.topic_id == "t0003"
+
+    def test_random_stays_inside_the_chosen_topic(self, channel):
+        from pipeline.run import fetch_seed
+        for _ in range(12):
+            seed = fetch_seed(channel, {"topic_id": "u02", "mode": "random"})
+            assert seed.topic in ("Fourth thing", "Fifth thing")
+
+    def test_random_without_a_topic_can_reach_anything(self, channel):
+        from pipeline.run import fetch_seed
+        seen = {fetch_seed(channel, {"mode": "random"}).topic for _ in range(40)}
+        assert len(seen) > 1
+
+    def test_a_stale_subtopic_id_falls_through_rather_than_failing(self, channel):
+        """The plan page and the create page can be open at once, so an id
+        that was pending when the page rendered may not be by the time it
+        is used."""
+        from pipeline.run import fetch_seed
+
+        curriculum.claim("c", "t0002")
+        seed = fetch_seed(channel, {"subtopic_id": "t0002"})
+        assert seed.topic == "First thing"
+
+    def test_choosing_does_not_consume_anything(self, channel):
+        from pipeline.run import fetch_seed
+
+        for pick in ({}, {"topic_id": "u02"}, {"subtopic_id": "t0003"},
+                     {"mode": "random"}):
+            fetch_seed(channel, pick)
+        assert curriculum.progress("c")["pending"] == 5
+
+    def test_an_exhausted_topic_falls_back_to_the_next_overall(self, channel):
+        """Better than refusing: the button said "make a video"."""
+        from pipeline.run import fetch_seed
+
+        for subtopic_id in ("t0004", "t0005"):
+            curriculum.claim("c", subtopic_id)
+        assert fetch_seed(channel, {"topic_id": "u02"}).topic == "First thing"
+
+
+class TestContinuity:
+    """Some channels teach in order and video 7 should not re-explain what
+    1-6 established. Most short-form is the opposite — videos are found
+    individually — so this is off by default."""
+
+    @pytest.fixture
+    def channel(self, planned):
+        from core.channels import ChannelConfig
+        return ChannelConfig(key="c", channel_display_name="C",
+                             content_mode="topic", voice="21m00Tcm4TlvDq8ikWAM",
+                             style_prompt="p")
+
+    def _seed(self, subtopic_id="t0003"):
+        from pipeline.plan import Seed
+        return Seed(type="topic", topic="Third thing", topic_id=subtopic_id)
+
+    def test_off_by_default(self, channel):
+        from pipeline.script_gen import _continuity
+        assert _continuity(channel, self._seed()) == ""
+
+    def test_on_it_lists_what_was_already_covered(self, channel):
+        from pipeline.script_gen import _continuity
+
+        channel.build_on_previous = True
+        curriculum.claim("c", "t0001")
+        curriculum.attach_video("c", "t0001", "first_thing")
+
+        text = _continuity(channel, self._seed())
+        assert "First thing" in text
+        assert "Do not re-explain" in text
+
+    def test_only_what_actually_became_a_video(self, channel):
+        """A pending subtopic has not been seen by anyone."""
+        from pipeline.script_gen import _continuity
+
+        channel.build_on_previous = True
+        assert _continuity(channel, self._seed()) == ""
+
+    def test_it_does_not_reach_into_other_topics(self, channel):
+        from pipeline.script_gen import _continuity
+        from pipeline.plan import Seed
+
+        channel.build_on_previous = True
+        curriculum.claim("c", "t0001")
+        curriculum.attach_video("c", "t0001", "first_thing")
+
+        # t0004 lives in u02; t0001 lives in u01.
+        text = _continuity(channel, Seed(type="topic", topic="Fourth thing",
+                                         topic_id="t0004"))
+        assert text == ""
+
+    def test_a_subtopic_never_lists_itself(self, channel):
+        from pipeline.script_gen import _continuity
+
+        channel.build_on_previous = True
+        curriculum.claim("c", "t0001")
+        curriculum.attach_video("c", "t0001", "stem")
+        text = _continuity(channel, self._seed("t0001"))
+        assert "First thing" not in text
+
+    def test_the_list_is_capped(self, channel, monkeypatch):
+        """The prompt must not grow without bound as a topic fills up."""
+        from pipeline import script_gen
+
+        channel.build_on_previous = True
+        monkeypatch.setattr(curriculum, "covered_in_topic", lambda *a: [
+            {"id": f"c{i:04d}", "title": f"Covered {i}"} for i in range(50)])
+        # A real id, so the lookup that precedes the list still resolves.
+        text = script_gen._continuity(channel, self._seed("t0003"))
+        assert text.count("- Covered") == script_gen.CONTINUITY_LIMIT
+
+    def test_a_broken_plan_costs_the_context_not_the_video(self, channel, monkeypatch):
+        from pipeline.script_gen import _continuity
+
+        channel.build_on_previous = True
+
+        def explode(*a, **k):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(curriculum, "find", explode)
+        assert _continuity(channel, self._seed()) == ""
+
+    def test_the_setting_round_trips_through_the_form(self):
+        from core.channels import ChannelConfig
+        from web.forms import apply_channel_form
+
+        channel = ChannelConfig(key="c", content_mode="topic",
+                                voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p",
+                                topics=["x"])
+        apply_channel_form(channel, {"continuity_present": "1",
+                                     "build_on_previous": "on"})
+        assert channel.build_on_previous is True
+
+        apply_channel_form(channel, {"continuity_present": "1"})
+        assert channel.build_on_previous is False
+
+    def test_a_form_without_the_field_leaves_it_alone(self):
+        from core.channels import ChannelConfig
+        from web.forms import apply_channel_form
+
+        channel = ChannelConfig(key="c", content_mode="topic",
+                                voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p",
+                                topics=["x"])
+        channel.build_on_previous = True
+        apply_channel_form(channel, {"channel_display_name": "C"})
+        assert channel.build_on_previous is True

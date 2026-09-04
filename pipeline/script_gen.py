@@ -192,6 +192,50 @@ def _topic_instructions(count: int, budget: dict) -> str:
     )
 
 
+# How many earlier videos to name. Enough to place this one in its topic;
+# not so many that the prompt grows without bound as a topic fills up, or
+# that the model tries to reference all of them.
+CONTINUITY_LIMIT = 8
+
+
+def _continuity(channel, seed) -> str:
+    """What earlier videos in this subtopic's own topic already covered.
+
+    Off by default. Right for a channel teaching something in order, where
+    video 7 should not re-explain what videos 1-6 established; wrong for
+    one whose videos are meant to stand alone and be found individually,
+    which most short-form is.
+
+    Titles only, and only from the same topic: enough to say "this ground
+    is taken", not enough to invite a recap.
+    """
+    if not getattr(channel, "build_on_previous", False) or not seed.topic_id:
+        return ""
+    try:
+        from core import curriculum
+
+        entry = curriculum.find(channel.key, seed.topic_id)
+        if not entry:
+            return ""
+        earlier = [row["title"] for row in
+                   curriculum.covered_in_topic(channel.key, entry["topic"])
+                   if row["id"] != seed.topic_id]
+    except Exception:  # noqa: BLE001 - context is a bonus, never a blocker
+        log.debug("Could not read earlier subtopics for continuity", exc_info=True)
+        return ""
+
+    if not earlier:
+        return ""
+    listed = "\n".join(f"- {title}" for title in earlier[-CONTINUITY_LIMIT:])
+    return (
+        f"This channel's videos build on each other. Earlier videos in this "
+        f"same part of the syllabus have already covered:\n{listed}\n\n"
+        f"Assume the viewer has seen those. Do not re-explain them, and do "
+        f"not repeat their examples — you may refer back briefly where it "
+        f"genuinely helps. This video is still about its own subject.\n\n"
+    )
+
+
 def _clean(text: str) -> str:
     """Collapse whitespace. Generated text sometimes arrives with line
     breaks that would otherwise reach the TTS engine and the captions."""
@@ -242,7 +286,9 @@ def generate_script(seed: Seed, channel) -> Script:
     elif seed.type == "topic":
         budget = word_budget(channel.pacing, count)
         schema = _segments_schema()
-        user_msg = f'Topic: "{seed.topic}"\n\n{_topic_instructions(count, budget)}'
+        user_msg = (f'Topic: "{seed.topic}"\n\n'
+                    f"{_continuity(channel, seed)}"
+                    f"{_topic_instructions(count, budget)}")
     else:
         raise PipelineError(
             f"unknown seed type {seed.type!r}",

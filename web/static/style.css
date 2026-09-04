@@ -1653,3 +1653,23 @@ label > textarea {
   .settings-nav { position: static; flex-direction: row; flex-wrap: wrap; }
   .settings-nav-link span { display: none; }
 }
+
+/* --- Create page: choosing what to make ------------------------------ */
+.pick-fields {
+  padding: var(--sp-3, 0.85rem) var(--sp-4, 1.25rem);
+  margin-bottom: var(--sp-3, 0.85rem);
+  border-left: 2px solid var(--border-light);
+}
+.pick-fields label { display: block; margin-bottom: var(--sp-3, 0.85rem); }
+.pick-fields label:last-child { margin-bottom: 0; }
+
+/* The picker's radios are the same shape as the setup choices, but on a
+   card rather than a form panel. */
+[data-seed-picker] { border: none; padding: 0; margin-bottom: var(--sp-3, 0.85rem); }
+[data-seed-picker] legend {
+  padding: 0;
+  margin-bottom: var(--sp-2, 0.5rem);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}

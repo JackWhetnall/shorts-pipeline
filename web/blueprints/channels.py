@@ -301,8 +301,24 @@ def new_channel():
 
 @bp.route("/channels/<key>/create")
 def create_video(key):
+    """The page that starts a generation.
+
+    For a planned channel it offers the whole plan, not just "the next
+    one": which topic, and within it the next / a specific one / a random
+    one. "Just make me the next video" stays the default because it is
+    what you want most days.
+    """
     channel = channel_or_404(key)
-    return render_template("create_video.html", key=key, channel=channel)
+    plan = None
+    if channel.content_mode == "topic" and curriculum.exists(key):
+        plan = {
+            "progress": curriculum.progress(key),
+            "topics": curriculum.topics_with_subtopics(key),
+        }
+    from pipeline.curriculum_gen import estimate_cost
+
+    return render_template("create_video.html", key=key, channel=channel,
+                           plan=plan, cost=estimate_cost())
 
 
 # --- lifecycle --------------------------------------------------------
@@ -411,7 +427,12 @@ def _times_used(channel, seed) -> dict:
 @bp.route("/api/channels/<key>/seed", methods=["POST"])
 def api_seed(key):
     channel = channel_or_404(key)
-    seed = fetch_seed(channel)
+    data = request.get_json(force=True, silent=True) or {}
+    seed = fetch_seed(channel, pick={
+        "topic_id": data.get("topic_id", ""),
+        "subtopic_id": data.get("subtopic_id", ""),
+        "mode": data.get("mode", ""),
+    })
     return jsonify({
         "seed": seed.to_jsonable(),
         "description": seed.describe(),

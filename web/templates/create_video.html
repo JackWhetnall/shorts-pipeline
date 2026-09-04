@@ -10,10 +10,94 @@
 <div id="create-video-page" data-channel-key="{{ key }}"></div>
 
 <div id="seed-idle" class="card">
+{% if plan %}
+  <p class="meta">
+    {{ plan.progress.pending }} subtopics waiting, about
+    {{ plan.progress.runway_days }} days' worth.
+  </p>
+
+  <fieldset data-seed-picker>
+    <legend>What should this video be about?</legend>
+
+    <label class="choice">
+      <input type="radio" name="pick_mode" value="next" checked
+             onchange="showPickMode(this.value)">
+      <span>
+        <strong>Just make me the next video</strong>
+        <span class="hint">The next subtopic in syllabus order
+          {%- if plan.progress.pending %}: <em id="next-up-title"></em>{% endif %}</span>
+      </span>
+    </label>
+
+    <label class="choice">
+      <input type="radio" name="pick_mode" value="choose"
+             onchange="showPickMode(this.value)">
+      <span>
+        <strong>Pick from the plan</strong>
+        <span class="hint">Choose a topic, then which of its subtopics.</span>
+      </span>
+    </label>
+  </fieldset>
+
+  <div class="pick-fields" data-pick-mode="choose" hidden>
+    <label>Topic
+      <select id="pick-topic" onchange="onTopicChosen()">
+        {% for topic in plan.topics %}
+        <option value="{{ topic.id }}"
+                data-pending="{{ topic.pending }}"
+                data-done="{{ topic.done }}"
+                data-written="{{ topic.subtopics|length }}"
+                data-target="{{ topic.target_subtopics }}">
+          {{ loop.index }}. {{ topic.title }}
+          {%- if topic.subtopics %} &mdash; {{ topic.done }} of {{ topic.subtopics|length }} made
+          {%- else %} &mdash; no subtopics written yet{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <div id="pick-empty-topic" hidden>
+      <p class="meta">This topic has no subtopics written yet.</p>
+      <button type="button" class="btn-ghost" id="pick-fill-btn"
+              onclick="fillChosenTopic('{{ key }}')">
+        Write them now (~{{ '%.2f'|format(cost.per_topic_usd) }} dollars)
+      </button>
+      <p class="hint" id="pick-fill-status"></p>
+    </div>
+
+    <div id="pick-within-topic">
+      <label>Within that topic
+        <select id="pick-within" onchange="onWithinChosen()">
+          <option value="next">Take the next one in order</option>
+          <option value="random">Pick one at random</option>
+          <option value="specific">Choose a specific subtopic</option>
+        </select>
+      </label>
+
+      <label id="pick-subtopic-row" hidden>Subtopic
+        <select id="pick-subtopic">
+          {% for topic in plan.topics %}
+            {% for sub in topic.subtopics %}
+              {% if sub.status == 'pending' %}
+              <option value="{{ sub.id }}" data-topic="{{ topic.id }}">{{ sub.title }}</option>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button onclick="getSeed('{{ key }}')">Get a candidate</button>
+    <a class="btn-ghost" href="{{ url_for('curriculum.page', key=key) }}">Open the plan</a>
+  </div>
+{% else %}
   <p class="meta">Fetch a candidate {{ 'quote' if channel.content_mode == 'static_corpus' else 'topic' }} to review before generating.</p>
   <button onclick="getSeed('{{ key }}')">
     Get a candidate {{ 'quote' if channel.content_mode == 'static_corpus' else 'topic' }}
   </button>
+{% endif %}
 </div>
 
 <div id="seed-preview" class="card hidden">

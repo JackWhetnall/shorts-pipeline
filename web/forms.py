@@ -84,6 +84,11 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
     channel.outro_subtext = form.get("outro_subtext", channel.outro_subtext).strip()
     channel.speed = _maybe_float(form, "speed", channel.speed)
 
+    # Unchecked checkboxes submit nothing, so a marker distinguishes "off"
+    # from "this form has no such field".
+    if "continuity_present" in form:
+        channel.build_on_previous = bool(form.get("build_on_previous"))
+
     if "avoid_imagery" in form:
         channel.avoid_imagery = lines(form.get("avoid_imagery"))
 

@@ -201,6 +201,12 @@ class ChannelConfig:
     source: str = ""
     # topic only: the pool a seed is drawn from.
     topics: list = field(default_factory=list)
+    # Whether a video should know what earlier videos in its own topic
+    # already said. Right for a channel teaching something in order
+    # ("as we saw with candles..."), wrong for one whose videos are meant
+    # to stand alone and be found individually — most short-form is the
+    # second, so this is off by default.
+    build_on_previous: bool = False
     # Imagery this channel must never show, however well a clip otherwise
     # scores. The footage library is shared across channels, so a clip
     # can be a strong thematic match and still be completely wrong for

@@ -53,9 +53,30 @@ function withButtonLoading(button, loadingLabel, action) {
   });
 }
 
+// What the picker on the create page is currently asking for. Absent
+// picker (a quote channel, or a topic channel with no plan) means "next",
+// which is what fetch_seed does with no pick at all.
+function currentPick() {
+  const picker = document.querySelector("[data-seed-picker]");
+  if (!picker) return {};
+  const mode = picker.querySelector('input[name="pick_mode"]:checked')?.value;
+  if (mode !== "choose") return {};
+
+  const topicId = document.getElementById("pick-topic")?.value || "";
+  const within = document.getElementById("pick-within")?.value || "next";
+  if (within === "specific") {
+    return {subtopic_id: document.getElementById("pick-subtopic")?.value || ""};
+  }
+  return {topic_id: topicId, mode: within === "random" ? "random" : ""};
+}
+
 async function getSeed(channelKey) {
   await withButtonLoading(event.target.closest("button"), "Fetching…", async () => {
-    const res = await apiFetch(`/api/channels/${channelKey}/seed`, {method: "POST"});
+    const res = await apiFetch(`/api/channels/${channelKey}/seed`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(currentPick()),
+    });
     const data = await res.json();
     if (!res.ok) {
       alert(data.error || "Failed to fetch a candidate.");
@@ -1498,4 +1519,86 @@ document.addEventListener("DOMContentLoaded", () => {
     }, {rootMargin: "-20% 0px -70% 0px"});
     sections.forEach(section => observer.observe(section));
   }
+});
+
+// --- Create page: choosing what the video is about ---------------------
+//
+// "Just make me the next video" is the default because it is what you
+// want most days. The rest exists because sometimes it is not: a topic
+// you want to get to, a specific subtopic, or a shuffle.
+
+function showPickMode(value) {
+  for (const block of document.querySelectorAll(".pick-fields")) {
+    block.hidden = block.dataset.pickMode !== value;
+  }
+  if (value === "choose") onTopicChosen();
+}
+
+// A topic with no subtopics written yet cannot be picked from, so the
+// choice collapses to an offer to write them — the alternative is an
+// empty dropdown with no explanation.
+function onTopicChosen() {
+  const topic = document.getElementById("pick-topic");
+  const option = topic?.selectedOptions[0];
+  if (!option) return;
+  const written = parseInt(option.dataset.written || "0", 10);
+  const pending = parseInt(option.dataset.pending || "0", 10);
+
+  document.getElementById("pick-empty-topic").hidden = written > 0;
+  document.getElementById("pick-within-topic").hidden = written === 0;
+
+  if (written && !pending) {
+    document.getElementById("pick-within-topic").hidden = true;
+    document.getElementById("pick-empty-topic").hidden = false;
+    document.getElementById("pick-fill-status").textContent =
+      "Every subtopic in this topic has been made already.";
+    document.getElementById("pick-fill-btn").hidden = true;
+    return;
+  }
+  document.getElementById("pick-fill-btn").hidden = false;
+  document.getElementById("pick-fill-status").textContent = "";
+
+  // Only this topic's own pending subtopics belong in the specific-pick
+  // list; the template renders them all, so the rest are hidden here.
+  const list = document.getElementById("pick-subtopic");
+  if (list) {
+    let first = null;
+    for (const item of list.options) {
+      item.hidden = item.dataset.topic !== topic.value;
+      if (!item.hidden && !first) first = item;
+    }
+    if (first) list.value = first.value;
+  }
+}
+
+function onWithinChosen() {
+  const within = document.getElementById("pick-within").value;
+  document.getElementById("pick-subtopic-row").hidden = within !== "specific";
+}
+
+async function fillChosenTopic(channelKey) {
+  const topicId = document.getElementById("pick-topic").value;
+  const button = document.getElementById("pick-fill-btn");
+  const status = document.getElementById("pick-fill-status");
+  status.textContent = "";
+
+  await withButtonLoading(button, "Writing…", async () => {
+    const res = await apiFetch(`/api/channels/${channelKey}/curriculum/fill`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({count: 1, topic_id: topicId}),
+    });
+    const data = await res.json();
+    if (!res.ok) { status.textContent = data.error || "Couldn't write those."; return; }
+    // Reloading is right here: the page's whole subtopic list is now
+    // stale, and rebuilding it in the browser would be a second copy of
+    // what the template already does.
+    window.location.reload();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (!document.querySelector("[data-seed-picker]")) return;
+  onTopicChosen();
+  onWithinChosen();
 });

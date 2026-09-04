@@ -117,6 +117,20 @@
           obscure. <a href="{{ url_for('curriculum.page', key=channel.key) }}">Build one &rarr;</a>
         </p>
         {% endif %}
+        <input type="hidden" name="continuity_present" value="1">
+        <label class="checkbox-label">
+          <input type="checkbox" name="build_on_previous"
+                 {% if channel.build_on_previous %}checked{% endif %}>
+          Videos build on each other
+        </label>
+        <p class="hint">
+          A video is told what earlier videos in its own topic already
+          covered, and asked not to re-explain them. Right for a channel
+          teaching something in order; wrong for one whose videos are meant
+          to stand alone and be found individually, which most short-form
+          is &mdash; so it is off unless you say otherwise.
+        </p>
+
         <label>Topics by hand, one per line
           <textarea name="topics" rows="4"
                     placeholder="Picked at random. Fine for trying things out.">{{ (channel.topics or [])|join('\n') }}</textarea>
