@@ -45,6 +45,7 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   scheduler     Recurring generation.
   youtube       OAuth and resumable upload to YouTube.
   curriculum    A channel's ordered syllabus of topics, and where it has got to.
+  corpus        A channel's own quote list, for channels reading existing text.
   footage_stats Library health and clip poster frames.
 
 pipeline/     The generation stages. No web dependency at all.
@@ -86,9 +87,13 @@ tests/        pytest. `-m "not slow"` skips the real render.
 The app is organised around what you actually do, at three different
 frequencies:
 
-- **Setting up a channel** (once each) — the wizard, logo generation,
-  the launch checklist. Channel-scoped, because that genuinely is a
-  per-channel job.
+- **Setting up a channel** (once each) — a name creates it, then a wizard
+  walks content → voice → logo → socials → monetization, and the launch
+  checklist tracks what is left. Channel-scoped, because that genuinely
+  is a per-channel job. A channel is deliberately creatable while
+  incomplete; `channel_progress` refuses to generate until `validate()`
+  passes and says why. See decision
+  [019](docs/decisions/019-channel-setup.md).
 - **Producing and publishing** (daily) — generate, then `/review`: one
   cross-channel queue, oldest first, keyboard-driven. The unit of work
   here is a video, not a channel, so the queue is not channel-scoped and
@@ -199,6 +204,17 @@ So a purge appends a tombstone to `config/discard_history.jsonl` —
 channel, stem, reason, dates — and `insights.collect` folds those into the
 totals and the discard reasons, but deliberately not into quality, spend
 or the recent list, whose sidecars are gone.
+
+## Where a channel's words come from
+
+One decision, two stored fields. `content_mode` is `topic` (everything
+generated) or `static_corpus` (existing text read verbatim); for the
+latter, `source` is a built-in — `bible`, `shakespeare` — or `custom`,
+meaning the channel's own list in `config/corpora/<key>.txt`.
+
+The built-ins are public domain, which is why they are the ones shipped;
+each also does work that does not generalise. `custom` is what makes the
+mode extensible without writing code.
 
 ## Topics
 

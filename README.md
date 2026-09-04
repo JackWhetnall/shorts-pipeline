@@ -236,13 +236,27 @@ set installed.
 
 ## Channels
 
-Add one through the web UI's **+ New channel**, or by hand in
-`config/channels.json`. Every channel needs a display name, an ElevenLabs
-voice ID, a style prompt, and a content mode:
+Add one through the web UI's **+ New channel**. It asks for a name, then
+walks you through what the channel makes, whose voice reads it, a logo,
+and the monetization steps — you can stop after any of them and come
+back. A channel that is not finished shows on the home page under
+"Setting up" and says on its dashboard exactly what is still missing.
 
-- `static_corpus` — a fixed source is fetched and read aloud. Set
-  `source` to a key in `pipeline/quote_source.py` (`bible`,
-  `shakespeare`).
+Every channel ends up with a display name, an ElevenLabs voice, a style
+prompt, and an answer to where its words come from:
+
+- **Existing text, read aloud** — either a built-in library (`bible`,
+  `shakespeare`, both public domain) or your own list of quotes, pasted
+  in during setup and stored in `config/corpora/<key>.txt`. One entry per
+  line, attribution after a dash or a bar:
+
+  ```
+  The unexamined life is not worth living. — Socrates
+  Nothing is at last sacred but the integrity of your own mind. | Emerson
+  ```
+
+  This text is read verbatim in the video, so anything you paste is yours
+  to have the rights to.
 - `topic` — nothing is fixed. Every segment is generated from a topic
   plus your style prompt, which is where the actual format lives ("write
   dad jokes about…", "explain one scientific idea about…"). Either set

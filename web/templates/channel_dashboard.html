@@ -102,9 +102,18 @@
     </a>
     {% endif %}
     <a href="{{ url_for('logos.logo_page', key=key) }}">Logo</a>
-    <a href="{{ url_for('setup.setup_step', key=key, step='logo') }}">Channel setup</a>
+    <a href="{{ url_for('setup.setup_step', key=key, step='content') }}">Channel setup</a>
   </div>
 </div>
+
+{% if setup_problem %}
+<p class="error-banner">
+  <strong>This channel can't make a video yet.</strong> {{ setup_problem }}
+  <span class="hint">
+    <a href="{{ url_for('setup.setup_step', key=key, step='content') }}">Finish setting it up &rarr;</a>
+  </span>
+</p>
+{% endif %}
 
 {% if checklist_remaining %}
 {{ launch_checklist() }}

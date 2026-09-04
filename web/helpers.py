@@ -14,6 +14,7 @@ from datetime import datetime
 from flask import abort, url_for
 
 from core import gallery, jobs
+from core.errors import PipelineError
 from core.channels import load_channels
 from core.paths import OUTPUT_DIR, safe_join, PathTraversalError
 from web import checklist
@@ -78,7 +79,19 @@ def channel_progress(key: str, channel) -> dict:
     section = checklist.section_for(channel, remaining, len(essentials), state["published"])
     active_job = jobs.active_job_for_channel(key)
 
+    # A channel is created from a name alone and filled in through the
+    # wizard, so "exists" and "can make a video" are different questions.
+    # This is the only thing that answers the second, and it answers it
+    # with the same check the pipeline would fail on later — so the reason
+    # shown here is the reason it would have failed.
+    try:
+        channel.validate()
+        setup_problem = None
+    except PipelineError as exc:
+        setup_problem = exc.user_message
+
     return {
+        "setup_problem": setup_problem,
         "video_count": state["active"],
         "published_count": state["published"],
         "unpublished_count": state["unpublished"],
@@ -90,7 +103,8 @@ def channel_progress(key: str, channel) -> dict:
         "extras_remaining": sum(1 for item in extras if not item["done"]),
         "section": section,
         "active_job": active_job,
-        "can_generate": (section == "live"
+        "can_generate": (setup_problem is None
+                         and section == "live"
                          and state["unpublished"] == 0
                          and active_job is None),
     }

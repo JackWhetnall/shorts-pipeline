@@ -6,6 +6,54 @@
   Channels
 </a>
 <h1>New channel</h1>
-{% set is_new = true %}
-{% include "_channel_form.html" %}
+<p class="subtitle">
+  Just a name for now. The next few steps ask what it makes and whose
+  voice reads it &mdash; you can stop after any of them and come back.
+</p>
+
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<form method="post" class="channel-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <label>Channel name
+    <input type="text" name="channel_display_name" required autofocus
+           placeholder="Wren's Guide to Witchcraft"
+           value="{{ display_name }}"
+           oninput="suggestKey(this.value)">
+  </label>
+
+  <details class="card">
+    <summary class="summary-heading">Folder name</summary>
+    <label>Key
+      <input type="text" name="key" id="channel-key" pattern="[a-z0-9_]+"
+             value="{{ key }}">
+      <span class="hint">
+        Used in this channel's URLs and the folder its videos land in.
+        Derived from the name; change it only if you want something
+        shorter. Lower-case letters, numbers and underscores.
+      </span>
+    </label>
+  </details>
+
+  <div class="actions">
+    <button type="submit" class="btn btn-primary">Create and continue</button>
+    <a class="btn-ghost" href="{{ url_for('channels.index') }}">Cancel</a>
+  </div>
+</form>
+
+<script>
+  // Mirrors core.paths.slugify closely enough to preview the folder name.
+  // The server derives the real one, so a disagreement costs nothing.
+  function suggestKey(name) {
+    const field = document.getElementById("channel-key");
+    if (field.dataset.edited) return;
+    field.value = name.toLowerCase().replace(/['’]/g, "")
+                      .replace(/[^a-z0-9]+/g, "_")
+                      .replace(/^_+|_+$/g, "");
+  }
+  document.getElementById("channel-key").addEventListener("input", function () {
+    this.dataset.edited = "1";
+  });
+</script>
 {% endblock %}

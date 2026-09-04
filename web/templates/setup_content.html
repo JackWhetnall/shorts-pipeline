@@ -1,0 +1,137 @@
+{% extends "_wizard_shell.html" %}
+{% block step_content %}
+<h1>Step {{ step_index + 1 }}: What this channel makes</h1>
+<p class="subtitle">
+  The two decisions that shape everything else: where the words come from,
+  and how they should sound on the page.
+</p>
+{% endblock %}
+{% block step_fields %}
+
+<label>Display name
+  <input type="text" name="channel_display_name" required
+         value="{{ channel.channel_display_name or '' }}">
+</label>
+
+<fieldset>
+  <legend>Where do the words come from?</legend>
+
+  <label class="choice">
+    <input type="radio" name="words_from" value="original"
+           {% if words_from == 'original' %}checked{% endif %}
+           onchange="showWordsFrom(this.value)">
+    <span>
+      <strong>Written from scratch, on a topic</strong>
+      <span class="hint">Every word is generated. Explainers, jokes, facts,
+        history &mdash; the format lives in your style prompt below. This is
+        the one to pick if you are not sure.</span>
+    </span>
+  </label>
+
+  <label class="choice">
+    <input type="radio" name="words_from" value="own_quotes"
+           {% if words_from == 'own_quotes' %}checked{% endif %}
+           onchange="showWordsFrom(this.value)">
+    <span>
+      <strong>Your own list of quotes</strong>
+      <span class="hint">Paste in the passages yourself. Each video reads one
+        aloud and reflects on it.</span>
+    </span>
+  </label>
+
+  <label class="choice">
+    <input type="radio" name="words_from" value="built_in"
+           {% if words_from == 'built_in' %}checked{% endif %}
+           onchange="showWordsFrom(this.value)">
+    <span>
+      <strong>A built-in library</strong>
+      <span class="hint">The Bible or Shakespeare, fetched for you. Both are
+        public domain, which is why these two are the ones included.</span>
+    </span>
+  </label>
+</fieldset>
+
+<div class="words-from-fields" data-words-from="original">
+  {% if topic_plan.has_curriculum %}
+  <p class="meta">
+    This channel has a topic plan: <strong>{{ topic_plan.total }}</strong>
+    topics, {{ topic_plan.pending }} still to make.
+    <a href="{{ url_for('curriculum.page', key=key) }}">Open the plan</a>
+  </p>
+  {% else %}
+  <p class="checklist-box">
+    <strong>Make a topic plan next.</strong> It designs an ordered syllabus
+    &mdash; a thousand topics running from what anyone could follow to what
+    only an enthusiast would search for &mdash; so topics never repeat and
+    never start somewhere obscure. Finish this step, then
+    <a href="{{ url_for('curriculum.page', key=key) }}">build the plan</a>.
+  </p>
+  <label>Or list a few topics by hand, one per line
+    <textarea name="topics" rows="4"
+              placeholder="Picked at random. Fine for trying things out; a topic plan is better for a channel you intend to run.">{{ (channel.topics or [])|join('\n') }}</textarea>
+  </label>
+  {% endif %}
+</div>
+
+<div class="words-from-fields" data-words-from="own_quotes">
+  <label>Your quotes &mdash; one per line
+    <textarea name="quotes" rows="10" spellcheck="false"
+              placeholder="The unexamined life is not worth living. &#8212; Socrates&#10;Nothing is at last sacred but the integrity of your own mind. | Emerson&#10;A line with no attribution is fine too">{{ quotes_text }}</textarea>
+    <span class="hint">
+      Put the attribution after an em dash, a hyphen, or a vertical bar.
+      {% if quote_count %}<strong>{{ quote_count }}</strong> usable at the moment.{% endif %}
+    </span>
+  </label>
+  <p class="checklist-box">
+    <strong>These are read aloud verbatim, so the rights are yours to
+    check.</strong> The two built-in libraries are public domain; anything
+    you paste here is your responsibility, the same as a footage clip you
+    add by hand.
+  </p>
+</div>
+
+<div class="words-from-fields" data-words-from="built_in">
+  <label>Library
+    <select name="source">
+      {% for src in sources %}
+      <option value="{{ src }}" {% if channel.source == src %}selected{% endif %}>
+        {{ source_labels.get(src, src) }}
+      </option>
+      {% endfor %}
+    </select>
+  </label>
+</div>
+
+<label>Style prompt &mdash; how it should be written
+  <textarea name="style_prompt" rows="6" required
+            placeholder="Explain one idea about astronomy in about 40 seconds, for someone with no background in it. British English. Open with the surprising part, not a definition. Never use the word 'fascinating'.">{{ channel.style_prompt or '' }}</textarea>
+  <span class="hint">
+    The highest-leverage setting here. Say the format, the audience, the
+    voice, and anything to avoid. Once saved, the settings page has a
+    <strong>Preview a script</strong> button that runs generation alone for
+    about a penny, so you can tune this without rendering a whole video.
+  </span>
+</label>
+
+<label>Imagery to avoid &mdash; one word or phrase per line
+  <textarea name="avoid_imagery" rows="3"
+            placeholder="church&#10;prayer&#10;worship">{{ (channel.avoid_imagery or [])|join('\n') }}</textarea>
+  <span class="hint">
+    The footage library is shared between channels, so a clip can be a
+    strong match and completely wrong for this audience. Nothing whose
+    description mentions these will ever be used here.
+  </span>
+</label>
+
+<script>
+  // Only the chosen source's fields are shown. Radios rather than a
+  // <select> because the three options need a sentence of explanation
+  // each, and an option's tooltip is not a place anybody reads.
+  function showWordsFrom(value) {
+    for (const block of document.querySelectorAll(".words-from-fields")) {
+      block.hidden = block.dataset.wordsFrom !== value;
+    }
+  }
+  showWordsFrom(document.querySelector('input[name="words_from"]:checked').value);
+</script>
+{% endblock %}

@@ -261,14 +261,27 @@ class TestSettingsSave:
         reloaded = load_channels(config_path)["test_channel"]
         assert reloaded.socials.youtube_url == "https://youtube.example/mine"
 
-    def test_invalid_settings_are_rejected_with_a_reason(self, client):
-        token = csrf(client)
+    def test_an_incomplete_channel_saves_and_says_what_is_missing(self, client):
+        """The edit is kept and the problem is reported, rather than the
+        save being refused.
+
+        Refusing made a half-set-up channel uneditable: you could not fix
+        its style prompt until it also had a voice and a source. Nothing
+        incomplete can reach a render either way — channel_progress gates
+        that — so refusing protected nothing and only blocked progress.
+        """
+        from core.channels import load_channels
+
         response = client.post("/channels/test_channel/settings", data={
-            "csrf_token": token, "content_mode": "topic", "voice": "",
-            "style_prompt": "x", "topics": "coffee",
-        })
-        assert response.status_code == 400
-        assert "voice" in response.get_data(as_text=True).lower()
+            "csrf_token": csrf(client), "content_mode": "topic", "voice": "",
+            "style_prompt": "a new prompt", "topics": "coffee",
+        }, follow_redirects=True)
+
+        assert response.status_code == 200
+        body = response.get_data(as_text=True)
+        assert "can't make a video" in body
+        assert "voice" in body.lower()
+        assert load_channels(validate=False)["test_channel"].style_prompt == "a new prompt"
 
 
 class TestPublishTracking:

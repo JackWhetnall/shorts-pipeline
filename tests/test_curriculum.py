@@ -708,3 +708,309 @@ class TestTopicChannelSources:
 
     def test_a_syllabus_is_enough_without_a_list(self, planned):
         self._channel([]).validate()
+
+
+class TestCreatingAChannel:
+    """Creation asks for a name and nothing else.
+
+    It used to be the whole settings form — an output directory, a raw
+    ElevenLabs voice ID, a content mode and a style prompt, before the
+    channel existed. You could not complete it without already having a
+    voice ID to hand, and the channel it produced could point at the
+    shared output root with "a" for a voice.
+    """
+
+    @pytest.fixture
+    def client(self, isolated, tmp_path, monkeypatch):
+        from core.channels import CHANNELS_JSON_PATH, write_raw
+        from web import create_app
+
+        path = tmp_path / "channels.json"
+        monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", path)
+        monkeypatch.setattr("core.channel_admin.PROJECT_ROOT", tmp_path)
+        monkeypatch.setattr("core.corpus.CORPORA_DIR", tmp_path / "corpora")
+        write_raw({}, path)
+        app = create_app()
+        app.config.update(TESTING=True)
+        with app.test_client() as test_client:
+            yield test_client
+
+    def _csrf(self, client):
+        html = client.get("/").get_data(as_text=True)
+        marker = 'name="csrf-token" content="'
+        start = html.index(marker) + len(marker)
+        return html[start:html.index('"', start)]
+
+    def test_a_name_alone_is_enough(self, client):
+        from core.channels import load_channels
+
+        response = client.post("/channels/new", data={
+            "channel_display_name": "Test Astronomy", "csrf_token": self._csrf(client)})
+        assert response.status_code == 302
+        assert "test_astronomy" in load_channels(validate=False)
+
+    def test_it_lands_on_the_first_setup_step(self, client):
+        response = client.post("/channels/new", data={
+            "channel_display_name": "Test Astronomy", "csrf_token": self._csrf(client)})
+        assert response.headers["Location"].endswith("/setup/content")
+
+    def test_the_key_is_derived_from_the_name(self, client):
+        from core.channels import load_channels
+
+        client.post("/channels/new", data={
+            "channel_display_name": "Wren's Guide to Witchcraft",
+            "csrf_token": self._csrf(client)})
+        assert "wrens_guide_to_witchcraft" in load_channels(validate=False)
+
+    def test_the_output_directory_is_the_channels_own(self, client):
+        from core.channels import load_channels
+
+        client.post("/channels/new", data={
+            "channel_display_name": "Mine", "csrf_token": self._csrf(client)})
+        assert load_channels(validate=False)["mine"].output_dir == "output/mine"
+
+    def test_a_name_with_no_usable_characters_is_refused(self, client):
+        response = client.post("/channels/new", data={
+            "channel_display_name": "!!!", "csrf_token": self._csrf(client)})
+        assert response.status_code == 400
+        assert "set the key yourself" in response.get_data(as_text=True).lower()
+
+    def test_a_duplicate_name_is_refused(self, client):
+        client.post("/channels/new", data={
+            "channel_display_name": "Mine", "csrf_token": self._csrf(client)})
+        response = client.post("/channels/new", data={
+            "channel_display_name": "Mine", "csrf_token": self._csrf(client)})
+        assert response.status_code == 400
+        assert "already exists" in response.get_data(as_text=True)
+
+    def test_a_new_channel_cannot_generate_yet_and_says_why(self, client):
+        from core.channels import load_channels
+        from web.helpers import channel_progress
+
+        client.post("/channels/new", data={
+            "channel_display_name": "Mine", "csrf_token": self._csrf(client)})
+        channel = load_channels(validate=False)["mine"]
+        info = channel_progress("mine", channel)
+        assert info["can_generate"] is False
+        assert info["setup_problem"]
+
+    def test_the_page_does_not_ask_for_a_voice_or_a_directory(self, client):
+        """Both were required fields on a form shown before the channel
+        existed; one has no sensible value to type and the other is
+        derived."""
+        html = client.get("/channels/new").get_data(as_text=True)
+        assert 'name="voice"' not in html
+        assert "output_dir" not in html
+
+
+class TestContentSetupStep:
+    """The three-way 'where do the words come from' question, which is the
+    one place that decision is defined."""
+
+    @pytest.fixture
+    def client(self, isolated, tmp_path, monkeypatch):
+        from core.channels import ChannelConfig, channel_to_sparse_dict, write_raw
+        from web import create_app
+
+        path = tmp_path / "channels.json"
+        monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", path)
+        monkeypatch.setattr("core.corpus.CORPORA_DIR", tmp_path / "corpora")
+        channel = ChannelConfig(key="c", channel_display_name="C",
+                                content_mode="topic")
+        channel.output_dir = str(tmp_path / "out" / "c")
+        write_raw({"c": channel_to_sparse_dict(channel)}, path)
+        app = create_app()
+        app.config.update(TESTING=True)
+        with app.test_client() as test_client:
+            yield test_client
+
+    def _csrf(self, client):
+        html = client.get("/").get_data(as_text=True)
+        marker = 'name="csrf-token" content="'
+        start = html.index(marker) + len(marker)
+        return html[start:html.index('"', start)]
+
+    def test_all_three_options_are_explained_not_just_named(self, client):
+        html = client.get("/channels/c/setup/content").get_data(as_text=True)
+        assert "Written from scratch" in html
+        assert "Your own list of quotes" in html
+        assert "A built-in library" in html
+        # The old wording, which said nothing about what it meant.
+        assert "Fixed source" not in html
+
+    def test_choosing_original_sets_topic_mode(self, client):
+        from core.channels import load_channels
+
+        client.post("/channels/c/setup/content", data={
+            "words_from": "original", "channel_display_name": "C",
+            "style_prompt": "Explain something.", "topics": "stars\nplanets",
+            "csrf_token": self._csrf(client)})
+        channel = load_channels(validate=False)["c"]
+        assert channel.content_mode == "topic"
+        assert channel.topics == ["stars", "planets"]
+
+    def test_choosing_own_quotes_stores_them(self, client):
+        from core import corpus
+        from core.channels import load_channels
+
+        client.post("/channels/c/setup/content", data={
+            "words_from": "own_quotes", "channel_display_name": "C",
+            "style_prompt": "Reflect on it.",
+            "quotes": "The unexamined life is not worth living. — Socrates\n"
+                      "Know thyself, said the oracle | Delphi",
+            "csrf_token": self._csrf(client)})
+        channel = load_channels(validate=False)["c"]
+        assert channel.content_mode == "static_corpus"
+        assert channel.source == "custom"
+        assert corpus.count("c") == 2
+
+    def test_unusable_quote_lines_are_reported_not_silently_dropped(self, client):
+        response = client.post("/channels/c/setup/content", data={
+            "words_from": "own_quotes", "channel_display_name": "C",
+            "style_prompt": "Reflect.", "quotes": "A real quote goes here\nno\nx",
+            "csrf_token": self._csrf(client)})
+        assert "too short" in response.get_data(as_text=True)
+
+    def test_choosing_a_built_in_library_sets_the_source(self, client):
+        from core.channels import load_channels
+
+        client.post("/channels/c/setup/content", data={
+            "words_from": "built_in", "source": "bible",
+            "channel_display_name": "C", "style_prompt": "Reflect.",
+            "csrf_token": self._csrf(client)})
+        channel = load_channels(validate=False)["c"]
+        assert channel.content_mode == "static_corpus"
+        assert channel.source == "bible"
+
+    def test_an_unknown_source_is_ignored_rather_than_stored(self, client):
+        from core.channels import load_channels
+
+        client.post("/channels/c/setup/content", data={
+            "words_from": "built_in", "source": "../../etc/passwd",
+            "channel_display_name": "C", "style_prompt": "Reflect.",
+            "csrf_token": self._csrf(client)})
+        assert load_channels(validate=False)["c"].source != "../../etc/passwd"
+
+    def test_a_successful_step_advances_to_the_voice_step(self, client):
+        response = client.post("/channels/c/setup/content", data={
+            "words_from": "original", "channel_display_name": "C",
+            "style_prompt": "Explain something.", "topics": "stars",
+            "csrf_token": self._csrf(client)})
+        assert response.headers["Location"].endswith("/setup/voice")
+
+    def test_the_voice_step_lists_voices_rather_than_asking_for_an_id(
+            self, client, monkeypatch):
+        from core import voice_lab
+
+        monkeypatch.setattr(voice_lab, "get_cached_voices", lambda: [
+            {"voice_id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel",
+             "description": "Calm and clear", "preview_url": "https://x/p.mp3"}])
+        html = client.get("/channels/c/setup/voice").get_data(as_text=True)
+        assert "Rachel" in html
+        assert "https://x/p.mp3" in html
+
+    def test_the_voice_step_still_works_without_the_voice_list(
+            self, client, monkeypatch):
+        """A key restricted to text-to-speech can synthesize but not list
+        voices. That should not be a dead end — you can still paste an ID."""
+        from core import voice_lab
+        from core.errors import MissingCredentialError
+
+        def explode():
+            raise MissingCredentialError("ELEVENLABS_API_KEY", "the voice list")
+
+        monkeypatch.setattr(voice_lab, "get_cached_voices", explode)
+        html = client.get("/channels/c/setup/voice").get_data(as_text=True)
+        assert "Paste an ID instead" in html
+
+    def test_the_voice_step_saves_the_choice(self, client, monkeypatch):
+        from core import voice_lab
+        from core.channels import load_channels
+
+        monkeypatch.setattr(voice_lab, "get_cached_voices", lambda: [])
+        client.post("/channels/c/setup/voice", data={
+            "voice": "21m00Tcm4TlvDq8ikWAM", "speed": "0.95",
+            "csrf_token": self._csrf(client)})
+        channel = load_channels(validate=False)["c"]
+        assert channel.voice == "21m00Tcm4TlvDq8ikWAM"
+        assert channel.speed == 0.95
+
+
+class TestCustomQuoteCorpus:
+    def test_attribution_after_any_of_the_separators(self, isolated, monkeypatch):
+        from core import corpus
+
+        monkeypatch.setattr(corpus, "CORPORA_DIR", isolated / "corpora")
+        entries = corpus.parse(
+            "The unexamined life is not worth living. — Socrates\n"
+            "Nothing is at last sacred but your own mind. | Emerson\n"
+            "Knowledge speaks but wisdom listens - Hendrix")
+        assert [e["reference"] for e in entries] == ["Socrates", "Emerson", "Hendrix"]
+
+    def test_a_hyphen_inside_the_quote_stays_in_the_quote(self, isolated, monkeypatch):
+        from core import corpus
+
+        monkeypatch.setattr(corpus, "CORPORA_DIR", isolated / "corpora")
+        entry = corpus.parse("Well-being is the only goal - Aristotle")[0]
+        assert entry["text"] == "Well-being is the only goal"
+        assert entry["reference"] == "Aristotle"
+
+    def test_comments_and_blank_lines_are_ignored(self, isolated, monkeypatch):
+        from core import corpus
+
+        monkeypatch.setattr(corpus, "CORPORA_DIR", isolated / "corpora")
+        assert len(corpus.parse("# stoics\n\nA real quote here\n\n# later\n")) == 1
+
+    def test_a_quote_with_no_attribution_falls_back_to_the_channel(
+            self, isolated, monkeypatch):
+        """The filename is built from the reference, and readable filenames
+        are how a repeat stays visible in the output folder."""
+        from core import corpus
+
+        monkeypatch.setattr(corpus, "CORPORA_DIR", isolated / "corpora")
+        corpus.save("c", "A quote with no attribution at all")
+        assert corpus.pick("c", "My Channel")["reference"] == "My Channel"
+
+    def test_an_empty_list_says_what_to_do(self, isolated, monkeypatch):
+        from core import corpus
+        from core.errors import ConfigError
+
+        monkeypatch.setattr(corpus, "CORPORA_DIR", isolated / "corpora")
+        corpus.save("c", "")
+        with pytest.raises(ConfigError) as caught:
+            corpus.pick("c")
+        assert "empty" in caught.value.user_message
+
+    def test_a_channel_key_cannot_escape_the_corpora_directory(
+            self, isolated, monkeypatch):
+        from core import corpus
+        from core.paths import PathTraversalError
+
+        monkeypatch.setattr(corpus, "CORPORA_DIR", isolated / "corpora")
+        with pytest.raises(PathTraversalError):
+            corpus.path_for("../../secrets")
+
+    def test_the_pipeline_reads_the_custom_list(self, isolated, monkeypatch):
+        from core import corpus
+        from core.channels import ChannelConfig
+        from pipeline.quote_source import get_quote
+
+        monkeypatch.setattr(corpus, "CORPORA_DIR", isolated / "corpora")
+        corpus.save("c", "The unexamined life is not worth living. — Socrates")
+        channel = ChannelConfig(key="c", channel_display_name="C",
+                                content_mode="static_corpus", source="custom",
+                                voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p")
+        quote = get_quote(channel)
+        assert quote["reference"] == "Socrates"
+
+    def test_an_unknown_source_names_the_alternatives(self, isolated):
+        from core.channels import ChannelConfig
+        from core.errors import ConfigError
+        from pipeline.quote_source import get_quote
+
+        channel = ChannelConfig(key="c", content_mode="static_corpus",
+                                source="nonsense", voice="21m00Tcm4TlvDq8ikWAM",
+                                style_prompt="p")
+        with pytest.raises(ConfigError) as caught:
+            get_quote(channel)
+        assert "your own quote list" in caught.value.user_message

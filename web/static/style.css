@@ -317,7 +317,6 @@ input::placeholder, textarea::placeholder { color: var(--text-dim); opacity: 0.7
 .checklist-box ul { margin: var(--sp-2) 0 0; padding-left: 1.1rem; }
 .checklist-box li { margin-bottom: var(--sp-1); }
 
-.mode-fields.hidden { display: none; }
 .error {
   color: var(--danger);
   font-weight: 600;
@@ -1471,3 +1470,102 @@ label > .hint {
 .todo-list .todo-actions { flex-shrink: 0; }
 
 .summary-heading .badge { text-transform: capitalize; }
+
+/* --- Setup wizard: choosing between explained options ---------------- */
+/* Radios rather than a <select> wherever each option needs a sentence to
+   explain it. An option's meaning has to be readable before it's picked,
+   and there is nowhere in a dropdown to put that. */
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3, 0.85rem);
+  padding: var(--sp-3, 0.85rem);
+  margin-bottom: var(--sp-2, 0.5rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-weight: 400;
+}
+.choice:hover { border-color: var(--border-light); }
+.choice:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+.choice input { margin-top: 0.2rem; accent-color: var(--accent); }
+.choice > span { display: block; }
+.choice strong { display: block; margin-bottom: 0.15rem; }
+.choice .hint { display: block; }
+
+/* Only the chosen source's fields are shown; the rest are `hidden`. */
+.words-from-fields { margin-bottom: var(--sp-4, 1.25rem); }
+
+/* --- Voice picker ---------------------------------------------------- */
+.voice-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--sp-3, 0.85rem);
+  margin-bottom: var(--sp-4, 1.25rem);
+}
+
+.voice-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2, 0.5rem);
+  padding: var(--sp-3, 0.85rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-weight: 400;
+}
+.voice-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+.voice-option input { margin-top: 0.25rem; accent-color: var(--accent); }
+.voice-option-body { display: block; min-width: 0; flex: 1; }
+.voice-option-body strong { display: block; }
+.voice-option-body .hint { display: block; margin: 0.2rem 0 var(--sp-2, 0.5rem); }
+.voice-option audio { width: 100%; height: 32px; }
+
+/* --- Form fields outside .channel-form ------------------------------- */
+/* "display: block; width: 100%" was scoped to .channel-form, so every
+   input on the setup wizard and the logo page rendered shrink-to-fit —
+   a 183px box inside an 878px form, and a single-line box for a logo
+   brief that wants a sentence.
+
+   The child combinator is deliberate: it catches the ordinary
+   "<label>text <input></label>" pattern this codebase uses everywhere,
+   while leaving the inputs inside .color-row and .slider-row, which are
+   nested a level deeper precisely because they sit side by side. */
+label > input[type="text"],
+label > input[type="number"],
+label > input[type="url"],
+label > input[type="email"],
+label > input[type="password"],
+label > select,
+label > textarea {
+  display: block;
+  width: 100%;
+  margin-top: var(--sp-2, 0.5rem);
+}
+
+/* Labels outside .channel-form get the same weight and spacing, so a
+   field looks the same wherever it appears. */
+.wizard-card label,
+.logo-brief label {
+  display: block;
+  margin-bottom: var(--sp-4, 1.25rem);
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-dim);
+}
+
+/* A choice row is a label too, but it lays out horizontally and its own
+   rules already set the spacing. */
+.wizard-card .choice,
+.wizard-card .voice-option {
+  margin-bottom: var(--sp-2, 0.5rem);
+  font-weight: 400;
+}

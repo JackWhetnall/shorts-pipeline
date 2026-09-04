@@ -94,7 +94,9 @@ class TestChannelConfig:
         with pytest.raises(ConfigError) as exc:
             self._valid(**overrides).validate()
         message = str(exc.value)
-        assert "test" in message
+        # The message names the channel by its display name, which differs
+        # from the key only in case here.
+        assert "test" in message.lower()
         assert fragment in message
 
     def test_output_dir_defaults_from_the_key(self):

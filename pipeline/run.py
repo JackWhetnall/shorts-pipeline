@@ -35,7 +35,7 @@ def fetch_seed(channel) -> Seed:
     """One candidate seed. No prompts, no side effects — safe to call
     repeatedly while someone rerolls."""
     if channel.content_mode == "static_corpus":
-        quote = get_quote(channel.source)
+        quote = get_quote(channel)
         return Seed(type="quote", text=quote["text"], reference=quote["reference"])
     if channel.content_mode == "topic":
         # A syllabus, when the channel has one, is the whole point: topics

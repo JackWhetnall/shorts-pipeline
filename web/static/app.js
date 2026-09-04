@@ -440,17 +440,6 @@ function pollJob(jobId) {
   }, 1000);
 }
 
-function toggleContentModeFields() {
-  const select = document.getElementById("content-mode-select");
-  if (!select) return;
-  const staticFields = document.getElementById("static_corpus-fields");
-  const topicFields = document.getElementById("topic-fields");
-  if (staticFields) staticFields.classList.toggle("hidden", select.value !== "static_corpus");
-  if (topicFields) topicFields.classList.toggle("hidden", select.value !== "topic");
-}
-
-document.addEventListener("DOMContentLoaded", toggleContentModeFields);
-
 // --- Voice Lab ---
 
 async function refreshVoiceList() {
@@ -1158,8 +1147,42 @@ async function previewScript(channelKey, button) {
 // Applies the currently-selected Voice Lab combination to a channel.
 // The Lab already knows the voice, speed and cadence; asking someone to
 // memorise an ID and retype it on another page was the only missing step.
+// Says which channel is about to be overwritten, before the click. The
+// dropdown is a list of names with no other context, and applying a voice
+// to the wrong channel is silent and easy.
+function showApplyTarget() {
+  const option = document.getElementById("apply-channel").selectedOptions[0];
+  const note = document.getElementById("apply-target-note");
+  if (!option || !note) return;
+  const published = parseInt(option.dataset.published || "0", 10);
+  note.textContent = published
+    ? `${option.dataset.name} has ${published} published video${published === 1 ? "" : "s"} — changing its voice now means it sounds different from here on.`
+    : `Will overwrite the voice, speed and pacing on ${option.dataset.name}.`;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (document.getElementById("apply-channel")) showApplyTarget();
+});
+
 async function applyVoiceToChannel(button) {
-  const channelKey = document.getElementById("apply-channel").value;
+  const select = document.getElementById("apply-channel");
+  const channelKey = select.value;
+  const option = select.selectedOptions[0];
+  const published = parseInt(option?.dataset.published || "0", 10);
+  const name = option?.dataset.name || channelKey;
+
+  // Confirmed always, because there is no undo and the dropdown does not
+  // remember what you last picked. Worded harder once a channel has
+  // published, since the voice is then part of what the audience knows.
+  const warning = published
+    ? `${name} has ${published} published video${published === 1 ? "" : "s"}.
+
+`
+      + `Changing its voice, speed and pacing now means every future video sounds `
+      + `different from the ones already out. Continue?`
+    : `Overwrite the voice, speed and pacing on ${name}?`;
+  if (!confirm(warning)) return;
+
   // Read the same controls the "Test this combo" button reads, so what
   // you apply is exactly what you just listened to.
   const voiceInput = document.querySelector('input[name="voice_id"]:checked');
@@ -1403,4 +1426,22 @@ async function fillUnits(key, count) {
     if (!res.ok) { status.textContent = data.error || "Couldn't write those topics."; return; }
     window.location.reload();
   });
+}
+
+
+// Saving a channel that has already published asks first. The settings
+// form carries every tab at once, so a save intended to fix a link also
+// commits whatever else is on the page — including a voice or caption
+// change made and forgotten about. On a channel with an audience that is
+// worth one click to confirm.
+function confirmSettingsSave() {
+  const warning = document.getElementById("published-warning");
+  if (!warning) return true;
+  const count = parseInt(warning.dataset.published || "0", 10);
+  const name = warning.dataset.name || "this channel";
+  return confirm(
+    `${name} has ${count} published video${count === 1 ? "" : "s"}.
+
+`
+    + `This saves every tab, not just the one you are looking at. Continue?`);
 }

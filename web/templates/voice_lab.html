@@ -46,13 +46,15 @@
     copying an ID between pages.
   </p>
   <div class="voice-apply">
-    <select id="apply-channel">
-      {% for key, ch in channels.items() %}
-      <option value="{{ key }}">{{ ch.channel_display_name }}</option>
+    <select id="apply-channel" onchange="showApplyTarget()">
+      {% for row in targets %}
+      <option value="{{ row.key }}" data-name="{{ row.name }}"
+              data-published="{{ row.published }}">{{ row.name }}</option>
       {% endfor %}
     </select>
     <button type="button" onclick="applyVoiceToChannel(this)">Apply to channel</button>
   </div>
+  <p class="hint" id="apply-target-note"></p>
   <p class="meta" id="apply-result"></p>
 </div>
 {% endif %}

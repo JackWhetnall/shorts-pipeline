@@ -96,17 +96,42 @@ def get_shakespeare_quote() -> dict:
     return {"text": " ".join(random.choice(lines).split()), "reference": "Shakespeare"}
 
 
+# The two built-ins each need real work that does not generalise: the
+# Bible one calls an API per video, the Shakespeare one reduces Gutenberg
+# texts to quotable sentences offline. Both are public domain, which is
+# why they are the ones shipped.
 SOURCES = {
     "bible": get_bible_quote,
     "shakespeare": get_shakespeare_quote,
 }
 
+# Everything else is served by CUSTOM: the channel supplies the text.
+# Adding a third built-in would mean writing code, so the extensible
+# answer is not another entry in this dict — see core.corpus.
+CUSTOM = "custom"
 
-def get_quote(source_name: str) -> dict:
-    if source_name not in SOURCES:
+SOURCE_LABELS = {
+    "bible": "The Bible (King James Version)",
+    "shakespeare": "Shakespeare",
+    CUSTOM: "Your own quote list",
+}
+
+
+def get_quote(channel) -> dict:
+    """One passage for this channel to read.
+
+    Takes the channel rather than a source name, because the custom
+    source needs to know whose list to read.
+    """
+    source = (channel.source or "").strip()
+    if source == CUSTOM:
+        from core import corpus
+        return corpus.pick(channel.key, channel.channel_display_name)
+    if source not in SOURCES:
         raise ConfigError(
-            f"unknown source {source_name!r}",
-            user_message=(f'"{source_name}" isn\'t a source this pipeline knows. '
-                          f'Available: {", ".join(sorted(SOURCES))}.'),
+            f"unknown source {source!r}",
+            user_message=(f'"{source}" isn\'t a source this pipeline knows. '
+                          f'Available: {", ".join(sorted(SOURCES))}, or your own '
+                          f"quote list."),
         )
-    return SOURCES[source_name]()
+    return SOURCES[source]()

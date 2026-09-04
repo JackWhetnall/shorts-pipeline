@@ -236,7 +236,11 @@ class ChannelConfig:
         """Raises ConfigError naming the channel and the field. Called on
         every load, so a malformed channel fails at startup with a
         readable message instead of mid-render with a KeyError."""
-        where = f'Channel "{self.key}"'
+        # The display name when there is one: these messages are shown on
+        # the channel's own dashboard, where the internal key reads as
+        # jargon. The key remains the fallback, because a channel that has
+        # not been named yet has nothing else to be called.
+        where = f'"{self.channel_display_name or self.key}"'
         if self.content_mode not in CONTENT_MODES:
             raise ConfigError(
                 f"{where} has content_mode {self.content_mode!r}, which isn't recognised. "
@@ -255,8 +259,17 @@ class ChannelConfig:
             )
         if not self.style_prompt.strip():
             raise ConfigError(f"{where} has no style prompt. That's what tells the AI how to write for this channel.")
-        if self.content_mode == "static_corpus" and not self.source.strip():
-            raise ConfigError(f'{where} reads from a fixed source but no source is set (for example "bible").')
+        if self.content_mode == "static_corpus":
+            if not self.source.strip():
+                raise ConfigError(
+                    f"{where} reads existing text but no source is chosen. Pick a "
+                    f"built-in one, or paste your own quote list."
+                )
+            if self.source.strip() == "custom" and not self._has_corpus():
+                raise ConfigError(
+                    f"{where} reads from your own quote list, but the list is "
+                    f"empty. Add some quotes in its settings."
+                )
         # A topic channel needs somewhere for topics to come from: either a
         # syllabus or the flat list. Checked in that order because a channel
         # with a syllabus should not also have to keep a redundant list.
@@ -270,6 +283,10 @@ class ChannelConfig:
         if self.speed <= 0:
             raise ConfigError(f"{where} has a speech speed of {self.speed}. It must be greater than 0.")
         self._validate_output_dir(where)
+
+    def _has_corpus(self) -> bool:
+        from core import corpus
+        return corpus.count(self.key) > 0
 
     def _has_curriculum(self) -> bool:
         # Imported here: core.curriculum imports core.paths, and a module

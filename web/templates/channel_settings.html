@@ -8,9 +8,18 @@
 <h1>{{ channel.channel_display_name }} &mdash; Settings</h1>
 <p class="actions">
   <a href="{{ url_for('logos.logo_page', key=channel.key) }}">Logo</a>
-  <a href="{{ url_for('setup.setup_step', key=channel.key, step='logo') }}">Channel setup</a>
+  <a href="{{ url_for('setup.setup_step', key=channel.key, step='content') }}">Channel setup</a>
 </p>
-{% if saved %}<p class="meta info-banner">Settings saved.</p>{% endif %}
+{% if saved and not incomplete %}<p class="meta info-banner">Settings saved.</p>{% endif %}
+{% if incomplete %}
+<p class="error-banner">
+  <strong>Saved, but this channel still can't make a video.</strong>
+  {{ incomplete }}
+  <span class="hint">
+    <a href="{{ url_for('setup.setup_step', key=channel.key, step='content') }}">Finish setting it up &rarr;</a>
+  </span>
+</p>
+{% endif %}
 
 <div class="card preview-card">
   <h2>Try the prompt</h2>
@@ -24,6 +33,15 @@
   <div id="script-preview" class="hidden"></div>
 </div>
 
+{% if published_count %}
+<p class="error-banner" id="published-warning" data-published="{{ published_count }}"
+   data-name="{{ channel.channel_display_name }}">
+  <strong>This channel has {{ published_count }} published video{{ 's' if published_count != 1 }}.</strong>
+  Its voice, pacing and caption style are part of what its audience already
+  recognises &mdash; changing them here changes every future video, not the
+  ones already out. Saving will ask you to confirm.
+</p>
+{% endif %}
 {% include "_channel_form.html" %}
 
 <div class="card danger-zone">

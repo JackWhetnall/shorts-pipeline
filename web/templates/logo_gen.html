@@ -31,17 +31,21 @@
 <div class="card">
   <h2>{{ "Generate a new logo" if has_logo else "Generate a logo" }}</h2>
   <p class="subtitle">
-    Describe what the channel is about in a few words &mdash; the
-    professional, no-text framing is applied automatically, you don't need
-    to specify that part. Generates {{ candidate_count }} bold candidate
-    logos per attempt (a real, paid API call each time), meant to look
-    great as a profile picture across YouTube, TikTok, and Instagram
-    alike.
+    Describe the channel in a sentence or two. The professional, no-text,
+    profile-picture framing is added automatically &mdash; you are
+    describing the <em>subject and mood</em>, not the artwork. Each attempt
+    is {{ candidate_count }} candidates and one paid API call.
   </p>
-  <label>What's this channel about?
-    <input type="text" id="logo-fragment" placeholder="e.g. a calming daily Bible verse channel"
-           value="{{ channel.style_prompt[:60] if not has_logo else '' }}">
-  </label>
+  <div class="logo-brief">
+    <label>What should the logo evoke?
+      <textarea id="logo-fragment" rows="3"
+                placeholder="A calm, reverent daily Bible verse channel. Warm light, quiet, contemplative.">{{ logo_brief }}</textarea>
+      <span class="hint">
+        Subject first, then the feeling. "Astronomy explained simply, dark
+        and wondrous" works; "a nice logo for my channel" does not.
+      </span>
+    </label>
+  </div>
   <button onclick="generateLogos('{{ key }}')" data-count="{{ candidate_count }}">Generate {{ candidate_count }} ideas</button>
 </div>
 

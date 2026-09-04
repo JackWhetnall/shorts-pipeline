@@ -29,14 +29,31 @@ from core.paths import (
 log = get_logger(__name__)
 
 
-def create_channel(channel: ChannelConfig) -> ChannelConfig:
+def create_channel(channel: ChannelConfig, complete: bool = True) -> ChannelConfig:
+    """Add a channel.
+
+    `complete=False` skips validation, for the setup wizard: a channel is
+    created from a name alone and then filled in step by step. That is a
+    state the app already understands — the home page has a "Setting up"
+    section for it — and it is a much better trade than the old form,
+    which demanded a voice ID and an output directory before the channel
+    existed and accepted "a" for the first and the shared output root for
+    the second.
+
+    Nothing incomplete can reach a render: `channel_progress` refuses to
+    let a channel that fails `validate()` generate.
+    """
     entries = read_raw()
     if channel.key in entries:
         raise ConfigError(
             f"duplicate key {channel.key}",
             user_message=f'A channel called "{channel.key}" already exists.',
         )
-    channel.validate()
+    if complete:
+        channel.validate()
+    else:
+        # Still needed even for a draft: it is what derives output_dir.
+        channel._validate_output_dir(f'Channel "{channel.key}"')
     entries[channel.key] = channel_to_sparse_dict(channel)
     write_raw(entries)
     (PROJECT_ROOT / channel.output_dir).mkdir(parents=True, exist_ok=True)

@@ -23,6 +23,7 @@ from core.logging_setup import get_logger
 from core.errors import ConfigError
 from core.footage_stats import library_stats
 from core.paths import PROJECT_ROOT, slugify
+from pipeline import quote_source
 from pipeline.run import fetch_seed
 from web import checklist
 from web.blueprints.curriculum import channels_running_low
@@ -93,6 +94,7 @@ def dashboard(key):
         "channel_dashboard.html",
         key=key, channel=channel,
         topic_plan=curriculum.progress(key) if channel.content_mode == "topic" else None,
+        setup_problem=info["setup_problem"],
         video_count=info["video_count"],
         published_count=info["published_count"],
         unpublished_count=info["unpublished_count"],
@@ -120,25 +122,51 @@ def settings(key):
     channel = channel_or_404(key)
     if request.method == "POST":
         apply_channel_form(channel, request.form)
+        # Saved either way. Refusing the save made a half-set-up channel
+        # uneditable: you could not fix its style prompt until you had
+        # also given it a voice and a source, which is the rigidity the
+        # setup wizard exists to remove. Nothing incomplete can reach a
+        # render — channel_progress gates that — so the honest thing here
+        # is to save the edit and say what is still outstanding.
         try:
             channel.validate()
         except ConfigError as exc:
-            return render_template(
-                "channel_settings.html", channel=channel,
-                sources=_sources(), error=exc.user_message,
-                affiliate_links_text=format_affiliate_links(
-                    channel.monetization.affiliate_links),
-            ), 400
+            save_channel(channel)
+            return redirect(url_for("channels.settings", key=key, saved=1,
+                                    incomplete=exc.user_message))
         save_channel(channel)
         return redirect(url_for("channels.settings", key=key, saved=1))
 
     return render_template(
-        "channel_settings.html", channel=channel, sources=_sources(),
+        "channel_settings.html", channel=channel,
         affiliate_links_text=format_affiliate_links(channel.monetization.affiliate_links),
         saved=request.args.get("saved"),
+        incomplete=request.args.get("incomplete"),
         connected=request.args.get("connected"),
         youtube_upload=_youtube_state(key),
+        published_count=gallery.video_state_counts(channel.output_dir)["published"],
+        topic_plan=curriculum.progress(key) if channel.content_mode == "topic" else None,
+        source_labels=quote_source.SOURCE_LABELS,
+        voice_name=_voice_name(channel.voice),
     )
+
+
+def _voice_name(voice_id: str) -> str:
+    """The voice's name, if it is one of the premade ones already cached.
+
+    Best-effort and cache-only: the settings page should not make an HTTP
+    call, and a cloned voice legitimately will not be in the list.
+    """
+    if not voice_id:
+        return ""
+    try:
+        from core import voice_lab
+        for voice in voice_lab.get_cached_voices():
+            if voice["voice_id"] == voice_id:
+                return voice["name"]
+    except Exception:  # noqa: BLE001 - a label is never worth an error
+        pass
+    return ""
 
 
 def _youtube_state(key: str) -> dict:
@@ -156,42 +184,47 @@ def _youtube_state(key: str) -> dict:
         return {"connected": False, "configured": False, "account": ""}
 
 
-def _sources() -> list:
-    from pipeline.quote_source import SOURCES
-    return sorted(SOURCES)
-
-
 @bp.route("/channels/new", methods=["GET", "POST"])
 def new_channel():
+    """Just a name. Everything else is the setup wizard.
+
+    This used to be the entire settings form: an output directory, a raw
+    ElevenLabs voice ID, a content mode, a style prompt and four tabs of
+    options, on one page, before the channel existed. You could not fill
+    it in without already having a voice ID to hand, and it let through a
+    channel whose voice was the letter "a" and whose output directory was
+    the folder every channel writes into.
+
+    Creating on a name alone works because a half-set-up channel is
+    already a state this app understands — the home page has a "Setting
+    up" section for exactly that, and the checklist says what is missing.
+    """
     if request.method == "POST":
         display_name = request.form.get("channel_display_name", "").strip()
         key = (request.form.get("key") or "").strip() or slugify(display_name)
+
         error = None
-        if not key:
+        if not display_name:
             error = "Give the channel a name."
+        elif not key:
+            error = ("That name has no letters or numbers in it, so there is "
+                     "nothing to build a folder name from. Set the key yourself.")
         elif key in read_raw():
             error = f'A channel called "{key}" already exists.'
 
-        channel = ChannelConfig(key=key or "new_channel")
-        apply_channel_form(channel, request.form)
-        if not error:
-            try:
-                channel.validate()
-            except ConfigError as exc:
-                error = exc.user_message
-
         if error:
-            return render_template("new_channel.html", channel=channel,
-                                   sources=_sources(), error=error,
-                                   affiliate_links_text=""), 400
+            return render_template("new_channel.html", display_name=display_name,
+                                   key=key, error=error), 400
 
-        channel_admin.create_channel(channel)
-        return redirect(url_for("channels.dashboard", key=channel.key))
+        # Defaults that make the channel valid the moment it has a voice
+        # and a source. Nothing here is a guess the user has to undo.
+        channel = ChannelConfig(key=key, channel_display_name=display_name,
+                                content_mode="topic")
+        channel_admin.create_channel(channel, complete=False)
+        log.info(f"Created channel {key}")
+        return redirect(url_for("setup.setup_step", key=key, step="content"))
 
-    blank = ChannelConfig(key="", channel_display_name="", content_mode="topic")
-    blank.output_dir = ""
-    return render_template("new_channel.html", channel=blank, sources=_sources(),
-                           affiliate_links_text="")
+    return render_template("new_channel.html", display_name="", key="")
 
 
 @bp.route("/channels/<key>/create")
@@ -416,6 +449,10 @@ def api_generate_all():
 
 
 def _why_not(info: dict) -> str:
+    if info["setup_problem"]:
+        # The most actionable reason, so it goes first — "not live yet"
+        # tells you nothing about the fact that the voice is unset.
+        return info["setup_problem"]
     if info["active_job"]:
         return "already generating"
     if info["section"] != "live":

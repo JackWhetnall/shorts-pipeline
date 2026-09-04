@@ -67,11 +67,19 @@ def channel_merch_dir(channel_key: str) -> Path:
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+# Apostrophes are removed rather than collapsed, so "Wren's Guide" becomes
+# wrens_guide and not wren_s_guide. They are frequent in both channel names
+# and quote references ("God's love"), and the underscore reads as a word
+# break that isn't there. Only affects names slugified from now on: keys
+# and filenames are stored, never recomputed.
+_APOSTROPHES = re.compile(r"[’']")
 
 
 def slugify(text: str, fallback: str = "") -> str:
     """Lowercase; every run of non-alphanumerics collapses to a single
     underscore; leading/trailing underscores stripped.
+
+    Apostrophes are dropped first, so "Wren's Guide" -> "wrens_guide".
 
     "Minute Pastor!" -> "minute_pastor", "John 3:16" -> "john_3_16".
 
@@ -80,7 +88,8 @@ def slugify(text: str, fallback: str = "") -> str:
     non-empty this returns is a valid channel key and a valid filename
     stem by construction.
     """
-    return _SLUG_RE.sub("_", (text or "").strip().lower()).strip("_") or fallback
+    cleaned = _APOSTROPHES.sub("", (text or "").strip().lower())
+    return _SLUG_RE.sub("_", cleaned).strip("_") or fallback
 
 
 class PathTraversalError(ValueError):

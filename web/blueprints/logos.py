@@ -25,7 +25,30 @@ def logo_page(key):
         candidates=[p.name for p in assets.list_candidates(key)],
         variant_styles=logos_core.VARIANT_STYLES,
         candidate_count=logos_core.CANDIDATE_COUNT,
+        logo_brief=_suggested_brief(channel),
     )
+
+
+def _suggested_brief(channel) -> str:
+    """A starting point for the logo brief.
+
+    It used to be the first 60 characters of the style prompt, which are
+    instructions to a script writer — the box came pre-filled with "You
+    are writing a short..." under a label asking what the channel is
+    about. Two different things.
+
+    The topic plan's subject IS a one-sentence description of the channel,
+    written for exactly this purpose, so it goes first. Failing that the
+    display name, which at least names the subject. Failing that, nothing
+    — an empty box is better than a wrong one.
+    """
+    from core import curriculum
+
+    try:
+        subject = curriculum.progress(channel.key).get("subject", "")
+    except Exception:  # noqa: BLE001 - a suggestion is never worth an error
+        subject = ""
+    return subject or channel.channel_display_name or ""
 
 
 @bp.route("/api/channels/<key>/logo/generate", methods=["POST"])
