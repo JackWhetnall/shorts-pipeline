@@ -30,10 +30,10 @@ def config_path(tmp_path, monkeypatch):
     monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", path)
     channel = ChannelConfig(
         key="test_channel", channel_display_name="Test Channel",
-        content_mode="topic", voice="voice-id", style_prompt="Write something.",
+        content_mode="topic", voice="21m00Tcm4TlvDq8ikWAM", style_prompt="Write something.",
         topics=["coffee"],
     )
-    channel.output_dir = str(tmp_path / "out")
+    channel.output_dir = str(tmp_path / "out" / channel.key)
     write_raw({"test_channel": channel_to_sparse_dict(channel)}, path)
     return path
 
@@ -252,7 +252,7 @@ class TestSettingsSave:
 
         token = csrf(client)
         response = client.post("/channels/test_channel/settings", data={
-            "csrf_token": token, "content_mode": "topic", "voice": "voice-id",
+            "csrf_token": token, "content_mode": "topic", "voice": "21m00Tcm4TlvDq8ikWAM",
             "style_prompt": "Write something.", "topics": "coffee",
             "channel_display_name": "Test Channel",
         })
@@ -383,7 +383,7 @@ class TestLookSettings:
 
         client.post("/channels/test_channel/settings", data={
             "channel_display_name": "Test Channel", "content_mode": "topic",
-            "voice": "voice-id", "style_prompt": "Write something.",
+            "voice": "21m00Tcm4TlvDq8ikWAM", "style_prompt": "Write something.",
             "topics": "coffee", "style_font_face": "impact",
             "csrf_token": csrf(client),
         })
@@ -396,7 +396,7 @@ class TestLookSettings:
 
         client.post("/channels/test_channel/settings", data={
             "channel_display_name": "Test Channel", "content_mode": "topic",
-            "voice": "voice-id", "style_prompt": "Write something.",
+            "voice": "21m00Tcm4TlvDq8ikWAM", "style_prompt": "Write something.",
             "topics": "coffee", "style_font_face": "../../etc/passwd",
             "csrf_token": csrf(client),
         })
@@ -412,11 +412,14 @@ class TestDeletingDiscardedVideos:
 
         monkeypatch.setattr("core.gallery.DISCARD_HISTORY_PATH",
                             tmp_path / "discard_history.jsonl")
+        # Under the channel's own folder, not the output root — the same
+        # shape production uses, so relpaths carry the channel segment.
         out = tmp_path / "out"
-        out.mkdir(exist_ok=True)
-        path = out / "clip.mp4"
+        mine = out / "test_channel"
+        mine.mkdir(parents=True, exist_ok=True)
+        path = mine / "clip.mp4"
         path.write_bytes(b"video")
-        (out / "clip_audio.mp3").write_text("x")
+        (mine / "clip_audio.mp3").write_text("x")
         monkeypatch.setattr("web.helpers.OUTPUT_DIR", out)
         monkeypatch.setattr("web.blueprints.gallery.OUTPUT_DIR", out)
         monkeypatch.setattr("core.gallery.OUTPUT_DIR", out)
@@ -427,7 +430,7 @@ class TestDeletingDiscardedVideos:
 
         gallery.set_discarded(video, True, "footage")
         response = client.post(
-            "/channels/test_channel/videos/clip.mp4/delete",
+            "/channels/test_channel/videos/test_channel/clip.mp4/delete",
             data={"csrf_token": csrf(client)})
         assert response.status_code == 302
         assert not video.exists()
@@ -437,7 +440,7 @@ class TestDeletingDiscardedVideos:
         """The route is reachable by URL for any video, so the guard has
         to be on the server, not on which button the template renders."""
         response = client.post(
-            "/channels/test_channel/videos/clip.mp4/delete",
+            "/channels/test_channel/videos/test_channel/clip.mp4/delete",
             data={"csrf_token": csrf(client)})
         assert response.status_code == 400
         assert video.exists()
@@ -447,7 +450,7 @@ class TestDeletingDiscardedVideos:
 
         gallery.set_discarded(video, True, "footage")
         assert client.post(
-            "/channels/test_channel/videos/clip.mp4/delete").status_code == 400
+            "/channels/test_channel/videos/test_channel/clip.mp4/delete").status_code == 400
         assert video.exists()
 
     def test_refuses_a_path_outside_output(self, client, video):

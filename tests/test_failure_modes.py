@@ -380,7 +380,7 @@ class TestMissingClipFiles:
                                 duration=5.0), db_path=db)
 
         plan = RenderPlan(
-            channel=ChannelConfig(key="t", voice="v", style_prompt="p",
+            channel=ChannelConfig(key="t", voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p",
                                   content_mode="topic", topics=["x"]),
             seed=Seed(type="topic", topic="x"))
         plan.shots = [Shot(start=0, end=2, segment_index=0,
@@ -400,7 +400,7 @@ class TestMissingClipFiles:
         clip = tmp_path / "here.mp4"
         clip.write_bytes(b"x")
         plan = RenderPlan(
-            channel=ChannelConfig(key="t", voice="v", style_prompt="p",
+            channel=ChannelConfig(key="t", voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p",
                                   content_mode="topic", topics=["x"]),
             seed=Seed(type="topic", topic="x"))
         plan.shots = [Shot(start=0, end=2, segment_index=0, clip_path=clip)]
@@ -451,7 +451,7 @@ class TestWhisperDegradation:
 class TestScriptGenerationFailures:
     def _channel(self):
         from core.channels import ChannelConfig
-        return ChannelConfig(key="t", voice="v", style_prompt="p",
+        return ChannelConfig(key="t", voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p",
                              content_mode="topic", topics=["x"])
 
     def test_an_empty_script_is_rejected(self, fake_client):
@@ -680,7 +680,7 @@ class TestPurgingDiscardedVideos:
                                                "discard_reason": "footage"}] * 3)
         # A channel that still exists but whose output directory is gone:
         # every video it made was discarded and then deleted.
-        channel = ChannelConfig(key="c", channel_display_name="C", voice="v",
+        channel = ChannelConfig(key="c", channel_display_name="C", voice="21m00Tcm4TlvDq8ikWAM",
                                 style_prompt="p", content_mode="topic", topics=["x"])
         channel.output_dir = str(tmp_path / "nothing_here")
         monkeypatch.setattr(insights, "load_channels", lambda validate=True: {"c": channel})

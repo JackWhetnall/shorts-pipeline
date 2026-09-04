@@ -39,10 +39,32 @@
     },
     "shakespeare_lines": {
       "content_mode": "static_corpus",
-      "voice": "ErXwobaYiN019PkySvjV",
+      "voice": "onwK4e9ZLuTAKqWW03F9",
       "style_prompt": "You are writing a short, engaging explainer unpacking a Shakespeare quote for a YouTube Shorts audience with no literary background. Explain what it means in plain English and why it still lands today. No academic tone.",
       "source": "shakespeare",
+      "pacing": {
+        "pause_after_first_segment": 0.3,
+        "pause_after_citation": 0.25,
+        "pause_between_segments": 0.2
+      },
+      "style": {
+        "font_face": "franklin_gothic",
+        "highlight_color": "#00FF4C",
+        "outro_subtext_color": "#00FF4C"
+      },
       "channel_display_name": "Shakespeare Lines"
+    },
+    "wrens_guide_to_witchcraft": {
+      "channel_display_name": "Wren's Guide to Witchcraft",
+      "content_mode": "static_corpus",
+      "voice": "a",
+      "style_prompt": "You are writing a script for a channel that produces short, interesting but poigniant anaysis of various shakespear quotes. You should use british english, but be accessible worldwide. You analysis can include questions to yourself that you then reflect on, but shouldnt be fixed on this style, varying it where necessary, and sometimes just analysing without asking these self-answered questions.",
+      "outro_subtext": "Follow our page",
+      "source": "shakespeare",
+      "avoid_imagery": [
+        "religious",
+        "religion"
+      ]
     }
   }
 }

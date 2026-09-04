@@ -316,9 +316,9 @@ class TestWebRoutes:
         monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", path)
         channel = ChannelConfig(
             key="test_channel", channel_display_name="Test Channel",
-            content_mode="topic", voice="v", style_prompt="Write something.",
+            content_mode="topic", voice="21m00Tcm4TlvDq8ikWAM", style_prompt="Write something.",
             topics=["coffee"])
-        channel.output_dir = str(tmp_path / "out")
+        channel.output_dir = str(tmp_path / "out" / channel.key)
         write_raw({"test_channel": channel_to_sparse_dict(channel)}, path)
 
         app = create_app()

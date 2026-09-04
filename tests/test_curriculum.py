@@ -251,7 +251,7 @@ class TestSeedSelection:
     def channel(self):
         return ChannelConfig(
             key="c", channel_display_name="C", content_mode="topic",
-            voice="v", style_prompt="p", topics=["a fallback topic"])
+            voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p", topics=["a fallback topic"])
 
     def test_a_channel_without_a_plan_uses_its_topic_list(self, isolated, channel):
         from pipeline.run import fetch_seed
@@ -301,7 +301,7 @@ class TestGenerationPrompts:
     @pytest.fixture
     def channel(self):
         return ChannelConfig(key="c", channel_display_name="C",
-                             content_mode="topic", voice="v",
+                             content_mode="topic", voice="21m00Tcm4TlvDq8ikWAM",
                              style_prompt="Explain one idea about maths.")
 
     def test_the_outline_prompt_states_the_ordering_rules(self, channel, monkeypatch):
@@ -422,8 +422,8 @@ class TestWebRoutes:
         monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", path)
         channel = ChannelConfig(
             key="c", channel_display_name="C", content_mode="topic",
-            voice="v", style_prompt="Explain one idea.", topics=["fallback"])
-        channel.output_dir = str(tmp_path / "out")
+            voice="21m00Tcm4TlvDq8ikWAM", style_prompt="Explain one idea.", topics=["fallback"])
+        channel.output_dir = str(tmp_path / "out" / channel.key)
         write_raw({"c": channel_to_sparse_dict(channel)}, path)
 
         app = create_app()
@@ -597,3 +597,114 @@ class TestWebRoutes:
         curriculum.add_topics("c", "u01", [
             {"title": "Topic " + str(i), "angle": ""} for i in range(100)])
         assert "Running low on topics" not in client.get("/").get_data(as_text=True)
+
+
+class TestChannelIsolation:
+    """A channel must never be able to see another channel's videos.
+
+    This is not hypothetical. The create form pre-filled the output
+    directory with "output/" + the key, and on the new-channel page the
+    key is empty at render time — so submitting it unchanged pointed the
+    channel at the output ROOT, and its gallery listed every other
+    channel's videos as its own.
+    """
+
+    def _channel(self, output_dir):
+        from core.channels import ChannelConfig
+
+        channel = ChannelConfig(
+            key="mine", content_mode="topic", voice="abcdefghij0123456789",
+            style_prompt="p", topics=["t"])
+        channel.output_dir = output_dir
+        return channel
+
+    @pytest.mark.parametrize("shared", ["output", "output/", "output//", "output\\"])
+    def test_the_shared_output_root_is_refused(self, shared):
+        from core.errors import ConfigError
+
+        with pytest.raises(ConfigError) as caught:
+            self._channel(shared).validate()
+        assert "every other channel" in str(caught.value)
+
+    def test_the_project_root_is_refused(self):
+        from core.errors import ConfigError
+
+        with pytest.raises(ConfigError):
+            self._channel(".").validate()
+
+    def test_an_empty_directory_falls_back_to_the_key(self):
+        channel = self._channel("")
+        channel.validate()
+        assert channel.output_dir == "output/mine"
+
+    def test_a_normal_directory_is_kept(self):
+        channel = self._channel("output/mine")
+        channel.validate()
+        assert channel.output_dir == "output/mine"
+
+    def test_a_deliberate_custom_directory_is_still_allowed(self):
+        """Pointing a channel at an existing folder is a real, if rare,
+        thing to want. Only the shared root is refused."""
+        channel = self._channel("output/archive/mine")
+        channel.validate()
+        assert channel.output_dir == "output/archive/mine"
+
+    def test_the_form_cannot_set_it_at_all(self):
+        """It is derived from the key. A form that carries it is a form
+        that can get it wrong."""
+        from core.channels import ChannelConfig
+        from web.forms import apply_channel_form
+
+        channel = ChannelConfig(key="mine", content_mode="topic", voice="21m00Tcm4TlvDq8ikWAM",
+                                style_prompt="p", topics=["t"])
+        before = channel.output_dir
+        apply_channel_form(channel, {"output_dir": "output/"})
+        assert channel.output_dir == before
+
+
+class TestVoiceIdValidation:
+    """A voice that isn't a voice fails minutes into a render, after a
+    script has already been paid for."""
+
+    def _channel(self, voice):
+        from core.channels import ChannelConfig
+
+        return ChannelConfig(key="k", content_mode="topic", voice=voice,
+                             style_prompt="p", topics=["t"])
+
+    @pytest.mark.parametrize("voice", ["a", "placeholder", "", "   ",
+                                       "abcdefghij012345678", "not a voice id!!"])
+    def test_a_placeholder_is_refused(self, voice):
+        from core.errors import ConfigError
+
+        with pytest.raises(ConfigError):
+            self._channel(voice).validate()
+
+    def test_a_real_voice_id_passes(self):
+        self._channel("21m00Tcm4TlvDq8ikWAM").validate()
+
+
+class TestTopicChannelSources:
+    """A topic channel needs somewhere for topics to come from — but a
+    syllabus counts, so a channel with a plan should not also have to keep
+    a redundant flat list."""
+
+    def _channel(self, topics):
+        from core.channels import ChannelConfig
+
+        return ChannelConfig(key="c", content_mode="topic",
+                             voice="abcdefghij0123456789", style_prompt="p",
+                             topics=topics)
+
+    def test_neither_a_plan_nor_a_list_is_refused(self, isolated):
+        from core.errors import ConfigError
+
+        with pytest.raises(ConfigError) as caught:
+            self._channel([]).validate()
+        assert "topic plan" in str(caught.value)
+
+    def test_a_flat_list_is_enough(self, isolated):
+        self._channel(["something"]).validate()
+
+    def test_a_syllabus_is_enough_without_a_list(self, planned):
+        self._channel([]).validate()

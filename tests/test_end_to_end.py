@@ -110,7 +110,7 @@ def world(tmp_path, monkeypatch):
 
     channel = ChannelConfig(
         key="t", channel_display_name="Test Channel", content_mode="topic",
-        voice="voice-id", style_prompt="Write plainly.", topics=["quiet moments"])
+        voice="21m00Tcm4TlvDq8ikWAM", style_prompt="Write plainly.", topics=["quiet moments"])
     channel.output_dir = str(output_dir)
     channel.pacing.segment_count = 2
     channel.pacing.outro_seconds = 1.0

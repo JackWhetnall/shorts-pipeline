@@ -30,10 +30,9 @@
     <input type="text" name="outro_subtext" value="{{ channel.outro_subtext or 'Subscribe for more' }}">
   </label>
 
-  <label>Output directory
-    <input type="text" name="output_dir" required
-           value="{{ channel.output_dir or ('output/' ~ (channel.key or '')) }}">
-  </label>
+  {% if not is_new %}
+  <p class="meta">Videos go in <code>{{ channel.output_dir }}</code>.</p>
+  {% endif %}
 
   <label>ElevenLabs voice ID
     <input type="text" name="voice" required value="{{ channel.voice or '' }}">

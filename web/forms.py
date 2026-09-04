@@ -76,7 +76,6 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
     channel.channel_display_name = form.get(
         "channel_display_name", channel.channel_display_name).strip()
     channel.outro_subtext = form.get("outro_subtext", channel.outro_subtext).strip()
-    channel.output_dir = (form.get("output_dir") or channel.output_dir).strip()
     channel.speed = _maybe_float(form, "speed", channel.speed)
 
     if "avoid_imagery" in form:

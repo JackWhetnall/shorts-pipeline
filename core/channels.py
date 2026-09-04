@@ -30,6 +30,7 @@ write here preserves it.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 
@@ -37,6 +38,9 @@ from core.errors import ConfigError
 from core.paths import CHANNELS_JSON_PATH
 
 SCHEMA_VERSION = 2
+
+# ElevenLabs voice ids: 20 alphanumeric characters.
+VOICE_ID_RE = re.compile(r"^[A-Za-z0-9]{20}$")
 
 CONTENT_MODES = ("static_corpus", "topic")
 CTA_KEYS = ("patreon", "merch", "affiliate")
@@ -240,16 +244,62 @@ class ChannelConfig:
             )
         if not self.voice.strip():
             raise ConfigError(f"{where} has no voice set. Add an ElevenLabs voice ID in its settings.")
+        # ElevenLabs voice ids are 20 alphanumeric characters. Checking the
+        # shape catches a placeholder typed to get past a required field —
+        # which otherwise surfaces as an API error minutes into a render,
+        # after a script has already been paid for.
+        if not VOICE_ID_RE.match(self.voice.strip()):
+            raise ConfigError(
+                f'{where} has {self.voice.strip()!r} as its voice, which is not an '
+                f"ElevenLabs voice ID. Pick one in the Voice Lab and apply it."
+            )
         if not self.style_prompt.strip():
             raise ConfigError(f"{where} has no style prompt. That's what tells the AI how to write for this channel.")
         if self.content_mode == "static_corpus" and not self.source.strip():
             raise ConfigError(f'{where} reads from a fixed source but no source is set (for example "bible").')
-        if self.content_mode == "topic" and not self.topics:
-            raise ConfigError(f"{where} generates from topics but its topic list is empty. Add at least one.")
+        # A topic channel needs somewhere for topics to come from: either a
+        # syllabus or the flat list. Checked in that order because a channel
+        # with a syllabus should not also have to keep a redundant list.
+        if self.content_mode == "topic" and not self.topics and not self._has_curriculum():
+            raise ConfigError(
+                f"{where} generates from topics but has neither a topic plan nor a "
+                f"topic list. Make a topic plan, or add topics in its settings."
+            )
         if self.pacing.segment_count < 1:
             raise ConfigError(f"{where} has a segment count below 1. It needs at least one segment.")
         if self.speed <= 0:
             raise ConfigError(f"{where} has a speech speed of {self.speed}. It must be greater than 0.")
+        self._validate_output_dir(where)
+
+    def _has_curriculum(self) -> bool:
+        # Imported here: core.curriculum imports core.paths, and a module
+        # cycle at import time is worse than a local import.
+        from core import curriculum
+        return curriculum.exists(self.key)
+
+    def _validate_output_dir(self, where: str) -> None:
+        """The output directory must be a folder of this channel's own.
+
+        This is not hypothetical. The create form used to pre-fill the box
+        with "output/" + the key, and on the new-channel page the key is
+        empty at render time — so submitting it unchanged pointed the
+        channel at the output ROOT, and its gallery showed every other
+        channel's videos as its own.
+        """
+        from core.paths import OUTPUT_DIR, PROJECT_ROOT
+
+        raw = (self.output_dir or "").strip().replace("\\", "/").rstrip("/")
+        if not raw:
+            self.output_dir = f"output/{self.key}"
+            return
+        resolved = (PROJECT_ROOT / raw).resolve()
+        if resolved == OUTPUT_DIR.resolve() or resolved == PROJECT_ROOT.resolve():
+            raise ConfigError(
+                f'{where} has its output directory set to "{self.output_dir}", which '
+                f"is the folder every channel writes into. Its gallery would show "
+                f"every other channel's videos. Use output/{self.key}."
+            )
+        self.output_dir = raw
 
     @property
     def output_path(self) -> Path:

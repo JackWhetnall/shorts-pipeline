@@ -61,7 +61,7 @@ def _word_timings(sentences, start=0.0):
 def plan(tmp_path):
     channel = ChannelConfig(
         key="render_test", channel_display_name="Render Test",
-        content_mode="topic", voice="v", style_prompt="p", topics=["x"],
+        content_mode="topic", voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p", topics=["x"],
     )
     channel.pacing.outro_seconds = 1.0
     channel.pacing.max_shot_seconds = 2.0

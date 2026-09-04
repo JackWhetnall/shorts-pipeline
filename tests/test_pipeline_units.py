@@ -75,7 +75,7 @@ def test_unique_stem_appends_suffixes(tmp_path):
 
 class TestChannelConfig:
     def _valid(self, **overrides):
-        base = dict(content_mode="topic", voice="v1", style_prompt="be funny",
+        base = dict(content_mode="topic", voice="21m00Tcm4TlvDq8ikWAM", style_prompt="be funny",
                     topics=["coffee"], channel_display_name="Test")
         base.update(overrides)
         return channel_from_dict("test", base)
@@ -88,7 +88,7 @@ class TestChannelConfig:
         ({"style_prompt": ""}, "style prompt"),
         ({"content_mode": "nonsense"}, "recognised"),
         ({"content_mode": "static_corpus", "source": ""}, "source"),
-        ({"topics": []}, "topic list"),
+        ({"topics": []}, "topic plan"),
     ])
     def test_validate_names_the_channel_and_the_problem(self, overrides, fragment):
         with pytest.raises(ConfigError) as exc:
@@ -108,7 +108,7 @@ class TestChannelConfig:
     def test_dict_access_still_works(self):
         # Templates and older call sites index channels like dicts.
         channel = self._valid()
-        assert channel["voice"] == "v1"
+        assert channel["voice"] == "21m00Tcm4TlvDq8ikWAM"
         assert channel.get("missing", "default") == "default"
 
 
