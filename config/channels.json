@@ -1,96 +1,48 @@
 {
-  "minute_pastor": {
-    "content_mode": "static_corpus",
-    "voice": "pNInz6obpgDQGcFmaJgB",
-    "style_prompt": "You are writing a short, warm, non-denominational reflection on a Bible verse for a YouTube Shorts audience. Plain, modern language. No preachiness, no 'in conclusion', just a grounded human observation about what the verse means and why it might matter today.",
-    "channel_display_name": "Minute Pastor",
-    "outro_subtext": "Subscribe for more",
-    "output_dir": "output/minute_pastor",
-    "avoid_imagery": [
-      "islamic",
-      "muslim",
-      "mosque",
-      "quran",
-      "koran",
-      "ramadan",
-      "hijab",
-      "minaret",
-      "imam",
-      "hajj",
-      "mecca",
-      "judaism",
-      "jewish",
-      "hinduism",
-      "hindu"
-    ],
-    "speed": 1.0,
-    "source": "bible",
-    "pacing": {
-      "pause_after_first_segment": 0.7,
-      "pause_after_citation": 0.5,
-      "pause_between_segments": 0.4,
-      "max_shot_seconds": 5.0,
-      "crossfade": 0.5,
-      "outro_seconds": 3.0,
-      "caption_max_group_size": 4,
-      "caption_pause_gap_threshold": 0.25,
-      "segment_count": 3
+  "version": 2,
+  "channels": {
+    "minute_pastor": {
+      "content_mode": "static_corpus",
+      "voice": "pNInz6obpgDQGcFmaJgB",
+      "style_prompt": "You are writing a short, warm, non-denominational reflection on a Bible verse for a YouTube Shorts audience. Plain, modern language. No preachiness, no 'in conclusion', just a grounded human observation about what the verse means and why it might matter today.",
+      "source": "bible",
+      "avoid_imagery": [
+        "islamic",
+        "muslim",
+        "mosque",
+        "quran",
+        "koran",
+        "ramadan",
+        "hijab",
+        "minaret",
+        "imam",
+        "hajj",
+        "mecca",
+        "judaism",
+        "jewish",
+        "hinduism",
+        "hindu"
+      ],
+      "monetization": {
+        "merch_url": "https://minute-pastor.printify.me/"
+      },
+      "socials": {
+        "youtube_url": "https://www.youtube.com/@MinutePastor",
+        "tiktok_url": "https://www.tiktok.com/@minutepastor?lang=en-GB",
+        "instagram_url": "https://www.instagram.com/minutepastor/"
+      },
+      "manual_checklist_overrides": [
+        "affiliate",
+        "patreon"
+      ],
+      "channel_display_name": "Minute Pastor"
     },
-    "style": {
-      "base_color": "#FFFFFF",
-      "highlight_color": "#FFD400",
-      "stroke_color": "#000000",
-      "outro_title_color": "#FFFFFF",
-      "outro_subtext_color": "#FFD400",
-      "font_size": 68,
-      "stroke_width": 4,
-      "outro_bg_color": [
-        10,
-        10,
-        14,
-        255
-      ]
-    },
-    "monetization": {
-      "patreon_url": "",
-      "merch_url": "https://minute-pastor.printify.me/",
-      "affiliate_links": []
-    },
-    "end_screen": {
-      "enabled": false,
-      "duration_seconds": 3.0,
-      "ctas": {
-        "patreon": {
-          "enabled": false,
-          "text": "Support us on Patreon"
-        },
-        "merch": {
-          "enabled": false,
-          "text": "Check out our merch"
-        },
-        "affiliate": {
-          "enabled": false,
-          "text": "Shop our picks below"
-        }
-      }
-    },
-    "socials": {
-      "youtube_url": "https://www.youtube.com/@MinutePastor",
-      "tiktok_url": "https://www.tiktok.com/@minutepastor?lang=en-GB",
-      "instagram_url": "https://www.instagram.com/minutepastor/"
-    },
-    "manual_checklist_overrides": [
-      "affiliate",
-      "patreon"
-    ]
-  },
-  "shakespeare_lines": {
-    "content_mode": "static_corpus",
-    "source": "shakespeare",
-    "voice": "ErXwobaYiN019PkySvjV",
-    "style_prompt": "You are writing a short, engaging explainer unpacking a Shakespeare quote for a YouTube Shorts audience with no literary background. Explain what it means in plain English and why it still lands today. No academic tone.",
-    "channel_display_name": "Shakespeare Lines",
-    "outro_subtext": "Subscribe for more",
-    "output_dir": "output/shakespeare_lines"
+    "shakespeare_lines": {
+      "content_mode": "static_corpus",
+      "voice": "ErXwobaYiN019PkySvjV",
+      "style_prompt": "You are writing a short, engaging explainer unpacking a Shakespeare quote for a YouTube Shorts audience with no literary background. Explain what it means in plain English and why it still lands today. No academic tone.",
+      "source": "shakespeare",
+      "channel_display_name": "Shakespeare Lines"
+    }
   }
 }

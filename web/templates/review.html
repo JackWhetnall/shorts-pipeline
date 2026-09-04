@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Review{% endblock %}
+{% block content %}
+
+<div class="review-head">
+  <h1>Review</h1>
+  <p class="subtitle" id="review-counter">
+    {% if items %}{{ total_waiting }} video{{ 's' if total_waiting != 1 }} waiting, oldest first.{% if total_waiting > items|length %} Showing the first {{ items|length }}.{% endif %}
+    {% else %}Nothing waiting.{% endif %}
+  </p>
+</div>
+
+{% if not items %}
+<div class="empty-state">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+  <p><strong>All caught up.</strong></p>
+  <p>Every video has been published or discarded.</p>
+  <a class="btn btn-ghost" href="{{ url_for('channels.index') }}">Back to channels</a>
+</div>
+{% else %}
+
+<div id="review-app"
+     data-items="{{ items|tojson|forceescape }}"
+     data-reasons="{{ discard_reasons|tojson|forceescape }}"></div>
+
+<div class="review-layout">
+  <div class="review-player card">
+    <video id="review-video" controls preload="metadata"></video>
+  </div>
+
+  <div class="review-side">
+    <div class="card">
+      <p class="meta" id="review-channel"></p>
+      <h2 id="review-name"></h2>
+      <p class="meta" id="review-created"></p>
+
+      <div id="review-flags" class="review-flags"></div>
+
+      <label class="review-field">Title
+        <input type="text" id="review-title" placeholder="Give this video a title">
+      </label>
+      <div id="review-title-options" class="review-alts"></div>
+
+      <label class="review-field">Description
+        <textarea id="review-description" rows="6"></textarea>
+      </label>
+
+      <div class="actions">
+        <button type="button" class="btn-ghost" onclick="copyField('review-title', this)">Copy title</button>
+        <button type="button" class="btn-ghost" onclick="copyField('review-description', this)">Copy description</button>
+        <a class="btn-ghost" id="review-download" href="#">Download video</a>
+      </div>
+    </div>
+
+    <details class="card">
+      <summary class="summary-heading">Script</summary>
+      <pre class="meta-text" id="review-script"></pre>
+    </details>
+
+    <div class="card">
+      <p class="meta">Mark it published by pasting wherever you actually posted it.</p>
+      <label class="review-field">YouTube
+        <input type="url" id="review-youtube_url" placeholder="https://youtube.com/shorts/...">
+      </label>
+      <label class="review-field">TikTok
+        <input type="url" id="review-tiktok_url" placeholder="https://tiktok.com/@you/video/...">
+      </label>
+      <label class="review-field">Instagram
+        <input type="url" id="review-instagram_url" placeholder="https://instagram.com/reel/...">
+      </label>
+    </div>
+  </div>
+</div>
+
+<div class="review-bar">
+  <button type="button" class="btn btn-primary" onclick="reviewPublish()">
+    Publish <kbd>P</kbd>
+  </button>
+  <details class="review-discard">
+    <summary class="btn-ghost">Discard <kbd>D</kbd></summary>
+    <div class="card review-reasons" id="review-reasons"></div>
+  </details>
+  <button type="button" class="btn-ghost" onclick="reviewSkip()">Skip <kbd>&rarr;</kbd></button>
+  <span class="review-position meta" id="review-position"></span>
+</div>
+
+{% endif %}
+{% endblock %}

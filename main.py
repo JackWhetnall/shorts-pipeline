@@ -1,183 +1,155 @@
 """
-End-to-end: pick a channel -> get a seed (quote or topic) -> write a
-script -> generate voiceover+timings -> assemble captioned video.
+Command-line entry point.
 
-Usage:
-    python main.py bible_daily            # make 1 video
-    python main.py bible_daily --count 5  # make 5 videos
+    python main.py                          list channels
+    python main.py minute_pastor            make one video
+    python main.py minute_pastor --count 5  make five
+    python main.py minute_pastor --yes      don't ask about each seed
+    python main.py --costs                  what everything has cost so far
+    python main.py --sameness               how alike the channels have become
+
+The interactive reroll loop lives here rather than in the pipeline. The
+pipeline never prompts — it has no terminal on a background thread — so
+asking is the caller's job, and both callers (this and the web app) build
+their own answer to "is this seed any good" on the same `fetch_seed`.
 """
 
+from __future__ import annotations
+
 import argparse
-import random
-import re
-from datetime import date
-from pathlib import Path
+import sys
 
-from config.channels import CHANNELS
-from quote_source import get_quote
-from script_gen import generate_script
-from tts_captions import generate_voiceover
-from video_assemble import build_video
-from description_gen import generate_description
-import job_context
+from core import costs
+from core.channels import load_channels
+from core.errors import PipelineError, friendly_message
+from core.logging_setup import configure, get_logger
+from pipeline.run import fetch_seed, generate
+
+log = get_logger(__name__)
 
 
-def fetch_candidate_seed(cfg: dict) -> dict:
-    """One non-interactive fetch of a quote/topic — no input(). Returns
-    the seed dict script_gen.generate_script expects. Used directly by
-    the web app (which drives accept/reroll via UI buttons instead of
-    stdin); pick_seed below is the CLI's interactive wrapper around it."""
-    if cfg["content_mode"] == "static_corpus":
-        quote = get_quote(cfg["source"])
-        return {"type": "quote", "text": quote["text"], "reference": quote["reference"]}
-    elif cfg["content_mode"] == "topic":
-        topic = random.choice(cfg["topics"])
-        return {"type": "topic", "topic": topic}
-    else:
-        raise ValueError(f"Unknown content_mode: {cfg['content_mode']!r}")
-
-
-def pick_seed(cfg: dict) -> dict:
-    """Keep rerolling until the user approves a quote/topic."""
+def pick_seed(channel, assume_yes: bool = False):
+    """Reroll until the seed is approved."""
     while True:
-        seed = fetch_candidate_seed(cfg)
-        if seed["type"] == "quote":
-            print(f"\nQuote: {seed['text']}\nReference: {seed['reference']}\n")
-            prompt = "Use this quote? [Y/n] "
+        seed = fetch_seed(channel)
+        if assume_yes:
+            return seed
+        print()
+        if seed.type == "quote":
+            print(f"  Quote:     {seed.text}")
+            print(f"  Reference: {seed.reference}")
         else:
-            print(f"\nTopic: {seed['topic']}\n")
-            prompt = "Use this topic? [Y/n] "
-
-        if input(prompt).strip().lower() in ("", "y", "yes"):
+            print(f"  Topic: {seed.topic}")
+        print()
+        if input("Use this? [Y/n] ").strip().lower() in ("", "y", "yes"):
             return seed
         print("Rerolling...")
 
 
-def _slugify(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_") or "video"
+def list_channels() -> None:
+    channels = load_channels(validate=False)
+    if not channels:
+        print("No channels configured yet. Add one in the web app: python -m web")
+        return
+    print(f"{len(channels)} channel(s):\n")
+    for key, channel in channels.items():
+        detail = channel.source if channel.content_mode == "static_corpus" else \
+            f"{len(channel.topics)} topic(s)"
+        print(f"  {key:24s} {channel.channel_display_name:24s} {channel.content_mode} ({detail})")
 
 
-def _title_for_seed(seed: dict) -> str:
-    """A human-readable slug (book/chapter/verse for a quote, the topic
-    for topic-driven content) instead of a random hash — so filenames
-    alone tell you what's in each video and let you spot repeats at a
-    glance."""
-    if seed["type"] == "quote":
-        return _slugify(seed["reference"])
-    return _slugify(seed["topic"])
+def show_costs() -> None:
+    summary = costs.summary_all()
+    if not summary["calls"]:
+        print("Nothing recorded yet.")
+        return
+    print(f"Total: {costs.format_usd(summary['total_usd'])} "
+          f"across {summary['calls']} API call(s)\n")
+    for operation, amount in summary["by_operation"].items():
+        print(f"  {operation:34s} {costs.format_usd(amount):>10s}")
+    if summary["cache_read_tokens"]:
+        print(f"\n  {summary['cache_read_tokens']:,} input tokens served from cache "
+              f"(billed at a tenth of the usual rate).")
 
 
-def _unique_stem(out_dir: Path, base: str) -> str:
-    """Appends _2, _3, ... if base is already taken in out_dir (e.g. the
-    same topic getting picked again, or — rarely — the same verse)."""
-    if not any(out_dir.glob(f"{base}.*")):
-        return base
-    i = 2
-    while any(out_dir.glob(f"{base}_{i}.*")):
-        i += 1
-    return f"{base}_{i}"
+def show_sameness() -> None:
+    """How alike different channels' output has become.
+
+    This is the risk no per-channel check can see: each channel can be
+    perfectly consistent with itself while every channel converges on the
+    same house style, which is what reads as templated at volume.
+    """
+    from pipeline import similarity
+
+    pairs = similarity.cross_channel_report()
+    if not pairs:
+        print("Not enough history yet — this needs at least two channels with "
+              "generated scripts.")
+        return
+    print("Channel pairs, most alike first:\n")
+    for pair in pairs:
+        a, b = pair["channels"]
+        flag = "  <-- worth a look" if pair["vocabulary_overlap"] > 0.75 else ""
+        print(f"  {a} vs {b}{flag}")
+        print(f"    wording overlap {pair['vocabulary_overlap']:.0%}  "
+              f"phrase overlap {pair['phrase_overlap']:.0%}  "
+              f"length similarity {pair['length_ratio']:.0%}")
+    print("\nHigh wording overlap between channels means they are converging on "
+          "one voice. Distinct style prompts and pacing are the levers.")
 
 
-def make_one_video(channel_key: str):
-    cfg = CHANNELS[channel_key]
-    seed = pick_seed(cfg)
-    return generate_video_from_seed(channel_key, seed, cfg)
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate short-form videos.")
+    parser.add_argument("channel", nargs="?", help="Channel key. Omit to list channels.")
+    parser.add_argument("--count", type=int, default=1, help="How many videos to make.")
+    parser.add_argument("--yes", "-y", action="store_true",
+                        help="Accept each quote/topic without asking.")
+    parser.add_argument("--costs", action="store_true", help="Show recorded API spend and exit.")
+    parser.add_argument("--sameness", action="store_true",
+                        help="Show how alike the channels' scripts have become.")
+    args = parser.parse_args()
 
+    configure()
 
-def generate_video_from_seed(channel_key: str, seed: dict, cfg: dict = None,
-                              interactive: bool = True):
-    """Everything after seed selection: script -> voiceover -> footage/video
-    -> metadata. Shared verbatim between the CLI (make_one_video, after its
-    interactive pick_seed) and the web app (after its own accept/reroll UI
-    step) — this is the one place that logic lives.
+    if args.costs:
+        show_costs()
+        return 0
+    if args.sameness:
+        show_sameness()
+        return 0
+    if not args.channel:
+        list_channels()
+        return 0
 
-    interactive=False skips the footage-matching fallback's "pause here to
-    add footage" stdin prompt (see footage_library.pick_clips_for_shots) —
-    needed when this runs on a background thread with no TTY to read from,
-    which would otherwise hang forever. The CLI never passes False."""
-    cfg = cfg or CHANNELS[channel_key]
+    channels = load_channels(validate=False)
+    if args.channel not in channels:
+        print(f'No channel called "{args.channel}". Known channels:', file=sys.stderr)
+        list_channels()
+        return 1
 
-    # A retry of an interrupted/failed job (webapp/jobs.py's retry_job)
-    # reuses the SAME job id, so this checkpoint - if present - is from
-    # an earlier attempt at this exact seed. Script generation is a real
-    # Claude call, not free to redo for no reason; the paths need to be
-    # resumed alongside it too (see below), not just the script text,
-    # since generating a NEW stem here would leave the checkpointed
-    # audio/video paths from the earlier attempt orphaned.
-    progress = job_context.load_json_checkpoint("progress")
+    channel = channels[args.channel]
+    try:
+        channel.validate()
+    except PipelineError as exc:
+        print(exc.user_message, file=sys.stderr)
+        return 1
 
-    if progress:
-        script = progress["script"]
-        out_dir = Path(progress["out_dir"])
-        out_dir.mkdir(parents=True, exist_ok=True)
-        stem = progress["stem"]
-        print("[1/4] Reusing previously generated script (resumed)...")
-    else:
-        print("[1/4] Generating script...")
-        script = generate_script(seed, cfg["style_prompt"], cfg["pacing"])
-        print(f"      {len(script['segments'])} segment(s) generated.")
-
-        out_dir = Path(cfg["output_dir"]) / date.today().isoformat()
-        out_dir.mkdir(parents=True, exist_ok=True)
-        stem = _unique_stem(out_dir, _title_for_seed(seed))
+    for i in range(args.count):
+        if args.count > 1:
+            print(f"\n=== Video {i + 1} of {args.count} ===")
+        seed = pick_seed(channel, assume_yes=args.yes)
         try:
-            job_context.save_json_checkpoint("progress", {
-                "script": script, "out_dir": str(out_dir), "stem": stem,
-            })
-        except Exception:
-            pass  # checkpointing is best-effort, never block a real result on it
+            generate(channel, seed, interactive=True)
+        except PipelineError as exc:
+            print(f"\n{exc.user_message}", file=sys.stderr)
+            return 1
+        except Exception as exc:  # noqa: BLE001
+            log.exception("Generation failed")
+            print(f"\n{friendly_message(exc)}", file=sys.stderr)
+            return 1
 
-    audio_path = out_dir / f"{stem}_audio.mp3"
-    video_path = out_dir / f"{stem}.mp4"
-
-    print("[2/4] Generating voiceover...")
-    _, word_timings, segment_timings, narration_array, fps = generate_voiceover(
-        script["segments"], script["citation"], cfg["voice"], str(audio_path), cfg["pacing"],
-        speed=cfg["speed"],
-    )
-
-    print("[3/4] Matching footage and assembling video...")
-    build_video(
-        narration_array=narration_array,
-        fps=fps,
-        word_timings=word_timings,
-        segment_timings=segment_timings,
-        out_path=str(video_path),
-        channel_display_name=cfg["channel_display_name"],
-        outro_subtext=cfg["outro_subtext"],
-        pacing=cfg["pacing"],
-        style=cfg["style"],
-        avoid_imagery=cfg["avoid_imagery"],
-        interactive=interactive,
-        monetization=cfg["monetization"],
-        end_screen=cfg["end_screen"],
-        channel_key=channel_key,
-    )
-
-    print("[4/4] Saving metadata...")
-    # save the script alongside the video for your records / for writing
-    # the YouTube title (see _description.txt below for the description
-    # itself, generated automatically)
-    with open(out_dir / f"{stem}_meta.txt", "w", encoding="utf-8") as f:
-        if script["citation"]:
-            f.write(f"Reference: {script['citation']}\n\n")
-        for i, seg in enumerate(script["segments"]):
-            f.write(f"[segment {i}] (keywords: {', '.join(seg['keywords'])})\n")
-            f.write(f"{seg['text']}\n\n")
-
-    description = generate_description(script, cfg["monetization"], cfg["end_screen"])
-    with open(out_dir / f"{stem}_description.txt", "w", encoding="utf-8") as f:
-        f.write(description)
-
-    print(f"Done: {video_path}")
-    return video_path
+    return 0
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("channel", choices=CHANNELS.keys())
-    parser.add_argument("--count", type=int, default=1)
-    args = parser.parse_args()
-
-    for _ in range(args.count):
-        make_one_video(args.channel)
+    sys.exit(main())

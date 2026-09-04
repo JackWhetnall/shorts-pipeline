@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ channel.channel_display_name }} Gallery{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('channels.dashboard', key=key) }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  {{ channel.channel_display_name }} dashboard
+</a>
+<h1>{{ channel.channel_display_name }} &mdash; Gallery</h1>
+
+{% if not unpublished and not published and not discarded %}
+<div class="empty-state">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8l-6 4 6 4z"/></svg>
+  <p><strong>No videos yet.</strong></p>
+  <a class="btn btn-primary" href="{{ url_for('channels.create_video', key=key) }}">Create one</a>
+</div>
+{% else %}
+
+<div class="gallery-section-header">
+  <h2>Unpublished{% if unpublished %} <span class="badge">{{ unpublished|length }}</span>{% endif %}</h2>
+  {% if unpublished %}
+  <button type="button" id="gallery-select-toggle-btn" class="btn-ghost" onclick="toggleSelectMode()">Select</button>
+  {% endif %}
+</div>
+{% if unpublished %}
+<div id="discard-actions" class="hidden">
+  <button type="button" id="discard-selected-btn" class="btn-danger" disabled onclick="discardSelected('{{ key }}')">Discard selected (0)</button>
+</div>
+<div class="gallery-grid" id="unpublished-grid">
+  {% for v in unpublished %}
+  <div class="card gallery-item" data-relpath="{{ v.relpath }}">
+    <a class="card-link-overlay" href="{{ url_for('gallery.video_detail', key=key, relpath=v.relpath) }}"></a>
+    <span class="gallery-select-check" aria-hidden="true"></span>
+    <img class="gallery-thumb" src="{{ url_for('gallery.thumbnail', key=key, relpath=v.relpath) }}" alt="">
+    <p class="gallery-item-title">{{ v.title }}</p>
+    <p class="meta">{{ v.date_label }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="meta">Nothing waiting to be published.</p>
+{% endif %}
+
+<h2 class="gallery-section-spaced">Published{% if published %} <span class="badge">{{ published|length }}</span>{% endif %}</h2>
+{% if published %}
+<div class="gallery-grid">
+  {% for v in published %}
+  <a class="card gallery-item" href="{{ url_for('gallery.video_detail', key=key, relpath=v.relpath) }}">
+    <img class="gallery-thumb" src="{{ url_for('gallery.thumbnail', key=key, relpath=v.relpath) }}" alt="">
+    <p class="gallery-item-title">{{ v.title }}</p>
+    <p class="meta">{{ v.date_label }}</p>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="meta">Nothing published yet.</p>
+{% endif %}
+
+<details class="gallery-section-spaced">
+  <summary class="summary-heading">Discarded{% if discarded %} <span class="badge">{{ discarded|length }}</span>{% endif %}</summary>
+  {% if discarded %}
+  <div class="gallery-grid">
+    {% for v in discarded %}
+    <div class="card gallery-item gallery-item-discarded">
+      <a class="card-link-overlay" href="{{ url_for('gallery.video_detail', key=key, relpath=v.relpath) }}"></a>
+      <img class="gallery-thumb" src="{{ url_for('gallery.thumbnail', key=key, relpath=v.relpath) }}" alt="">
+      <p class="gallery-item-title">{{ v.title }}</p>
+      <p class="meta">{{ v.date_label }}</p>
+      <form method="post" action="{{ url_for('gallery.restore', key=key, relpath=v.relpath) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost card-action">Restore</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="meta">Nothing discarded.</p>
+  {% endif %}
+</details>
+
+{% endif %}
+{% endblock %}

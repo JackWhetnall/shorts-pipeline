@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Shorts Pipeline{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <a href="{{ url_for('channels.index') }}" class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l4-4 3 3 4-4 3 3v14a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M4 8h16"/><circle cx="8" cy="14" r="2"/></svg>
+      Shorts Pipeline
+    </a>
+    <nav class="site-nav">
+      <a href="{{ url_for('channels.index') }}" class="{% if request.endpoint == 'channels.index' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Channels
+      </a>
+      <a href="{{ url_for('review.queue') }}" class="{% if request.endpoint == 'review.queue' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        Review{% if review_waiting %} <span class="nav-count">{{ review_waiting }}</span>{% endif %}
+      </a>
+      <a href="{{ url_for('review.insights_page') }}" class="{% if request.endpoint == 'review.insights_page' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+        Insights
+      </a>
+      <a href="{{ url_for('footage.browse') }}" class="{% if request.endpoint == 'footage.browse' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>
+        Footage
+      </a>
+      <a href="{{ url_for('voice_lab.page') }}" class="{% if request.endpoint == 'voice_lab.page' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0014 0"/><path d="M12 17v5M9 22h6"/></svg>
+        Voice Lab
+      </a>
+    </nav>
+  </header>
+  {% if active_job_count %}
+  <a class="global-activity" href="{{ url_for('channels.index') }}">
+    <span class="spinner"></span>
+    {{ active_job_count }} video{{ 's' if active_job_count != 1 }} generating
+  </a>
+  {% endif %}
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

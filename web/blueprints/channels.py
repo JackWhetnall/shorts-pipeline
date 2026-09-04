@@ -1,0 +1,392 @@
+"""
+Channel list, dashboard, settings, creation, and lifecycle.
+"""
+
+from __future__ import annotations
+
+from flask import (
+    Blueprint, abort, jsonify, redirect, render_template, request, url_for,
+)
+
+from core import channel_admin, gallery, jobs, scheduler
+from core.assets import has_logo
+from core.channels import ChannelConfig, channel_to_sparse_dict, read_raw, save_channel
+from core.errors import ConfigError
+from core.footage_stats import library_stats
+from core.paths import PROJECT_ROOT, slugify
+from pipeline.run import fetch_seed
+from web import checklist
+from web.forms import apply_channel_form, format_affiliate_links
+from web.helpers import (
+    all_channels, as_int, channel_or_404, channel_progress, format_date,
+)
+
+bp = Blueprint("channels", __name__)
+
+SECTIONS = ("live", "setup", "future", "archived")
+SECTION_TITLES = {"live": "Live", "setup": "Setting up",
+                  "future": "Future ideas", "archived": "Archived"}
+
+
+@bp.route("/")
+def index():
+    channels = all_channels()
+    sections = {name: {} for name in SECTIONS}
+    progress = {}
+
+    for key, channel in channels.items():
+        info = channel_progress(key, channel)
+        info["last_published_label"] = format_date(
+            gallery.latest_published_at(channel.output_dir))
+        progress[key] = info
+        sections[info["section"]][key] = channel
+
+    return render_template(
+        "index.html",
+        channels=channels, sections=sections, statuses=SECTIONS,
+        section_titles=SECTION_TITLES, progress=progress,
+        has_logo={key: has_logo(key) for key in channels},
+        library=library_stats(),
+        deleted_key=request.args.get("deleted"),
+        backup_path=request.args.get("backup"),
+    )
+
+
+@bp.route("/channels/<key>")
+def dashboard(key):
+    channel = channel_or_404(key)
+    info = channel_progress(key, channel)
+
+    social_links = [
+        {"label": label, "url": url} for label, url in (
+            ("YouTube", channel.socials.youtube_url),
+            ("TikTok", channel.socials.tiktok_url),
+            ("Instagram", channel.socials.instagram_url),
+        ) if url
+    ]
+    monetization_links = [
+        {"label": label, "url": url} for label, url in (
+            ("Patreon", channel.monetization.patreon_url),
+            ("Merch store", channel.monetization.merch_url),
+        ) if url
+    ] + [
+        {"label": link.get("label") or "Affiliate link", "url": link["url"]}
+        for link in channel.monetization.affiliate_links
+    ]
+
+    return render_template(
+        "channel_dashboard.html",
+        key=key, channel=channel,
+        video_count=info["video_count"],
+        published_count=info["published_count"],
+        unpublished_count=info["unpublished_count"],
+        last_video_at=format_date(gallery.latest_video_mtime(channel.output_dir)),
+        checklist=info["checklist_essential"],
+        checklist_extras=info["checklist_extras"],
+        checklist_remaining=info["checklist_remaining"],
+        extras_remaining=info["extras_remaining"],
+        ready_to_publish=info["checklist_remaining"] == 0 and info["section"] != "live",
+        social_links=social_links, monetization_links=monetization_links,
+        has_logo=has_logo(key),
+        schedule=scheduler.get_schedule(key),
+        cost=_channel_cost(key),
+        rename_error=request.args.get("rename_error"),
+    )
+
+
+def _channel_cost(key: str) -> dict:
+    from core import costs
+    return costs.summary_for_channel(key)
+
+
+@bp.route("/channels/<key>/settings", methods=["GET", "POST"])
+def settings(key):
+    channel = channel_or_404(key)
+    if request.method == "POST":
+        apply_channel_form(channel, request.form)
+        try:
+            channel.validate()
+        except ConfigError as exc:
+            return render_template(
+                "channel_settings.html", channel=channel,
+                sources=_sources(), error=exc.user_message,
+                affiliate_links_text=format_affiliate_links(
+                    channel.monetization.affiliate_links),
+            ), 400
+        save_channel(channel)
+        return redirect(url_for("channels.settings", key=key, saved=1))
+
+    return render_template(
+        "channel_settings.html", channel=channel, sources=_sources(),
+        affiliate_links_text=format_affiliate_links(channel.monetization.affiliate_links),
+        saved=request.args.get("saved"),
+    )
+
+
+def _sources() -> list:
+    from pipeline.quote_source import SOURCES
+    return sorted(SOURCES)
+
+
+@bp.route("/channels/new", methods=["GET", "POST"])
+def new_channel():
+    if request.method == "POST":
+        display_name = request.form.get("channel_display_name", "").strip()
+        key = (request.form.get("key") or "").strip() or slugify(display_name)
+        error = None
+        if not key:
+            error = "Give the channel a name."
+        elif key in read_raw():
+            error = f'A channel called "{key}" already exists.'
+
+        channel = ChannelConfig(key=key or "new_channel")
+        apply_channel_form(channel, request.form)
+        if not error:
+            try:
+                channel.validate()
+            except ConfigError as exc:
+                error = exc.user_message
+
+        if error:
+            return render_template("new_channel.html", channel=channel,
+                                   sources=_sources(), error=error,
+                                   affiliate_links_text=""), 400
+
+        channel_admin.create_channel(channel)
+        return redirect(url_for("channels.dashboard", key=channel.key))
+
+    blank = ChannelConfig(key="", channel_display_name="", content_mode="topic")
+    blank.output_dir = ""
+    return render_template("new_channel.html", channel=blank, sources=_sources(),
+                           affiliate_links_text="")
+
+
+@bp.route("/channels/<key>/create")
+def create_video(key):
+    channel = channel_or_404(key)
+    return render_template("create_video.html", key=key, channel=channel)
+
+
+# --- lifecycle --------------------------------------------------------
+
+@bp.route("/channels/<key>/rename", methods=["POST"])
+def rename(key):
+    channel_or_404(key)
+    try:
+        result = channel_admin.rename_channel(key, request.form.get("new_name", ""))
+    except ConfigError as exc:
+        return redirect(url_for("channels.dashboard", key=key,
+                                rename_error=exc.user_message))
+    return redirect(url_for("channels.dashboard", key=result["new_key"]))
+
+
+@bp.route("/channels/<key>/archive", methods=["POST"])
+def archive(key):
+    channel_or_404(key)
+    channel_admin.set_archived(key, True)
+    return redirect(url_for("channels.settings", key=key))
+
+
+@bp.route("/channels/<key>/unarchive", methods=["POST"])
+def unarchive(key):
+    channel_or_404(key)
+    channel_admin.set_archived(key, False)
+    return redirect(url_for("channels.settings", key=key))
+
+
+@bp.route("/channels/<key>/checklist/<item_id>/toggle-manual", methods=["POST"])
+def toggle_checklist(key, item_id):
+    channel_or_404(key)
+    if item_id not in checklist.ITEM_IDS:
+        abort(404, description="That isn't a checklist item.")
+    channel_admin.toggle_checklist_override(key, item_id)
+    return redirect(url_for("channels.dashboard", key=key))
+
+
+@bp.route("/channels/<key>/delete", methods=["GET"])
+def delete_confirm(key):
+    channel = channel_or_404(key)
+    state = gallery.video_state_counts(channel.output_dir)
+    return render_template("delete_channel_confirm.html", key=key, channel=channel,
+                           video_count=state["total"])
+
+
+@bp.route("/channels/<key>/delete", methods=["POST"])
+def delete(key):
+    channel_or_404(key)
+    # The typed-key confirmation is enforced here as well as in the
+    # browser: a disabled submit button is a convenience, never a check.
+    if request.form.get("confirm_key") != key:
+        abort(400, description="The typed channel name didn't match.")
+    zip_path = channel_admin.delete_channel(key)
+    backup = str(zip_path.relative_to(PROJECT_ROOT)).replace("\\", "/")
+    return redirect(url_for("channels.index", deleted=key, backup=backup))
+
+
+@bp.route("/api/channels/reorder", methods=["POST"])
+def reorder():
+    data = request.get_json(force=True, silent=True) or {}
+    keys = data.get("keys")
+    if not isinstance(keys, list) or not keys:
+        return jsonify({"error": "No channel order was sent."}), 400
+    channel_admin.reorder_channels(keys)
+    return jsonify({"ok": True})
+
+
+# --- scheduling -------------------------------------------------------
+
+@bp.route("/channels/<key>/schedule", methods=["POST"])
+def set_schedule(key):
+    channel_or_404(key)
+    hour_raw = (request.form.get("hour") or "").strip()
+    schedule = scheduler.Schedule(
+        enabled=request.form.get("schedule_enabled") == "on",
+        every_days=as_int(request.form.get("every_days"), default=1, minimum=1, maximum=90),
+        hour=as_int(hour_raw, default=None, minimum=0, maximum=23) if hour_raw else None,
+    )
+    scheduler.set_schedule(key, schedule)
+    return redirect(url_for("channels.dashboard", key=key))
+
+
+# --- generation triggers ---------------------------------------------
+
+def _times_used(channel, seed) -> dict:
+    """Has this quote or topic come up before?
+
+    Filenames were deliberately made readable so repeats are visible at a
+    glance — but only while browsing a folder. At the moment of decision,
+    with Reroll and Use this on screen, nothing said so.
+    """
+    from core.paths import slugify
+    stem = slugify(seed.title, fallback="video")
+    directory = (PROJECT_ROOT / channel.output_dir)
+    if not directory.exists():
+        return {"count": 0, "last": None}
+    matches = [p for p in directory.rglob("*.mp4")
+               if p.stem == stem or p.stem.rsplit("_", 1)[0] == stem]
+    if not matches:
+        return {"count": 0, "last": None}
+    return {"count": len(matches),
+            "last": format_date(max(p.stat().st_mtime for p in matches))}
+
+
+@bp.route("/api/channels/<key>/seed", methods=["POST"])
+def api_seed(key):
+    channel = channel_or_404(key)
+    seed = fetch_seed(channel)
+    return jsonify({
+        "seed": seed.to_jsonable(),
+        "description": seed.describe(),
+        "history": _times_used(channel, seed),
+    })
+
+
+@bp.route("/api/channels/<key>/preview-script", methods=["POST"])
+def preview_script(key):
+    """Generate a script and nothing else.
+
+    Tuning the style prompt used to mean rendering a complete video to see
+    what changed — minutes and real money for a text edit. This is one
+    call, a few seconds, about a cent."""
+    import time
+    from core import costs
+    from pipeline.script_gen import preview_script as run_preview
+
+    channel = channel_or_404(key)
+    started = time.time()
+    seed = fetch_seed(channel)
+    script = run_preview(seed, channel)
+    spend = costs.summary_between(started, time.time(), key)
+
+    return jsonify({
+        "seed": seed.describe(),
+        "cost": costs.format_usd(spend["total_usd"]),
+        "script": {
+            "title": script.title,
+            "title_options": script.title_options,
+            "description_body": script.description_body,
+            "segments": [{"text": s.text, "shot_brief": s.shot_brief,
+                          "keywords": s.keywords} for s in script.segments],
+        },
+    })
+
+
+@bp.route("/api/channels/<key>/voice", methods=["POST"])
+def apply_voice(key):
+    """Set a voice and speed from the Voice Lab.
+
+    The Lab knew the voice, the speed and the cadence, and then asked you
+    to remember an ID, open another page and type it in."""
+    from core.channels import save_channel
+
+    channel = channel_or_404(key)
+    data = request.get_json(force=True, silent=True) or {}
+    voice_id = (data.get("voice_id") or "").strip()
+    if not voice_id:
+        return jsonify({"error": "No voice was chosen."}), 400
+    channel.voice = voice_id
+    try:
+        channel.speed = float(data.get("speed", channel.speed))
+    except (TypeError, ValueError):
+        pass
+    # The cadence preset is resolved here rather than in the browser, so
+    # the preset table has exactly one definition.
+    from core.voice_lab import CADENCE_PRESETS
+    preset = CADENCE_PRESETS.get(data.get("preset"))
+    if preset:
+        for field, value in preset["pacing"].items():
+            if field in channel.pacing.keys():
+                setattr(channel.pacing, field, float(value))
+    save_channel(channel)
+    return jsonify({"ok": True, "channel": channel.channel_display_name})
+
+
+@bp.route("/api/channels/<key>/generate", methods=["POST"])
+def api_generate(key):
+    channel_or_404(key)
+    data = request.get_json(force=True, silent=True) or {}
+    seed = data.get("seed")
+    if not seed:
+        return jsonify({"error": "No quote or topic was chosen."}), 400
+    return jsonify({"job_id": jobs.start_job(key, seed)})
+
+
+@bp.route("/channels/<key>/generate-now", methods=["POST"])
+def generate_now(key):
+    """Fetch a seed and start, skipping the review step.
+
+    Reviewing a seed is useful when you're watching. It adds nothing to a
+    run you're about to walk away from, which is what this button is for.
+    """
+    channel = channel_or_404(key)
+    seed = fetch_seed(channel)
+    return jsonify({"job_id": jobs.start_job(key, seed.to_jsonable())})
+
+
+@bp.route("/api/channels/generate-all", methods=["POST"])
+def api_generate_all():
+    """Start every eligible channel, using the same eligibility rule as
+    the per-card button."""
+    started, skipped = [], []
+    for key, channel in all_channels().items():
+        info = channel_progress(key, channel)
+        if not info["can_generate"]:
+            skipped.append({"key": key, "reason": _why_not(info)})
+            continue
+        try:
+            jobs.start_job(key, fetch_seed(channel).to_jsonable())
+            started.append(key)
+        except Exception as exc:  # noqa: BLE001 - one channel must not stop the rest
+            from core.errors import friendly_message
+            skipped.append({"key": key, "reason": friendly_message(exc)})
+    return jsonify({"started": started, "skipped": skipped})
+
+
+def _why_not(info: dict) -> str:
+    if info["active_job"]:
+        return "already generating"
+    if info["section"] != "live":
+        return "not live yet"
+    if info["unpublished_count"]:
+        return f"{info['unpublished_count']} video(s) still unpublished"
+    return "not eligible"

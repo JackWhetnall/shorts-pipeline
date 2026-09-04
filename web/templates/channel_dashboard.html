@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}{{ channel.channel_display_name }}{% endblock %}
+{% block content %}
+{% macro launch_checklist() %}
+<details class="card launch-checklist">
+  <summary class="summary-heading">
+    Launch checklist
+    {% if checklist_remaining %}<span class="badge">{{ checklist_remaining }}</span>{% endif %}
+  </summary>
+  <ul class="todo-list">
+    {% for item in checklist %}
+    <li class="todo-item {{ 'done' if item.done else '' }} {{ 'manual' if item.manual else '' }}">
+      <span class="todo-check"></span>
+      <span class="todo-label">{{ item.label }}</span>
+      <div class="todo-actions">
+        {% if item.manual %}
+        <form method="post" action="{{ item.toggle_link }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="todo-action">Unmark</button>
+        </form>
+        {% elif not item.done %}
+        <a class="todo-action" href="{{ item.link }}">Fix &rarr;</a>
+        <form method="post" action="{{ item.toggle_link }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="todo-action">Mark done</button>
+        </form>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% endmacro %}
+
+<a class="back-link" href="{{ url_for('channels.index') }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  Channels
+</a>
+
+<div class="dashboard-header">
+  {% if has_logo %}
+  <a href="{{ url_for('logos.logo_page', key=key) }}" class="channel-logo-link">
+    <img class="channel-logo" src="{{ url_for('logos.serve_asset', key=key, filename='logo.png') }}?t={{ range(1,999999)|random }}" alt="">
+  </a>
+  {% else %}
+  <a href="{{ url_for('logos.logo_page', key=key) }}" class="channel-logo-placeholder">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+    Create logo
+  </a>
+  {% endif %}
+  <div>
+    <div class="title-row">
+      <h1>{{ channel.channel_display_name }}</h1>
+      <details class="rename-details">
+        <summary class="icon-btn" title="Rename channel" aria-label="Rename channel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </summary>
+        <div class="card rename-panel">
+          <p class="subtitle">
+            Renames the channel everywhere &mdash; its display name, its
+            config key, its logo/merch folder, and its output folder (if
+            it's still using the default output path). URLs and the
+            CLI's channel key change too.
+          </p>
+          <form method="post" action="{{ url_for('channels.rename', key=key) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>New channel name
+              <input type="text" name="new_name" required placeholder="{{ channel.channel_display_name }}">
+            </label>
+            <button type="submit" class="btn-ghost">Rename</button>
+          </form>
+        </div>
+      </details>
+    </div>
+    <p class="meta">{{ key }} &middot; {{ channel.content_mode }}</p>
+  </div>
+</div>
+
+{% if rename_error %}<p class="error">{{ rename_error }}</p>{% endif %}
+
+<div class="stat-row">
+  <div class="stat-tile">
+    <div class="stat-value">{{ video_count }}</div>
+    <div class="stat-label">video{{ 's' if video_count != 1 else '' }} created</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-value">{{ last_video_at or '—' }}</div>
+    <div class="stat-label">{{ 'last video created' if last_video_at else 'no videos yet' }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Quick actions</h2>
+  <div class="actions">
+    <a href="{{ url_for('channels.create_video', key=key) }}">Create Video</a>
+    <a href="{{ url_for('channels.settings', key=key) }}">Settings</a>
+    <a href="{{ url_for('gallery.channel_gallery', key=key) }}">Gallery</a>
+    <a href="{{ url_for('logos.logo_page', key=key) }}">Logo</a>
+    <a href="{{ url_for('setup.setup_step', key=key, step='logo') }}">Channel setup</a>
+  </div>
+</div>
+
+{% if checklist_remaining %}
+{{ launch_checklist() }}
+{% elif ready_to_publish %}
+<p class="meta ready-to-publish">
+  Everything on the launch checklist is done &mdash; this channel goes
+  live automatically as soon as a video is published from its
+  <a href="{{ url_for('gallery.channel_gallery', key=key) }}">gallery</a>.
+</p>
+{% endif %}
+
+<div class="card">
+  <h2>Automatic generation</h2>
+  <p class="subtitle">
+    Generate a video on a schedule instead of clicking a button. A run is
+    skipped whenever this channel still has an unpublished video waiting,
+    so this can't build up a backlog of unreviewed takes.
+  </p>
+  <form method="post" action="{{ url_for('channels.set_schedule', key=key) }}" class="channel-form">
+    <label class="checkbox-label">
+      <input type="checkbox" name="schedule_enabled" {% if schedule.enabled %}checked{% endif %}>
+      Generate automatically
+    </label>
+    <label>
+      Every
+      <input type="number" name="every_days" min="1" max="30" value="{{ schedule.every_days }}"> day(s)
+    </label>
+    <label>
+      At hour (0&ndash;23, blank for any time)
+      <input type="number" name="hour" min="0" max="23"
+             value="{{ schedule.hour if schedule.hour is not none else '' }}">
+    </label>
+    <button type="submit">Save schedule</button>
+  </form>
+</div>
+
+{% if cost and cost.calls %}
+<div class="card">
+  <h2>What this channel has cost</h2>
+  <p class="cost-line"><strong>{{ '$%.2f'|format(cost.total_usd) }}</strong>
+     across {{ cost.calls }} API call{{ 's' if cost.calls != 1 }}.</p>
+  <ul class="cost-breakdown meta">
+    {% for operation, amount in cost.by_operation.items() %}
+    <li class="cost-line">{{ operation }} &mdash; {{ '$%.4f'|format(amount) if amount < 0.01 else '$%.2f'|format(amount) }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if social_links or monetization_links %}
+<div class="card dashboard-links-card">
+  <h2>Your links</h2>
+  {% if social_links %}
+  <p class="meta">Socials</p>
+  <div class="tile-row">
+    {% for link in social_links %}
+    <a class="link-tile" href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if monetization_links %}
+  <p class="meta links-row-label">Monetization</p>
+  <div class="tile-row">
+    {% for link in monetization_links %}
+    <a class="link-tile" href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if not checklist_remaining %}{{ launch_checklist() }}{% endif %}
+
+{% if checklist_extras %}
+<details class="card channel-section">
+  <summary class="summary-heading">
+    When you're ready
+    <span class="badge">{{ extras_remaining }}</span>
+  </summary>
+  <p class="subtitle">
+    Optional. None of these hold the channel back &mdash; work through them
+    whenever you feel like it.
+  </p>
+  <ul class="checklist">
+    {% for item in checklist_extras %}
+    <li class="{{ 'done' if item.done }}">
+      {% if item.done %}
+      <form method="post" action="{{ item.toggle_link }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="checklist-toggle" title="Mark as not done">
+          {{ '&ndash;'|safe if item.manual else '&check;'|safe }}
+        </button>
+      </form>
+      <span>{{ item.label }}</span>
+      {% else %}
+      <form method="post" action="{{ item.toggle_link }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="checklist-toggle" title="Skip this one">&nbsp;</button>
+      </form>
+      <a href="{{ item.link }}">{{ item.label }}</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endblock %}

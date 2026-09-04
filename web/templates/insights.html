@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}How it's going{% endblock %}
+{% block content %}
+
+<h1>How it's going</h1>
+<p class="subtitle">{{ headline }}</p>
+
+{% if not data.video_count %}
+<div class="empty-state">
+  <p><strong>Nothing to measure yet.</strong></p>
+  <p>Generate a few videos and this fills in.</p>
+</div>
+{% else %}
+
+{% set t = data.totals %}
+<div class="stat-strip">
+  <div class="stat">
+    <span class="stat-num">{{ t.total }}</span>
+    <span class="stat-lab">Made</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">{{ t.published }}</span>
+    <span class="stat-lab">Published</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num {{ 'stat-bad' if t.discard_rate > 0.4 }}">{{ '%.0f'|format(t.discard_rate * 100) }}%</span>
+    <span class="stat-lab">Discarded</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">{{ t.awaiting_review }}</span>
+    <span class="stat-lab">Awaiting review</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">${{ '%.2f'|format(data.spend.per_published_usd) }}</span>
+    <span class="stat-lab">Per published video</span>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Why videos get discarded</h2>
+  {% if data.discard_reasons.rows %}
+  <p class="subtitle">
+    This is the signal that tells you what to fix. {{ data.discard_reasons.recorded }}
+    discard{{ 's' if data.discard_reasons.recorded != 1 }} with a recorded reason.
+  </p>
+  <div class="reason-bars">
+    {% for row in data.discard_reasons.rows %}
+    <div class="reason-row">
+      <span class="reason-label">{{ row.label }}</span>
+      <span class="reason-track">
+        <span class="reason-fill" style="width: {{ '%.1f'|format(row.share * 100) }}%"></span>
+      </span>
+      <span class="reason-count">{{ row.count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% if data.discard_reasons.unrecorded %}
+  <p class="meta">
+    {{ data.discard_reasons.unrecorded }} older discard{{ 's' if data.discard_reasons.unrecorded != 1 }}
+    predate reason tracking and aren't counted here.
+  </p>
+  {% endif %}
+  {% else %}
+  <p class="meta">
+    No discards with a reason yet. Discarding from the
+    <a href="{{ url_for('review.queue') }}">review queue</a> records one.
+  </p>
+  {% endif %}
+</div>
+
+{% set q = data.quality %}
+{% if q.reported %}
+<div class="card">
+  <h2>Render quality</h2>
+  <p class="subtitle">Across the {{ q.reported }} video{{ 's' if q.reported != 1 }} rendered since these checks existed.</p>
+  <div class="stat-strip stat-strip-inline">
+    <div class="stat">
+      <span class="stat-num {{ 'stat-bad' if q.footage_repeat_rate > 0.2 }}">{{ '%.0f'|format(q.footage_repeat_rate * 100) }}%</span>
+      <span class="stat-lab">Reused a footage clip</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num {{ 'stat-bad' if q.similarity_flag_rate > 0.2 }}">{{ '%.0f'|format(q.similarity_flag_rate * 100) }}%</span>
+      <span class="stat-lab">Flagged as similar to an earlier script</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num {{ 'stat-bad' if q.footage_degraded_rate > 0.1 }}">{{ '%.0f'|format(q.footage_degraded_rate * 100) }}%</span>
+      <span class="stat-lab">Footage chosen without scoring</span>
+    </div>
+  </div>
+  <p class="meta">
+    The first two are the "looks mass-produced" signals: repeated footage
+    means the library is stretched, similarity means the wording is
+    converging. The third means the matcher itself failed and clips were
+    picked without being scored &mdash; invisible from the videos alone.
+  </p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Spend</h2>
+  <div class="stat-strip stat-strip-inline">
+    <div class="stat">
+      <span class="stat-num">${{ '%.2f'|format(data.spend.total_usd) }}</span>
+      <span class="stat-lab">Total recorded</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">${{ '%.2f'|format(data.spend.per_video_usd) }}</span>
+      <span class="stat-lab">Per video made</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">${{ '%.2f'|format(data.spend.per_published_usd) }}</span>
+      <span class="stat-lab">Per video published</span>
+    </div>
+  </div>
+  <p class="meta">
+    The gap between the last two is what discarding costs you. If you throw
+    half away, every published video costs twice what it looks like.
+  </p>
+  {% if data.spend.unattributed_usd > 0.005 %}
+  <p class="meta">
+    <strong>{{ '$%.2f'|format(data.spend.unattributed_usd) }}</strong> went on runs
+    that produced no video &mdash; a failure after the script or voiceover was
+    already generated. That is the money a mid-render failure costs.
+  </p>
+  {% endif %}
+  {% if data.spend.all_time.by_operation %}
+  <ul class="cost-breakdown meta">
+    {% for operation, amount in data.spend.all_time.by_operation.items() %}
+    <li class="cost-line">{{ operation }} &mdash; {{ '$%.4f'|format(amount) if amount < 0.01 else '$%.2f'|format(amount) }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Recent videos</h2>
+  <div class="timeline">
+    {% for row in data.recent %}
+    <a class="tick tick-{{ row.state }}"
+       href="{{ url_for('gallery.video_detail', key=row.channel_key, relpath=row.relpath) }}"
+       title="{{ row.name }} — {{ row.channel }} — {{ row.state }}{% if row.reason %} ({{ reason_labels.get(row.reason, row.reason) }}){% endif %}"></a>
+    {% endfor %}
+  </div>
+  <p class="meta timeline-key">
+    <span class="tick tick-published"></span> published
+    <span class="tick tick-waiting"></span> waiting
+    <span class="tick tick-discarded"></span> discarded
+    &middot; oldest on the left
+  </p>
+</div>
+
+{% if data.by_channel|length > 1 %}
+<div class="card">
+  <h2>By channel</h2>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Channel</th><th class="num">Made</th><th class="num">Published</th><th class="num">Discarded</th><th class="num">Spend</th></tr>
+      </thead>
+      <tbody>
+        {% for row in data.by_channel %}
+        <tr>
+          <td><a href="{{ url_for('channels.dashboard', key=row.key) }}">{{ row.name }}</a></td>
+          <td class="num">{{ row.total }}</td>
+          <td class="num">{{ row.published }}</td>
+          <td class="num">{{ row.discarded }} ({{ '%.0f'|format(row.discard_rate * 100) }}%)</td>
+          <td class="num">${{ '%.2f'|format(row.spend_usd) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

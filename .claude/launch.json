@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "shorts-pipeline-webapp",
+      "name": "shorts-pipeline-web",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["webapp/app.py"],
+      "runtimeArgs": ["-m", "web", "--no-scheduler"],
       "port": 5000
     }
   ]

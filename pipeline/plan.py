@@ -1,0 +1,262 @@
+"""
+The data that flows through the pipeline, as declared types.
+
+Before this, each stage had its own ad-hoc shape: a seed dict with keys
+that depended on its "type", a script dict of dicts, a five-tuple back
+from the voiceover stage, two parallel lists-of-lists (spans and clip
+paths) that the assembler had to re-zip by hand, and thirteen arguments
+into build_video — five of which were the channel config, unpacked field
+by field and passed individually.
+
+The cost of that wasn't ugliness, it was that every new capability had to
+be threaded through every signature. Adding a music bed meant a new
+parameter in three functions and a sixth element in the tuple. Here a
+stage takes the plan and returns the plan, so a new stage is one
+function and a new field, and nothing upstream of it changes.
+
+Everything is JSON round-trippable (see to_jsonable / *_from_jsonable)
+because the checkpoint system persists partial plans so an interrupted
+job can resume without re-paying for work that already completed. The one
+exception is the raw audio sample array, which is checkpointed as an mp3
+alongside — decoding a saved file is more reliable than serialising float
+samples, the same reasoning the audio layer uses everywhere else.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from core.channels import ChannelConfig
+
+
+@dataclass
+class Seed:
+    """What a video is about, before any text has been written.
+
+    Two shapes behind one type: a quote carries text the pipeline must
+    not alter (it's someone else's words), a topic carries only a subject
+    and everything gets generated. Downstream stages never branch on
+    this — only the script generator does.
+    """
+
+    type: str                 # "quote" | "topic"
+    text: str = ""            # quote only: the source text, used verbatim
+    reference: str = ""       # quote only: e.g. "John 3:16"
+    topic: str = ""           # topic only
+
+    @property
+    def title(self) -> str:
+        """The human-readable label this video's files are named after —
+        the reference for a quote, the topic otherwise. Filenames built
+        from this are how repeats stay visible at a glance."""
+        return self.reference if self.type == "quote" else self.topic
+
+    def describe(self) -> str:
+        if self.type == "quote":
+            return f"{self.text}  —  {self.reference}"
+        return self.topic
+
+    def to_jsonable(self) -> dict:
+        return {"type": self.type, "text": self.text,
+                "reference": self.reference, "topic": self.topic}
+
+    @classmethod
+    def from_jsonable(cls, data: dict) -> "Seed":
+        return cls(type=data["type"], text=data.get("text", ""),
+                   reference=data.get("reference", ""), topic=data.get("topic", ""))
+
+
+@dataclass
+class Segment:
+    """One spoken chunk, plus a brief for the footage under it.
+
+    `text` is what is said. `shot_brief` is what should be on screen — a
+    literal, filmable sentence, deliberately separate from the words
+    because the two are rarely the same thing. Reflective narration is
+    abstract; footage cannot be. Keeping them apart is what lets the
+    matcher compare something literal against literal clip descriptions
+    instead of trying to bridge "integrity" to "prayer beads on a table".
+
+    `keywords` are concrete, searchable terms drawn from the brief.
+
+    start/end are filled in by the voiceover stage from the real
+    synthesized audio — never estimated from word counts, which
+    punctuation and TTS quirks make unreliable.
+    """
+
+    text: str
+    shot_brief: str = ""
+    keywords: list = field(default_factory=list)
+    start: float = 0.0
+    end: float = 0.0
+
+    @property
+    def visual_text(self) -> str:
+        """What to match footage against: the brief, falling back to the
+        spoken words for scripts generated before briefs existed."""
+        return self.shot_brief or self.text
+
+    @property
+    def duration(self) -> float:
+        return self.end - self.start
+
+    def to_jsonable(self) -> dict:
+        return {"text": self.text, "shot_brief": self.shot_brief,
+                "keywords": list(self.keywords),
+                "start": self.start, "end": self.end}
+
+    @classmethod
+    def from_jsonable(cls, data: dict) -> "Segment":
+        # shot_brief is optional: checkpoints written before briefs
+        # existed must still resume rather than crash a retry.
+        return cls(text=data["text"], shot_brief=data.get("shot_brief", ""),
+                   keywords=list(data.get("keywords") or []),
+                   start=data.get("start", 0.0), end=data.get("end", 0.0))
+
+
+@dataclass
+class Script:
+    """citation is optional generic metadata spoken right after segment 0
+    — a Bible reference, say. Absent for topic-driven formats. No stage
+    downstream of here knows what format produced these segments.
+
+    `title_options` and `description_body` come back from the same call
+    that writes the segments. They are nearly free — the model already has
+    the passage and the analysis in front of it — and they replace the two
+    things that were previously done by hand for every single video: a
+    title that existed nowhere in the system, and a "ready-to-paste"
+    description that was one reference line long.
+    """
+
+    segments: list
+    citation: str = None
+    title_options: list = field(default_factory=list)
+    description_body: str = ""
+
+    @property
+    def title(self) -> str:
+        return self.title_options[0] if self.title_options else ""
+
+    def to_jsonable(self) -> dict:
+        return {"citation": self.citation,
+                "segments": [s.to_jsonable() for s in self.segments],
+                "title_options": list(self.title_options),
+                "description_body": self.description_body}
+
+    @classmethod
+    def from_jsonable(cls, data: dict) -> "Script":
+        return cls(citation=data.get("citation"),
+                   segments=[Segment.from_jsonable(s) for s in data["segments"]],
+                   title_options=list(data.get("title_options") or []),
+                   description_body=data.get("description_body", ""))
+
+
+@dataclass
+class WordTiming:
+    word: str
+    start: float
+    end: float
+
+    def to_jsonable(self) -> dict:
+        return {"word": self.word, "start": self.start, "end": self.end}
+
+    @classmethod
+    def from_jsonable(cls, data: dict) -> "WordTiming":
+        return cls(word=data["word"], start=data["start"], end=data["end"])
+
+
+@dataclass
+class Shot:
+    """One continuous piece of footage at its exact real timestamps.
+
+    This replaces two parallel lists-of-lists — spans in one, clip paths
+    in another — that the assembler zipped back together. A shot knowing
+    its own clip is why the assembler no longer has to.
+    """
+
+    start: float
+    end: float
+    segment_index: int
+    clip_path: Path = None
+
+    @property
+    def duration(self) -> float:
+        return self.end - self.start
+
+
+@dataclass
+class Voiceover:
+    """The narration, its timings, and the actual samples.
+
+    `samples` travels in memory rather than being re-read from
+    audio_path: re-decoding a lossily-encoded file back into
+    frame-accurate samples near its exact end is unreliable, and there's
+    no reason to when the real samples are already here.
+    """
+
+    audio_path: Path
+    word_timings: list
+    samples: object          # numpy (n, channels) float array
+    fps: int
+
+    @property
+    def duration(self) -> float:
+        return len(self.samples) / self.fps
+
+
+@dataclass
+class RenderPlan:
+    """Everything one video needs, accumulated stage by stage.
+
+    Stages are `fn(plan) -> plan`. Fields are None until the stage that
+    produces them has run, so the plan doubles as a record of how far a
+    job actually got.
+    """
+
+    channel: ChannelConfig
+    seed: Seed
+    out_dir: Path = None
+    stem: str = None
+    script: Script = None
+    voiceover: Voiceover = None
+    shots: list = field(default_factory=list)
+    # Set when the footage library had to reuse a clip because it ran out
+    # of distinct matches. Surfaced on the finished video rather than
+    # buried in a log — repeated footage within one video is exactly the
+    # mass-production signal that puts monetization at risk.
+    footage_repeated: bool = False
+    # True when clips were chosen without scoring because the matching
+    # call failed. The render still completes; the video is flagged so
+    # nobody publishes it thinking it had the usual treatment.
+    footage_degraded: bool = False
+    # Set by the originality check at the end of a run (see
+    # pipeline.similarity). Carried on the plan so the caller can surface
+    # it without re-running the comparison.
+    similarity: object = None
+    # False on background threads, which have no terminal to read from.
+    # Only the CLI ever sets this True, and only the CLI acts on it.
+    interactive: bool = True
+
+    @property
+    def video_path(self) -> Path:
+        return self.out_dir / f"{self.stem}.mp4"
+
+    @property
+    def audio_path(self) -> Path:
+        return self.out_dir / f"{self.stem}_audio.mp3"
+
+    @property
+    def meta_path(self) -> Path:
+        return self.out_dir / f"{self.stem}_meta.txt"
+
+    @property
+    def description_path(self) -> Path:
+        return self.out_dir / f"{self.stem}_description.txt"
+
+    @property
+    def segments(self) -> list:
+        return self.script.segments if self.script else []
+
+    def shots_for_segment(self, index: int) -> list:
+        return [s for s in self.shots if s.segment_index == index]

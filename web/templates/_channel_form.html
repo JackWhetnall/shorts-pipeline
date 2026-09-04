@@ -1,0 +1,191 @@
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" class="channel-form">
+  {# Six unrelated jobs used to share one long page: the caption colours
+     you set once sat between the style prompt you edit constantly and the
+     monetization links you set once. Tabs put them in order of how often
+     they're actually touched. One <form>, so Save still saves everything
+     regardless of which tab is open. #}
+  <div class="form-tabs" role="tablist">
+    <button type="button" class="form-tab active" data-tab="content" onclick="showFormTab(this)">Content</button>
+    <button type="button" class="form-tab" data-tab="voice" onclick="showFormTab(this)">Voice &amp; pacing</button>
+    <button type="button" class="form-tab" data-tab="look" onclick="showFormTab(this)">Look</button>
+    <button type="button" class="form-tab" data-tab="links" onclick="showFormTab(this)">Links &amp; money</button>
+  </div>
+
+  <div class="form-panel active" data-panel="content">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if is_new %}
+  <label>Channel key (used in URLs and its output folder, e.g. "science_facts")
+    <input type="text" name="key" required pattern="[a-z0-9_]+" value="{{ channel.key or '' }}">
+  </label>
+  {% else %}
+  <p><strong>Channel key:</strong> {{ channel.key }}</p>
+  {% endif %}
+
+  <label>Display name
+    <input type="text" name="channel_display_name" required value="{{ channel.channel_display_name or '' }}">
+  </label>
+
+  <label>Outro subtext
+    <input type="text" name="outro_subtext" value="{{ channel.outro_subtext or 'Subscribe for more' }}">
+  </label>
+
+  <label>Output directory
+    <input type="text" name="output_dir" required
+           value="{{ channel.output_dir or ('output/' ~ (channel.key or '')) }}">
+  </label>
+
+  <label>ElevenLabs voice ID
+    <input type="text" name="voice" required value="{{ channel.voice or '' }}">
+  </label>
+
+  <label>Speed (1.0 = normal, lower = slower, higher = faster &mdash;
+    try combos on the <a href="{{ url_for('voice_lab.page') }}">Voice Lab</a> first)
+    <input type="number" name="speed" step="0.05" min="0.7" max="1.2"
+           value="{{ channel.speed if channel.speed is not none else 1.0 }}">
+  </label>
+
+  <label>Content mode
+    <select name="content_mode" id="content-mode-select" onchange="toggleContentModeFields()">
+      <option value="static_corpus" {% if channel.content_mode == 'static_corpus' %}selected{% endif %}>
+        Fixed source (a quote is fetched and read aloud)
+      </option>
+      <option value="topic" {% if channel.content_mode == 'topic' or not channel.content_mode %}selected{% endif %}>
+        Topic (every segment is generated fresh)
+      </option>
+    </select>
+  </label>
+
+  <div id="static_corpus-fields" class="mode-fields">
+    <label>Source
+      <select name="source">
+        {% for src in sources %}
+        <option value="{{ src }}" {% if channel.source == src %}selected{% endif %}>{{ src }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+
+  <div id="topic-fields" class="mode-fields">
+    <label>Topics (one per line — rotated randomly each video)
+      <textarea name="topics" rows="5">{{ (channel.topics or [])|join('\n') }}</textarea>
+    </label>
+  </div>
+
+  <label>Style prompt (the actual content-generation instructions Claude follows)
+    <textarea name="style_prompt" rows="4" required>{{ channel.style_prompt or '' }}</textarea>
+  </label>
+
+  <label>Avoid imagery (one word/phrase per line — footage matching this
+    channel will never show a clip whose description contains any of these)
+    <textarea name="avoid_imagery" rows="3">{{ (channel.avoid_imagery or [])|join('\n') }}</textarea>
+  </label>
+
+
+  </div>
+
+  <div class="form-panel" data-panel="voice">
+  <fieldset>
+    <legend>Pacing</legend>
+    {% for field, value in channel.pacing.items() %}
+    <label>{{ field }}
+      <input type="number" step="any" name="pacing_{{ field }}" value="{{ value }}">
+    </label>
+    {% endfor %}
+  </fieldset>
+
+  </div>
+
+  <div class="form-panel" data-panel="look">
+  <fieldset>
+    <legend>Caption / outro style</legend>
+    <label>Font size <input type="number" name="style_font_size" value="{{ channel.style.font_size }}"></label>
+    <label>Base color <input type="text" name="style_base_color" value="{{ channel.style.base_color }}"></label>
+    <label>Highlight color <input type="text" name="style_highlight_color" value="{{ channel.style.highlight_color }}"></label>
+    <label>Stroke color <input type="text" name="style_stroke_color" value="{{ channel.style.stroke_color }}"></label>
+    <label>Stroke width <input type="number" name="style_stroke_width" value="{{ channel.style.stroke_width }}"></label>
+    <label>Outro title color <input type="text" name="style_outro_title_color" value="{{ channel.style.outro_title_color }}"></label>
+    <label>Outro subtext color <input type="text" name="style_outro_subtext_color" value="{{ channel.style.outro_subtext_color }}"></label>
+    <label>Outro background color (R,G,B,A)
+      <input type="text" name="style_outro_bg_color" value="{{ channel.style.outro_bg_color|join(',') }}">
+    </label>
+  </fieldset>
+
+  </div>
+
+  <div class="form-panel" data-panel="links">
+  <fieldset>
+    <legend>Socials</legend>
+    <label>YouTube channel URL
+      <input type="text" name="youtube_url" placeholder="https://youtube.com/@yourchannel"
+             value="{{ channel.socials.youtube_url or '' }}">
+    </label>
+    <label>TikTok profile URL
+      <input type="text" name="tiktok_url" placeholder="https://tiktok.com/@yourhandle"
+             value="{{ channel.socials.tiktok_url or '' }}">
+    </label>
+    <label>Instagram profile URL
+      <input type="text" name="instagram_url" placeholder="https://instagram.com/yourhandle"
+             value="{{ channel.socials.instagram_url or '' }}">
+    </label>
+  </fieldset>
+  <fieldset>
+    <legend>Monetization</legend>
+    <p class="checklist-box">
+      <strong>Setting up monetization</strong> &mdash; these are created
+      externally; paste the resulting URL below once you have it.
+      Nothing here is auto-created.
+    <ul>
+      <li><a href="https://www.patreon.com/portal/registration/register-become-creator" target="_blank" rel="noopener">Create a Patreon page &rarr;</a></li>
+      <li><a href="https://printify.com/" target="_blank" rel="noopener">Set up a merch store (Printify) &rarr;</a></li>
+      <li><a href="https://affiliate-program.amazon.com/" target="_blank" rel="noopener">Get an Amazon Associates tag &rarr;</a></li>
+    </ul>
+    </p>
+
+    <label>Patreon URL
+      <input type="text" name="patreon_url" placeholder="https://patreon.com/yourpage"
+             value="{{ channel.monetization.patreon_url or '' }}">
+    </label>
+    <label>Merch storefront URL
+      <input type="text" name="merch_url" placeholder="https://yourstore.com"
+             value="{{ channel.monetization.merch_url or '' }}">
+    </label>
+    <label>Affiliate links (one per line, "Label | https://...", label optional)
+      <textarea name="affiliate_links" rows="3" placeholder="My favorite journal | https://amzn.to/xxxxx">{{ affiliate_links_text or '' }}</textarea>
+    </label>
+  </fieldset>
+  <fieldset>
+    <legend>End screen (optional second outro segment)</legend>
+    {# Unchecked checkboxes submit nothing, so without this marker the
+       parser can't tell "every CTA switched off" from "this form has no
+       end-screen section at all". #}
+    <input type="hidden" name="end_screen_present" value="1">
+    <label class="checkbox-label">
+      <input type="checkbox" name="end_screen_enabled" {% if channel.end_screen.enabled %}checked{% endif %}>
+      Show a second end screen with active CTAs below
+    </label>
+    <label>Duration (seconds)
+      <input type="number" name="end_screen_duration_seconds" step="0.5" min="1" max="10"
+             value="{{ channel.end_screen.duration_seconds }}">
+    </label>
+
+    {% for cta_key, cta_default_text in [('patreon', 'Support us on Patreon'), ('merch', 'Check out our merch'), ('affiliate', 'Shop our picks below')] %}
+    <div class="cta-row">
+      <label class="checkbox-label">
+        <input type="checkbox" name="cta_{{ cta_key }}_enabled" {% if channel.end_screen.ctas[cta_key].enabled %}checked{% endif %}>
+        {{ cta_key|capitalize }} CTA active (shown on end screen and in the description)
+      </label>
+      <input type="text" name="cta_{{ cta_key }}_text" placeholder="{{ cta_default_text }}"
+             value="{{ channel.end_screen.ctas[cta_key].text or '' }}">
+    </div>
+    {% endfor %}
+  </fieldset>
+
+  </div>
+
+
+
+
+
+  <button type="submit">Save</button>
+</form>

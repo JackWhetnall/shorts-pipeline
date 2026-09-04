@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Footage library{% endblock %}
+{% block content %}
+
+<h1>Footage library</h1>
+<p class="subtitle">
+  {{ library_total }} clip{{ 's' if library_total != 1 }} shared across every channel.
+  {% if unverified %}<strong>{{ unverified }}</strong> {{ 'has' if unverified == 1 else 'have' }} an unconfirmed licence.{% endif %}
+  {% if unenriched %}
+  <br><strong>{{ unenriched }}</strong> {{ 'has' if unenriched == 1 else 'have' }} no subject yet, so
+  {{ 'it matches' if unenriched == 1 else 'they match' }} on description text alone.
+  Run <code>python tools/manage_library.py enrich</code> to sharpen matching.
+  {% endif %}
+</p>
+
+<form class="footage-filters" method="get" action="{{ url_for('footage.browse') }}">
+  <input type="search" name="q" value="{{ query }}"
+         placeholder="Search descriptions — the same index the matcher uses">
+  <select name="show">
+    <option value="all" {% if show == 'all' %}selected{% endif %}>All clips</option>
+    <option value="unused" {% if show == 'unused' %}selected{% endif %}>Never used</option>
+    <option value="unverified" {% if show == 'unverified' %}selected{% endif %}>Licence unconfirmed</option>
+    <option value="missing" {% if show == 'missing' %}selected{% endif %}>File missing</option>
+    <option value="unenriched" {% if show == 'unenriched' %}selected{% endif %}>No subject yet</option>
+    <option value="rejected" {% if show == 'rejected' %}selected{% endif %}>Rejected for footage</option>
+  </select>
+  <button type="submit">Filter</button>
+</form>
+
+<p class="meta">{{ total }} match{{ 'es' if total != 1 }}{% if query %} for &ldquo;{{ query }}&rdquo;, best first{% endif %}.</p>
+
+{% if not clips %}
+<div class="empty-state">
+  <p><strong>Nothing here.</strong></p>
+  <p>Try a different search, or add footage with <code>python tools/manage_library.py add</code>.</p>
+</div>
+{% else %}
+
+<div class="footage-grid">
+  {% for clip in clips %}
+  <div class="card footage-card" data-filename="{{ clip.filename }}">
+    {# A poster image by default, swapped for the real clip on hover.
+       Sixty simultaneous <video> elements never reliably paint a frame,
+       and loading sixty videos to show sixty still frames would be
+       wasteful even if they did. #}
+    <div class="footage-thumb" onmouseenter="playClip(this)" onmouseleave="stopClip(this)"
+         data-src="{{ url_for('footage.preview', filename=clip.filename) }}">
+      <img loading="lazy" alt=""
+           src="{{ url_for('footage.thumbnail', filename=clip.filename) }}">
+    </div>
+    <div class="footage-body">
+      <p class="footage-name">{{ clip.filename }}</p>
+      <p class="footage-desc" onclick="this.classList.toggle('expanded')"
+         title="Click to read the whole description">{{ clip.description or '(no description)' }}</p>
+      {% if clip.subject %}
+      <p class="footage-subject">{{ clip.subject }}{% if clip.setting %} &middot; {{ clip.setting }}{% endif %}</p>
+      {% endif %}
+      <p class="meta footage-stats">
+        {{ '%.1f'|format(clip.duration) }}s &middot;
+        used {{ clip.use_count }}&times;
+        {% if clip.reject_count %}&middot; <span class="footage-warn">rejected {{ clip.reject_count }}&times;</span>{% endif %}
+        {% if not clip.license_verified %}&middot; <span class="footage-warn">licence unconfirmed</span>{% endif %}
+      </p>
+      <div class="footage-actions">
+        <button type="button" class="btn-ghost" onclick="redescribeClip(this)">Re-describe</button>
+        {% if not clip.license_verified %}
+        <button type="button" class="btn-ghost" onclick="confirmLicense(this)">Confirm licence</button>
+        {% endif %}
+        <button type="button" class="btn-ghost footage-danger" onclick="deleteClip(this)">Delete</button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if pages > 1 %}
+<div class="footage-pager">
+  {% if page > 1 %}
+  <a class="btn-ghost" href="{{ url_for('footage.browse', q=query, show=show, page=page-1) }}">&larr; Previous</a>
+  {% endif %}
+  <span class="meta">Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}
+  <a class="btn-ghost" href="{{ url_for('footage.browse', q=query, show=show, page=page+1) }}">Next &rarr;</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

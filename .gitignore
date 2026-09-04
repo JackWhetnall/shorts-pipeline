@@ -22,15 +22,28 @@ env/
 *.gif
 *.webp
 
-# Generated/scratch output — the code that produces these is tracked,
-# their output isn't. footage/manifest.json and the .py scripts under
-# footage/ are still tracked (only matched by the media rules above where
-# relevant).
+# Generated output and local state. The code that produces these is
+# tracked; what it produces is not. footage/ is a data directory now —
+# the tools that maintain it live in tools/ — so only its metadata
+# (manifest.json, kept as an import backup) stays in the repo.
 output/
 cache/
 channels/
 deleted_channels/
 job_state/
+footage/library.db
+footage/library.db-wal
+footage/library.db-shm
+
+# Per-installation and per-run state, not shared between checkouts.
+config/cost_log.jsonl
+config/script_history.json
+config/schedule.json
+config/channels.json.v1.bak
+
+# Test and tooling caches
+.pytest_cache/
+.coverage
 
 # Env/secrets
 .env
