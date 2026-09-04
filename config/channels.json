@@ -61,6 +61,7 @@
       "style_prompt": "You are writing a script for a channel that produces educational videos about how to learn to become a witch, creating your own spells and manifesting the life you want. You should be a nice, laidback teacher, spiritual and ethereal, while maintaining an air of knowledge and mystical understanding. You should make sure that your lessons don't try to create actual facts, merely suggestions that can be interpreted in many ways, much like a horoscope. You should seem outwardly to have profound wisdom, and your videos should seem, yet most importantly not make specific claims.",
       "outro_subtext": "Follow our page",
       "source": "shakespeare",
+      "build_on_previous": true,
       "avoid_imagery": [
         "religious",
         "religion"
@@ -69,7 +70,8 @@
       "pacing": {
         "pause_after_first_segment": 1.0,
         "pause_after_citation": 0.8,
-        "pause_between_segments": 0.7
+        "pause_between_segments": 0.7,
+        "target_seconds": 60.0
       },
       "content_mode": "topic"
     }

@@ -285,16 +285,67 @@ def _post_with_backoff(voice_id: str, payload: dict):
             time.sleep(wait)
             delay *= 2
             continue
-        if response.status_code in (401, 403):
-            raise ExternalServiceError(
-                "The voice service (ElevenLabs)", f"HTTP {response.status_code}",
-                status=response.status_code,
-                user_message=("ElevenLabs rejected the request — check that "
-                              "ELEVENLABS_API_KEY is set correctly."),
-            )
+        if response.status_code in (401, 402, 403):
+            raise _rejection_error(response)
         response.raise_for_status()
         return response
     raise ExternalServiceError("The voice service (ElevenLabs)", "exhausted retries")
+
+
+def _rejection_error(response) -> ExternalServiceError:
+    """Turn a 401/402/403 into the actual reason, not a guess.
+
+    A bad or missing key is only one of several things ElevenLabs answers
+    this way, and it is not even the most common one. Two real examples,
+    both reachable with a perfectly valid key:
+
+      401 {"detail": {"code": "quota_exceeded",
+                      "message": "This request exceeds your quota of
+                      10000. You have 0 credits remaining..."}}
+      402 {"detail": {"code": "paid_plan_required",
+                      "message": "Free users cannot use library voices
+                      via the API..."}}
+
+    Telling someone to "check that ELEVENLABS_API_KEY is set correctly"
+    when their key is fine and their quota is simply spent sends them
+    looking in the wrong place. ElevenLabs' own message already says what
+    happened; the job here is to surface it and add the one thing it
+    doesn't say — what to actually do next.
+    """
+    code, detail_message = "", ""
+    try:
+        detail = response.json().get("detail", {})
+        if isinstance(detail, dict):
+            code = detail.get("code", detail.get("status", ""))
+            detail_message = detail.get("message", "")
+        else:
+            detail_message = str(detail)
+    except ValueError:
+        detail_message = response.text[:300]
+
+    if code == "quota_exceeded":
+        user_message = (f"ElevenLabs has run out of character quota for this "
+                        f"account. {detail_message} Upgrade the plan or wait for "
+                        f"the quota to reset.")
+    elif code == "paid_plan_required":
+        user_message = (f"ElevenLabs refused this voice on a free plan: "
+                        f"{detail_message} Use a voice this account actually owns "
+                        f"(cloned or added to its own library), or upgrade the plan.")
+    else:
+        # A genuinely bad or missing key still lands here, so the
+        # original advice is kept — just no longer the only explanation
+        # offered for every 401/402/403.
+        user_message = (f"ElevenLabs rejected the request ({response.status_code}"
+                        f"{f', {code}' if code else ''}): "
+                        f"{detail_message or 'no detail returned'}. If this "
+                        f"persists, check that ELEVENLABS_API_KEY is set correctly.")
+
+    return ExternalServiceError(
+        "The voice service (ElevenLabs)",
+        f"HTTP {response.status_code}" + (f" {code}" if code else ""),
+        status=response.status_code,
+        user_message=user_message,
+    )
 
 
 def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1.0,

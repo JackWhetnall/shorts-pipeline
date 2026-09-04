@@ -19,7 +19,7 @@ from core.channels import (
     Cta, EndScreen, Monetization, ChannelConfig, channel_from_dict,
     channel_to_sparse_dict, resolve_active_ctas,
 )
-from core.errors import ConfigError
+from core.errors import ConfigError, ExternalServiceError
 from core.paths import slugify, safe_join, unique_stem, PathTraversalError
 from pipeline import similarity, tts
 from pipeline.assemble import group_words, split_into_shots, wrap_words, load_font
@@ -762,3 +762,100 @@ class TestWordBudget:
         from pipeline.script_gen import word_budget
         budget = word_budget(self._pacing(20), 3, spoken_words=500)
         assert budget["per_segment"] >= 12
+
+
+class TestElevenLabsRejections:
+    """What ElevenLabs' own error body means, distinguished from a guess.
+
+    A bad or missing key is only one of the things a 401/402/403 means,
+    and not the most common one. This project's own account hit both of
+    the other two in the same afternoon: quota_exceeded on a voice it
+    owns, and paid_plan_required trying a library voice on the free tier.
+    The old code called both "check your API key," which was wrong and
+    sent the fix in the wrong direction. Bodies below are copied verbatim
+    from the real API.
+    """
+
+    class _Response:
+        def __init__(self, status_code, body=None, text=""):
+            self.status_code = status_code
+            self._body = body
+            self.text = text or ""
+
+        def json(self):
+            if self._body is None:
+                raise ValueError("no body")
+            return self._body
+
+    def test_quota_exceeded_names_the_real_cause(self):
+        response = self._Response(401, {"detail": {
+            "type": "invalid_request", "code": "quota_exceeded",
+            "status": "quota_exceeded",
+            "message": "This request exceeds your quota of 10000. You have 0 "
+                       "credits remaining, while 2 credits are required for "
+                       "this request.",
+        }})
+        error = tts._rejection_error(response)
+        assert "quota" in error.user_message.lower()
+        assert "0 credits remaining" in error.user_message
+        assert "api_key" not in error.user_message.lower()
+
+    def test_paid_plan_required_names_the_real_cause(self):
+        response = self._Response(402, {"detail": {
+            "type": "payment_required", "code": "paid_plan_required",
+            "status": "payment_required",
+            "message": "Free users cannot use library voices via the API. "
+                       "Please upgrade your subscription to use this voice.",
+        }})
+        error = tts._rejection_error(response)
+        assert "free plan" in error.user_message.lower()
+        assert "library voices" in error.user_message
+        assert "api_key" not in error.user_message.lower()
+
+    def test_an_unrecognised_code_still_suggests_checking_the_key(self):
+        """The fallback is where the old, narrower advice belongs — not
+        as the answer to every 401."""
+        response = self._Response(401, {"detail": {
+            "code": "invalid_api_key", "message": "Invalid API key."}})
+        error = tts._rejection_error(response)
+        assert "ELEVENLABS_API_KEY" in error.user_message
+
+    def test_a_body_with_no_json_does_not_crash(self):
+        response = self._Response(403, body=None, text="Forbidden")
+        error = tts._rejection_error(response)
+        assert "Forbidden" in error.user_message or "403" in error.user_message
+
+    def test_a_detail_that_is_a_plain_string_is_handled(self):
+        """ElevenLabs' own docs show detail as an object, but a string is
+        cheap insurance against a shape change breaking this instead of
+        just losing a nicety."""
+        response = self._Response(401, {"detail": "Invalid API key"})
+        error = tts._rejection_error(response)
+        assert "Invalid API key" in error.user_message
+
+    def test_402_is_handled_at_all(self, monkeypatch):
+        """Before this, only 401/403 were caught; a 402 fell through to
+        raise_for_status() and crashed as a raw requests.HTTPError with no
+        user_message — exactly the kind of bare exception this project's
+        own conventions forbid."""
+        response = self._Response(402, {"detail": {
+            "code": "paid_plan_required", "message": "Upgrade required."}})
+
+        class FakeResp:
+            status_code = 402
+            headers = {}
+
+            def json(self):
+                return response._body
+
+        monkeypatch.setattr(tts.requests, "post", lambda *a, **k: FakeResp())
+        monkeypatch.setattr(tts, "_api_key", lambda: "fake-key")
+
+        with pytest.raises(ExternalServiceError) as caught:
+            tts._post_with_backoff("voice_id", {"text": "hi"})
+        assert "Upgrade required" in caught.value.user_message
+
+    def test_the_status_code_is_preserved_on_the_error(self):
+        response = self._Response(401, {"detail": {"code": "quota_exceeded",
+                                                    "message": "x"}})
+        assert tts._rejection_error(response).status == 401
