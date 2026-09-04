@@ -57,8 +57,23 @@
       <pre class="meta-text" id="review-script"></pre>
     </details>
 
+    <div class="card" id="review-upload-card" hidden>
+      <p class="meta">Send it to YouTube from here &mdash; the file, this
+        title and this description.</p>
+      <label class="review-field">Privacy
+        <select id="review-privacy">
+          <option value="public">Public</option>
+          <option value="unlisted">Unlisted</option>
+          <option value="private">Private</option>
+        </select>
+      </label>
+      <button type="button" class="btn btn-primary" id="review-upload-btn"
+              onclick="reviewUploadYouTube()">Upload to YouTube</button>
+      <p class="hint" id="review-upload-note"></p>
+    </div>
+
     <div class="card">
-      <p class="meta">Mark it published by pasting wherever you actually posted it.</p>
+      <p class="meta">Or mark it published by pasting wherever you actually posted it.</p>
       <label class="review-field">YouTube
         <input type="url" id="review-youtube_url" placeholder="https://youtube.com/shorts/...">
       </label>

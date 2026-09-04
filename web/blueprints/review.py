@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
-from core import gallery, insights
+from core import gallery, insights, youtube
 from core.channels import load_channels
 from core.logging_setup import get_logger
 from web.helpers import format_date, format_iso_date, video_or_404
@@ -42,6 +42,8 @@ def _queue() -> list:
     """
     items = []
     for key, channel in load_channels(validate=False).items():
+        # Once per channel, not once per video: this reads a file.
+        youtube_ready = youtube.connection(key)["connected"]
         try:
             videos = gallery.list_videos(channel.output_dir)
         except Exception as exc:  # noqa: BLE001
@@ -58,6 +60,7 @@ def _queue() -> list:
                 **video,
                 "channel_key": key,
                 "channel_name": channel.channel_display_name,
+                "youtube_connected": youtube_ready,
                 "created_label": format_date(video["mtime"]),
                 "footage_repeated": bool(report.get("footage_repeated")),
                 "footage_degraded": bool(report.get("footage_degraded")),

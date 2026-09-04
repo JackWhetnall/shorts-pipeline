@@ -78,6 +78,25 @@ discarding actually costs you.
 same index the matcher uses, watch a clip on hover, re-describe one whose
 description is wrong, confirm a licence, or delete it.
 
+## Uploading to YouTube
+
+`/youtube/setup` walks through making a Google Cloud OAuth client and
+connecting each channel to its own YouTube account. After that the review
+queue gains an **Upload to YouTube** button that sends the file, the
+title you just edited, the description and the tags, and records the
+resulting link as the publish.
+
+One thing to know before relying on it: Google restricts uploads from API
+projects that have not passed a compliance audit to **private**, whatever
+privacy you ask for. Until yours is audited this replaces the whole
+manual upload with one switch in Studio, rather than removing it
+entirely. The setup page says so, and the app tells you at the moment it
+happens rather than leaving you to find a private video days later.
+
+TikTok and Instagram are not built. Both need a reviewed developer app
+rather than just credentials, which is a different order of effort and
+not worth starting before YouTube is earning.
+
 ## Housekeeping
 
 Discarding a video is reversible on purpose — the files stay, a flag

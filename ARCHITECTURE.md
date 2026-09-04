@@ -43,6 +43,7 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   costs         What every API call cost.
   insights      Aggregate quality and spend — the improvement loop.
   scheduler     Recurring generation.
+  youtube       OAuth and resumable upload to YouTube.
   footage_stats Library health and clip poster frames.
 
 pipeline/     The generation stages. No web dependency at all.
@@ -69,7 +70,8 @@ pipeline/     The generation stages. No web dependency at all.
 
 web/          Flask only.
   __init__      App factory: CSRF, error handling, blueprint registration.
-  blueprints/   channels, footage, gallery, jobs, logos, review, setup, voice_lab.
+  blueprints/   channels, footage, gallery, jobs, logos, review, setup,
+                voice_lab, youtube.
   checklist     The launch checklist — one definition, no Flask import.
   forms, helpers
 
@@ -195,6 +197,20 @@ So a purge appends a tombstone to `config/discard_history.jsonl` —
 channel, stem, reason, dates — and `insights.collect` folds those into the
 totals and the discard reasons, but deliberately not into quality, spend
 or the recent list, whose sidecars are gone.
+
+## Publishing
+
+A finished video can be uploaded to YouTube from the review queue: file,
+title, description, tags and category in one request. The OAuth client is
+per installation, the tokens per channel, and a successful upload records
+the returned watch URL through `gallery.save_publish_info` — the same
+state transition the manual flow makes, so nothing downstream needs to
+know how a video came to be published.
+
+Google forces videos uploaded by an unaudited API project to private,
+whatever privacy is requested. `upload()` therefore returns the privacy
+that was granted as well as the one asked for, and the UI says when they
+differ. See decision [017](docs/decisions/017-youtube-upload.md).
 
 ## Costs
 

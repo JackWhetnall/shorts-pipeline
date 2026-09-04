@@ -11,7 +11,7 @@ from flask import (
     url_for,
 )
 
-from core import caption_preview, channel_admin, fonts, gallery, jobs, scheduler
+from core import caption_preview, channel_admin, fonts, gallery, jobs, scheduler, youtube
 from core.assets import has_logo
 from core.channels import (
     ChannelConfig, Pacing, Style, channel_to_sparse_dict, read_raw, save_channel,
@@ -128,7 +128,24 @@ def settings(key):
         "channel_settings.html", channel=channel, sources=_sources(),
         affiliate_links_text=format_affiliate_links(channel.monetization.affiliate_links),
         saved=request.args.get("saved"),
+        connected=request.args.get("connected"),
+        youtube_upload=_youtube_state(key),
     )
+
+
+def _youtube_state(key: str) -> dict:
+    """Whether uploads are set up, for the settings page's Links panel.
+
+    Reads two small files. Kept out of the template so the page still
+    renders if the token file is unreadable.
+    """
+    try:
+        state = youtube.connection(key)
+        state["configured"] = youtube.is_configured()
+        return state
+    except Exception:  # noqa: BLE001 - a settings page must always render
+        log.exception("Could not read YouTube connection state")
+        return {"connected": False, "configured": False, "account": ""}
 
 
 def _sources() -> list:

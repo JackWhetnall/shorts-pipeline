@@ -29,3 +29,4 @@ reason for a change stays true forever.
 | [014](014-matching-precision.md) | Matching on what a clip is, not what is in it | Extends 012 |
 | [015](015-library-storage.md) | Three copies of everything | Active |
 | [016](016-caption-preview.md) | Showing the captions instead of describing them | Active |
+| [017](017-youtube-upload.md) | Uploading to YouTube, and what that cannot mean | Active |

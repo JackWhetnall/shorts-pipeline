@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}YouTube uploads{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('channels.index') }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  Channels
+</a>
+<h1>YouTube uploads</h1>
+<p class="subtitle">
+  Set this up once and the review queue can send a finished video straight
+  to YouTube &mdash; file, title, description and tags &mdash; instead of
+  you finding the mp4 and pasting everything into Studio.
+</p>
+
+{% if saved %}<p class="info-banner">Credentials saved.</p>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<div class="error-banner">
+  <h3>Read this before you rely on it</h3>
+  <p>
+    Google restricts uploads made through the API by projects that have not
+    passed a compliance audit: their
+    <a href="https://developers.google.com/youtube/v3/docs/videos/insert" target="_blank" rel="noopener">documentation</a>
+    states that videos uploaded this way from an unverified project created
+    after 28 July 2020 are <strong>forced to private</strong>, whatever
+    privacy setting is requested.
+  </p>
+  <p>
+    So until your project is audited, this uploads the video and everything
+    around it, and you make it public yourself in YouTube Studio &mdash;
+    one click instead of the whole manual upload. The audit is requested
+    from the Cloud console once the project is doing real work.
+  </p>
+</div>
+
+<h2>1. Make an OAuth client</h2>
+<ol class="wizard-instructions">
+  <li>
+    Create (or pick) a project in the
+    <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Google Cloud console</a>.
+  </li>
+  <li>
+    Enable the
+    <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">YouTube Data API v3</a>
+    on it.
+  </li>
+  <li>
+    Configure the OAuth consent screen. Add yourself as a test user.
+    <span class="hint">Leaving it in <em>Testing</em> works, but Google
+      expires access every 7 days, so you would reconnect weekly. Publishing
+      the consent screen stops that.</span>
+  </li>
+  <li>
+    Create credentials &rarr; <strong>OAuth client ID</strong> &rarr;
+    application type <strong>Web application</strong>, and add this exact
+    authorised redirect URI:
+    <p><code>{{ redirect_uri }}</code></p>
+    <span class="hint">This is derived from the address you are reading this
+      page on. Run the app on a different port and you will need to register
+      that one too.</span>
+  </li>
+</ol>
+
+<h2>2. Paste it here</h2>
+<form method="post" class="channel-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>Client ID
+    <input type="text" name="client_id" spellcheck="false" autocomplete="off"
+           placeholder="{% if configured %}Saved. Paste again to replace.{% else %}1234-abcd.apps.googleusercontent.com{% endif %}">
+  </label>
+  <label>Client secret
+    <input type="password" name="client_secret" autocomplete="off"
+           placeholder="{% if configured %}Saved. Paste again to replace.{% else %}GOCSPX-…{% endif %}">
+  </label>
+  <p class="hint">
+    Stored in <code>config/youtube_client.json</code>, which is excluded from
+    version control. You can set <code>YOUTUBE_CLIENT_ID</code> and
+    <code>YOUTUBE_CLIENT_SECRET</code> in the environment instead; those win.
+  </p>
+  <div class="actions">
+    <button type="submit" class="btn btn-primary">Save credentials</button>
+    {% if configured %}
+    <button type="submit" name="action" value="forget" class="btn-ghost danger-text"
+            onclick="return confirm('Forget the saved OAuth client? Every channel will need reconnecting.');">
+      Forget them
+    </button>
+    {% endif %}
+  </div>
+</form>
+
+<h2>3. Connect each channel</h2>
+{% if not configured %}
+<p class="meta">Save your credentials above first.</p>
+{% else %}
+<p class="meta">
+  Each channel signs in to its own YouTube account. Check the address
+  before you upload &mdash; connecting the wrong account is easy and
+  awkward to undo.
+</p>
+<table class="voice-table">
+  <thead><tr><th>Channel</th><th>Account</th><th></th></tr></thead>
+  <tbody>
+    {% for row in channels %}
+    <tr>
+      <td>{{ row.name }}</td>
+      <td>
+        {% if row.connected %}
+          {{ row.account or 'Connected' }}
+        {% else %}
+          <span class="meta">Not connected</span>
+        {% endif %}
+      </td>
+      <td class="actions">
+        <a class="btn-ghost" href="{{ url_for('youtube.connect', key=row.key) }}">
+          {{ 'Reconnect' if row.connected else 'Connect' }}
+        </a>
+        {% if row.connected %}
+        <form method="post" action="{{ url_for('youtube.disconnect', key=row.key) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-ghost danger-text">Disconnect</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

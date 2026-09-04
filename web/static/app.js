@@ -935,9 +935,53 @@ function renderReview() {
   }
   document.getElementById("review-flags").innerHTML = flags.join("");
 
+  // Only offered for channels that are actually connected — an upload
+  // button that always fails is worse than no button.
+  const uploadCard = document.getElementById("review-upload-card");
+  uploadCard.hidden = !item.youtube_connected || Boolean((item.links || {}).youtube_url);
+  document.getElementById("review-upload-note").textContent = "";
+  document.getElementById("review-upload-btn").disabled = false;
+
   document.getElementById("review-position").textContent =
     `${reviewIndex + 1} of ${reviewItems.length}`;
   document.querySelector(".review-discard").open = false;
+}
+
+// Uploads the current video, then drains it from the queue the same way
+// Publish does — recording the returned link IS what marks it published,
+// so there is one notion of "published" rather than two.
+async function reviewUploadYouTube() {
+  const item = reviewCurrent();
+  if (!item) return;
+  await reviewSaveMeta();
+
+  const button = document.getElementById("review-upload-btn");
+  const note = document.getElementById("review-upload-note");
+  note.textContent = "";
+
+  await withButtonLoading(button, "Uploading…", async () => {
+    const res = await apiFetch(`/api/videos/${item.relpath}/upload-youtube`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        channel_key: item.channel_key,
+        privacy: document.getElementById("review-privacy").value,
+        title: document.getElementById("review-title").value,
+        description: document.getElementById("review-description").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { note.textContent = data.error || "The upload failed."; return; }
+
+    if (data.locked_private) {
+      // Expected on an unaudited project, and confusing if unexplained —
+      // say it here rather than letting them find a private video later.
+      alert("Uploaded, but YouTube forced it to private because the API "
+          + "project hasn't passed a compliance audit. Make it public in "
+          + "YouTube Studio:\n\n" + data.url);
+    }
+    reviewDrop();
+  });
 }
 
 function useTitle(button) {

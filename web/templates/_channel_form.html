@@ -204,6 +204,30 @@
              value="{{ channel.socials.instagram_url or '' }}">
     </label>
   </fieldset>
+
+  {% if youtube_upload is defined %}
+  <fieldset>
+    <legend>Automatic YouTube uploads</legend>
+    {% if youtube_upload.connected %}
+      <p class="meta">Connected as <strong>{{ youtube_upload.account or 'a Google account' }}</strong>.
+        The review queue can upload straight to this channel.</p>
+    {% elif youtube_upload.configured %}
+      <p class="meta">Not connected. Sign in to the Google account that owns
+        this YouTube channel and the review queue gains an upload button.</p>
+    {% else %}
+      <p class="meta">Uploading needs a Google OAuth client for this
+        installation &mdash; one, shared by every channel.</p>
+    {% endif %}
+    <p class="hint">
+      <a href="{{ url_for('youtube.setup') }}">YouTube upload setup</a>
+      {%- if youtube_upload.connected %} &middot;
+      <a href="{{ url_for('youtube.connect', key=channel.key) }}">Reconnect this channel</a>
+      {%- elif youtube_upload.configured %} &middot;
+      <a href="{{ url_for('youtube.connect', key=channel.key) }}">Connect this channel</a>
+      {%- endif %}
+    </p>
+  </fieldset>
+  {% endif %}
   <fieldset>
     <legend>Monetization</legend>
     <p class="checklist-box">
