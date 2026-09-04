@@ -23,7 +23,9 @@ from core.channels import (
 PACING_INT_FIELDS = {"caption_max_group_size", "segment_count"}
 STYLE_INT_FIELDS = {"font_size", "stroke_width"}
 STYLE_TEXT_FIELDS = ("base_color", "highlight_color", "stroke_color",
-                     "outro_title_color", "outro_subtext_color")
+                     "outro_title_color", "outro_subtext_color",
+                     "title_card_title_color", "title_card_channel_color")
+STYLE_BOOL_FIELDS = ("title_card_enabled", "use_background_image")
 
 
 def lines(text: str) -> list:
@@ -145,6 +147,23 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             setattr(style, field, value.strip())
     for field in STYLE_INT_FIELDS:
         setattr(style, field, _maybe_int(form, f"style_{field}", getattr(style, field)))
+    # Unchecked checkboxes submit nothing, so a marker per group tells
+    # "switched off" apart from "this form has no such section".
+    if "style_flags_present" in form:
+        for field in STYLE_BOOL_FIELDS:
+            setattr(style, field, bool(form.get(f"style_{field}")))
+    style.title_card_seconds = _maybe_float(
+        form, "style_title_card_seconds", style.title_card_seconds)
+    for name, field in (("style_title_card_bg_color", "title_card_bg_color"),
+                        ("style_outro_bg_color", "outro_bg_color")):
+        raw = form.get(name, "")
+        if raw.strip():
+            try:
+                setattr(style, field,
+                        tuple(int(x.strip()) for x in raw.split(",") if x.strip()))
+            except ValueError:
+                pass    # leave it rather than writing something PIL rejects
+
     background = form.get("style_outro_bg_color", "")
     if background.strip():
         try:

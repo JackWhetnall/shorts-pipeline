@@ -170,7 +170,7 @@ def _settings_context(channel, error: str = None) -> dict:
     template, and forgetting a variable there is a 500 that only appears
     once something else has already gone wrong.
     """
-    from core import corpus, voice_lab
+    from core import backgrounds, corpus, voice_lab
     from web.blueprints.setup import words_from_of
 
     voices, voice_error = [], None
@@ -203,6 +203,11 @@ def _settings_context(channel, error: str = None) -> dict:
         "voice_name": _voice_name(channel.voice),
         "presets": voice_lab.CADENCE_PRESETS,
         "pacing_labels": PACING_LABELS,
+        "background": backgrounds.info(channel.key),
+        "has_background": backgrounds.has_background(channel.key),
+        "background_search_ready": backgrounds.any_key_configured(),
+        "max_blur": backgrounds.MAX_BLUR,
+        "max_dim": backgrounds.MAX_DIM,
         "cost": _channel_cost(channel.key),
         "rename_error": request.args.get("rename_error"),
     }

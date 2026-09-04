@@ -282,6 +282,7 @@
   <!-- ---------------------------------------------------------------- -->
   <section id="section-look" class="settings-section">
     <h2>Look</h2>
+    <input type="hidden" name="style_flags_present" value="1">
 
     <div class="look-layout" data-caption-preview>
     <div class="look-controls">
@@ -353,6 +354,125 @@
         </span>
         <span class="hint">Red, green, blue, opacity &mdash; each 0&ndash;255.</span>
       </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Title card</legend>
+      <p class="hint">
+        An opening card naming the channel and what the video is about.
+        Off by default: seconds before the content starts are watch time
+        spent on nothing, and short-form is decided in the first of them.
+        Worth it for a channel whose videos are a series someone works
+        through.
+      </p>
+      <label class="checkbox-label">
+        <input type="checkbox" name="style_title_card_enabled"
+               {% if channel.style.title_card_enabled %}checked{% endif %}>
+        Show a title card before the narration
+      </label>
+      <label>How long
+        <span class="slider-row">
+          <input type="range" name="style_title_card_seconds"
+                 min="0.5" max="5" step="0.1"
+                 value="{{ channel.style.title_card_seconds }}"
+                 oninput="this.nextElementSibling.value = this.value + 's'">
+          <output class="slider-value">{{ channel.style.title_card_seconds }}s</output>
+        </span>
+      </label>
+      {% for field, label in [("title_card_title_color", "Title colour"),
+                              ("title_card_channel_color", "Channel name colour")] %}
+        <label>{{ label }}
+          <span class="color-row">
+            <input type="color" value="{{ channel.style[field] }}"
+                   data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
+            <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
+                   spellcheck="false">
+          </span>
+        </label>
+      {% endfor %}
+      <label>Background colour
+        <span class="color-row">
+          <input type="color" data-color-for="style_title_card_bg_color" data-rgba
+                 aria-label="Title card background picker">
+          <input type="text" name="style_title_card_bg_color"
+                 value="{{ channel.style.title_card_bg_color|join(',') }}" spellcheck="false">
+        </span>
+        <span class="hint">Used when there is no background picture.</span>
+      </label>
+    </fieldset>
+
+    <fieldset data-background-picker data-channel="{{ channel.key }}">
+      <legend>Background picture</legend>
+      <p class="hint">
+        Sits behind the title and outro cards instead of a flat colour.
+        Chosen once per channel, so it costs nothing per video &mdash; and
+        it is the difference between a card that looks made and one that
+        looks generated.
+      </p>
+
+      <label class="checkbox-label">
+        <input type="checkbox" name="style_use_background_image"
+               {% if channel.style.use_background_image %}checked{% endif %}>
+        Use the picture below on cards
+      </label>
+
+      <div class="background-current" id="background-current"
+           {% if not has_background %}hidden{% endif %}>
+        {# No src until there is a file: a hidden <img> still fetches its
+           source, and a 404 in the console reads as something broken. #}
+        <img id="background-preview" alt="This channel's background"
+             {% if has_background %}src="{{ url_for('backgrounds.serve', key=channel.key) }}"{% endif %}>
+        <div class="background-edits">
+          <label>Blur
+            <span class="slider-row">
+              <input type="range" id="background-blur" min="0" max="{{ max_blur }}"
+                     value="{{ background.get('blur', 0) }}"
+                     oninput="this.nextElementSibling.value = this.value">
+              <output class="slider-value">{{ background.get('blur', 0) }}</output>
+            </span>
+          </label>
+          <label>Dim
+            <span class="slider-row">
+              <input type="range" id="background-dim" min="0" max="{{ max_dim }}"
+                     value="{{ background.get('dim', 0) }}"
+                     oninput="this.nextElementSibling.value = this.value">
+              <output class="slider-value">{{ background.get('dim', 0) }}</output>
+            </span>
+          </label>
+          <div class="actions">
+            <button type="button" class="btn-ghost" id="background-apply-btn"
+                    onclick="applyBackgroundEdits('{{ channel.key }}')">Apply</button>
+            <button type="button" class="btn-ghost danger-text"
+                    onclick="clearBackground('{{ channel.key }}')">Remove</button>
+          </div>
+          {% if background.get('credit') %}
+          <p class="hint">
+            {{ background.source|capitalize }} &middot; {{ background.credit }}
+            &middot; {{ background.license }}
+          </p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if background_search_ready %}
+      <div class="background-search">
+        <label>Find one
+          <span class="slider-row">
+            <input type="text" id="background-query"
+                   placeholder="candlelight, dark wood, misty forest">
+            <button type="button" class="btn-ghost" id="background-search-btn"
+                    onclick="searchBackgrounds('{{ channel.key }}')">Search</button>
+          </span>
+          <span class="hint">Portrait photos from Pexels and Pixabay, the same
+            sites the footage library uses.</span>
+        </label>
+        <p class="hint" id="background-status"></p>
+        <div class="background-results" id="background-results"></div>
+      </div>
+      {% else %}
+      <p class="hint">Set <code>PEXELS_API_KEY</code> or
+        <code>PIXABAY_API_KEY</code> to search for pictures.</p>
+      {% endif %}
     </fieldset>
     </div>
 

@@ -113,6 +113,32 @@ many are left and roughly how many days that is.
 A full 25-unit, 1000-topic plan costs well under a dollar in total, and
 you only pay for units as you reach them.
 
+## How things look
+
+Settings is one page with a sidebar: **Channel** (what it's about, style
+prompt, where the words come from), **Voice & timing**, **Look**,
+**Publishing**, **Money**. One Save button, and nothing is written until
+you press it.
+
+**Length** is a slider in Voice & timing. The script's word budget comes
+from it, at 2.5 words per second of finished video — measured on this
+project's own output rather than guessed.
+
+**Look** carries the caption font, size, outline and colours with a live
+preview, the outro card, an optional **title card**, and a **background
+picture**.
+
+The title card names the channel and the video. It is off by default:
+seconds before the content starts are watch time spent on nothing, and
+short-form is decided in the first of them. Worth turning on for a
+channel whose videos are a series someone works through.
+
+The background picture is searched from Pexels and Pixabay, chosen once
+per channel, and sits behind the title and outro cards instead of a flat
+colour. Blur and dim sliders make it sit behind text properly; both
+re-derive from the stored original, so moving one back actually undoes.
+Its licence is recorded the same way a footage clip's is.
+
 ## Uploading to YouTube
 
 `/youtube/setup` walks through making a Google Cloud OAuth client and

@@ -1602,3 +1602,87 @@ document.addEventListener("DOMContentLoaded", () => {
   onTopicChosen();
   onWithinChosen();
 });
+
+// --- Background picture ------------------------------------------------
+//
+// Searching is free and returns preview URLs the browser loads directly.
+// Nothing is downloaded until a picture is chosen, so browsing costs one
+// API call and no disk.
+
+async function searchBackgrounds(channelKey) {
+  const button = document.getElementById("background-search-btn");
+  const status = document.getElementById("background-status");
+  const grid = document.getElementById("background-results");
+  status.textContent = "";
+
+  await withButtonLoading(button, "Searching…", async () => {
+    const res = await apiFetch(`/api/channels/${channelKey}/background/search`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({query: document.getElementById("background-query").value}),
+    });
+    const data = await res.json();
+    if (!res.ok) { status.textContent = data.error || "Search failed."; return; }
+
+    grid.innerHTML = data.results.map(r => `
+      <button type="button" class="background-option"
+              onclick='chooseBackground(${JSON.stringify(channelKey)}, ${JSON.stringify(r)})'>
+        <img src="${r.preview}" alt="" loading="lazy">
+        <span class="hint">${escapeHtml(r.source)}${r.credit ? " · " + escapeHtml(r.credit) : ""}</span>
+      </button>`).join("");
+    status.textContent = `${data.results.length} found for "${data.query}".`;
+  });
+}
+
+async function chooseBackground(channelKey, result) {
+  const status = document.getElementById("background-status");
+  status.textContent = "Downloading…";
+  const res = await apiFetch(`/api/channels/${channelKey}/background/choose`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      url: result.full, source: result.source,
+      credit: result.credit, link: result.link,
+      blur: document.getElementById("background-blur")?.value || 0,
+      dim: document.getElementById("background-dim")?.value || 0,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) { status.textContent = data.error || "Couldn't use that one."; return; }
+  status.textContent = "Saved.";
+  showBackground(channelKey);
+}
+
+async function applyBackgroundEdits(channelKey) {
+  const button = document.getElementById("background-apply-btn");
+  const status = document.getElementById("background-status");
+  await withButtonLoading(button, "Applying…", async () => {
+    const res = await apiFetch(`/api/channels/${channelKey}/background/edit`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        blur: document.getElementById("background-blur").value,
+        dim: document.getElementById("background-dim").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { status.textContent = data.error || "Couldn't apply that."; return; }
+    status.textContent = "";
+    showBackground(channelKey);
+  });
+}
+
+async function clearBackground(channelKey) {
+  if (!confirm("Remove this channel's background picture?")) return;
+  await apiFetch(`/api/channels/${channelKey}/background/clear`, {method: "POST"});
+  document.getElementById("background-current").hidden = true;
+  document.getElementById("background-status").textContent = "Removed.";
+}
+
+// The file is rewritten in place, so the URL alone would show a cached
+// copy and the edits would look like they had done nothing.
+function showBackground(channelKey) {
+  const image = document.getElementById("background-preview");
+  image.src = `/channels/${channelKey}/background.jpg?t=${Date.now()}`;
+  document.getElementById("background-current").hidden = false;
+}

@@ -214,6 +214,44 @@ class TestFullRender:
         finally:
             rendered.close()
 
+    def test_a_title_card_lengthens_the_video_and_keeps_audio_in_step(
+            self, plan, monkeypatch):
+        """The card is pushed in front of the narration, so the audio needs
+        matching silence in front of it. Getting that wrong desynchronises
+        every caption in the video by the length of the card — which looks
+        like a captions bug, not a title card one."""
+        from core.paths import LIBRARY_DIR
+        from pipeline import assemble
+        from pipeline.footage import library, store
+
+        clips = [c for c in store.all_clips() if (LIBRARY_DIR / c.filename).exists()][:6]
+
+        def fake_assign(segments, shot_counts, avoid_imagery=None):
+            names, i = [], 0
+            for count in shot_counts:
+                names.append([clips[(i + n) % len(clips)].filename for n in range(count)])
+                i += count
+            return library.MatchOutcome(picks=names)
+
+        monkeypatch.setattr(library, "assign_clips", fake_assign)
+        monkeypatch.setattr(library, "mark_used", lambda *a, **k: None)
+
+        plan.channel.style.title_card_enabled = True
+        plan.channel.style.title_card_seconds = 2.0
+        assemble.run(plan)
+
+        from moviepy.editor import VideoFileClip
+        rendered = VideoFileClip(str(plan.video_path))
+        try:
+            # Narration, the outro card, and now the title card too.
+            assert rendered.duration == pytest.approx(5.4 + 1.0 + 2.0, abs=0.3)
+            assert rendered.audio is not None
+            assert rendered.audio.duration == pytest.approx(rendered.duration, abs=0.3)
+            # The opening second is the card, not footage.
+            assert rendered.get_frame(0.5).mean() < 250
+        finally:
+            rendered.close()
+
     def test_no_temp_files_are_left_behind(self, plan, monkeypatch):
         from core.paths import LIBRARY_DIR
         from pipeline import assemble

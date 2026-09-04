@@ -239,15 +239,79 @@ def _draw_centered_lines(draw, lines, font, top, line_height, width, fill,
     return y
 
 
-def render_outro(channel_display_name: str, subtext: str, style) -> np.ndarray:
-    """The channel-branded end card — the only branding overlay in the
-    video. There is deliberately no title card: for short-form, viewers
-    should land straight in the content."""
+TITLE_CARD_SIZE = 92
+TITLE_CARD_CHANNEL_SIZE = 44
+
+
+def card_background(channel_key: str, colour, style) -> "Image.Image":
+    """The base layer for a title or outro card.
+
+    The channel's own picture when it has one and wants it, the flat
+    colour otherwise. Every card in every video sitting on the same
+    rectangle is the most obviously templated thing a viewer sees, and a
+    picture chosen once per channel costs nothing per video.
+
+    Best-effort: a missing or unreadable file falls back to the colour
+    rather than failing a render that is otherwise finished.
+    """
+    base = Image.new("RGBA", (W, H), tuple(colour))
+    if not getattr(style, "use_background_image", True):
+        return base
+    try:
+        from core import backgrounds
+
+        picture = backgrounds.path(channel_key)
+        if not picture.exists():
+            return base
+        with Image.open(picture) as image:
+            return image.convert("RGBA").resize((W, H))
+    except Exception:  # noqa: BLE001 - a background is decoration
+        log.debug("Could not load the background picture", exc_info=True)
+        return base
+
+
+def render_title_card(channel_display_name: str, title: str, style,
+                      channel_key: str = "") -> np.ndarray:
+    """An opening card: the channel above, what this video is about below.
+
+    Off unless the channel asks for it. Seconds before the content starts
+    are watch time spent on nothing, and short-form is decided in the
+    first of them — but a channel whose videos are a series someone works
+    through wants the viewer oriented, which is a different trade.
+    """
+    font_title = load_font(TITLE_CARD_SIZE, style.font_face)
+    font_channel = load_font(TITLE_CARD_CHANNEL_SIZE, style.font_face)
+    max_width = int(W * 0.82)
+
+    image = card_background(channel_key, style.title_card_bg_color, style)
+    draw = ImageDraw.Draw(image)
+
+    channel_lines = wrap_words(channel_display_name.split(), font_channel, max_width)
+    title_lines = wrap_words(title.split(), font_title, max_width)
+    channel_height = int(TITLE_CARD_CHANNEL_SIZE * 1.3)
+    title_height = int(TITLE_CARD_SIZE * 1.25)
+    gap = 48
+
+    total = (channel_height * len(channel_lines) + gap
+             + title_height * len(title_lines))
+    y = (H - total) / 2
+    y = _draw_centered_lines(draw, channel_lines, font_channel, y, channel_height,
+                             W, style.title_card_channel_color, 2, "black")
+    # A stroke on both, because the card may be sitting on a photograph
+    # and a colour that reads on flat black can vanish on one.
+    _draw_centered_lines(draw, title_lines, font_title, y + gap, title_height, W,
+                         style.title_card_title_color, 3, "black")
+    return np.array(image)
+
+
+def render_outro(channel_display_name: str, subtext: str, style,
+                 channel_key: str = "") -> np.ndarray:
+    """The channel-branded end card."""
     font_title = load_font(OUTRO_TITLE_SIZE, style.font_face)
     font_subtext = load_font(OUTRO_SUBTEXT_SIZE, style.font_face)
     max_width = int(W * 0.85)
 
-    image = Image.new("RGBA", (W, H), tuple(style.outro_bg_color))
+    image = card_background(channel_key, style.outro_bg_color, style)
     draw = ImageDraw.Draw(image)
 
     title_lines = wrap_words(channel_display_name.split(), font_title, max_width)
@@ -454,9 +518,21 @@ def run(plan):
     narration_video = narration_video.set_duration(narration_duration)
 
     parts = [narration_video,
-             ImageClip(render_outro(channel.channel_display_name, channel.outro_subtext, style))
+             ImageClip(render_outro(channel.channel_display_name,
+                                    channel.outro_subtext, style, channel.key))
              .set_duration(pacing.outro_seconds)]
     tail_seconds = pacing.outro_seconds
+
+    # In front of the narration, so it plays first. The seed's own title
+    # rather than the generated one: it is what the video is about, it is
+    # stable, and it is what the plan calls this video.
+    lead_seconds = 0.0
+    if style.title_card_enabled:
+        lead_seconds = max(0.0, float(style.title_card_seconds))
+        parts.insert(0, ImageClip(render_title_card(
+            channel.channel_display_name,
+            plan.seed.title or (plan.script.title if plan.script else ""),
+            style, channel.key)).set_duration(lead_seconds))
 
     active_ctas = resolve_active_ctas(channel.monetization, channel.end_screen)
     if channel.end_screen.enabled and active_ctas:
@@ -466,11 +542,15 @@ def run(plan):
         tail_seconds += channel.end_screen.duration_seconds
 
     final = concatenate_videoclips(parts, method="compose")
-    final = final.set_duration(narration_duration + tail_seconds)
+    final = final.set_duration(lead_seconds + narration_duration + tail_seconds)
 
     narration = apply_fade(narration, fps, fade_out=0.05)
+    # Silence in front of the narration too, so the audio stays lined up
+    # with the video the title card just pushed along.
+    lead_silence = silence_array(lead_seconds, fps, narration.shape[1])
     silence = silence_array(tail_seconds, fps, narration.shape[1])
-    audio = AudioArrayClip(np.concatenate([narration, silence], axis=0), fps=fps)
+    audio = AudioArrayClip(
+        np.concatenate([lead_silence, narration, silence], axis=0), fps=fps)
 
     # Video and audio are written separately then muxed with a stream
     # copy. write_videofile's combined path was corrupting roughly the

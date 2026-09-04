@@ -115,6 +115,22 @@ class Style(_MappingLike):
     outro_title_color: str = "#FFFFFF"
     outro_subtext_color: str = "#FFD400"
 
+    # An opening card naming the channel and what this video is about.
+    # Off by default and deliberately so: for short-form, seconds before
+    # the content start is watch time spent on nothing, and the scroll is
+    # decided in the first of them. Worth it for a channel whose videos
+    # are a series someone works through — which is why it is a setting
+    # rather than a rule.
+    title_card_enabled: bool = False
+    title_card_seconds: float = 1.8
+    title_card_title_color: str = "#FFFFFF"
+    title_card_channel_color: str = "#FFD400"
+    title_card_bg_color: tuple = (10, 10, 14, 255)
+
+    # Whether the channel's background picture sits behind the title and
+    # outro cards. Only does anything when a picture has been chosen.
+    use_background_image: bool = True
+
     def __post_init__(self):
         # JSON has no tuples, PIL won't take a list. Normalising here
         # means neither the storage layer nor the renderer has to know.

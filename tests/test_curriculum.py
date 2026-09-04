@@ -1318,3 +1318,234 @@ class TestContinuity:
         channel.build_on_previous = True
         apply_channel_form(channel, {"channel_display_name": "C"})
         assert channel.build_on_previous is True
+
+
+class TestBackgroundPicture:
+    """Choosing and editing the still image behind the title and outro
+    cards. Every network call is stubbed."""
+
+    @pytest.fixture
+    def isolated_channel(self, tmp_path, monkeypatch):
+        from core import backgrounds
+
+        monkeypatch.setattr(backgrounds, "CHANNELS_DIR", tmp_path / "channels")
+        return "c"
+
+    def _photo(self, size=(600, 1200), colour=(200, 120, 40)):
+        import io
+
+        from PIL import Image
+
+        buffer = io.BytesIO()
+        Image.new("RGB", size, colour).save(buffer, format="JPEG")
+        return buffer.getvalue()
+
+    def _stub_download(self, monkeypatch, data):
+        from core import backgrounds
+
+        class Response:
+            content = data
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+        monkeypatch.setattr(backgrounds.requests, "get", lambda *a, **k: Response())
+
+    def test_a_chosen_picture_is_cropped_to_the_frame(
+            self, isolated_channel, monkeypatch):
+        from PIL import Image
+
+        from core import backgrounds
+        from core.paths import FRAME_HEIGHT, FRAME_WIDTH
+
+        self._stub_download(monkeypatch, self._photo())
+        backgrounds.choose("c", "https://example/p.jpg", "pexels")
+
+        with Image.open(backgrounds.path("c")) as image:
+            assert image.size == (FRAME_WIDTH, FRAME_HEIGHT)
+
+    def test_a_landscape_source_is_covered_not_letterboxed(
+            self, isolated_channel, monkeypatch):
+        """A bar of background colour down the sides is worse than a crop,
+        and a photograph's subject is almost always in the middle."""
+        from PIL import Image
+
+        from core import backgrounds
+        from core.paths import FRAME_HEIGHT, FRAME_WIDTH
+
+        self._stub_download(monkeypatch, self._photo(size=(1920, 400)))
+        backgrounds.choose("c", "https://example/p.jpg", "pexels")
+
+        with Image.open(backgrounds.path("c")) as image:
+            assert image.size == (FRAME_WIDTH, FRAME_HEIGHT)
+            # Every pixel is real picture; a letterbox would leave bars.
+            assert image.convert("RGB").getpixel((5, 5)) != (0, 0, 0)
+
+    def test_the_original_is_kept_beside_the_edited_copy(
+            self, isolated_channel, monkeypatch):
+        """So the sliders can be moved again without re-downloading."""
+        from core import backgrounds
+
+        self._stub_download(monkeypatch, self._photo())
+        backgrounds.choose("c", "https://example/p.jpg", "pexels")
+        assert backgrounds.original_path("c").exists()
+        assert backgrounds.path("c").exists()
+
+    def test_edits_always_derive_from_the_original(
+            self, isolated_channel, monkeypatch):
+        """Blur applied twice is not the same as more blur applied once,
+        so moving a slider back has to undo."""
+        from core import backgrounds
+
+        from PIL import Image
+
+        def middle():
+            with Image.open(backgrounds.path("c")) as image:
+                return image.convert("RGB").getpixel((540, 960))
+
+        self._stub_download(monkeypatch, self._photo(colour=(200, 120, 40)))
+        backgrounds.choose("c", "https://example/p.jpg", "pexels", blur=20, dim=60)
+        dimmed = middle()
+        assert dimmed[0] < 120        # 60% black over (200, 120, 40)
+
+        # Back to nothing: the source colour, not a dimmer version of the
+        # already-dimmed one.
+        backgrounds.apply_edits("c", blur=0, dim=0)
+        assert middle()[0] > 180
+
+        backgrounds.apply_edits("c", blur=20, dim=60)
+        assert abs(middle()[0] - dimmed[0]) <= 2
+
+    def test_edits_are_clamped(self, isolated_channel, monkeypatch):
+        from core import backgrounds
+
+        self._stub_download(monkeypatch, self._photo())
+        backgrounds.choose("c", "https://example/p.jpg", "pexels")
+        info = backgrounds.apply_edits("c", blur=9999, dim=-5)
+        assert info["blur"] == backgrounds.MAX_BLUR
+        assert info["dim"] == 0
+
+    def test_the_licence_is_recorded(self, isolated_channel, monkeypatch):
+        """The same question gets asked at monetization time as for a
+        footage clip."""
+        from core import backgrounds
+
+        self._stub_download(monkeypatch, self._photo())
+        backgrounds.choose("c", "https://example/p.jpg", "pexels", credit="A. Person")
+        info = backgrounds.info("c")
+        assert "Pexels License" in info["license"]
+        assert info["credit"] == "A. Person"
+
+    def test_an_unknown_source_is_flagged_rather_than_assumed_free(
+            self, isolated_channel, monkeypatch):
+        from core import backgrounds
+
+        self._stub_download(monkeypatch, self._photo())
+        backgrounds.choose("c", "https://example/p.jpg", "somewhere_else")
+        assert "Unconfirmed" in backgrounds.info("c")["license"]
+
+    def test_a_non_http_url_is_refused(self, isolated_channel):
+        from core import backgrounds
+
+        with pytest.raises(backgrounds.BackgroundError):
+            backgrounds.choose("c", "file:///etc/passwd", "pexels")
+
+    def test_editing_without_a_picture_says_so(self, isolated_channel):
+        from core import backgrounds
+
+        with pytest.raises(backgrounds.BackgroundError) as caught:
+            backgrounds.apply_edits("c", blur=5)
+        assert "no background" in caught.value.user_message.lower()
+
+    def test_clear_removes_everything(self, isolated_channel, monkeypatch):
+        from core import backgrounds
+
+        self._stub_download(monkeypatch, self._photo())
+        backgrounds.choose("c", "https://example/p.jpg", "pexels")
+        backgrounds.clear("c")
+        assert not backgrounds.has_background("c")
+        assert not backgrounds.original_path("c").exists()
+        assert backgrounds.info("c") == {}
+
+    def test_one_site_failing_still_returns_the_other(self, monkeypatch):
+        from core import backgrounds
+
+        def explode(*a, **k):
+            raise RuntimeError("down")
+
+        monkeypatch.setattr(backgrounds, "_search_pexels", explode)
+        monkeypatch.setattr(backgrounds, "_search_pixabay",
+                            lambda q, n: [{"source": "pixabay", "preview": "p",
+                                           "full": "f", "credit": "", "link": ""}])
+        assert len(backgrounds.search("candles")) == 1
+
+    def test_a_channel_key_cannot_escape_the_channels_directory(self, isolated_channel):
+        from core import backgrounds
+        from core.paths import PathTraversalError
+
+        with pytest.raises(PathTraversalError):
+            backgrounds.path("../../secrets")
+
+
+class TestTitleCard:
+    def _style(self, **overrides):
+        from core.channels import Style
+
+        style = Style()
+        for field, value in overrides.items():
+            setattr(style, field, value)
+        return style
+
+    def test_it_is_off_by_default(self):
+        """Seconds before the content starts are watch time spent on
+        nothing, and short-form is decided in the first of them."""
+        assert self._style().title_card_enabled is False
+
+    def test_it_renders_a_full_frame(self):
+        from core.paths import FRAME_HEIGHT, FRAME_WIDTH
+        from pipeline.assemble import render_title_card
+
+        frame = render_title_card("My Channel", "A Video Title", self._style())
+        assert frame.shape[0] == FRAME_HEIGHT
+        assert frame.shape[1] == FRAME_WIDTH
+
+    def test_a_long_title_wraps_rather_than_overflowing(self):
+        from pipeline.assemble import render_title_card
+
+        frame = render_title_card(
+            "My Channel",
+            "An extremely long video title that could not possibly fit on one line",
+            self._style())
+        assert frame.shape[1] == 1080
+
+    def test_a_missing_background_falls_back_to_the_colour(self, tmp_path, monkeypatch):
+        """A decoration must never fail a render that is otherwise done."""
+        from core import backgrounds
+        from pipeline.assemble import card_background
+
+        monkeypatch.setattr(backgrounds, "CHANNELS_DIR", tmp_path / "channels")
+        image = card_background("nobody", (5, 6, 7, 255),
+                                self._style(use_background_image=True))
+        assert image.getpixel((10, 10))[:3] == (5, 6, 7)
+
+    def test_switching_the_picture_off_uses_the_colour(self, tmp_path, monkeypatch):
+        from core import backgrounds
+        from pipeline.assemble import card_background
+
+        monkeypatch.setattr(backgrounds, "CHANNELS_DIR", tmp_path / "channels")
+        image = card_background("c", (1, 2, 3, 255),
+                                self._style(use_background_image=False))
+        assert image.getpixel((10, 10))[:3] == (1, 2, 3)
+
+    def test_an_unreadable_picture_does_not_raise(self, tmp_path, monkeypatch):
+        from core import backgrounds
+        from pipeline.assemble import card_background
+
+        monkeypatch.setattr(backgrounds, "CHANNELS_DIR", tmp_path / "channels")
+        target = backgrounds.path("c")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"not a jpeg")
+        image = card_background("c", (9, 9, 9, 255),
+                                self._style(use_background_image=True))
+        assert image.getpixel((10, 10))[:3] == (9, 9, 9)

@@ -46,6 +46,7 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   youtube       OAuth and resumable upload to YouTube.
   curriculum    A channel's ordered syllabus of topics, and where it has got to.
   corpus        A channel's own quote list, for channels reading existing text.
+  backgrounds   The still picture behind a channel's title and outro cards.
   footage_stats Library health and clip poster frames.
 
 pipeline/     The generation stages. No web dependency at all.
@@ -73,8 +74,8 @@ pipeline/     The generation stages. No web dependency at all.
 
 web/          Flask only.
   __init__      App factory: CSRF, error handling, blueprint registration.
-  blueprints/   channels, curriculum, footage, gallery, jobs, logos, review,
-                setup, voice_lab, youtube.
+  blueprints/   backgrounds, channels, curriculum, footage, gallery, jobs,
+                logos, review, setup, voice_lab, youtube.
   checklist     The launch checklist — one definition, no Flask import.
   forms, helpers
 
@@ -237,6 +238,24 @@ rerolled.
 
 A channel without a syllabus keeps drawing from its flat `topics` list.
 See decision [018](docs/decisions/018-topic-curriculum.md).
+
+## How long a video runs
+
+`pacing.target_seconds` is the setting; the script's word budget is
+derived from it at 2.5 words per second of finished video, measured
+across this project's own output. For a quote channel the quote's own
+words come out of the budget first, since they are not ours to write.
+
+## Cards
+
+The outro card, and optionally an opening title card, sit on the
+channel's background picture when it has one and a flat colour otherwise.
+The title card is off by default — for short-form the scroll is decided
+in the first seconds — and worth turning on for a channel whose videos
+are a series. It is inserted in front of the narration, with matching
+silence in front of the audio; getting that wrong desynchronises every
+caption in the video. See decision
+[020](docs/decisions/020-cards-and-backgrounds.md).
 
 ## Publishing
 
