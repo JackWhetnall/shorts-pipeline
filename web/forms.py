@@ -15,6 +15,7 @@ a field the form doesn't mention simply isn't touched.
 from __future__ import annotations
 
 from core import fonts
+from core.voice_lab import CADENCE_PRESETS
 from core.channels import (
     Cta, EndScreen, ChannelConfig, Monetization, Pacing, Socials, Style,
 )
@@ -71,7 +72,12 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
     Only fields the form actually carries are touched.
     """
     channel.content_mode = form.get("content_mode", channel.content_mode)
-    channel.voice = form.get("voice", channel.voice).strip()
+    # The picker's radio, or the manual box behind the disclosure. The box
+    # wins only when it has something in it, so leaving it blank does not
+    # wipe the voice chosen above it.
+    voice = (form.get("voice_id_manual") or "").strip() or form.get("voice", "").strip()
+    if voice or "voice" in form:
+        channel.voice = voice
     channel.style_prompt = form.get("style_prompt", channel.style_prompt).strip()
     channel.channel_display_name = form.get(
         "channel_display_name", channel.channel_display_name).strip()
@@ -81,11 +87,35 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
     if "avoid_imagery" in form:
         channel.avoid_imagery = lines(form.get("avoid_imagery"))
 
-    if channel.content_mode == "static_corpus":
-        channel.source = form.get("source", channel.source).strip()
-    else:
+    # One question, two stored fields — see web.blueprints.setup.
+    words_from = (form.get("words_from") or "").strip()
+    if words_from == "original":
+        channel.content_mode = "topic"
         if "topics" in form:
             channel.topics = lines(form.get("topics"))
+    elif words_from == "own_quotes":
+        from pipeline import quote_source
+        channel.content_mode = "static_corpus"
+        channel.source = quote_source.CUSTOM
+    elif words_from == "built_in":
+        from pipeline import quote_source
+        channel.content_mode = "static_corpus"
+        source = (form.get("source") or "").strip()
+        if source in quote_source.SOURCES:
+            channel.source = source
+    elif channel.content_mode == "static_corpus":
+        channel.source = form.get("source", channel.source).strip()
+    elif "topics" in form:
+        channel.topics = lines(form.get("topics"))
+
+    # Applied before the individual pacing numbers below, so a preset and
+    # a hand-edited number in the same save resolve the way the form reads
+    # top to bottom: the number wins.
+    preset = CADENCE_PRESETS.get(form.get("preset"))
+    if preset:
+        for field, value in preset["pacing"].items():
+            if field in channel.pacing.keys():
+                setattr(channel.pacing, field, float(value))
 
     pacing = channel.pacing
     for field in Pacing.__dataclass_fields__:

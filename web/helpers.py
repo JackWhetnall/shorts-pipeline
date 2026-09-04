@@ -52,7 +52,7 @@ def checklist_for(channel, video_count: int) -> list:
     items = []
     for item in checklist.build(channel, video_count):
         endpoint, params = checklist.FIX_STEP[item.id]
-        blueprint = {"logo_page": "logos", "setup_step": "setup",
+        blueprint = {"logo_page": "logos", "settings": "channels",
                      "create_video": "channels"}[endpoint]
         items.append({
             "id": item.id, "label": item.label, "done": item.done, "manual": item.manual,

@@ -130,16 +130,45 @@ QUOTE_SCHEMA_EXTRA = {
 }
 
 
-def _quote_instructions(count: int) -> str:
+# Measured across this project's own finished videos: 158 words in 63.8s,
+# 106 in 44.6s, 59 in 22.8s — 2.5 words per second of finished video,
+# including the pauses between segments and the outro. Steady enough to
+# turn a target duration into a word budget.
+WORDS_PER_SECOND = 2.5
+
+
+def word_budget(pacing, count: int, spoken_words: int = 0) -> dict:
+    """How many words this video's segments should come to.
+
+    `spoken_words` is text that will be read but is not ours to write —
+    the quote in a static-corpus video. It comes out of the budget first,
+    because a 60-word verse and a 12-word one leave very different room
+    for the analysis around them.
+
+    Floors at 12 words a segment: below that the model writes captions
+    rather than sentences, and the result is not worth rendering.
+    """
+    total = max(0, int(pacing.target_seconds * WORDS_PER_SECOND) - spoken_words)
+    per_segment = max(12, total // max(1, count))
+    return {
+        "total_words": per_segment * count,
+        "per_segment": per_segment,
+        "target_seconds": pacing.target_seconds,
+    }
+
+
+def _quote_instructions(count: int, budget: dict) -> str:
     return (
         f"Write original analysis of this quote, split into EXACTLY {count} segments "
-        f"of 2-3 sentences each (~{count * 33} words total). Return exactly {count} "
+        f"of roughly {budget['per_segment']} words each "
+        f"({budget['total_words']} words in total). Return exactly {count} "
         f"entries in \"segments\" — no more, no fewer.\n\n"
         "This has to be real, substantive analysis grounded in the specifics of this "
         "exact passage — who said it, its surrounding context, the historical moment, a "
         "concrete modern parallel. Not a fill-in-the-blank reading that would work just "
-        "as well for any other passage. The finished video needs to run 30-40 seconds, "
-        "so a thin one-liner isn't an option.\n\n"
+        f"as well for any other passage. The finished video needs to run about "
+        f"{budget['target_seconds']:.0f} seconds, so a thin one-liner isn't an option "
+        f"— and going long is just as wrong.\n\n"
         "Each segment is spoken on its own, so it must read naturally as a standalone "
         "chunk rather than as a fragment of a longer sentence.\n\n"
         '"quote_shot_brief" and "quote_keywords" describe the footage for the quote '
@@ -148,11 +177,15 @@ def _quote_instructions(count: int) -> str:
     )
 
 
-def _topic_instructions(count: int) -> str:
+def _topic_instructions(count: int, budget: dict) -> str:
     return (
         f"Write EXACTLY {count} segments on this topic, following the style and format "
         f"given in your instructions. Return exactly {count} entries in \"segments\" — "
         f"no more, no fewer.\n\n"
+        f"Aim for roughly {budget['per_segment']} words per segment "
+        f"({budget['total_words']} in total): the finished video needs to run about "
+        f"{budget['target_seconds']:.0f} seconds. Going long is as wrong as going "
+        f"short.\n\n"
         "Each segment is spoken on its own, so it must read naturally as a standalone "
         "chunk rather than as a fragment of a longer sentence.\n\n"
         f"{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}"
@@ -196,13 +229,20 @@ def generate_script(seed: Seed, channel) -> Script:
     count = channel.pacing.segment_count
 
     if seed.type == "quote":
+        # The quote is spoken too, and its length is not ours to choose —
+        # they are someone else's words. Its share comes out of the budget
+        # first, so a 60-word verse and a 12-word one leave the analysis
+        # the right amount of room rather than the same amount.
+        budget = word_budget(channel.pacing, count,
+                             spoken_words=len(seed.text.split()))
         schema = _segments_schema(extra=QUOTE_SCHEMA_EXTRA)
         user_msg = (f'Quote: "{seed.text}"\n'
                     f"Reference: {seed.reference}\n\n"
-                    f"{_quote_instructions(count)}")
+                    f"{_quote_instructions(count, budget)}")
     elif seed.type == "topic":
+        budget = word_budget(channel.pacing, count)
         schema = _segments_schema()
-        user_msg = f'Topic: "{seed.topic}"\n\n{_topic_instructions(count)}'
+        user_msg = f'Topic: "{seed.topic}"\n\n{_topic_instructions(count, budget)}'
     else:
         raise PipelineError(
             f"unknown seed type {seed.type!r}",

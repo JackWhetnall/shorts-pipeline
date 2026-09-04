@@ -486,9 +486,27 @@ class TestScriptSchema:
     def test_the_prompt_states_the_segment_count(self):
         # With no schema bound to enforce it, the wording is the only
         # thing asking for the right number.
-        from pipeline.script_gen import _quote_instructions, _topic_instructions
-        for text in (_quote_instructions(3), _topic_instructions(3)):
+        from core.channels import Pacing
+        from pipeline.script_gen import (
+            _quote_instructions, _topic_instructions, word_budget)
+
+        budget = word_budget(Pacing(), 3)
+        for text in (_quote_instructions(3, budget), _topic_instructions(3, budget)):
             assert "EXACTLY 3" in text
+
+    def test_the_prompt_states_the_length_it_is_aiming_for(self):
+        """The word budget used to be a hardcoded 33 a segment, under a
+        prompt claiming 30-40 seconds, while the videos came out at 64."""
+        from core.channels import Pacing
+        from pipeline.script_gen import (
+            _quote_instructions, _topic_instructions, word_budget)
+
+        pacing = Pacing()
+        pacing.target_seconds = 30
+        budget = word_budget(pacing, 3)
+        for text in (_quote_instructions(3, budget), _topic_instructions(3, budget)):
+            assert "30 seconds" in text
+            assert str(budget["per_segment"]) in text
 
     def test_wrong_count_warns_but_does_not_raise(self):
         from pipeline.script_gen import _check_count
@@ -699,3 +717,48 @@ class TestFonts:
         from core import fonts
         keys = [f.key for f in fonts.FACES]
         assert len(keys) == len(set(keys))
+
+
+class TestWordBudget:
+    """Turning a target duration into a word count.
+
+    Calibrated on this project's own finished videos: 158 words in 63.8s,
+    106 in 44.6s, 59 in 22.8s — 2.5 words per second of finished video,
+    pauses and outro included.
+    """
+
+    def _pacing(self, seconds):
+        from core.channels import Pacing
+        pacing = Pacing()
+        pacing.target_seconds = seconds
+        return pacing
+
+    def test_longer_targets_get_more_words(self):
+        from pipeline.script_gen import word_budget
+        short = word_budget(self._pacing(30), 3)["total_words"]
+        long = word_budget(self._pacing(60), 3)["total_words"]
+        assert long > short * 1.8
+
+    def test_it_reproduces_a_measured_video(self):
+        """63.8 seconds of finished video held 158 spoken words."""
+        from pipeline.script_gen import word_budget
+        assert 130 <= word_budget(self._pacing(64), 4)["total_words"] <= 180
+
+    def test_a_quote_takes_its_share_out_of_the_budget(self):
+        """The quote is spoken and its length is not ours to choose, so a
+        long verse must leave the analysis less room, not the same."""
+        from pipeline.script_gen import word_budget
+        without = word_budget(self._pacing(60), 3)["total_words"]
+        with_quote = word_budget(self._pacing(60), 3, spoken_words=60)["total_words"]
+        assert with_quote < without
+
+    def test_segments_never_shrink_below_a_sentence(self):
+        """Below about a dozen words the model writes captions rather than
+        sentences, and the result is not worth rendering."""
+        from pipeline.script_gen import word_budget
+        assert word_budget(self._pacing(15), 8)["per_segment"] >= 12
+
+    def test_a_quote_longer_than_the_whole_budget_still_yields_segments(self):
+        from pipeline.script_gen import word_budget
+        budget = word_budget(self._pacing(20), 3, spoken_words=500)
+        assert budget["per_segment"] >= 12

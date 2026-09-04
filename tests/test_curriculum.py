@@ -803,9 +803,12 @@ class TestCreatingAChannel:
         assert "output_dir" not in html
 
 
-class TestContentSetupStep:
-    """The three-way 'where do the words come from' question, which is the
-    one place that decision is defined."""
+class TestSettingsContentSection:
+    """The three-way 'where do the words come from' question.
+
+    It lived on a wizard step; it lives on the settings page now. There is
+    one editor, so these post to /settings.
+    """
 
     @pytest.fixture
     def client(self, isolated, tmp_path, monkeypatch):
@@ -830,21 +833,40 @@ class TestContentSetupStep:
         start = html.index(marker) + len(marker)
         return html[start:html.index('"', start)]
 
+    def _post(self, client, **fields):
+        data = {"channel_display_name": "C", "style_prompt": "Explain something.",
+                "csrf_token": self._csrf(client)}
+        data.update(fields)
+        return client.post("/channels/c/settings", data=data)
+
     def test_all_three_options_are_explained_not_just_named(self, client):
-        html = client.get("/channels/c/setup/content").get_data(as_text=True)
+        html = client.get("/channels/c/settings").get_data(as_text=True)
         assert "Written from scratch" in html
         assert "Your own list of quotes" in html
         assert "A built-in library" in html
         # The old wording, which said nothing about what it meant.
         assert "Fixed source" not in html
 
+    def test_every_section_is_on_the_one_page(self, client):
+        """Four hidden tabs plus a nine-step wizard is what made it unclear
+        where anything lived."""
+        html = client.get("/channels/c/settings").get_data(as_text=True)
+        for anchor in ("section-content", "section-voice", "section-look",
+                       "section-publishing", "section-money"):
+            assert f'id="{anchor}"' in html
+
+    def test_the_look_section_carries_the_caption_controls(self, client):
+        """The colours and font were reachable only through a tab that had
+        to be discovered."""
+        html = client.get("/channels/c/settings").get_data(as_text=True)
+        assert 'name="style_font_face"' in html
+        assert 'name="style_base_color"' in html
+        assert 'type="color"' in html
+
     def test_choosing_original_sets_topic_mode(self, client):
         from core.channels import load_channels
 
-        client.post("/channels/c/setup/content", data={
-            "words_from": "original", "channel_display_name": "C",
-            "style_prompt": "Explain something.", "topics": "stars\nplanets",
-            "csrf_token": self._csrf(client)})
+        self._post(client, words_from="original", topics="stars\nplanets")
         channel = load_channels(validate=False)["c"]
         assert channel.content_mode == "topic"
         assert channel.topics == ["stars", "planets"]
@@ -853,31 +875,18 @@ class TestContentSetupStep:
         from core import corpus
         from core.channels import load_channels
 
-        client.post("/channels/c/setup/content", data={
-            "words_from": "own_quotes", "channel_display_name": "C",
-            "style_prompt": "Reflect on it.",
-            "quotes": "The unexamined life is not worth living. — Socrates\n"
-                      "Know thyself, said the oracle | Delphi",
-            "csrf_token": self._csrf(client)})
+        self._post(client, words_from="own_quotes",
+                   quotes="The unexamined life is not worth living. — Socrates\n"
+                          "Know thyself, said the oracle | Delphi")
         channel = load_channels(validate=False)["c"]
         assert channel.content_mode == "static_corpus"
         assert channel.source == "custom"
         assert corpus.count("c") == 2
 
-    def test_unusable_quote_lines_are_reported_not_silently_dropped(self, client):
-        response = client.post("/channels/c/setup/content", data={
-            "words_from": "own_quotes", "channel_display_name": "C",
-            "style_prompt": "Reflect.", "quotes": "A real quote goes here\nno\nx",
-            "csrf_token": self._csrf(client)})
-        assert "too short" in response.get_data(as_text=True)
-
     def test_choosing_a_built_in_library_sets_the_source(self, client):
         from core.channels import load_channels
 
-        client.post("/channels/c/setup/content", data={
-            "words_from": "built_in", "source": "bible",
-            "channel_display_name": "C", "style_prompt": "Reflect.",
-            "csrf_token": self._csrf(client)})
+        self._post(client, words_from="built_in", source="bible")
         channel = load_channels(validate=False)["c"]
         assert channel.content_mode == "static_corpus"
         assert channel.source == "bible"
@@ -885,34 +894,23 @@ class TestContentSetupStep:
     def test_an_unknown_source_is_ignored_rather_than_stored(self, client):
         from core.channels import load_channels
 
-        client.post("/channels/c/setup/content", data={
-            "words_from": "built_in", "source": "../../etc/passwd",
-            "channel_display_name": "C", "style_prompt": "Reflect.",
-            "csrf_token": self._csrf(client)})
+        self._post(client, words_from="built_in", source="../../etc/passwd")
         assert load_channels(validate=False)["c"].source != "../../etc/passwd"
 
-    def test_a_successful_step_advances_to_the_voice_step(self, client):
-        response = client.post("/channels/c/setup/content", data={
-            "words_from": "original", "channel_display_name": "C",
-            "style_prompt": "Explain something.", "topics": "stars",
-            "csrf_token": self._csrf(client)})
-        assert response.headers["Location"].endswith("/setup/voice")
-
-    def test_the_voice_step_lists_voices_rather_than_asking_for_an_id(
+    def test_the_voice_picker_lists_voices_rather_than_asking_for_an_id(
             self, client, monkeypatch):
         from core import voice_lab
 
         monkeypatch.setattr(voice_lab, "get_cached_voices", lambda: [
             {"voice_id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel",
              "description": "Calm and clear", "preview_url": "https://x/p.mp3"}])
-        html = client.get("/channels/c/setup/voice").get_data(as_text=True)
+        html = client.get("/channels/c/settings").get_data(as_text=True)
         assert "Rachel" in html
         assert "https://x/p.mp3" in html
 
-    def test_the_voice_step_still_works_without_the_voice_list(
-            self, client, monkeypatch):
+    def test_the_page_still_works_without_the_voice_list(self, client, monkeypatch):
         """A key restricted to text-to-speech can synthesize but not list
-        voices. That should not be a dead end — you can still paste an ID."""
+        voices. That must not take the whole settings page down."""
         from core import voice_lab
         from core.errors import MissingCredentialError
 
@@ -920,20 +918,75 @@ class TestContentSetupStep:
             raise MissingCredentialError("ELEVENLABS_API_KEY", "the voice list")
 
         monkeypatch.setattr(voice_lab, "get_cached_voices", explode)
-        html = client.get("/channels/c/setup/voice").get_data(as_text=True)
-        assert "Paste an ID instead" in html
+        response = client.get("/channels/c/settings")
+        assert response.status_code == 200
+        assert "Paste an ID instead" in response.get_data(as_text=True)
 
-    def test_the_voice_step_saves_the_choice(self, client, monkeypatch):
+    def test_choosing_a_voice_saves_it(self, client, monkeypatch):
         from core import voice_lab
         from core.channels import load_channels
 
         monkeypatch.setattr(voice_lab, "get_cached_voices", lambda: [])
-        client.post("/channels/c/setup/voice", data={
-            "voice": "21m00Tcm4TlvDq8ikWAM", "speed": "0.95",
-            "csrf_token": self._csrf(client)})
-        channel = load_channels(validate=False)["c"]
-        assert channel.voice == "21m00Tcm4TlvDq8ikWAM"
-        assert channel.speed == 0.95
+        self._post(client, words_from="original", topics="stars",
+                   voice="21m00Tcm4TlvDq8ikWAM")
+        assert load_channels(validate=False)["c"].voice == "21m00Tcm4TlvDq8ikWAM"
+
+    def test_a_pasted_id_beats_the_picker(self, client, monkeypatch):
+        from core import voice_lab
+        from core.channels import load_channels
+
+        monkeypatch.setattr(voice_lab, "get_cached_voices", lambda: [])
+        self._post(client, words_from="original", topics="stars",
+                   voice="21m00Tcm4TlvDq8ikWAM",
+                   voice_id_manual="AAAAAAAAAAAAAAAAAAAA")
+        assert load_channels(validate=False)["c"].voice == "AAAAAAAAAAAAAAAAAAAA"
+
+    def test_an_empty_paste_box_does_not_wipe_the_chosen_voice(
+            self, client, monkeypatch):
+        """It sits behind a disclosure below the picker; leaving it blank
+        is the normal case, not an instruction to clear the voice."""
+        from core import voice_lab
+        from core.channels import load_channels
+
+        monkeypatch.setattr(voice_lab, "get_cached_voices", lambda: [])
+        self._post(client, words_from="original", topics="stars",
+                   voice="21m00Tcm4TlvDq8ikWAM", voice_id_manual="   ")
+        assert load_channels(validate=False)["c"].voice == "21m00Tcm4TlvDq8ikWAM"
+
+    def test_target_length_saves(self, client):
+        from core.channels import load_channels
+
+        self._post(client, words_from="original", topics="stars",
+                   pacing_target_seconds="90")
+        assert load_channels(validate=False)["c"].pacing.target_seconds == 90
+
+    def test_a_cadence_preset_applies_its_pauses(self, client):
+        from core.channels import load_channels
+        from core.voice_lab import CADENCE_PRESETS
+
+        preset = next(iter(CADENCE_PRESETS))
+        self._post(client, words_from="original", topics="stars", preset=preset)
+        pacing = load_channels(validate=False)["c"].pacing
+        for field, value in CADENCE_PRESETS[preset]["pacing"].items():
+            assert getattr(pacing, field) == value
+
+    def test_saving_one_section_leaves_the_others_alone(self, client):
+        """One form carries every section, so what it omits must survive —
+        this is the property that made the old wizard's silent saves
+        dangerous."""
+        from core.channels import load_channels
+
+        self._post(client, words_from="original", topics="stars",
+                   style_font_face="impact", patreon_url="https://patreon/x")
+        before = load_channels(validate=False)["c"]
+        assert before.style.font_face == "impact"
+
+        self._post(client, words_from="original", topics="stars",
+                   channel_display_name="Renamed")
+        after = load_channels(validate=False)["c"]
+        assert after.channel_display_name == "Renamed"
+        assert after.style.font_face == "impact"
+        assert after.monetization.patreon_url == "https://patreon/x"
 
 
 class TestCustomQuoteCorpus:

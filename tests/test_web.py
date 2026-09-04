@@ -75,12 +75,28 @@ class TestPagesRender:
         response = client.get(path)
         assert response.status_code == 200, response.get_data(as_text=True)[:600]
 
-    @pytest.mark.parametrize("step", [
-        "logo", "email", "socials", "patreon", "merch_logo", "merch_store", "amazon",
+    @pytest.mark.parametrize("step,lands_on", [
+        ("content", "/settings#section-content"),
+        ("voice", "/settings#section-voice"),
+        ("look", "/settings#section-look"),
+        ("socials", "/settings#section-publishing"),
+        ("patreon", "/settings#section-money"),
+        ("merch_store", "/settings#section-money"),
+        ("amazon", "/settings#section-money"),
+        ("logo", "/logo"),
+        ("merch_logo", "/logo"),
     ])
-    def test_every_wizard_step_renders(self, client, step):
+    def test_old_wizard_links_land_on_the_right_section(self, client, step, lands_on):
+        """The wizard was a second editor beside the settings page and has
+        been retired, but the checklist, the dashboard and any bookmark
+        still point at its URLs. A redirect is a better answer than a 404."""
         response = client.get(f"/channels/test_channel/setup/{step}")
-        assert response.status_code == 200, response.get_data(as_text=True)[:600]
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith(lands_on)
+
+    def test_an_unknown_setup_step_is_still_a_404(self, client):
+        assert client.get(
+            "/channels/test_channel/setup/nonsense").status_code == 404
 
     def test_unknown_channel_is_a_friendly_404(self, client):
         response = client.get("/channels/does_not_exist")

@@ -1569,3 +1569,87 @@ label > textarea {
   margin-bottom: var(--sp-2, 0.5rem);
   font-weight: 400;
 }
+
+/* --- Settings: one page, a sidebar, one Save --------------------------
+   Four hidden tabs plus a nine-step wizard that saved on Next. Which of
+   the two owned a given setting was genuinely unclear, and there was no
+   way to tell whether a change had been committed. Everything is on the
+   page now; the sidebar jumps rather than hides, so Ctrl-F works and one
+   Save covers the lot. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--sp-5, 1.75rem);
+  align-items: start;
+}
+
+.settings-nav {
+  position: sticky;
+  top: var(--sp-4, 1.25rem);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-nav-link {
+  display: block;
+  padding: var(--sp-2, 0.5rem) var(--sp-3, 0.85rem);
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+.settings-nav-link:hover { background: var(--surface); color: var(--text); }
+.settings-nav-link.active {
+  border-left-color: var(--accent);
+  background: var(--surface);
+  color: var(--text);
+}
+.settings-nav-link strong { display: block; font-size: 0.9rem; }
+.settings-nav-link span {
+  display: block;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--text-faint);
+}
+
+.settings-body { min-width: 0; }
+
+.settings-section {
+  padding-bottom: var(--sp-5, 1.75rem);
+  margin-bottom: var(--sp-5, 1.75rem);
+  border-bottom: 1px solid var(--border);
+  /* Cleared by the sticky header, so an anchor jump doesn't land with the
+     heading hidden underneath it. */
+  scroll-margin-top: 5rem;
+}
+.settings-section:last-of-type { border-bottom: none; }
+.settings-section > h2 { margin-top: 0; }
+
+/* Sticky, because the page is long and a Save you have to scroll to find
+   is one you forget to press. */
+.settings-save-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-3, 0.85rem);
+  padding: var(--sp-3, 0.85rem) 0;
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+}
+
+.settings-save-state { color: var(--text-faint); font-size: 0.85rem; }
+.settings-save-state.dirty { color: var(--accent); font-weight: 600; }
+
+.pacing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0 var(--sp-4, 1.25rem);
+}
+
+@media (max-width: 900px) {
+  .settings-layout { grid-template-columns: 1fr; }
+  .settings-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  .settings-nav-link span { display: none; }
+}

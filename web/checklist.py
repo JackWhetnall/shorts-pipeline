@@ -52,16 +52,18 @@ LABELS = {
     "first_video": "Create your first video",
 }
 
-# Which setup step fixes each item. The web layer turns these into URLs.
+# Which page fixes each item, and which section of it. The web layer turns
+# these into URLs. Settings is one page now, so most of these are anchors
+# into it rather than separate steps.
 FIX_STEP = {
     "logo": ("logo_page", {}),
-    "youtube": ("setup_step", {"step": "socials"}),
-    "tiktok": ("setup_step", {"step": "socials"}),
-    "instagram": ("setup_step", {"step": "socials"}),
-    "patreon": ("setup_step", {"step": "patreon"}),
-    "merch_logo": ("setup_step", {"step": "merch_logo"}),
-    "merch_store": ("setup_step", {"step": "merch_store"}),
-    "affiliate": ("setup_step", {"step": "amazon"}),
+    "youtube": ("settings", {"_anchor": "section-publishing"}),
+    "tiktok": ("settings", {"_anchor": "section-publishing"}),
+    "instagram": ("settings", {"_anchor": "section-publishing"}),
+    "patreon": ("settings", {"_anchor": "section-money"}),
+    "merch_logo": ("logo_page", {}),
+    "merch_store": ("settings", {"_anchor": "section-money"}),
+    "affiliate": ("settings", {"_anchor": "section-money"}),
     "first_video": ("create_video", {}),
 }
 

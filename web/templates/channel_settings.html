@@ -8,15 +8,16 @@
 <h1>{{ channel.channel_display_name }} &mdash; Settings</h1>
 <p class="actions">
   <a href="{{ url_for('logos.logo_page', key=channel.key) }}">Logo</a>
-  <a href="{{ url_for('setup.setup_step', key=channel.key, step='content') }}">Channel setup</a>
+  <a href="{{ url_for('curriculum.page', key=channel.key) }}">Topic plan</a>
 </p>
 {% if saved and not incomplete %}<p class="meta info-banner">Settings saved.</p>{% endif %}
+{% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
 {% if incomplete %}
 <p class="error-banner">
   <strong>Saved, but this channel still can't make a video.</strong>
   {{ incomplete }}
   <span class="hint">
-    <a href="{{ url_for('setup.setup_step', key=channel.key, step='content') }}">Finish setting it up &rarr;</a>
+    <a href="#section-content">Jump to what's missing &rarr;</a>
   </span>
 </p>
 {% endif %}
@@ -28,7 +29,7 @@
     A few seconds and about a penny, so you can iterate on the style prompt
     instead of committing a whole video to find out what changed.
   </p>
-  <button type="button" class="btn-ghost"
+  <button type="button" class="btn-ghost" id="preview-script-btn"
           onclick="previewScript('{{ channel.key }}', this)">Preview a script</button>
   <div id="script-preview" class="hidden"></div>
 </div>

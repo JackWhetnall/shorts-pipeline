@@ -20,7 +20,7 @@ from core.channels import (
     ChannelConfig, Pacing, Style, channel_to_sparse_dict, read_raw, save_channel,
 )
 from core.logging_setup import get_logger
-from core.errors import ConfigError
+from core.errors import ConfigError, friendly_message
 from core.footage_stats import library_stats
 from core.paths import PROJECT_ROOT, slugify
 from pipeline import quote_source
@@ -122,6 +122,7 @@ def settings(key):
     channel = channel_or_404(key)
     if request.method == "POST":
         apply_channel_form(channel, request.form)
+        notes = _save_quote_list(channel, request.form)
         # Saved either way. Refusing the save made a half-set-up channel
         # uneditable: you could not fix its style prompt until you had
         # also given it a voice and a source, which is the rigidity the
@@ -133,28 +134,84 @@ def settings(key):
         except ConfigError as exc:
             save_channel(channel)
             return redirect(url_for("channels.settings", key=key, saved=1,
-                                    incomplete=exc.user_message))
+                                    incomplete=exc.user_message, note=notes))
         save_channel(channel)
-        return redirect(url_for("channels.settings", key=key, saved=1))
+        return redirect(url_for("channels.settings", key=key, saved=1, note=notes))
 
-    return render_template(
-        "channel_settings.html", channel=channel,
-        affiliate_links_text=format_affiliate_links(channel.monetization.affiliate_links),
-        saved=request.args.get("saved"),
-        incomplete=request.args.get("incomplete"),
-        connected=request.args.get("connected"),
-        youtube_upload=_youtube_state(key),
-        published_count=gallery.video_state_counts(channel.output_dir)["published"],
-        topic_plan=curriculum.progress(key) if channel.content_mode == "topic" else None,
-        source_labels=quote_source.SOURCE_LABELS,
-        voice_name=_voice_name(channel.voice),
-    )
+    return render_template("channel_settings.html", **_settings_context(channel))
+
+
+def _save_quote_list(channel, form) -> str:
+    """Write the channel's own quote list, and report what was unusable.
+
+    Kept out of `apply_channel_form`, which only ever mutates the config
+    object — this writes a file, and the count of lines that could not be
+    used is something the person pasting needs told rather than logged.
+    """
+    if (form.get("words_from") or "").strip() != "own_quotes":
+        return ""
+    from core import corpus
+
+    result = corpus.save(channel.key, form.get("quotes", ""))
+    if not result["kept"]:
+        return "No usable quotes yet — add at least one before this channel can make a video."
+    if result["skipped"]:
+        return (f"{result['skipped']} line(s) were too short to use as a quote "
+                f"and were left out.")
+    return ""
+
+
+
+
+def _settings_context(channel, error: str = None) -> dict:
+    """Everything the one settings page needs.
+
+    One builder rather than two call sites: the error path renders the same
+    template, and forgetting a variable there is a 500 that only appears
+    once something else has already gone wrong.
+    """
+    from core import corpus, voice_lab
+    from web.blueprints.setup import words_from_of
+
+    voices, voice_error = [], None
+    try:
+        voices = voice_lab.get_cached_voices()
+    except Exception as exc:  # noqa: BLE001 - the page works without the list
+        voice_error = friendly_message(exc)
+
+    return {
+        "channel": channel,
+        "key": channel.key,
+        "error": error,
+        "affiliate_links_text": format_affiliate_links(
+            channel.monetization.affiliate_links),
+        "saved": request.args.get("saved"),
+        "incomplete": request.args.get("incomplete"),
+        "note": request.args.get("note"),
+        "connected": request.args.get("connected"),
+        "youtube_upload": _youtube_state(channel.key),
+        "published_count": gallery.video_state_counts(channel.output_dir)["published"],
+        "topic_plan": (curriculum.progress(channel.key)
+                       if channel.content_mode == "topic" else None),
+        "source_labels": quote_source.SOURCE_LABELS,
+        "sources": sorted(quote_source.SOURCES),
+        "words_from": words_from_of(channel),
+        "quotes_text": corpus.raw_text(channel.key),
+        "quote_count": corpus.count(channel.key),
+        "voices": voices,
+        "voice_error": voice_error,
+        "voice_name": _voice_name(channel.voice),
+        "presets": voice_lab.CADENCE_PRESETS,
+        "pacing_labels": PACING_LABELS,
+        "cost": _channel_cost(channel.key),
+        "rename_error": request.args.get("rename_error"),
+    }
 
 
 def _voice_name(voice_id: str) -> str:
     """The voice's name, if it is one of the premade ones already cached.
 
-    Best-effort and cache-only: the settings page should not make an HTTP
+    Cache-only and best-effort: the settings page should not make an HTTP
     call, and a cloned voice legitimately will not be in the list.
     """
     if not voice_id:
@@ -167,6 +224,21 @@ def _voice_name(voice_id: str) -> str:
     except Exception:  # noqa: BLE001 - a label is never worth an error
         pass
     return ""
+
+
+# The stored field names are terse because they are code. These are what
+# the settings page shows instead.
+PACING_LABELS = {
+    "pause_after_first_segment": "Pause after the first segment (s)",
+    "pause_after_citation": "Pause after the citation (s)",
+    "pause_between_segments": "Pause between segments (s)",
+    "max_shot_seconds": "Longest single shot (s)",
+    "crossfade": "Crossfade between shots (s)",
+    "outro_seconds": "Outro card length (s)",
+    "caption_max_group_size": "Words per caption group",
+    "caption_pause_gap_threshold": "Gap that breaks a caption (s)",
+    "segment_count": "Segments per video",
+}
 
 
 def _youtube_state(key: str) -> dict:

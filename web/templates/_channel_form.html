@@ -1,299 +1,482 @@
+{# One form, one Save button, every section on the page.
+
+   This used to be four hidden tabs plus a nine-step wizard that saved on
+   Next, and it was genuinely unclear which of the two owned a given
+   setting or when a change had been committed. Now there is one editor:
+   the sidebar jumps, nothing is hidden, and nothing is written until Save
+   is pressed. #}
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
-<form method="post" class="channel-form">
-  {# Six unrelated jobs used to share one long page: the caption colours
-     you set once sat between the style prompt you edit constantly and the
-     monetization links you set once. Tabs put them in order of how often
-     they're actually touched. One <form>, so Save still saves everything
-     regardless of which tab is open. #}
-  <div class="form-tabs" role="tablist">
-    <button type="button" class="form-tab active" data-tab="content" onclick="showFormTab(this)">Content</button>
-    <button type="button" class="form-tab" data-tab="voice" onclick="showFormTab(this)">Voice &amp; pacing</button>
-    <button type="button" class="form-tab" data-tab="look" onclick="showFormTab(this)">Look</button>
-    <button type="button" class="form-tab" data-tab="links" onclick="showFormTab(this)">Links &amp; money</button>
-  </div>
 
-  <div class="form-panel active" data-panel="content">
+<div class="settings-layout">
+
+<nav class="settings-nav" aria-label="Settings sections">
+  <a href="#section-content" class="settings-nav-link active">
+    <strong>Channel</strong>
+    <span>What it's about, and where its words come from</span>
+  </a>
+  <a href="#section-voice" class="settings-nav-link">
+    <strong>Voice &amp; timing</strong>
+    <span>Who reads it, how fast, how long</span>
+  </a>
+  <a href="#section-look" class="settings-nav-link">
+    <strong>Look</strong>
+    <span>Caption font, colours, outro card</span>
+  </a>
+  <a href="#section-publishing" class="settings-nav-link">
+    <strong>Publishing</strong>
+    <span>Socials and automatic uploads</span>
+  </a>
+  <a href="#section-money" class="settings-nav-link">
+    <strong>Money</strong>
+    <span>Patreon, merch, affiliates, end screen</span>
+  </a>
+</nav>
+
+<form method="post" class="channel-form settings-body" id="settings-form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  {% if is_new %}
-  <label>Channel key (used in URLs and its output folder, e.g. "science_facts")
-    <input type="text" name="key" required pattern="[a-z0-9_]+" value="{{ channel.key or '' }}">
-  </label>
-  {% else %}
-  <p><strong>Channel key:</strong> {{ channel.key }}</p>
-  {% endif %}
 
-  <label>Display name
-    <input type="text" name="channel_display_name" required value="{{ channel.channel_display_name or '' }}">
-  </label>
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-content" class="settings-section">
+    <h2>Channel</h2>
 
-  <label>Outro subtext
-    <input type="text" name="outro_subtext" value="{{ channel.outro_subtext or 'Subscribe for more' }}">
-  </label>
-
-  {% if not is_new %}
-  <p class="meta">Videos go in <code>{{ channel.output_dir }}</code>.</p>
-  {% endif %}
-
-  <fieldset>
-    <legend>Voice</legend>
     <p class="meta">
-      {% if voice_name %}
-        <strong>{{ voice_name }}</strong>
-      {% elif channel.voice %}
-        <code>{{ channel.voice }}</code>
-      {% else %}
-        No voice chosen yet.
-      {% endif %}
-      at {{ channel.speed if channel.speed is not none else 1.0 }}&times; speed.
+      Key <code>{{ channel.key }}</code> &middot; videos in
+      <code>{{ channel.output_dir }}</code>
     </p>
-    <p class="hint">
-      <a href="{{ url_for('setup.setup_step', key=channel.key, step='voice') }}">Change the voice &rarr;</a>
-      &middot;
-      <a href="{{ url_for('voice_lab.page') }}">Audition one on your own script</a>
-    </p>
-  </fieldset>
 
-  <fieldset>
-    <legend>Where the words come from</legend>
-    <p class="meta">
-      {% if channel.content_mode == 'topic' %}
-        Written from scratch, on a topic.
+    <label>Display name
+      <input type="text" name="channel_display_name" required
+             value="{{ channel.channel_display_name or '' }}">
+    </label>
+
+    <label>Outro subtext
+      <input type="text" name="outro_subtext"
+             value="{{ channel.outro_subtext or 'Subscribe for more' }}">
+    </label>
+
+    <label>Style prompt &mdash; how it should be written
+      <textarea name="style_prompt" rows="6" required>{{ channel.style_prompt or '' }}</textarea>
+      <span class="hint">
+        The highest-leverage setting here. Say the format, the audience,
+        the voice, and anything to avoid.
+        <a href="#" onclick="document.getElementById('preview-script-btn').click(); return false;">Preview a script</a>
+        runs generation alone for about a penny, so you can tune this
+        without rendering a video to find out what changed.
+      </span>
+    </label>
+
+    <fieldset>
+      <legend>Where the words come from</legend>
+
+      <label class="choice">
+        <input type="radio" name="words_from" value="original"
+               {% if words_from == 'original' %}checked{% endif %}
+               onchange="showWordsFrom(this.value)">
+        <span>
+          <strong>Written from scratch, on a topic</strong>
+          <span class="hint">Every word is generated. Explainers, jokes,
+            facts, history &mdash; the format lives in the style prompt
+            above.</span>
+        </span>
+      </label>
+
+      <label class="choice">
+        <input type="radio" name="words_from" value="own_quotes"
+               {% if words_from == 'own_quotes' %}checked{% endif %}
+               onchange="showWordsFrom(this.value)">
+        <span>
+          <strong>Your own list of quotes</strong>
+          <span class="hint">Paste in the passages yourself. Each video
+            reads one aloud and reflects on it.</span>
+        </span>
+      </label>
+
+      <label class="choice">
+        <input type="radio" name="words_from" value="built_in"
+               {% if words_from == 'built_in' %}checked{% endif %}
+               onchange="showWordsFrom(this.value)">
+        <span>
+          <strong>A built-in library</strong>
+          <span class="hint">The Bible or Shakespeare, fetched for you.
+            Both are public domain, which is why these two are the ones
+            included.</span>
+        </span>
+      </label>
+
+      <div class="words-from-fields" data-words-from="original">
         {% if topic_plan and topic_plan.has_curriculum %}
-          Working through a plan of {{ topic_plan.total }} topics
+        <p class="meta">
+          Working through a plan of {{ topic_plan.total }} subtopics
           &mdash; {{ topic_plan.pending }} still to make.
-          <a href="{{ url_for('curriculum.page', key=channel.key) }}">Open the plan</a>
-        {% elif channel.topics %}
-          Picked at random from {{ channel.topics|length }} topic{{ 's' if channel.topics|length != 1 }}.
-          <a href="{{ url_for('curriculum.page', key=channel.key) }}">Make an ordered plan instead</a>
+          <a href="{{ url_for('curriculum.page', key=channel.key) }}">Open the topic plan &rarr;</a>
+        </p>
         {% else %}
-          No topics set yet.
-          <a href="{{ url_for('curriculum.page', key=channel.key) }}">Make a topic plan</a>
+        <p class="checklist-box">
+          <strong>A topic plan is better than a list.</strong> It designs an
+          ordered syllabus so topics never repeat and never start somewhere
+          obscure. <a href="{{ url_for('curriculum.page', key=channel.key) }}">Build one &rarr;</a>
+        </p>
         {% endif %}
-      {% elif channel.source == 'custom' %}
-        Your own quote list.
-      {% else %}
-        {{ source_labels.get(channel.source, channel.source or 'No source chosen') }}.
-      {% endif %}
-    </p>
-    <p class="hint">
-      <a href="{{ url_for('setup.setup_step', key=channel.key, step='content') }}">Change what this channel makes &rarr;</a>
-    </p>
-  </fieldset>
+        <label>Topics by hand, one per line
+          <textarea name="topics" rows="4"
+                    placeholder="Picked at random. Fine for trying things out.">{{ (channel.topics or [])|join('\n') }}</textarea>
+        </label>
+      </div>
 
+      <div class="words-from-fields" data-words-from="own_quotes">
+        <label>Your quotes &mdash; one per line
+          <textarea name="quotes" rows="10" spellcheck="false"
+                    placeholder="The unexamined life is not worth living. &#8212; Socrates&#10;Nothing is at last sacred but the integrity of your own mind. | Emerson">{{ quotes_text }}</textarea>
+          <span class="hint">
+            Attribution after an em dash, a hyphen, or a vertical bar.
+            {% if quote_count %}<strong>{{ quote_count }}</strong> usable at the moment.{% endif %}
+          </span>
+        </label>
+        <p class="checklist-box">
+          <strong>These are read aloud verbatim, so the rights are yours to
+          check.</strong> The built-in libraries are public domain; anything
+          you paste here is your responsibility.
+        </p>
+      </div>
 
-  <label>Style prompt (the actual content-generation instructions Claude follows)
-    <textarea name="style_prompt" rows="4" required>{{ channel.style_prompt or '' }}</textarea>
-  </label>
+      <div class="words-from-fields" data-words-from="built_in">
+        <label>Library
+          <select name="source">
+            {% for src in sources %}
+            <option value="{{ src }}" {% if channel.source == src %}selected{% endif %}>
+              {{ source_labels.get(src, src) }}
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+    </fieldset>
 
-  <label>Avoid imagery (one word/phrase per line — footage matching this
-    channel will never show a clip whose description contains any of these)
-    <textarea name="avoid_imagery" rows="3">{{ (channel.avoid_imagery or [])|join('\n') }}</textarea>
-  </label>
-
-
-  </div>
-
-  <div class="form-panel" data-panel="voice">
-  <fieldset>
-    <legend>Pacing</legend>
-    {% for field, value in channel.pacing.items() %}
-    <label>{{ field }}
-      <input type="number" step="any" name="pacing_{{ field }}" value="{{ value }}">
-    </label>
-    {% endfor %}
-  </fieldset>
-
-  </div>
-
-  <div class="form-panel" data-panel="look">
-  <div class="look-layout" data-caption-preview>
-
-  <div class="look-controls">
-  <fieldset>
-    <legend>Captions</legend>
-    <label>Font
-      <select name="style_font_face" data-preview-field="font_face" data-font-select>
-        {% for face in font_faces %}
-          <option value="{{ face.key }}" data-note="{{ face.note }}"
-                  {% if face.key == channel.style.font_face %}selected{% endif %}>
-            {{ face.label }}
-          </option>
-        {% endfor %}
-      </select>
-      <span class="hint" data-font-note></span>
-    </label>
-
-    <label>Size
-      <span class="slider-row">
-        <input type="range" name="style_font_size" min="36" max="120" step="2"
-               value="{{ channel.style.font_size }}" data-preview-field="font_size">
-        <output class="slider-value">{{ channel.style.font_size }}</output>
+    <label>Imagery to avoid &mdash; one word or phrase per line
+      <textarea name="avoid_imagery" rows="3">{{ (channel.avoid_imagery or [])|join('\n') }}</textarea>
+      <span class="hint">
+        The footage library is shared between channels, so a clip can be a
+        strong match and completely wrong for this audience. Nothing whose
+        description mentions these will ever be used here.
       </span>
     </label>
+  </section>
 
-    <label>Outline thickness
-      <span class="slider-row">
-        <input type="range" name="style_stroke_width" min="0" max="12"
-               value="{{ channel.style.stroke_width }}" data-preview-field="stroke_width">
-        <output class="slider-value">{{ channel.style.stroke_width }}</output>
-      </span>
-    </label>
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-voice" class="settings-section">
+    <h2>Voice &amp; timing</h2>
 
-    {% for field, label in [("base_color", "Word colour"),
-                            ("highlight_color", "Spoken word"),
-                            ("stroke_color", "Outline")] %}
-      <label>{{ label }}
-        <span class="color-row">
-          <input type="color" value="{{ channel.style[field] }}"
-                 data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
-          <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
-                 spellcheck="false" data-preview-field="{{ field }}">
-        </span>
-      </label>
-    {% endfor %}
-  </fieldset>
-
-  <fieldset>
-    <legend>Outro card</legend>
-    <p class="hint">The branded card after the narration ends. Not
-      shown in the preview.</p>
-    {% for field, label in [("outro_title_color", "Title colour"),
-                            ("outro_subtext_color", "Subtext colour")] %}
-      <label>{{ label }}
-        <span class="color-row">
-          <input type="color" value="{{ channel.style[field] }}"
-                 data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
-          <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
-                 spellcheck="false">
-        </span>
-      </label>
-    {% endfor %}
-    <label>Background colour
-      <span class="color-row">
-        <input type="color" data-color-for="style_outro_bg_color" data-rgba
-               aria-label="Outro background picker">
-        <input type="text" name="style_outro_bg_color"
-               value="{{ channel.style.outro_bg_color|join(',') }}" spellcheck="false">
-      </span>
-      <span class="hint">Red, green, blue, opacity &mdash; each 0&ndash;255.</span>
-    </label>
-  </fieldset>
-  </div>
-
-  <div class="look-preview">
-    <p class="preview-label">Preview</p>
-    <div class="preview-frame">
-      <img alt="A sample caption rendered with these settings"
-           data-preview-image
-           src="" hidden>
-      <span class="preview-spinner" hidden></span>
-    </div>
-    <p class="hint">A real frame, drawn by the same code that renders
-      the video, over a bright clip from your own library &mdash; the
-      hardest case for white captions.</p>
-  </div>
-
-  </div>
-
-  </div>
-
-  <div class="form-panel" data-panel="links">
-  <fieldset>
-    <legend>Socials</legend>
-    <label>YouTube channel URL
-      <input type="text" name="youtube_url" placeholder="https://youtube.com/@yourchannel"
-             value="{{ channel.socials.youtube_url or '' }}">
-    </label>
-    <label>TikTok profile URL
-      <input type="text" name="tiktok_url" placeholder="https://tiktok.com/@yourhandle"
-             value="{{ channel.socials.tiktok_url or '' }}">
-    </label>
-    <label>Instagram profile URL
-      <input type="text" name="instagram_url" placeholder="https://instagram.com/yourhandle"
-             value="{{ channel.socials.instagram_url or '' }}">
-    </label>
-  </fieldset>
-
-  {% if youtube_upload is defined %}
-  <fieldset>
-    <legend>Automatic YouTube uploads</legend>
-    {% if youtube_upload.connected %}
-      <p class="meta">Connected as <strong>{{ youtube_upload.account or 'a Google account' }}</strong>.
-        The review queue can upload straight to this channel.</p>
-    {% elif youtube_upload.configured %}
-      <p class="meta">Not connected. Sign in to the Google account that owns
-        this YouTube channel and the review queue gains an upload button.</p>
-    {% else %}
-      <p class="meta">Uploading needs a Google OAuth client for this
-        installation &mdash; one, shared by every channel.</p>
+    {% if voice_error %}
+    <p class="error-banner">{{ voice_error }}
+      <span class="hint">You can still paste a voice ID below.</span></p>
     {% endif %}
-    <p class="hint">
-      <a href="{{ url_for('youtube.setup') }}">YouTube upload setup</a>
-      {%- if youtube_upload.connected %} &middot;
-      <a href="{{ url_for('youtube.connect', key=channel.key) }}">Reconnect this channel</a>
-      {%- elif youtube_upload.configured %} &middot;
-      <a href="{{ url_for('youtube.connect', key=channel.key) }}">Connect this channel</a>
-      {%- endif %}
-    </p>
-  </fieldset>
-  {% endif %}
-  <fieldset>
-    <legend>Monetization</legend>
-    <p class="checklist-box">
-      <strong>Setting up monetization</strong> &mdash; these are created
-      externally; paste the resulting URL below once you have it.
-      Nothing here is auto-created.
-    <ul>
-      <li><a href="https://www.patreon.com/portal/registration/register-become-creator" target="_blank" rel="noopener">Create a Patreon page &rarr;</a></li>
-      <li><a href="https://printify.com/" target="_blank" rel="noopener">Set up a merch store (Printify) &rarr;</a></li>
-      <li><a href="https://affiliate-program.amazon.com/" target="_blank" rel="noopener">Get an Amazon Associates tag &rarr;</a></li>
-    </ul>
+
+    <p class="meta">
+      Currently
+      {% if voice_name %}<strong>{{ voice_name }}</strong>
+      {% elif channel.voice %}<code>{{ channel.voice }}</code>
+      {% else %}<strong>no voice chosen</strong>{% endif %}.
+      Previews below are ElevenLabs' own recordings &mdash; free to play.
+      <a href="{{ url_for('voice_lab.page') }}">Voice Lab</a> auditions one
+      on your actual script.
     </p>
 
-    <label>Patreon URL
-      <input type="text" name="patreon_url" placeholder="https://patreon.com/yourpage"
-             value="{{ channel.monetization.patreon_url or '' }}">
-    </label>
-    <label>Merch storefront URL
-      <input type="text" name="merch_url" placeholder="https://yourstore.com"
-             value="{{ channel.monetization.merch_url or '' }}">
-    </label>
-    <label>Affiliate links (one per line, "Label | https://...", label optional)
-      <textarea name="affiliate_links" rows="3" placeholder="My favorite journal | https://amzn.to/xxxxx">{{ affiliate_links_text or '' }}</textarea>
-    </label>
-  </fieldset>
-  <fieldset>
-    <legend>End screen (optional second outro segment)</legend>
-    {# Unchecked checkboxes submit nothing, so without this marker the
-       parser can't tell "every CTA switched off" from "this form has no
-       end-screen section at all". #}
-    <input type="hidden" name="end_screen_present" value="1">
-    <label class="checkbox-label">
-      <input type="checkbox" name="end_screen_enabled" {% if channel.end_screen.enabled %}checked{% endif %}>
-      Show a second end screen with active CTAs below
-    </label>
-    <label>Duration (seconds)
-      <input type="number" name="end_screen_duration_seconds" step="0.5" min="1" max="10"
-             value="{{ channel.end_screen.duration_seconds }}">
-    </label>
-
-    {% for cta_key, cta_default_text in [('patreon', 'Support us on Patreon'), ('merch', 'Check out our merch'), ('affiliate', 'Shop our picks below')] %}
-    <div class="cta-row">
-      <label class="checkbox-label">
-        <input type="checkbox" name="cta_{{ cta_key }}_enabled" {% if channel.end_screen.ctas[cta_key].enabled %}checked{% endif %}>
-        {{ cta_key|capitalize }} CTA active (shown on end screen and in the description)
+    {% if voices %}
+    <div class="voice-picker">
+      {% for voice in voices %}
+      <label class="voice-option">
+        <input type="radio" name="voice" value="{{ voice.voice_id }}"
+               {% if channel.voice == voice.voice_id %}checked{% endif %}>
+        <span class="voice-option-body">
+          <strong>{{ voice.name }}</strong>
+          {% if voice.description %}<span class="hint">{{ voice.description }}</span>{% endif %}
+          {% if voice.preview_url %}
+          <audio controls preload="none" src="{{ voice.preview_url }}"></audio>
+          {% endif %}
+        </span>
       </label>
-      <input type="text" name="cta_{{ cta_key }}_text" placeholder="{{ cta_default_text }}"
-             value="{{ channel.end_screen.ctas[cta_key].text or '' }}">
+      {% endfor %}
     </div>
-    {% endfor %}
-  </fieldset>
+    {% endif %}
 
+    <details class="card">
+      <summary class="summary-heading">Paste an ID instead</summary>
+      <label>ElevenLabs voice ID
+        <input type="text" name="voice_id_manual" spellcheck="false"
+               placeholder="{{ channel.voice or '21m00Tcm4TlvDq8ikWAM' }}">
+        <span class="hint">Only needed for a cloned or custom voice &mdash;
+          the premade ones are all listed above.</span>
+      </label>
+    </details>
+
+    <fieldset>
+      <legend>Length and pace</legend>
+
+      <label>Target length
+        <span class="slider-row">
+          <input type="range" name="pacing_target_seconds" min="15" max="180" step="5"
+                 value="{{ channel.pacing.target_seconds }}"
+                 oninput="this.nextElementSibling.value = this.value + 's'">
+          <output class="slider-value">{{ channel.pacing.target_seconds|int }}s</output>
+        </span>
+        <span class="hint">
+          The script's word budget comes from this &mdash; about
+          {{ (channel.pacing.target_seconds * 2.5)|int }} spoken words, measured at
+          2.5 words a second across this project's own finished videos.
+          A target, not a guarantee.
+        </span>
+      </label>
+
+      <label>Speed
+        <span class="slider-row">
+          <input type="range" name="speed" min="0.7" max="1.2" step="0.05"
+                 value="{{ channel.speed if channel.speed is not none else 1.0 }}"
+                 oninput="this.nextElementSibling.value = this.value">
+          <output class="slider-value">{{ channel.speed if channel.speed is not none else 1.0 }}</output>
+        </span>
+        <span class="hint">1.0 is the voice's natural pace.</span>
+      </label>
+
+      <label>Cadence preset
+        <select name="preset">
+          <option value="">Leave the pauses below alone</option>
+          {% for key, preset in presets.items() %}
+          <option value="{{ key }}">{{ preset.label }}</option>
+          {% endfor %}
+        </select>
+        <span class="hint">Sets the pause lengths in one go, overwriting
+          whatever is below.</span>
+      </label>
+    </fieldset>
+
+    <details class="card">
+      <summary class="summary-heading">Every timing number</summary>
+      <p class="hint">Set by the cadence preset and the target length above.
+        Change them here when you want something the presets don't cover.</p>
+      <div class="pacing-grid">
+        {% for field, value in channel.pacing.items() %}
+        {% if field != 'target_seconds' %}
+        <label>{{ pacing_labels.get(field, field) }}
+          <input type="number" step="any" name="pacing_{{ field }}" value="{{ value }}">
+        </label>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </details>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-look" class="settings-section">
+    <h2>Look</h2>
+
+    <div class="look-layout" data-caption-preview>
+    <div class="look-controls">
+    <fieldset>
+      <legend>Captions</legend>
+      <label>Font
+        <select name="style_font_face" data-preview-field="font_face" data-font-select>
+          {% for face in font_faces %}
+            <option value="{{ face.key }}" data-note="{{ face.note }}"
+                    {% if face.key == channel.style.font_face %}selected{% endif %}>
+              {{ face.label }}
+            </option>
+          {% endfor %}
+        </select>
+        <span class="hint" data-font-note></span>
+      </label>
+
+      <label>Size
+        <span class="slider-row">
+          <input type="range" name="style_font_size" min="36" max="120" step="2"
+                 value="{{ channel.style.font_size }}" data-preview-field="font_size">
+          <output class="slider-value">{{ channel.style.font_size }}</output>
+        </span>
+      </label>
+
+      <label>Outline thickness
+        <span class="slider-row">
+          <input type="range" name="style_stroke_width" min="0" max="12"
+                 value="{{ channel.style.stroke_width }}" data-preview-field="stroke_width">
+          <output class="slider-value">{{ channel.style.stroke_width }}</output>
+        </span>
+      </label>
+
+      {% for field, label in [("base_color", "Word colour"),
+                              ("highlight_color", "Spoken word"),
+                              ("stroke_color", "Outline")] %}
+        <label>{{ label }}
+          <span class="color-row">
+            <input type="color" value="{{ channel.style[field] }}"
+                   data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
+            <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
+                   spellcheck="false" data-preview-field="{{ field }}">
+          </span>
+        </label>
+      {% endfor %}
+    </fieldset>
+
+    <fieldset>
+      <legend>Outro card</legend>
+      <p class="hint">The branded card after the narration ends. Not shown
+        in the preview.</p>
+      {% for field, label in [("outro_title_color", "Title colour"),
+                              ("outro_subtext_color", "Subtext colour")] %}
+        <label>{{ label }}
+          <span class="color-row">
+            <input type="color" value="{{ channel.style[field] }}"
+                   data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
+            <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
+                   spellcheck="false">
+          </span>
+        </label>
+      {% endfor %}
+      <label>Background colour
+        <span class="color-row">
+          <input type="color" data-color-for="style_outro_bg_color" data-rgba
+                 aria-label="Outro background picker">
+          <input type="text" name="style_outro_bg_color"
+                 value="{{ channel.style.outro_bg_color|join(',') }}" spellcheck="false">
+        </span>
+        <span class="hint">Red, green, blue, opacity &mdash; each 0&ndash;255.</span>
+      </label>
+    </fieldset>
+    </div>
+
+    <div class="look-preview">
+      <p class="preview-label">Preview</p>
+      <div class="preview-frame">
+        <img alt="A sample caption rendered with these settings"
+             data-preview-image src="" hidden>
+        <span class="preview-spinner" hidden></span>
+      </div>
+      <p class="hint">A real frame, drawn by the same code that renders the
+        video, over a bright clip from your own library &mdash; the hardest
+        case for white captions.</p>
+    </div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-publishing" class="settings-section">
+    <h2>Publishing</h2>
+
+    <fieldset>
+      <legend>Where this channel lives</legend>
+      <p class="hint">Informational &mdash; nothing in the render path reads
+        these.</p>
+      <label>YouTube channel URL
+        <input type="text" name="youtube_url" placeholder="https://youtube.com/@yourchannel"
+               value="{{ channel.socials.youtube_url or '' }}">
+      </label>
+      <label>TikTok profile URL
+        <input type="text" name="tiktok_url" placeholder="https://tiktok.com/@yourhandle"
+               value="{{ channel.socials.tiktok_url or '' }}">
+      </label>
+      <label>Instagram profile URL
+        <input type="text" name="instagram_url" placeholder="https://instagram.com/yourhandle"
+               value="{{ channel.socials.instagram_url or '' }}">
+      </label>
+    </fieldset>
+
+    {% if youtube_upload is defined %}
+    <fieldset>
+      <legend>Automatic YouTube uploads</legend>
+      {% if youtube_upload.connected %}
+        <p class="meta">Connected as <strong>{{ youtube_upload.account or 'a Google account' }}</strong>.
+          The review queue can upload straight to this channel.</p>
+      {% elif youtube_upload.configured %}
+        <p class="meta">Not connected. Sign in to the Google account that owns
+          this YouTube channel and the review queue gains an upload button.</p>
+      {% else %}
+        <p class="meta">Uploading needs a Google OAuth client for this
+          installation &mdash; one, shared by every channel.</p>
+      {% endif %}
+      <p class="hint">
+        <a href="{{ url_for('youtube.setup') }}">YouTube upload setup</a>
+        {%- if youtube_upload.configured %} &middot;
+        <a href="{{ url_for('youtube.connect', key=channel.key) }}">{{ 'Reconnect' if youtube_upload.connected else 'Connect' }} this channel</a>
+        {%- endif %}
+      </p>
+    </fieldset>
+    {% endif %}
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-money" class="settings-section">
+    <h2>Money</h2>
+
+    <fieldset>
+      <legend>Links</legend>
+      <p class="checklist-box">
+        These are created externally; paste the resulting URL in once you
+        have it. Nothing here is created on your behalf.
+      <ul>
+        <li><a href="https://www.patreon.com/portal/registration/register-become-creator" target="_blank" rel="noopener">Create a Patreon page &rarr;</a></li>
+        <li><a href="https://printify.com/" target="_blank" rel="noopener">Set up a merch store (Printify) &rarr;</a></li>
+        <li><a href="https://affiliate-program.amazon.com/" target="_blank" rel="noopener">Get an Amazon Associates tag &rarr;</a></li>
+      </ul>
+      </p>
+
+      <label>Patreon URL
+        <input type="text" name="patreon_url" placeholder="https://patreon.com/yourpage"
+               value="{{ channel.monetization.patreon_url or '' }}">
+      </label>
+      <label>Merch storefront URL
+        <input type="text" name="merch_url" placeholder="https://yourstore.com"
+               value="{{ channel.monetization.merch_url or '' }}">
+      </label>
+      <label>Affiliate links &mdash; one per line, "Label | https://…"
+        <textarea name="affiliate_links" rows="3" placeholder="My favourite journal | https://amzn.to/xxxxx">{{ affiliate_links_text or '' }}</textarea>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>End screen</legend>
+      <p class="hint">An optional second card after the branding outro. One
+        active CTA is picked at random per video; the description lists them
+        all.</p>
+      {# Unchecked checkboxes submit nothing, so without this marker the
+         parser can't tell "every CTA switched off" from "this form has no
+         end-screen section at all". #}
+      <input type="hidden" name="end_screen_present" value="1">
+      <label class="checkbox-label">
+        <input type="checkbox" name="end_screen_enabled" {% if channel.end_screen.enabled %}checked{% endif %}>
+        Show a second end screen with the active CTAs below
+      </label>
+      <label>Duration (seconds)
+        <input type="number" name="end_screen_duration_seconds" step="0.5" min="1" max="10"
+               value="{{ channel.end_screen.duration_seconds }}">
+      </label>
+
+      {% for cta_key, cta_default_text in [('patreon', 'Support us on Patreon'), ('merch', 'Check out our merch'), ('affiliate', 'Shop our picks below')] %}
+      <div class="cta-row">
+        <label class="checkbox-label">
+          <input type="checkbox" name="cta_{{ cta_key }}_enabled" {% if channel.end_screen.ctas[cta_key].enabled %}checked{% endif %}>
+          {{ cta_key|capitalize }} CTA active
+        </label>
+        <input type="text" name="cta_{{ cta_key }}_text" placeholder="{{ cta_default_text }}"
+               value="{{ channel.end_screen.ctas[cta_key].text or '' }}">
+      </div>
+      {% endfor %}
+    </fieldset>
+  </section>
+
+  {# Sticky, because the page is long and a Save button you have to scroll
+     to find is one you will forget to press. #}
+  <div class="settings-save-bar">
+    <span class="settings-save-state" id="settings-save-state">No changes yet</span>
+    <button type="submit" class="btn btn-primary"
+            onclick="return confirmSettingsSave()">Save changes</button>
   </div>
-
-
-
-
-
-  <button type="submit" onclick="return confirmSettingsSave()">Save</button>
 </form>
+
+</div>
+
+<script>
+  function showWordsFrom(value) {
+    for (const block of document.querySelectorAll(".words-from-fields")) {
+      block.hidden = block.dataset.wordsFrom !== value;
+    }
+  }
+  showWordsFrom(document.querySelector('input[name="words_from"]:checked').value);
+</script>

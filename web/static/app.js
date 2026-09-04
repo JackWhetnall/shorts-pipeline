@@ -1445,3 +1445,56 @@ function confirmSettingsSave() {
 `
     + `This saves every tab, not just the one you are looking at. Continue?`);
 }
+
+// --- Settings: unsaved changes ---------------------------------------
+//
+// The old wizard committed on Next, with no indication that it had. This
+// says plainly whether anything is outstanding, and warns on the way out.
+// Both matter more than usual here because one form carries every section.
+
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("settings-form");
+  if (!form) return;
+
+  const state = document.getElementById("settings-save-state");
+  let dirty = false;
+
+  function markDirty() {
+    if (dirty) return;
+    dirty = true;
+    if (state) {
+      state.textContent = "Unsaved changes";
+      state.classList.add("dirty");
+    }
+  }
+
+  form.addEventListener("input", markDirty);
+  form.addEventListener("change", markDirty);
+  // Submitting is not leaving with unsaved work.
+  form.addEventListener("submit", () => { dirty = false; });
+
+  window.addEventListener("beforeunload", (event) => {
+    if (!dirty) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
+
+  // Highlights the section you are actually looking at. Scroll position
+  // rather than the clicked link, so it stays right when you scroll by
+  // hand or land on an anchor.
+  const links = [...document.querySelectorAll(".settings-nav-link")];
+  const sections = links
+    .map(link => document.querySelector(link.getAttribute("href")))
+    .filter(Boolean);
+
+  if (sections.length && "IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const index = sections.indexOf(entry.target);
+        links.forEach((link, i) => link.classList.toggle("active", i === index));
+      }
+    }, {rootMargin: "-20% 0px -70% 0px"});
+    sections.forEach(section => observer.observe(section));
+  }
+});

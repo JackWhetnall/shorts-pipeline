@@ -5,6 +5,7 @@
       "content_mode": "static_corpus",
       "voice": "pNInz6obpgDQGcFmaJgB",
       "style_prompt": "You are writing a short, warm, non-denominational reflection on a Bible verse for a YouTube Shorts audience. Plain, modern language. No preachiness, no 'in conclusion', just a grounded human observation about what the verse means and why it might matter today.",
+      "outro_subtext": "Follow for more",
       "source": "bible",
       "avoid_imagery": [
         "islamic",
@@ -56,15 +57,21 @@
     },
     "wrens_guide_to_witchcraft": {
       "channel_display_name": "Wren's Guide to Witchcraft",
-      "content_mode": "static_corpus",
-      "voice": "a",
-      "style_prompt": "You are writing a script for a channel that produces short, interesting but poigniant anaysis of various shakespear quotes. You should use british english, but be accessible worldwide. You analysis can include questions to yourself that you then reflect on, but shouldnt be fixed on this style, varying it where necessary, and sometimes just analysing without asking these self-answered questions.",
+      "voice": "SAz9YHcvj6GT2YYXdXww",
+      "style_prompt": "You are writing a script for a channel that produces educational videos about how to learn to become a witch, creating your own spells and manifesting the life you want. You should be a nice, laidback teacher, spiritual and ethereal, while maintaining an air of knowledge and mystical understanding. You should make sure that your lessons don't try to create actual facts, merely suggestions that can be interpreted in many ways, much like a horoscope. You should seem outwardly to have profound wisdom, and your videos should seem, yet most importantly not make specific claims.",
       "outro_subtext": "Follow our page",
       "source": "shakespeare",
       "avoid_imagery": [
         "religious",
         "religion"
-      ]
+      ],
+      "speed": 0.95,
+      "pacing": {
+        "pause_after_first_segment": 1.0,
+        "pause_after_citation": 0.8,
+        "pause_between_segments": 0.7
+      },
+      "content_mode": "topic"
     }
   }
 }

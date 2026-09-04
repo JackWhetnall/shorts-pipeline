@@ -90,6 +90,12 @@ class Pacing(_MappingLike):
     # static_corpus: analysis segments beyond the quote itself.
     # topic: total segments.
     segment_count: int = 3
+    # How long the finished video should run. This is the setting people
+    # actually want — "how long are my videos" — and the script's word
+    # budget is derived from it. Before this, the budget was a hardcoded
+    # 33 words per segment and a prompt that claimed 30-40 seconds while
+    # the videos came out at 64.
+    target_seconds: float = 45.0
 
 
 @dataclass
