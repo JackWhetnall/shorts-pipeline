@@ -42,6 +42,13 @@ DISCARD_REASONS = (
     ("script", "Script was weak"),
     ("audio", "Audio problem"),
     ("repeat", "Too similar to an earlier video"),
+    # Distinct from the reasons above on purpose: those feed a ranking
+    # penalty and a discard-rate metric meant to track the pipeline's own
+    # judgement (footage matching, script quality). A channel misconfigured
+    # by its owner — wrong voice, a style prompt that drifted, pacing that
+    # doesn't suit the content — is a different kind of failure and would
+    # quietly distort those numbers if it were folded into "other".
+    ("settings", "Channel settings need adjusting"),
     ("other", "Just not good enough"),
 )
 DISCARD_REASON_IDS = tuple(r[0] for r in DISCARD_REASONS)
