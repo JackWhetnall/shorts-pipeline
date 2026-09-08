@@ -284,6 +284,16 @@
     <h2>Look</h2>
     <input type="hidden" name="style_flags_present" value="1">
 
+    <div class="suggest-look-row">
+      <button type="button" class="btn-ghost" id="suggest-look-btn"
+              onclick="suggestLook('{{ channel.key }}')">Suggest a look for this channel</button>
+      <span class="hint">Picks a font and colours from a curated, pre-checked
+        set based on what this channel is about &mdash; so channels don't all
+        end up looking the same, without risking something illegible. About
+        a fraction of a cent. Nothing is saved until you press Save below.</span>
+      <p class="hint" id="suggest-look-status"></p>
+    </div>
+
     <div class="look-layout" data-caption-preview>
     <div class="look-controls">
     <fieldset>

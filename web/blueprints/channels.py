@@ -297,8 +297,17 @@ def new_channel():
         # and a source. Nothing here is a guess the user has to undo.
         channel = ChannelConfig(key=key, channel_display_name=display_name,
                                 content_mode="topic")
+        # A uniform random pick from the curated set, not the same
+        # warm-gold default every channel would otherwise start with.
+        # Safe by construction — every entry in core.palettes has already
+        # been checked for contrast — and freely replaceable later via
+        # the AI-suggested "look" button once there's a style prompt to
+        # match against, or by hand in the Look section.
+        from core import palettes
+        palette, face = palettes.random_choice()
+        palettes.apply_to_style(channel.style, palette, face)
         channel_admin.create_channel(channel, complete=False)
-        log.info(f"Created channel {key}")
+        log.info(f"Created channel {key} with the {palette.key} palette")
         return redirect(url_for("setup.setup_step", key=key, step="content"))
 
     return render_template("new_channel.html", display_name="", key="")
@@ -471,6 +480,45 @@ def preview_script(key):
             "description_body": script.description_body,
             "segments": [{"text": s.text, "shot_brief": s.shot_brief,
                           "keywords": s.keywords} for s in script.segments],
+        },
+    })
+
+
+@bp.route("/api/channels/<key>/suggest-look", methods=["POST"])
+def suggest_look(key):
+    """One palette + font, picked to fit this channel and returned as
+    real colour values ready to drop into the form.
+
+    Not applied to the saved channel here — the settings page writes the
+    values into its own fields and the existing Save button (and its
+    "unsaved changes" tracking) covers committing them, the same as
+    picking a colour by hand would.
+    """
+    import time
+
+    from core import costs, fonts, palettes
+    from pipeline import style_gen
+
+    channel = channel_or_404(key)
+    started = time.time()
+    suggestion = style_gen.suggest_palette(channel)
+    spend = costs.summary_between(started, time.time(), key)
+    palette = palettes.get(suggestion["palette_key"])
+
+    return jsonify({
+        "palette": palette.label,
+        "font_key": suggestion["font_key"],
+        "font_label": fonts.label_for(suggestion["font_key"]),
+        "reason": suggestion["reason"],
+        "source": suggestion["source"],
+        "cost": costs.format_usd(spend["total_usd"]),
+        "colors": {
+            "base_color": palette.base_color,
+            "highlight_color": palette.highlight_color,
+            "stroke_color": palette.stroke_color,
+            "outro_title_color": palette.outro_title_color,
+            "outro_subtext_color": palette.outro_subtext_color,
+            "outro_bg_color": ",".join(str(c) for c in palette.outro_bg_color),
         },
     })
 

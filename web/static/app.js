@@ -1686,3 +1686,39 @@ function showBackground(channelKey) {
   image.src = `/channels/${channelKey}/background.jpg?t=${Date.now()}`;
   document.getElementById("background-current").hidden = false;
 }
+
+// --- Suggest a look --------------------------------------------------
+//
+// Writes real colour values into the existing fields and dispatches the
+// same "input" event a hand-typed edit would, so the colour-picker sync
+// and the live caption preview both react exactly as if you'd picked the
+// colours yourself. Nothing is written to the channel until the normal
+// Save button is pressed — this only changes what's on the page.
+
+async function suggestLook(channelKey) {
+  const button = document.getElementById("suggest-look-btn");
+  const status = document.getElementById("suggest-look-status");
+  status.textContent = "";
+
+  await withButtonLoading(button, "Thinking…", async () => {
+    const res = await apiFetch(`/api/channels/${channelKey}/suggest-look`, {method: "POST"});
+    const data = await res.json();
+    if (!res.ok) { status.textContent = data.error || "Couldn't suggest a look."; return; }
+
+    for (const [field, value] of Object.entries(data.colors)) {
+      const input = document.querySelector(`[name="style_${field}"]`);
+      if (!input) continue;
+      input.value = value;
+      input.dispatchEvent(new Event("input", {bubbles: true}));
+    }
+
+    const fontSelect = document.querySelector('[name="style_font_face"]');
+    if (fontSelect) {
+      fontSelect.value = data.font_key;
+      fontSelect.dispatchEvent(new Event("change", {bubbles: true}));
+      fontSelect.dispatchEvent(new Event("input", {bubbles: true}));
+    }
+
+    status.textContent = `${data.palette} + ${data.font_label} (${data.cost}). ${data.reason}`;
+  });
+}

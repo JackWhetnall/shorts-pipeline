@@ -47,6 +47,8 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   curriculum    A channel's ordered syllabus of topics, and where it has got to.
   corpus        A channel's own quote list, for channels reading existing text.
   backgrounds   The still picture behind a channel's title and outro cards.
+  palettes      Pre-vetted caption colour/font combinations, so no combination
+                offered anywhere can be illegible or clash.
   footage_stats Library health and clip poster frames.
 
 pipeline/     The generation stages. No web dependency at all.
@@ -57,6 +59,7 @@ pipeline/     The generation stages. No web dependency at all.
   quote_source  Source text for static-corpus channels.
   curriculum_gen  Designs a syllabus outline, then one unit's topics at a time.
   script_gen    Seed -> Script.
+  style_gen     AI-suggested palette/font for a channel's look.
   tts           Script -> narration + word timings + real segment spans.
   assemble      Footage + narration + captions -> the video file.
   description   The paste-ready description and the meta sidecar.

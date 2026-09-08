@@ -1725,3 +1725,11 @@ label > textarea {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* --- Suggest a look ---------------------------------------------------- */
+.suggest-look-row {
+  margin-bottom: var(--sp-4, 1.25rem);
+  padding-bottom: var(--sp-4, 1.25rem);
+  border-bottom: 1px solid var(--border);
+}
+.suggest-look-row .hint { display: block; margin-top: var(--sp-2, 0.5rem); }
