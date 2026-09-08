@@ -1733,3 +1733,13 @@ label > textarea {
   border-bottom: 1px solid var(--border);
 }
 .suggest-look-row .hint { display: block; margin-top: var(--sp-2, 0.5rem); }
+
+/* --- Style & tone picker ------------------------------------------------ */
+.style-candidate { margin-bottom: var(--sp-4, 1.25rem); }
+.style-candidate-sample {
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: var(--sp-2, 0.5rem) 0;
+}
+.style-candidate-failed { border-color: rgba(255, 92, 114, 0.4); }
+.style-candidate-audio { display: block; width: 100%; margin-top: var(--sp-2, 0.5rem); }

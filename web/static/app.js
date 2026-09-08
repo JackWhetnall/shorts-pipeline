@@ -1722,3 +1722,130 @@ async function suggestLook(channelKey) {
     status.textContent = `${data.palette} + ${data.font_label} (${data.cost}). ${data.reason}`;
   });
 }
+
+// --- Style & tone picker ------------------------------------------------
+//
+// Generates real short samples from real candidate prompts, shows them
+// side by side, and only writes anything once a candidate is explicitly
+// chosen. Nothing here auto-saves.
+
+function collectStyleChoices() {
+  const choices = {};
+  for (const input of document.querySelectorAll('#style-picker-form input[type="radio"]:checked')) {
+    choices[input.name.replace(/^axis_/, "")] = input.value;
+  }
+  return choices;
+}
+
+async function generateStyleCandidates(channelKey) {
+  const button = document.getElementById("generate-candidates-btn");
+  const status = document.getElementById("style-setup-status");
+  const container = document.getElementById("style-candidates");
+  status.textContent = "";
+  container.innerHTML = "";
+
+  await withButtonLoading(button, "Writing and comparing…", async () => {
+    const res = await apiFetch(`/api/channels/${channelKey}/style-setup/candidates`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        choices: collectStyleChoices(),
+        count: document.getElementById("candidate-count").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { status.textContent = data.error || "Couldn't generate candidates."; return; }
+
+    status.textContent = `${data.candidates.length} candidates, about "${data.seed}" (${data.cost}).`;
+    container.innerHTML = data.candidates.map((c, i) => renderStyleCandidate(c, i)).join("");
+    // Listeners attached programmatically rather than inline onclick with
+    // serialised text in an HTML attribute — a sample or a drafted prompt
+    // containing a double quote would otherwise truncate the attribute at
+    // that character, silently dropping the rest of the call (found by
+    // actually clicking the button, not by reading the template).
+    wireStyleCandidateButtons(channelKey, data.candidates);
+  });
+}
+
+function renderStyleCandidate(candidate, index) {
+  if (!candidate.sample) {
+    return `
+      <div class="card style-candidate style-candidate-failed">
+        <p class="meta"><strong>${escapeHtml(candidate.blurb)}</strong></p>
+        <p class="error">${escapeHtml(candidate.error || "This one failed to generate.")}</p>
+      </div>`;
+  }
+  return `
+    <div class="card style-candidate" data-candidate-index="${index}">
+      <p class="meta"><strong>${escapeHtml(candidate.blurb)}</strong></p>
+      <p class="style-candidate-sample">${candidate.sample.map(escapeHtml).join("</p><p class=\"style-candidate-sample\">")}</p>
+      <details>
+        <summary class="summary-heading">Full style prompt</summary>
+        <p class="hint">${escapeHtml(candidate.style_prompt)}</p>
+      </details>
+      <div class="actions">
+        <button type="button" class="btn-ghost" data-listen-btn>Listen</button>
+        <button type="button" class="btn btn-primary" data-choose-btn>Use this one</button>
+      </div>
+      <audio class="style-candidate-audio" hidden controls></audio>
+    </div>`;
+}
+
+// Attaches the Listen/Use-this-one handlers after the cards are in the
+// DOM, closing over the real candidate objects rather than round-tripping
+// their text through an HTML attribute.
+function wireStyleCandidateButtons(channelKey, candidates) {
+  for (const card of document.querySelectorAll(".style-candidate[data-candidate-index]")) {
+    const candidate = candidates[Number(card.dataset.candidateIndex)];
+    if (!candidate || !candidate.sample) continue;
+
+    const listenBtn = card.querySelector("[data-listen-btn]");
+    if (listenBtn) {
+      listenBtn.addEventListener("click", () =>
+        listenToCandidate(channelKey, listenBtn, candidate.sample.join(" ")));
+    }
+    const chooseBtn = card.querySelector("[data-choose-btn]");
+    if (chooseBtn) {
+      chooseBtn.addEventListener("click", () =>
+        chooseStyleCandidate(channelKey, candidate.style_prompt));
+    }
+  }
+}
+
+async function listenToCandidate(channelKey, button, text) {
+  const card = button.closest(".style-candidate");
+  const audio = card.querySelector("audio");
+  await withButtonLoading(button, "Loading…", async () => {
+    const res = await apiFetch(`/api/channels/${channelKey}/style-setup/listen`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text}),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || "Couldn't generate audio for this one."); return; }
+    audio.src = data.url;
+    audio.hidden = false;
+    audio.play();
+  });
+}
+
+function chooseStyleCandidate(channelKey, stylePrompt) {
+  if (!confirm("Save this as the channel's style prompt? You can still "
+             + "edit the wording afterward in Settings.")) return;
+  const form = document.createElement("form");
+  form.method = "post";
+  form.action = `/channels/${channelKey}/style-setup/choose`;
+  const promptField = document.createElement("input");
+  promptField.type = "hidden";
+  promptField.name = "style_prompt";
+  promptField.value = stylePrompt;
+  const csrfField = document.createElement("input");
+  csrfField.type = "hidden";
+  csrfField.name = "csrf_token";
+  csrfField.value = CSRF_TOKEN;
+  form.appendChild(promptField);
+  form.appendChild(csrfField);
+  document.body.appendChild(form);
+  form.submit();
+}
+

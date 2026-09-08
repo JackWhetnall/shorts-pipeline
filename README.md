@@ -139,6 +139,27 @@ colour. Blur and dim sliders make it sit behind text properly; both
 re-derive from the stored original, so moving one back actually undoes.
 Its licence is recorded the same way a footage clip's is.
 
+## Writing a channel's style prompt for you
+
+The style prompt used to mean inventing, from a blank textarea, the exact
+paragraph of English that reliably produces the voice you want. From
+Settings' Channel section, **"Let AI help you write this"** replaces that
+with a picker: format, register and personality (required), plus five
+optional axes — delivery, how certain it sounds, humour, English variant,
+whether it needs a scroll-stopping opener.
+
+It drafts several genuinely different style prompts consistent with your
+choices, and shows a real short sample of each — generated through the
+same code a real video uses, not a one-line guess — so you pick based on
+actual output. An optional "Listen" per candidate reads the sample aloud
+in the channel's chosen voice. Picking one saves it as the plain-text
+`style_prompt`, still fully editable in Settings afterward.
+
+A channel that already has a real prompt gets "Rewrite this from
+scratch" instead, behind a warning: finishing the flow **replaces** the
+prompt entirely rather than blending with it. For a small wording change,
+edit the textarea directly.
+
 ## Uploading to YouTube
 
 `/youtube/setup` walks through making a Google Cloud OAuth client and

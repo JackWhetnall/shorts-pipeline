@@ -260,6 +260,23 @@ class TestSeedSelection:
         assert seed.topic == "a fallback topic"
         assert seed.topic_id == ""
 
+    def test_a_topic_channel_with_neither_a_plan_nor_a_list_fails_readably(
+            self, isolated):
+        """This used to crash raw: random.choice([]) raises IndexError
+        with no user_message, reachable the moment anything calls
+        fetch_seed on a channel in this state - which the style-tone
+        picker's preview does, ahead of the usual validate() gate."""
+        from core.errors import ConfigError
+        from pipeline.run import fetch_seed
+
+        channel = ChannelConfig(key="c", channel_display_name="C",
+                                content_mode="topic",
+                                voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p",
+                                topics=[])
+        with pytest.raises(ConfigError) as caught:
+            fetch_seed(channel)
+        assert "no topics yet" in caught.value.user_message
+
     def test_a_channel_with_a_plan_takes_the_next_topic(self, planned, channel):
         from pipeline.run import fetch_seed
 

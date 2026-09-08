@@ -34,3 +34,4 @@ reason for a change stays true forever.
 | [019](019-channel-setup.md) | Creating a channel | Supersedes the single create form |
 | [020](020-cards-and-backgrounds.md) | Title cards, and a picture behind them | Active |
 | [021](021-elevenlabs-error-messages.md) | "Check your API key" was a guess, and usually the wrong one | Active |
+| [022](022-style-tone-picker.md) | Selecting a voice instead of inventing one | Active |

@@ -62,6 +62,16 @@
         <a href="#" onclick="document.getElementById('preview-script-btn').click(); return false;">Preview a script</a>
         runs generation alone for about a penny, so you can tune this
         without rendering a video to find out what changed.
+        {% if (channel.style_prompt or '').strip() %}
+        &middot;
+        <a href="{{ url_for('style_setup.page', key=channel.key) }}"
+           onclick="return confirm('This rewrites the style prompt from scratch through a picker of questions, and replaces what is here entirely — it does not blend with it. Continue?');">
+          Rewrite this from scratch &rarr;
+        </a>
+        {% else %}
+        &middot;
+        <a href="{{ url_for('style_setup.page', key=channel.key) }}">Let AI help you write this &rarr;</a>
+        {% endif %}
       </span>
     </label>
 

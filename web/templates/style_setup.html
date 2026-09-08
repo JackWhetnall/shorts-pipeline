@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ channel.channel_display_name }} — Style &amp; tone{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('channels.settings', key=key) }}#section-content">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  {{ channel.channel_display_name }} settings
+</a>
+<h1>Style &amp; tone</h1>
+<p class="subtitle">
+  Answer a few questions about how this channel should sound. You'll see
+  real generated samples before picking anything &mdash; nothing is saved
+  until you choose one.
+</p>
+
+{% if is_rewrite %}
+<p class="error-banner">
+  This channel already has a style prompt. Finishing this flow
+  <strong>replaces it entirely</strong> &mdash; it does not blend with what's
+  there now. If you only want to tweak the wording, edit the style prompt
+  directly in Settings instead.
+</p>
+{% endif %}
+
+{% if seed_error %}
+<div class="card">
+  <p class="meta">{{ seed_error }}</p>
+  <a class="btn btn-primary" href="{{ url_for('channels.settings', key=key) }}#section-content">
+    Set that up first &rarr;
+  </a>
+</div>
+{% else %}
+
+<form id="style-picker-form" class="channel-form" onsubmit="return false;">
+  {% for axis in axes if axis.required %}
+  <fieldset>
+    <legend>{{ axis.label }}</legend>
+    {% for option in axis.options %}
+    <label class="choice">
+      <input type="radio" name="axis_{{ axis.key }}" value="{{ option.key }}"
+             {% if option.key == axis.default %}checked{% endif %}>
+      <span>
+        <strong>{{ option.label }}</strong>
+        <span class="hint">{{ option.description }}</span>
+      </span>
+    </label>
+    {% endfor %}
+  </fieldset>
+  {% endfor %}
+
+  <details class="card">
+    <summary class="summary-heading">More options</summary>
+    {% for axis in axes if not axis.required %}
+    <fieldset>
+      <legend>{{ axis.label }}</legend>
+      {% for option in axis.options %}
+      <label class="choice">
+        <input type="radio" name="axis_{{ axis.key }}" value="{{ option.key }}"
+               {% if option.key == axis.default %}checked{% endif %}>
+        <span>
+          <strong>{{ option.label }}</strong>
+          <span class="hint">{{ option.description }}</span>
+        </span>
+      </label>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+  </details>
+
+  <label>How many to compare
+    <span class="slider-row">
+      <input type="range" id="candidate-count" min="{{ min_count }}" max="{{ max_count }}"
+             value="{{ default_count }}" oninput="this.nextElementSibling.value = this.value">
+      <output class="slider-value">{{ default_count }}</output>
+    </span>
+    <span class="hint">Each is a short real sample, not a one-line
+      guess &mdash; a handful of cents in total, shown before you spend it.</span>
+  </label>
+
+  <div class="actions">
+    <button type="button" class="btn btn-primary" id="generate-candidates-btn"
+            onclick="generateStyleCandidates('{{ key }}')">Generate to compare</button>
+  </div>
+  <p class="hint" id="style-setup-status"></p>
+</form>
+
+<div id="style-candidates"></div>
+
+{% endif %}
+{% endblock %}

@@ -148,9 +148,10 @@ def create_app(debug: bool = False) -> Flask:
 
     from web.blueprints import (
         backgrounds, channels, curriculum, footage, gallery, jobs as jobs_bp,
-        logos, review, setup, voice_lab, youtube,
+        logos, review, setup, style_setup, voice_lab, youtube,
     )
     app.register_blueprint(backgrounds.bp)
+    app.register_blueprint(style_setup.bp)
     app.register_blueprint(channels.bp)
     app.register_blueprint(curriculum.bp)
     app.register_blueprint(gallery.bp)

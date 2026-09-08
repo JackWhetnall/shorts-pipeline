@@ -59,6 +59,15 @@ def fetch_seed(channel, pick: dict = None) -> Seed:
                         f"or un-skip some."),
                 )
             return Seed(type="topic", topic=entry["title"], topic_id=entry["id"])
+        if not channel.topics:
+            raise ConfigError(
+                f"{channel.key} generates from topics but has neither a "
+                f"curriculum nor a topic list",
+                user_message=(
+                    f'"{channel.channel_display_name or channel.key}" has no '
+                    f"topics yet. Make a topic plan, or add some in its "
+                    f"settings."),
+            )
         return Seed(type="topic", topic=random.choice(channel.topics))
     raise ConfigError(
         f"unknown content_mode {channel.content_mode!r}",
