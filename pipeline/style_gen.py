@@ -168,9 +168,20 @@ def draft_candidates(channel, choices: dict, count: int = 5) -> list:
             "Write real instructive prose, the way an experienced showrunner "
             "would brief a writer — not a restatement of the choices as a "
             "list, and not generic advice that could apply to any channel. "
-            "Be specific: name the kind of opening line, the kind of "
-            "transition between ideas, concrete habits this channel's "
-            "writing should have.",
+            "Describe the shape and habits of the writing: how it tends to "
+            "open, how it moves between ideas, the vocabulary register, what "
+            "it avoids.\n\n"
+            "Never give a quotable example line or an exact sentence to "
+            "follow. A script generator hands this prompt to a model that "
+            "writes every episode, and a model given one sample sentence "
+            "reuses it, or a thin paraphrase of it, almost verbatim in "
+            "nearly every video — that is exactly the failure this system "
+            "exists to avoid. Say what a good opening DOES ('drops straight "
+            "into the specific thing being tried, no throat-clearing') "
+            "rather than what one SAYS ('something like \"Okay, today's "
+            "experiment is...\"'). If a sentence you're about to write could "
+            "be copied into quotation marks and read aloud as-is, rewrite it "
+            "as a description of the technique instead.",
             cacheable=True),
     ]
     user = (
