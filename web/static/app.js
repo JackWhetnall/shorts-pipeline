@@ -1029,7 +1029,19 @@ function reviewDrop() {
   if (reviewIndex >= reviewItems.length) reviewIndex = Math.max(0, reviewItems.length - 1);
   document.getElementById("review-counter").textContent =
     reviewItems.length ? `${reviewItems.length} video${reviewItems.length === 1 ? "" : "s"} waiting, oldest first.` : "All caught up.";
+  decrementNavCount();
   renderReview();
+}
+
+function decrementNavCount() {
+  // The header's waiting-count badge is rendered once, server-side, on
+  // page load — nothing about publishing or discarding here reloads the
+  // page, so without this it sits stale until the next navigation.
+  const badge = document.querySelector('a[href="/review"] .nav-count');
+  if (!badge) return;
+  const next = parseInt(badge.textContent, 10) - 1;
+  if (next > 0) badge.textContent = String(next);
+  else badge.remove();
 }
 
 async function reviewPublish() {
