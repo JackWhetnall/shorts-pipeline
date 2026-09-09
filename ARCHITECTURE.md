@@ -45,6 +45,8 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   scheduler     Recurring generation.
   youtube       OAuth and resumable upload to YouTube.
   curriculum    A channel's ordered syllabus of topics, and where it has got to.
+  ordering      Which pending subtopic "make the next video" offers next,
+                per a channel's Ordering settings — see decision 024.
   corpus        A channel's own quote list, for channels reading existing text.
   backgrounds   The still picture behind a channel's title and outro cards.
   style_choices Fixed vocabulary for the style & tone picker: format,

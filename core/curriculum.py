@@ -359,6 +359,44 @@ def covered_in_topic(channel_key: str, topic_id: str) -> list:
             if row["status"] in (USED, PUBLISHED)]
 
 
+def covered_titles(channel_key: str, topic_id: str, scope: str,
+                   recent_topics: int = 3) -> list:
+    """Earlier videos a script for this topic should already assume the
+    viewer has seen, per `scope` (`core.channels.ChannelConfig.
+    context_scope`):
+
+    "topic" — this topic's own earlier videos only (`covered_in_topic`,
+      unchanged — the original, still-default behaviour).
+    "recent_topics" — this topic plus the `recent_topics` immediately
+      before it. Topics fill in teaching order, so "before" is a real
+      position in the syllabus, not an arbitrary cut.
+    "all" — every topic up to and including this one.
+
+    Rows, oldest first — the same shape `covered_in_topic` already
+    returns, so callers that do `row["title"] for row in ...` need no
+    change. An unrecognised scope, or a topic_id no longer in the
+    syllabus, falls back to the "topic" behaviour rather than raising —
+    context is a bonus, never a blocker.
+    """
+    if scope not in ("recent_topics", "all"):
+        return covered_in_topic(channel_key, topic_id)
+
+    data = load(channel_key)
+    topic_ids = [t["id"] for t in data["topics"]]
+    if topic_id not in topic_ids:
+        return covered_in_topic(channel_key, topic_id)
+    position = topic_ids.index(topic_id)
+
+    if scope == "all":
+        window = set(topic_ids[:position + 1])
+    else:
+        start = max(0, position - max(0, recent_topics))
+        window = set(topic_ids[start:position + 1])
+
+    return [row for row in data["subtopics"]
+           if row["topic"] in window and row["status"] in (USED, PUBLISHED)]
+
+
 # --- status transitions ---------------------------------------------
 
 def _set(channel_key: str, subtopic_id: str, **fields) -> dict:

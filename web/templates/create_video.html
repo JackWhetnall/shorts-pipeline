@@ -66,11 +66,11 @@
     </div>
 
     <div id="pick-within-topic">
-      <label>Within that topic
+      <label>Which subtopic
         <select id="pick-within" onchange="onWithinChosen()">
-          <option value="next">Take the next one in order</option>
-          <option value="random">Pick one at random</option>
-          <option value="specific">Choose a specific subtopic</option>
+          <option value="next">The next one in order</option>
+          <option value="random">A random one</option>
+          <option value="specific">A specific one</option>
         </select>
       </label>
 
@@ -103,8 +103,8 @@
 <div id="seed-preview" class="card hidden">
   <div id="seed-preview-text"></div>
   <div class="actions">
-    <button class="btn-ghost" onclick="getSeed('{{ key }}')">Reroll</button>
-    <button onclick="startGenerate('{{ key }}')">Use this</button>
+    <button class="btn-ghost" id="seed-reroll-btn" onclick="getSeed('{{ key }}')">Reroll</button>
+    <button id="seed-use-btn" onclick="startGenerate('{{ key }}')">Use this</button>
   </div>
 </div>
 

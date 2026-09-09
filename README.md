@@ -105,10 +105,21 @@ shapes and space → patterns and puzzles → chance and data → algebra and
 functions → structures in mathematics → calculus and change → deep
 mathematical ideas. Fractions first, topology last.
 
-Topics are used in order, can be skipped or pulled to the front, and a
-**discarded video puts its topic back in the queue** — a take that did
-not work is not a topic that has been covered. The dashboard shows how
-many are left and roughly how many days that is.
+Topics are used in order by default, can be skipped or pulled to the
+front, and a **discarded video puts its topic back in the queue** — a
+take that did not work is not a topic that has been covered. The
+dashboard shows how many are left and roughly how many days that is.
+
+**Ordering** (in Settings, once there's a plan) is a channel policy, not
+a per-click choice: sequential or random topics, sequential or random
+subtopics, finish a topic before the next or round-robin across them —
+or a qualitatively different **natural** mode, one "stickiness" number
+for how often the next video continues whatever topic is already in
+progress versus branching to one that's had less attention.
+
+A channel whose "videos build on each other" (Settings → Channel) can
+also say **how far back** that reaches: this topic only, this topic plus
+a handful before it, or the whole channel so far.
 
 A full 25-unit, 1000-topic plan costs well under a dollar in total, and
 you only pay for units as you reach them.
@@ -146,10 +157,14 @@ project's own output rather than guessed.
 preview, the outro card, an optional **title card**, and a **background
 picture**.
 
-The title card names the channel and the video. It is off by default:
-seconds before the content starts are watch time spent on nothing, and
-short-form is decided in the first of them. Worth turning on for a
-channel whose videos are a series someone works through.
+The title card names the channel and the video, and — for a channel with
+a topic plan — can optionally add the syllabus topic as a third line. It
+is off by default: seconds before the content starts are watch time
+spent on nothing, and short-form is decided in the first of them. Worth
+turning on for a channel whose videos are a series someone works
+through, and can play either before the narration (the original
+behaviour) or after the first line, so a channel whose opening line is
+its own hook doesn't have to delay it.
 
 The background picture is searched from Pexels and Pixabay, chosen once
 per channel, and sits behind the title and outro cards instead of a flat

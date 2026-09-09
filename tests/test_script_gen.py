@@ -107,6 +107,46 @@ class TestWriteScripts:
         script_gen.write_scripts(_channel(build_on_previous=False), TOPIC, subs)
         assert "Old one" not in captured["system"]
 
+    def test_context_scope_controls_how_far_back_it_reaches(self, monkeypatch, isolated):
+        """Same setup as the test above, but with a SECOND topic before
+        the one being written - "topic" scope must not see it, wider
+        scopes must."""
+        from core import curriculum
+
+        curriculum.start("c", "Testing", [
+            {"title": "Earlier Topic", "summary": "s", "level": "foundation",
+             "target_subtopics": 1},
+            {"title": "Basics", "summary": "s", "level": "foundation",
+             "target_subtopics": 2},
+        ])
+        curriculum.add_subtopics("c", "u01", [{"title": "Way back", "angle": "a"}])
+        curriculum.add_subtopics("c", "u02", [{"title": "Old one", "angle": "a"}])
+        for subtopic_id, stem in (("t0001", "s1"), ("t0002", "s2")):
+            curriculum.claim("c", subtopic_id)
+            curriculum.attach_video("c", subtopic_id, stem)
+            curriculum.mark_published("c", stem)
+
+        topic = curriculum.find_topic("c", "u02")
+        subs = [{"id": "t3", "title": "New one", "angle": "a"}]
+
+        captured = {}
+
+        def fake_call_json(system, user, schema, **kwargs):
+            captured["system"] = "\n".join(b.text for b in system)
+            return {"scripts": [_script_payload(1)]}
+
+        monkeypatch.setattr(llm, "call_json", fake_call_json)
+
+        script_gen.write_scripts(
+            _channel(build_on_previous=True, context_scope="topic"), topic, subs)
+        assert "Way back" not in captured["system"]
+        assert "Old one" in captured["system"]
+
+        script_gen.write_scripts(
+            _channel(build_on_previous=True, context_scope="all"), topic, subs)
+        assert "Way back" in captured["system"]
+        assert "Old one" in captured["system"]
+
 
 class TestRegenerateScript:
     def _fake(self, monkeypatch, captured):

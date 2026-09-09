@@ -134,17 +134,90 @@
           Videos build on each other
         </label>
         <p class="hint">
-          A video is told what earlier videos in its own topic already
-          covered, and asked not to re-explain them. Right for a channel
-          teaching something in order; wrong for one whose videos are meant
-          to stand alone and be found individually, which most short-form
-          is &mdash; so it is off unless you say otherwise.
+          A video is told what earlier videos already covered, and asked
+          not to re-explain them. Right for a channel teaching something
+          in order; wrong for one whose videos are meant to stand alone
+          and be found individually, which most short-form is &mdash; so
+          it is off unless you say otherwise.
         </p>
+        <label>How far back it looks
+          <select name="context_scope">
+            <option value="topic" {% if channel.context_scope == 'topic' %}selected{% endif %}>
+              This topic only
+            </option>
+            <option value="recent_topics" {% if channel.context_scope == 'recent_topics' %}selected{% endif %}>
+              This topic, plus a few before it
+            </option>
+            <option value="all" {% if channel.context_scope == 'all' %}selected{% endif %}>
+              The whole channel so far
+            </option>
+          </select>
+          <span class="hint">Only matters while "videos build on each
+            other" is checked above.</span>
+        </label>
+        <label>Topics of lookback, when set to "a few before it"
+          <input type="number" name="context_topics" min="1" max="20"
+                 value="{{ channel.context_topics }}">
+        </label>
 
         <label>Topics by hand, one per line
           <textarea name="topics" rows="4"
                     placeholder="Picked at random. Fine for trying things out.">{{ (channel.topics or [])|join('\n') }}</textarea>
         </label>
+
+        {% if topic_plan and topic_plan.has_curriculum %}
+        <fieldset>
+          <legend>Ordering &mdash; which subtopic "make the next video" picks</legend>
+          <input type="hidden" name="ordering_present" value="1">
+
+          <label>Style
+            <select name="ordering_mode">
+              <option value="structured" {% if channel.ordering.mode == 'structured' %}selected{% endif %}>
+                Structured &mdash; the three settings below
+              </option>
+              <option value="natural" {% if channel.ordering.mode == 'natural' %}selected{% endif %}>
+                Natural &mdash; mostly stays on one topic, sometimes branches
+              </option>
+            </select>
+          </label>
+
+          <label>Topic order <span class="hint">(structured only)</span>
+            <select name="ordering_topic_order">
+              <option value="sequential" {% if channel.ordering.topic_order == 'sequential' %}selected{% endif %}>Sequential</option>
+              <option value="random" {% if channel.ordering.topic_order == 'random' %}selected{% endif %}>Random</option>
+            </select>
+          </label>
+          <label>Subtopic order <span class="hint">(structured only)</span>
+            <select name="ordering_subtopic_order">
+              <option value="sequential" {% if channel.ordering.subtopic_order == 'sequential' %}selected{% endif %}>Sequential</option>
+              <option value="random" {% if channel.ordering.subtopic_order == 'random' %}selected{% endif %}>Random</option>
+            </select>
+          </label>
+          <label>Grouping <span class="hint">(structured only)</span>
+            <select name="ordering_grouping">
+              <option value="topic_first" {% if channel.ordering.grouping == 'topic_first' %}selected{% endif %}>
+                Finish a topic before starting the next
+              </option>
+              <option value="round_robin" {% if channel.ordering.grouping == 'round_robin' %}selected{% endif %}>
+                Round-robin &mdash; one subtopic per topic, cycling
+              </option>
+            </select>
+          </label>
+
+          <label>Stickiness <span class="hint">(natural only)</span>
+            <span class="slider-row">
+              <input type="range" name="ordering_stickiness" min="0" max="1" step="0.05"
+                     value="{{ channel.ordering.stickiness }}"
+                     oninput="this.nextElementSibling.value = this.value">
+              <output class="slider-value">{{ channel.ordering.stickiness }}</output>
+            </span>
+            <span class="hint">How often the next video continues the
+              topic already in progress rather than branching to another.
+              1.0 finishes every topic before moving on; 0.0 branches
+              every time.</span>
+          </label>
+        </fieldset>
+        {% endif %}
       </div>
 
       <div class="words-from-fields" data-words-from="own_quotes">
@@ -388,8 +461,43 @@
       <label class="checkbox-label">
         <input type="checkbox" name="style_title_card_enabled"
                {% if channel.style.title_card_enabled %}checked{% endif %}>
-        Show a title card before the narration
+        Show a title card
       </label>
+      <fieldset>
+        <legend>When</legend>
+        <label class="choice">
+          <input type="radio" name="style_title_card_placement" value="start"
+                 {% if channel.style.title_card_placement != 'after_intro' %}checked{% endif %}>
+          <span>
+            <strong>Before the narration</strong>
+            <span class="hint">The original behaviour &mdash; the card
+              plays first, then the video begins.</span>
+          </span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="style_title_card_placement" value="after_intro"
+                 {% if channel.style.title_card_placement == 'after_intro' %}checked{% endif %}>
+          <span>
+            <strong>After the intro line</strong>
+            <span class="hint">The video opens straight into its first
+              line, then the card plays, then the rest follows &mdash; for
+              a channel whose opening line is its own hook.</span>
+          </span>
+        </label>
+      </fieldset>
+      {% if topic_plan and topic_plan.has_curriculum %}
+      <label class="checkbox-label">
+        <input type="checkbox" name="style_title_card_show_topic"
+               {% if channel.style.title_card_show_topic %}checked{% endif %}>
+        Also show this video's topic
+      </label>
+      <p class="hint">
+        Adds the syllabus topic as a third line, above the subtopic
+        title &mdash; "{{ channel.channel_display_name }} / topic name /
+        this video's own title" &mdash; the orienting detail a series
+        someone works through actually benefits from.
+      </p>
+      {% endif %}
       <label>How long
         <span class="slider-row">
           <input type="range" name="style_title_card_seconds"

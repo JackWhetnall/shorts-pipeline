@@ -126,6 +126,16 @@ class Style(_MappingLike):
     title_card_title_color: str = "#FFFFFF"
     title_card_channel_color: str = "#FFD400"
     title_card_bg_color: tuple = (10, 10, 14, 255)
+    # "start" (in front of all narration, the original behaviour) or
+    # "after_intro" (after the first segment's audio, before the rest) —
+    # a channel whose first line is its own hook may want the card to
+    # follow it rather than delay it.
+    title_card_placement: str = "start"
+    # Adds the enclosing topic's title as a third line, above the
+    # subtopic title. Only means anything for a topic-mode channel with a
+    # curriculum — a no-op everywhere else, same as every setting here
+    # that only applies to some channels.
+    title_card_show_topic: bool = False
 
     # Whether the channel's background picture sits behind the title and
     # outro cards. Only does anything when a picture has been chosen.
@@ -205,6 +215,32 @@ class Socials(_MappingLike):
 
 
 @dataclass
+class Ordering(_MappingLike):
+    """How "make the next video" picks a subtopic, for a channel with a
+    topic plan. See core.ordering for the algorithm this drives.
+
+    Three independent knobs cover finishing a topic before the next vs.
+    interleaving them, and sequential vs. random at either level.
+    "natural" is qualitatively different — weighted continuation rather
+    than a fixed sequence — so it is its own mode rather than a fourth
+    knob layered on the other three.
+
+    Defaults reproduce this project's original behaviour exactly (finish
+    a topic, subtopics and topics both in the order they were written),
+    so an existing channel's "next video" does not change until this is
+    changed.
+    """
+
+    mode: str = "structured"            # "structured" | "natural"
+    topic_order: str = "sequential"     # "sequential" | "random"
+    subtopic_order: str = "sequential"  # "sequential" | "random"
+    grouping: str = "topic_first"       # "topic_first" | "round_robin"
+    # natural mode only: probability of continuing the topic of the most
+    # recently made video, when it still has something pending.
+    stickiness: float = 0.8
+
+
+@dataclass
 class ChannelConfig:
     key: str
     channel_display_name: str = ""
@@ -223,6 +259,12 @@ class ChannelConfig:
     # to stand alone and be found individually — most short-form is the
     # second, so this is off by default.
     build_on_previous: bool = False
+    # How far back build_on_previous looks. Meaningless while it's off.
+    # "topic": this topic's own earlier videos only (the original,
+    # still-default behaviour). "recent_topics": this topic plus the
+    # `context_topics` before it. "all": every topic up to this one.
+    context_scope: str = "topic"
+    context_topics: int = 3
     # Imagery this channel must never show, however well a clip otherwise
     # scores. The footage library is shared across channels, so a clip
     # can be a strong thematic match and still be completely wrong for
@@ -235,6 +277,7 @@ class ChannelConfig:
     monetization: Monetization = field(default_factory=Monetization)
     socials: Socials = field(default_factory=Socials)
     end_screen: EndScreen = field(default_factory=EndScreen)
+    ordering: Ordering = field(default_factory=Ordering)
     archived: bool = False
     # Launch-checklist items marked done by hand. Some steps (Patreon's
     # signup flow) are annoying enough that "noting I'm skipping this"
@@ -360,6 +403,7 @@ _NESTED = {
     "monetization": Monetization,
     "socials": Socials,
     "end_screen": EndScreen,
+    "ordering": Ordering,
 }
 
 

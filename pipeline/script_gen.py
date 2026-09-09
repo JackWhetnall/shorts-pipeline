@@ -199,15 +199,16 @@ CONTINUITY_LIMIT = 8
 
 
 def _continuity(channel, seed) -> str:
-    """What earlier videos in this subtopic's own topic already covered.
+    """What earlier videos already covered, per the channel's own
+    `context_scope` — this topic only, a few topics back, or everything.
 
-    Off by default. Right for a channel teaching something in order, where
-    video 7 should not re-explain what videos 1-6 established; wrong for
-    one whose videos are meant to stand alone and be found individually,
-    which most short-form is.
+    Off by default (`build_on_previous`). Right for a channel teaching
+    something in order, where video 7 should not re-explain what videos
+    1-6 established; wrong for one whose videos are meant to stand alone
+    and be found individually, which most short-form is.
 
-    Titles only, and only from the same topic: enough to say "this ground
-    is taken", not enough to invite a recap.
+    Titles only: enough to say "this ground is taken", not enough to
+    invite a recap.
     """
     if not getattr(channel, "build_on_previous", False) or not seed.topic_id:
         return ""
@@ -218,7 +219,8 @@ def _continuity(channel, seed) -> str:
         if not entry:
             return ""
         earlier = [row["title"] for row in
-                   curriculum.covered_in_topic(channel.key, entry["topic"])
+                   curriculum.covered_titles(channel.key, entry["topic"],
+                                             channel.context_scope, channel.context_topics)
                    if row["id"] != seed.topic_id]
     except Exception:  # noqa: BLE001 - context is a bonus, never a blocker
         log.debug("Could not read earlier subtopics for continuity", exc_info=True)
@@ -228,8 +230,8 @@ def _continuity(channel, seed) -> str:
         return ""
     listed = "\n".join(f"- {title}" for title in earlier[-CONTINUITY_LIMIT:])
     return (
-        f"This channel's videos build on each other. Earlier videos in this "
-        f"same part of the syllabus have already covered:\n{listed}\n\n"
+        f"This channel's videos build on each other. Earlier videos have "
+        f"already covered:\n{listed}\n\n"
         f"Assume the viewer has seen those. Do not re-explain them, and do "
         f"not repeat their examples — you may refer back briefly where it "
         f"genuinely helps. This video is still about its own subject.\n\n"
@@ -456,20 +458,23 @@ def _batch_schema() -> dict:
 
 
 def _covered_titles(channel, topic_id: str) -> str:
-    """Earlier videos in this same topic, titles only — the same text
-    `_continuity()` builds for a single-video generation, reused here so
-    a batch that starts partway through an already-active topic doesn't
+    """Earlier videos, titles only, per the channel's `context_scope` —
+    the same text `_continuity()` builds for a single-video generation,
+    reused here so a batch that starts partway through an already-active
+    topic (or, with a wider scope, an already-active channel) doesn't
     re-tread what's already published."""
     if not getattr(channel, "build_on_previous", False):
         return ""
     from core import curriculum
-    earlier = [row["title"] for row in curriculum.covered_in_topic(channel.key, topic_id)]
+    earlier = [row["title"] for row in
+              curriculum.covered_titles(channel.key, topic_id,
+                                        channel.context_scope, channel.context_topics)]
     if not earlier:
         return ""
     listed = "\n".join(f"- {t}" for t in earlier[-CONTINUITY_LIMIT:])
     return (
-        f"This channel's videos build on each other. Earlier videos in "
-        f"this same topic have already covered:\n{listed}\n\n"
+        f"This channel's videos build on each other. Earlier videos have "
+        f"already covered:\n{listed}\n\n"
         f"Assume the viewer has seen those. Do not re-explain them, and "
         f"do not repeat their examples.\n\n"
     )

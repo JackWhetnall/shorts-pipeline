@@ -71,11 +71,12 @@ function currentPick() {
 }
 
 async function getSeed(channelKey) {
+  const pick = currentPick();
   await withButtonLoading(event.target.closest("button"), "Fetching…", async () => {
     const res = await apiFetch(`/api/channels/${channelKey}/seed`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(currentPick()),
+      body: JSON.stringify(pick),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -102,6 +103,14 @@ async function getSeed(channelKey) {
         `<p class="meta seed-repeat">Already used ${history.count} time${history.count === 1 ? "" : "s"}` +
         `${history.last ? ", most recently " + escapeHtml(history.last) : ""}. Reroll for something new.</p>`;
     }
+
+    // A fully-specific pick (a named subtopic) has nothing to reroll —
+    // rerolling would fetch the exact same thing again. Showing it with
+    // a Reroll button reads as "here's a candidate we picked," when it's
+    // actually just confirming the one thing you already chose.
+    const isSpecific = Boolean(pick.subtopic_id);
+    document.getElementById("seed-reroll-btn").hidden = isSpecific;
+    document.getElementById("seed-use-btn").textContent = isSpecific ? "Confirm" : "Use this";
 
     document.getElementById("seed-idle").classList.add("hidden");
     document.getElementById("seed-preview").classList.remove("hidden");

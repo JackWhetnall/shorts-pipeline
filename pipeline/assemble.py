@@ -271,13 +271,18 @@ def card_background(channel_key: str, colour, style) -> "Image.Image":
 
 
 def render_title_card(channel_display_name: str, title: str, style,
-                      channel_key: str = "") -> np.ndarray:
+                      channel_key: str = "", topic_title: str = "") -> np.ndarray:
     """An opening card: the channel above, what this video is about below.
 
     Off unless the channel asks for it. Seconds before the content starts
     are watch time spent on nothing, and short-form is decided in the
     first of them — but a channel whose videos are a series someone works
     through wants the viewer oriented, which is a different trade.
+
+    `topic_title`, when given, adds a third stack between the channel and
+    the video's own title — the enclosing syllabus topic, styled like the
+    channel line (a breadcrumb, not a second headline) rather than adding
+    a whole new set of colour/size settings for one extra line.
     """
     font_title = load_font(TITLE_CARD_SIZE, style.font_face)
     font_channel = load_font(TITLE_CARD_CHANNEL_SIZE, style.font_face)
@@ -287,21 +292,43 @@ def render_title_card(channel_display_name: str, title: str, style,
     draw = ImageDraw.Draw(image)
 
     channel_lines = wrap_words(channel_display_name.split(), font_channel, max_width)
+    topic_lines = wrap_words(topic_title.split(), font_channel, max_width) if topic_title else []
     title_lines = wrap_words(title.split(), font_title, max_width)
     channel_height = int(TITLE_CARD_CHANNEL_SIZE * 1.3)
     title_height = int(TITLE_CARD_SIZE * 1.25)
     gap = 48
 
-    total = (channel_height * len(channel_lines) + gap
+    total = (channel_height * (len(channel_lines) + len(topic_lines)) + gap
              + title_height * len(title_lines))
     y = (H - total) / 2
     y = _draw_centered_lines(draw, channel_lines, font_channel, y, channel_height,
                              W, style.title_card_channel_color, 2, "black")
+    if topic_lines:
+        y = _draw_centered_lines(draw, topic_lines, font_channel, y, channel_height,
+                                 W, style.title_card_channel_color, 2, "black")
     # A stroke on both, because the card may be sitting on a photograph
     # and a colour that reads on flat black can vanish on one.
     _draw_centered_lines(draw, title_lines, font_title, y + gap, title_height, W,
                          style.title_card_title_color, 3, "black")
     return np.array(image)
+
+
+def _topic_title_for_card(channel, seed) -> str:
+    """The enclosing topic's title, for the title card's optional third
+    line. `seed.topic_id` is a subtopic's id (see `pipeline.plan.Seed`'s
+    own docstring), so this is one hop up: subtopic row -> its topic
+    row. Empty whenever there's nothing to show — a quote channel, a
+    flat topic list with no syllabus, or a stale id — never an error;
+    the card still renders with just the channel and video title.
+    """
+    if channel.content_mode != "topic" or not seed.topic_id:
+        return ""
+    from core import curriculum
+    if not curriculum.exists(channel.key):
+        return ""
+    row = curriculum.find(channel.key, seed.topic_id)
+    topic = curriculum.find_topic(channel.key, row["topic"]) if row else None
+    return topic["title"] if topic else ""
 
 
 def render_outro(channel_display_name: str, subtext: str, style,
@@ -517,22 +544,39 @@ def run(plan):
     narration_video = CompositeVideoClip([*backgrounds, *captions], size=(W, H))
     narration_video = narration_video.set_duration(narration_duration)
 
-    parts = [narration_video,
-             ImageClip(render_outro(channel.channel_display_name,
-                                    channel.outro_subtext, style, channel.key))
-             .set_duration(pacing.outro_seconds)]
-    tail_seconds = pacing.outro_seconds
-
-    # In front of the narration, so it plays first. The seed's own title
-    # rather than the generated one: it is what the video is about, it is
-    # stable, and it is what the plan calls this video.
+    # The seed's own title rather than the generated one: it is what the
+    # video is about, it is stable, and it is what the plan calls this
+    # video. `split_at` is where the card lands inside the narration
+    # rather than in front of all of it — 0 means "in front," same as
+    # this always worked before placement was a choice.
     lead_seconds = 0.0
+    split_at = 0.0
     if style.title_card_enabled:
         lead_seconds = max(0.0, float(style.title_card_seconds))
-        parts.insert(0, ImageClip(render_title_card(
+        topic_title = (_topic_title_for_card(channel, plan.seed)
+                      if style.title_card_show_topic else "")
+        title_card_clip = ImageClip(render_title_card(
             channel.channel_display_name,
             plan.seed.title or (plan.script.title if plan.script else ""),
-            style, channel.key)).set_duration(lead_seconds))
+            style, channel.key, topic_title)).set_duration(lead_seconds)
+
+        if (style.title_card_placement == "after_intro"
+                and plan.script and plan.script.segments):
+            split_at = min(plan.script.segments[0].end, narration_duration)
+
+        if split_at > 0:
+            parts = [narration_video.subclip(0, split_at), title_card_clip,
+                     narration_video.subclip(split_at, narration_duration)]
+        else:
+            split_at = 0.0  # guard: no real segment timing, fall back to "start"
+            parts = [title_card_clip, narration_video]
+    else:
+        parts = [narration_video]
+
+    tail_seconds = pacing.outro_seconds
+    parts.append(ImageClip(render_outro(channel.channel_display_name,
+                                        channel.outro_subtext, style, channel.key))
+                .set_duration(pacing.outro_seconds))
 
     active_ctas = resolve_active_ctas(channel.monetization, channel.end_screen)
     if channel.end_screen.enabled and active_ctas:
@@ -545,12 +589,19 @@ def run(plan):
     final = final.set_duration(lead_seconds + narration_duration + tail_seconds)
 
     narration = apply_fade(narration, fps, fade_out=0.05)
-    # Silence in front of the narration too, so the audio stays lined up
-    # with the video the title card just pushed along.
+    # Silence for the card goes wherever the card itself landed — in
+    # front of everything (split_at == 0, the original behaviour) or
+    # spliced into the narration at the same point the video was split.
     lead_silence = silence_array(lead_seconds, fps, narration.shape[1])
     silence = silence_array(tail_seconds, fps, narration.shape[1])
-    audio = AudioArrayClip(
-        np.concatenate([lead_silence, narration, silence], axis=0), fps=fps)
+    if split_at > 0:
+        split_sample = int(split_at * fps)
+        audio = AudioArrayClip(
+            np.concatenate([narration[:split_sample], lead_silence,
+                           narration[split_sample:], silence], axis=0), fps=fps)
+    else:
+        audio = AudioArrayClip(
+            np.concatenate([lead_silence, narration, silence], axis=0), fps=fps)
 
     # Video and audio are written separately then muxed with a stream
     # copy. write_videofile's combined path was corrupting roughly the

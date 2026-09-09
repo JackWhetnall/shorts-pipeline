@@ -279,6 +279,59 @@ class TestScripts:
         assert row["script"] == self.SCRIPT
 
 
+class TestCoveredTitles:
+    """`covered_titles` is what `context_scope` actually drives — how far
+    back a script's continuity context reaches. `planned` gives three
+    topics in file order: Basics (u01, 3 subtopics), Middle (u02, 2),
+    Deep (u03, unfilled)."""
+
+    def _publish(self, subtopic_id, stem):
+        curriculum.claim("c", subtopic_id)
+        curriculum.attach_video("c", subtopic_id, stem)
+        curriculum.mark_published("c", stem)
+
+    def test_topic_scope_matches_covered_in_topic(self, planned):
+        self._publish("t0001", "s1")
+        self._publish("t0004", "s4")
+        result = curriculum.covered_titles("c", "u02", "topic")
+        assert [r["id"] for r in result] == ["t0004"]
+
+    def test_recent_topics_reaches_backward_by_file_order(self, planned):
+        self._publish("t0001", "s1")
+        self._publish("t0002", "s2")
+        self._publish("t0004", "s4")
+        result = curriculum.covered_titles("c", "u02", "recent_topics", recent_topics=1)
+        assert {r["id"] for r in result} == {"t0001", "t0002", "t0004"}
+
+    def test_recent_topics_respects_the_count(self, planned):
+        self._publish("t0001", "s1")
+        self._publish("t0004", "s4")
+        result = curriculum.covered_titles("c", "u02", "recent_topics", recent_topics=0)
+        assert {r["id"] for r in result} == {"t0004"}
+
+    def test_all_reaches_every_topic_up_to_this_one(self, planned):
+        self._publish("t0001", "s1")
+        self._publish("t0004", "s4")
+        result = curriculum.covered_titles("c", "u02", "all")
+        assert {r["id"] for r in result} == {"t0001", "t0004"}
+
+    def test_all_never_reaches_forward(self, planned):
+        """A topic after this one hasn't been taught yet - reaching
+        forward would leak spoilers from later in the syllabus."""
+        self._publish("t0001", "s1")
+        result = curriculum.covered_titles("c", "u01", "all")
+        assert {r["id"] for r in result} == {"t0001"}
+
+    def test_an_unknown_scope_falls_back_to_topic(self, planned):
+        self._publish("t0001", "s1")
+        self._publish("t0004", "s4")
+        result = curriculum.covered_titles("c", "u02", "not_a_real_scope")
+        assert [r["id"] for r in result] == ["t0004"]
+
+    def test_a_stale_topic_id_falls_back_to_topic_scope_harmlessly(self, planned):
+        assert curriculum.covered_titles("c", "u99", "all") == []
+
+
 class TestProgress:
     def test_counts_every_status(self, planned):
         curriculum.claim("c", "t0001")
@@ -1742,3 +1795,44 @@ class TestTitleCard:
         image = card_background("c", (9, 9, 9, 255),
                                 self._style(use_background_image=True))
         assert image.getpixel((10, 10))[:3] == (9, 9, 9)
+
+
+class TestTopicTitleForCard:
+    """The title card's optional third line: the enclosing topic's
+    title, one hop up from the subtopic a seed carries."""
+
+    def _channel(self, **overrides):
+        channel = ChannelConfig(key="c", content_mode="topic",
+                                voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p")
+        for k, v in overrides.items():
+            setattr(channel, k, v)
+        return channel
+
+    def test_the_right_topic_title_for_a_real_subtopic(self, planned):
+        from pipeline.assemble import _topic_title_for_card
+        from pipeline.plan import Seed
+
+        seed = Seed(type="topic", topic="First thing", topic_id="t0001")
+        assert _topic_title_for_card(self._channel(), seed) == "Basics"
+
+    def test_empty_for_a_quote_channel(self, planned):
+        from pipeline.assemble import _topic_title_for_card
+        from pipeline.plan import Seed
+
+        channel = self._channel(content_mode="static_corpus")
+        seed = Seed(type="quote", text="x", reference="y")
+        assert _topic_title_for_card(channel, seed) == ""
+
+    def test_empty_when_there_is_no_curriculum(self, isolated):
+        from pipeline.assemble import _topic_title_for_card
+        from pipeline.plan import Seed
+
+        seed = Seed(type="topic", topic="X", topic_id="whatever")
+        assert _topic_title_for_card(self._channel(), seed) == ""
+
+    def test_empty_for_a_stale_subtopic_id(self, planned):
+        from pipeline.assemble import _topic_title_for_card
+        from pipeline.plan import Seed
+
+        seed = Seed(type="topic", topic="Gone", topic_id="t9999")
+        assert _topic_title_for_card(self._channel(), seed) == ""

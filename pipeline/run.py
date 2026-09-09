@@ -79,9 +79,10 @@ def _pick_subtopic(channel, pick: dict = None):
     """Which subtopic this video should be about.
 
     Order of preference: an explicitly named one, then the next pending
-    inside a named topic, then a random pending one, then the next pending
-    overall. A named subtopic that has already been used falls through to
-    the rest rather than failing — the plan page and this page can be open
+    inside a named topic, then a random pending one, then whatever the
+    channel's own ordering policy (core.ordering) says is next overall.
+    A named subtopic that has already been used falls through to the
+    rest rather than failing — the plan page and this page can be open
     at once, and a stale id should not be an error.
     """
     pick = pick or {}
@@ -104,7 +105,8 @@ def _pick_subtopic(channel, pick: dict = None):
         if entry:
             return entry
 
-    return curriculum.next_pending(channel.key)
+    from core import ordering
+    return ordering.choose_next_subtopic(channel)
 
 
 def _prepare_output(plan: RenderPlan) -> RenderPlan:

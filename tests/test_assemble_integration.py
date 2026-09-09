@@ -131,6 +131,33 @@ class TestCaptionLayout:
         assert overlay.shape[2] == 4, "must be RGBA so it composites over the base"
 
 
+class TestTitleCard:
+    """render_title_card's optional third line - the enclosing topic's
+    title, drawn between the channel and the video's own title."""
+
+    def test_a_topic_title_actually_changes_the_rendered_image(self):
+        from core.channels import Style
+        from pipeline.assemble import render_title_card
+
+        style = Style()
+        two_line = render_title_card("Channel", "Video Title", style)
+        three_line = render_title_card("Channel", "Video Title", style,
+                                       topic_title="The Topic")
+        assert two_line.shape == three_line.shape
+        assert not (two_line == three_line).all()
+
+    def test_no_topic_title_renders_identically_to_the_old_signature(self):
+        """Every existing caller that never passes topic_title must see
+        no change at all."""
+        from core.channels import Style
+        from pipeline.assemble import render_title_card
+
+        style = Style()
+        explicit_empty = render_title_card("Channel", "Video Title", style, topic_title="")
+        omitted = render_title_card("Channel", "Video Title", style)
+        assert (explicit_empty == omitted).all()
+
+
 class TestCaptionClips:
     def test_one_base_clip_per_group_plus_one_overlay_per_word(self):
         from core.channels import Pacing, Style
@@ -249,6 +276,49 @@ class TestFullRender:
             assert rendered.audio.duration == pytest.approx(rendered.duration, abs=0.3)
             # The opening second is the card, not footage.
             assert rendered.get_frame(0.5).mean() < 250
+        finally:
+            rendered.close()
+
+    def test_a_title_card_after_the_intro_line_splices_in_rather_than_leading(
+            self, plan, monkeypatch):
+        """Placement moves the card, not the total runtime — and the
+        first segment's real audio must still play before it, proving
+        the card actually landed after the intro rather than the split
+        silently falling back to the front."""
+        from core.paths import LIBRARY_DIR
+        from pipeline import assemble
+        from pipeline.footage import library, store
+
+        clips = [c for c in store.all_clips() if (LIBRARY_DIR / c.filename).exists()][:6]
+
+        def fake_assign(segments, shot_counts, avoid_imagery=None):
+            names, i = [], 0
+            for count in shot_counts:
+                names.append([clips[(i + n) % len(clips)].filename for n in range(count)])
+                i += count
+            return library.MatchOutcome(picks=names)
+
+        monkeypatch.setattr(library, "assign_clips", fake_assign)
+        monkeypatch.setattr(library, "mark_used", lambda *a, **k: None)
+
+        plan.channel.style.title_card_enabled = True
+        plan.channel.style.title_card_seconds = 2.0
+        plan.channel.style.title_card_placement = "after_intro"
+        assemble.run(plan)
+
+        from moviepy.editor import VideoFileClip
+        rendered = VideoFileClip(str(plan.video_path))
+        try:
+            # Same total as leading placement - only where the card's
+            # seconds land shifts, not how many there are.
+            assert rendered.duration == pytest.approx(5.4 + 1.0 + 2.0, abs=0.3)
+            assert rendered.audio is not None
+            assert rendered.audio.duration == pytest.approx(rendered.duration, abs=0.3)
+            # Segment 0 ends at 2.6s (the plan fixture's own timing) - a
+            # frame from inside it must be real footage, not the card.
+            assert rendered.get_frame(1.0).mean() > 5
+            # The card now sits at [2.6, 4.6) instead of [0, 2.0).
+            assert rendered.get_frame(3.6).mean() < 250
         finally:
             rendered.close()
 
