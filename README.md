@@ -113,6 +113,24 @@ many are left and roughly how many days that is.
 A full 25-unit, 1000-topic plan costs well under a dollar in total, and
 you only pay for units as you reach them.
 
+### Script studio
+
+Once a topic has its subtopics, its scripts can be written ahead of any
+video — from the topic plan, **Write scripts**. Several subtopics of one
+topic are written together, in one call, so they share a real context
+window: no two open the same way, nothing repeats an example. **Read
+scripts** opens a notebook — a tab per subtopic, arrow keys to flip
+through — where each one can be regenerated (blind, or with an added
+instruction like "also mention X") or edited by hand. Nothing needs
+approving; a video just uses whatever script is sitting on its subtopic
+when it renders, generating one on the spot if there isn't one, exactly
+as before this existed.
+
+Discarding a video never touches its script — that's a "the take was
+wrong" decision (voice, pacing, footage), not a writing one. Fixing the
+writing is: discard the video, fix the script in the notebook, render
+again.
+
 ## How things look
 
 Settings is one page with a sidebar: **Channel** (what it's about, style

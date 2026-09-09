@@ -125,6 +125,129 @@ def fill(key):
                     "pending": curriculum.pending_count(key)})
 
 
+@bp.route("/channels/<key>/curriculum/<topic_id>/scripts")
+def scripts_page(key, topic_id):
+    channel = channel_or_404(key)
+    topic = curriculum.find_topic(key, topic_id)
+    if topic is None:
+        abort(404, description="That topic is no longer in the plan.")
+    subs = curriculum.subtopics(key, topic_id=topic_id)
+
+    from pipeline.script_gen import MAX_SCRIPTS_PER_CALL
+
+    pending_without_script = [s for s in subs
+                              if s["status"] == curriculum.PENDING and not s.get("script")]
+    return render_template(
+        "curriculum_scripts.html", key=key, channel=channel, topic=topic,
+        subtopics=subs, pending_without_script=len(pending_without_script),
+        max_per_call=MAX_SCRIPTS_PER_CALL,
+    )
+
+
+@bp.route("/api/channels/<key>/curriculum/<topic_id>/write-scripts", methods=["POST"])
+def write_scripts(key, topic_id):
+    """Batch-write scripts for this topic's pending, scriptless
+    subtopics — chunked the same way `fill` chunks subtopic generation,
+    since a single call has a bounded size (see
+    `pipeline.script_gen.MAX_SCRIPTS_PER_CALL`)."""
+    channel = channel_or_404(key)
+    topic = curriculum.find_topic(key, topic_id)
+    if topic is None:
+        abort(404, description="That topic is no longer in the plan.")
+
+    from pipeline.script_gen import MAX_SCRIPTS_PER_CALL
+    from pipeline.script_gen import write_scripts as write_scripts_batch
+
+    todo = [s for s in curriculum.subtopics(key, topic_id=topic_id)
+           if s["status"] == curriculum.PENDING and not s.get("script")]
+    if not todo:
+        return jsonify({"error": "Every pending subtopic in this topic "
+                                 "already has a script."}), 400
+
+    scripted = []
+    for start in range(0, len(todo), MAX_SCRIPTS_PER_CALL):
+        chunk = todo[start:start + MAX_SCRIPTS_PER_CALL]
+        try:
+            written = write_scripts_batch(channel, topic, chunk)
+        except PipelineError as exc:
+            log.warning(f"{key}/{topic_id}: script batch failed: {exc}")
+            if scripted:
+                break
+            return jsonify({"error": exc.user_message}), 502
+        for row in written:
+            curriculum.set_script(key, row["subtopic_id"], row["script"])
+            scripted.append(row["subtopic_id"])
+
+    return jsonify({"ok": True, "scripted": scripted})
+
+
+@bp.route("/api/channels/<key>/curriculum/<subtopic_id>/regenerate-script",
+         methods=["POST"])
+def regenerate_script(key, subtopic_id):
+    channel = channel_or_404(key)
+    subtopic = curriculum.find(key, subtopic_id)
+    if subtopic is None:
+        abort(404, description="That subtopic is no longer in the plan.")
+    topic = curriculum.find_topic(key, subtopic["topic"])
+    if topic is None:
+        abort(404, description="That topic is no longer in the plan.")
+
+    data = request.get_json(force=True, silent=True) or {}
+    instruction = (data.get("instruction") or "").strip()
+
+    siblings = [s for s in curriculum.subtopics(key, topic_id=topic["id"])
+               if s["id"] != subtopic_id and s.get("script")]
+
+    from pipeline.script_gen import regenerate_script as regenerate
+
+    try:
+        script = regenerate(channel, topic, subtopic, siblings, instruction)
+    except PipelineError as exc:
+        log.warning(f"{key}/{subtopic_id}: script regenerate failed: {exc}")
+        return jsonify({"error": exc.user_message}), 502
+
+    curriculum.set_script(key, subtopic_id, script)
+    return jsonify({"ok": True, "script": script})
+
+
+@bp.route("/channels/<key>/curriculum/<subtopic_id>/edit-script", methods=["POST"])
+def edit_script(key, subtopic_id):
+    """A hand-written or hand-fixed script, saved verbatim — the third
+    way a script gets written, alongside the batch writer and
+    regenerate. Segments arrive as parallel form-field lists (one entry
+    per segment) since HTML forms have no native array-of-objects."""
+    channel_or_404(key)
+    subtopic = curriculum.find(key, subtopic_id)
+    if subtopic is None:
+        abort(404, description="That subtopic is no longer in the plan.")
+
+    texts = request.form.getlist("segment_text")
+    briefs = request.form.getlist("segment_shot_brief")
+    keyword_lines = request.form.getlist("segment_keywords")
+    segments = [
+        {"text": text.strip(), "shot_brief": brief.strip(),
+         "keywords": [k.strip().lower() for k in keywords.split(",") if k.strip()],
+         "start": 0.0, "end": 0.0}
+        for text, brief, keywords in zip(texts, briefs, keyword_lines)
+        if text.strip()
+    ]
+    if not segments:
+        return redirect(url_for("curriculum.scripts_page", key=key,
+                                topic_id=subtopic["topic"]) + f"#{subtopic_id}")
+
+    title_options = [t.strip() for t in request.form.get("title_options", "")
+                     .split("\n") if t.strip()]
+    script = {
+        "citation": None,
+        "segments": segments,
+        "title_options": title_options,
+        "description_body": request.form.get("description_body", "").strip(),
+    }
+    curriculum.set_script(key, subtopic_id, script)
+    return redirect(url_for("curriculum.scripts_page", key=key,
+                            topic_id=subtopic["topic"]) + f"#{subtopic_id}")
+
+
 @bp.route("/channels/<key>/curriculum/<subtopic_id>/skip", methods=["POST"])
 def skip(key, subtopic_id):
     channel_or_404(key)

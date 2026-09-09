@@ -327,6 +327,24 @@ def generate_script(seed: Seed, channel) -> Script:
                   title_options=titles, description_body=description_body)
 
 
+def _stored_script(plan) -> Script:
+    """A script already sitting on this seed's subtopic, if it has one.
+
+    Only topic-mode channels with a curriculum have anywhere for a script
+    to be stored ahead of time — everything else (quotes, a flat topic
+    list with no syllabus) returns None and generates as it always has.
+    """
+    if plan.channel.content_mode != "topic" or not plan.seed.topic_id:
+        return None
+    from core import curriculum
+    if not curriculum.exists(plan.channel.key):
+        return None
+    row = curriculum.find(plan.channel.key, plan.seed.topic_id)
+    if not row or not row.get("script"):
+        return None
+    return Script.from_jsonable(row["script"])
+
+
 def preview_script(seed: Seed, channel) -> Script:
     """Generate a script and nothing else.
 
@@ -352,8 +370,13 @@ def run(plan):
         plan.script = Script.from_jsonable(cached)
         return plan
 
-    log.info("[1/5] Writing the script...")
-    plan.script = generate_script(plan.seed, plan.channel)
+    stored = _stored_script(plan)
+    if stored is not None:
+        log.info("[1/5] Using the pre-written script for this subtopic.")
+        plan.script = stored
+    else:
+        log.info("[1/5] Writing the script...")
+        plan.script = generate_script(plan.seed, plan.channel)
     log.info(f"      {len(plan.script.segments)} segment(s).")
 
     try:
@@ -361,3 +384,253 @@ def run(plan):
     except Exception:  # noqa: BLE001 - checkpointing is best-effort
         pass
     return plan
+
+
+# --- batch script generation: a topic's videos, written together ------
+#
+# The rest of this module writes one script for one video with no view of
+# anything else. That is wrong for a channel whose videos are meant to
+# build on each other — see docs/decisions/023-script-studio.md. These
+# functions write real, full-length scripts for several subtopics of one
+# topic in a single call, so they share one context window and are
+# genuinely consistent, then store them on the syllabus ahead of any
+# render. `pipeline.run.generate` never has to know this happened —
+# `_stored_script` above picks it up transparently.
+
+# Scripts are much bigger than the title+angle pairs
+# `curriculum_gen.write_subtopics` batches, so a single call's blast
+# radius is kept smaller: `curriculum_gen.MAX_SUBTOPICS_PER_CALL` is 30,
+# this is 6.
+MAX_SCRIPTS_PER_CALL = 6
+SCRIPT_BATCH_EFFORT = "medium"
+
+# Per script, plus one shared allowance for the reasoning a "medium"
+# effort call spends before writing anything (billed out of max_tokens
+# same as everywhere else — see docs/decisions/013-failing-safely.md).
+# Scaled to the actual number of subtopics in THIS call rather than a
+# flat worst-case, and `llm.call_json` clamps the result (and any
+# truncation retry) under the SDK's non-streaming ceiling regardless.
+SCRIPT_BATCH_TOKENS_PER_SCRIPT = 2_800
+SCRIPT_BATCH_TOKENS_OVERHEAD = 1_500
+
+
+def _batch_max_tokens(count: int) -> int:
+    return SCRIPT_BATCH_TOKENS_OVERHEAD + SCRIPT_BATCH_TOKENS_PER_SCRIPT * count
+
+
+def _batch_schema() -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "scripts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "index": {
+                            "type": "integer",
+                            "description": "Which numbered subtopic this "
+                                           "answers, matching the list you "
+                                           "were given.",
+                        },
+                        "segments": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": _segment_properties(),
+                                "required": ["text", "shot_brief", "keywords"],
+                                "additionalProperties": False,
+                            },
+                        },
+                        **PACKAGING_SCHEMA,
+                    },
+                    "required": ["index", "segments", "title_options",
+                                "description_body"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["scripts"],
+        "additionalProperties": False,
+    }
+
+
+def _covered_titles(channel, topic_id: str) -> str:
+    """Earlier videos in this same topic, titles only — the same text
+    `_continuity()` builds for a single-video generation, reused here so
+    a batch that starts partway through an already-active topic doesn't
+    re-tread what's already published."""
+    if not getattr(channel, "build_on_previous", False):
+        return ""
+    from core import curriculum
+    earlier = [row["title"] for row in curriculum.covered_in_topic(channel.key, topic_id)]
+    if not earlier:
+        return ""
+    listed = "\n".join(f"- {t}" for t in earlier[-CONTINUITY_LIMIT:])
+    return (
+        f"This channel's videos build on each other. Earlier videos in "
+        f"this same topic have already covered:\n{listed}\n\n"
+        f"Assume the viewer has seen those. Do not re-explain them, and "
+        f"do not repeat their examples.\n\n"
+    )
+
+
+def write_scripts(channel, topic: dict, subtopics: list) -> list:
+    """Real, full-length scripts for several subtopics of one topic,
+    written together in a single call.
+
+    Not a preview sample — these are what a video actually renders from,
+    at the channel's real pacing. `subtopics` must already be capped to
+    MAX_SCRIPTS_PER_CALL; a topic with more pending than that is the
+    caller's loop to chunk, the same shape `curriculum_gen.
+    write_subtopics`'s own per-topic cap already uses.
+
+    Returns a list of `{"subtopic_id", "script"}`, one per subtopic that
+    came back matched — shorter than `subtopics` if the model returned
+    fewer than asked, exactly like every other generator here.
+    """
+    count = channel.pacing.segment_count
+    budget = word_budget(channel.pacing, count)
+
+    system = [
+        llm.SystemBlock(channel.style_prompt, cacheable=True),
+        llm.SystemBlock(
+            f"You are writing scripts for several videos in one topic of "
+            f"this channel's syllabus: \"{topic['title']}\" — "
+            f"{topic.get('summary', '')}\n\n"
+            f"Write them together, the way one writer would across an "
+            f"afternoon of episodes on the same topic: genuinely "
+            f"consistent with each other — no two opening the same way, "
+            f"no repeated examples or phrasing habits — but each one "
+            f"complete and correct on its own.\n\n"
+            f"{_covered_titles(channel, topic['id'])}"
+            f"{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}",
+            cacheable=True),
+    ]
+
+    listed = "\n".join(f"{i + 1}. {s['title']} — {s.get('angle', '')}"
+                       for i, s in enumerate(subtopics))
+    user = (
+        f"Write {len(subtopics)} scripts, one for each of these numbered "
+        f"subtopics, each split into EXACTLY {count} segments of roughly "
+        f"{budget['per_segment']} words each ({budget['total_words']} "
+        f"words in total per script). Each video needs to run about "
+        f"{budget['target_seconds']:.0f} seconds — going long is as wrong "
+        f"as going short.\n\n"
+        f"Each segment is spoken on its own, so it must read naturally as "
+        f"a standalone chunk rather than as a fragment of a longer "
+        f"sentence.\n\n"
+        f"Tag each script with the number of the subtopic it answers. "
+        f"Return exactly {len(subtopics)} entries in \"scripts\" — no "
+        f"more, no fewer.\n\n{listed}"
+    )
+
+    data = llm.call_json(system, user, _batch_schema(),
+                         operation="script_batch",
+                         max_tokens=_batch_max_tokens(len(subtopics)),
+                         effort=SCRIPT_BATCH_EFFORT)
+
+    by_index = {}
+    for item in data.get("scripts") or []:
+        idx = item.get("index")
+        if isinstance(idx, int) and 1 <= idx <= len(subtopics) and idx not in by_index:
+            by_index[idx] = item
+
+    written = []
+    for i, subtopic in enumerate(subtopics):
+        item = by_index.get(i + 1)
+        if item is None:
+            continue
+        segments = [_to_segment(s) for s in item.get("segments") or []]
+        _check_count(segments, count)
+        if not segments:
+            continue
+        written.append({
+            "subtopic_id": subtopic["id"],
+            "script": {
+                "citation": None,
+                "segments": [s.to_jsonable() for s in segments],
+                "title_options": [_clean(t) for t in (item.get("title_options") or [])
+                                  if t and t.strip()],
+                "description_body": (item.get("description_body") or "").strip(),
+            },
+        })
+
+    if len(written) < len(subtopics):
+        log.warning(f"{topic['id']}: asked for {len(subtopics)} scripts, "
+                    f"got {len(written)}")
+    return written
+
+
+def _sibling_context(siblings: list) -> str:
+    """Other scripts already written for this same topic, so a rewrite
+    doesn't reuse an opening line, a specific example, or a phrasing habit
+    one of them already has. `siblings` are `{"title", "script"}` dicts —
+    the shape `curriculum.subtopics()` rows already carry."""
+    if not siblings:
+        return ""
+    parts = []
+    for sib in siblings:
+        text = " ".join(seg["text"] for seg in sib["script"]["segments"])
+        parts.append(f"- \"{sib['title']}\": {text}")
+    listed = "\n".join(parts[-CONTINUITY_LIMIT:])
+    return (
+        f"Other videos already scripted for this same topic. Do not reuse "
+        f"an opening line, a specific example, or a phrasing habit any of "
+        f"these already used:\n{listed}\n\n"
+    )
+
+
+def regenerate_script(channel, topic: dict, subtopic: dict,
+                      siblings: list, instruction: str = "") -> dict:
+    """Rewrite one subtopic's script from scratch.
+
+    `siblings` are this topic's other already-written scripts, included
+    so the rewrite doesn't drift from them the way the batch call's own
+    scripts stay consistent with each other. `instruction`, when given,
+    is folded into the ask ("also mention X") — blank means a plain
+    retry, the same request with a fresh roll.
+    """
+    count = channel.pacing.segment_count
+    budget = word_budget(channel.pacing, count)
+
+    system = [
+        llm.SystemBlock(channel.style_prompt, cacheable=True),
+        llm.SystemBlock(
+            f"You are rewriting the script for one video in this "
+            f"channel's syllabus, topic \"{topic['title']}\" — "
+            f"{topic.get('summary', '')}.\n\n"
+            f"{_sibling_context(siblings)}"
+            f"{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}",
+            cacheable=True),
+    ]
+    ask = f"Also: {instruction.strip()}\n\n" if instruction.strip() else ""
+    user = (
+        f"Subtopic: \"{subtopic['title']}\" — {subtopic.get('angle', '')}\n\n"
+        f"{ask}"
+        f"Write EXACTLY {count} segments, roughly {budget['per_segment']} "
+        f"words each ({budget['total_words']} in total). The video needs "
+        f"to run about {budget['target_seconds']:.0f} seconds.\n\n"
+        f"Each segment is spoken on its own, so it must read naturally as "
+        f"a standalone chunk rather than as a fragment of a longer "
+        f"sentence."
+    )
+
+    data = llm.call_json(system, user, _segments_schema(),
+                         operation="script_regenerate",
+                         max_tokens=2500, effort="medium")
+
+    segments = [_to_segment(s) for s in data.get("segments") or []]
+    _check_count(segments, count)
+    if not segments:
+        raise PipelineError(
+            "The rewritten script came back empty.",
+            user_message="Couldn't rewrite that script just now. Try again.",
+        )
+    return {
+        "citation": None,
+        "segments": [s.to_jsonable() for s in segments],
+        "title_options": [_clean(t) for t in (data.get("title_options") or [])
+                          if t and t.strip()],
+        "description_body": (data.get("description_body") or "").strip(),
+    }

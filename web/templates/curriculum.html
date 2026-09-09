@@ -124,6 +124,20 @@
   <p class="meta">{{ topic.summary }}</p>
 
   {% if topic.subtopics %}
+  {% set scripted = topic.subtopics|selectattr('script')|list|length %}
+  <div class="actions">
+    {% if scripted < topic.subtopics|length %}
+    <button type="button" class="btn-ghost" id="write-scripts-{{ topic.id }}"
+            onclick="writeTopicScripts('{{ key }}', '{{ topic.id }}')">
+      Write scripts ({{ scripted }}/{{ topic.subtopics|length }} written)
+    </button>
+    {% endif %}
+    {% if scripted %}
+    <a class="btn-ghost" href="{{ url_for('curriculum.scripts_page', key=key, topic_id=topic.id) }}">
+      Read scripts &rarr;
+    </a>
+    {% endif %}
+  </div>
   <ol class="todo-list">
     {% for sub in topic.subtopics %}
     <li class="todo-item {{ 'done' if sub.status in ('used', 'published') }}"
@@ -132,6 +146,7 @@
       <span class="todo-label">
         {{ sub.title }}
         {% if sub.angle %}<span class="hint">{{ sub.angle }}</span>{% endif %}
+        {% if sub.script %}<span class="hint">Script ready</span>{% endif %}
         {% if sub.status == 'skipped' %}<span class="hint">Skipped{% if sub.note %} &mdash; {{ sub.note }}{% endif %}</span>{% endif %}
       </span>
       <span class="todo-actions">

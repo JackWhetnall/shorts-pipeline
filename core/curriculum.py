@@ -223,6 +223,8 @@ def add_subtopics(channel_key: str, topic_id: str, subtopics: list) -> dict:
             "video_stem": "",
             "used_at": "",
             "note": "",
+            "script": None,
+            "script_written_at": "",
         })
         added += 1
 
@@ -400,6 +402,20 @@ def claim(channel_key: str, subtopic_id: str = None) -> dict:
 def attach_video(channel_key: str, subtopic_id: str, video_stem: str) -> None:
     """Record which video a claimed subtopic became."""
     _set(channel_key, subtopic_id, video_stem=video_stem)
+
+
+def set_script(channel_key: str, subtopic_id: str, script: dict) -> None:
+    """Write, or overwrite, one subtopic's script.
+
+    The one function behind three different actions: the batch writer's
+    first pass, a blind or prompted regenerate, and a manual edit all
+    just produce a script dict and hand it here. Deliberately independent
+    of `status` — a script can be written, read, and rewritten on a
+    subtopic that has never been rendered and on one that already has a
+    published video, since editing the writing and deciding what to do
+    with an existing video are two different actions (see `release`).
+    """
+    _set(channel_key, subtopic_id, script=script, script_written_at=_now())
 
 
 def mark_published(channel_key: str, video_stem: str) -> None:

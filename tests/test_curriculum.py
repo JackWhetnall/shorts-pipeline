@@ -228,6 +228,57 @@ class TestStatusFollowsTheVideo:
         assert curriculum.find("c", "t0001")["status"] == curriculum.PENDING
 
 
+class TestScripts:
+    """A script is written independently of any video — see
+    docs/decisions/023-script-studio.md. What matters here is that it
+    survives everything that happens to the video built from it."""
+
+    SCRIPT = {"citation": None,
+             "segments": [{"text": "hi", "shot_brief": "b", "keywords": ["k"],
+                          "start": 0.0, "end": 0.0}],
+             "title_options": ["T"], "description_body": "d"}
+
+    def test_a_new_subtopic_has_no_script(self, planned):
+        assert curriculum.find("c", "t0001")["script"] is None
+
+    def test_set_script_writes_it(self, planned):
+        curriculum.set_script("c", "t0001", self.SCRIPT)
+        row = curriculum.find("c", "t0001")
+        assert row["script"] == self.SCRIPT
+        assert row["script_written_at"]
+
+    def test_set_script_overwrites_a_previous_one(self, planned):
+        curriculum.set_script("c", "t0001", self.SCRIPT)
+        rewritten = {**self.SCRIPT, "description_body": "rewritten"}
+        curriculum.set_script("c", "t0001", rewritten)
+        assert curriculum.find("c", "t0001")["script"]["description_body"] == "rewritten"
+
+    def test_set_script_does_not_change_status(self, planned):
+        """Writing survives independently of whether a video has ever been
+        made from it — the two are different lifecycles."""
+        curriculum.set_script("c", "t0001", self.SCRIPT)
+        assert curriculum.find("c", "t0001")["status"] == curriculum.PENDING
+
+    def test_discarding_a_video_leaves_its_script_untouched(self, planned):
+        curriculum.set_script("c", "t0001", self.SCRIPT)
+        curriculum.claim("c", "t0001")
+        curriculum.attach_video("c", "t0001", "first_thing")
+
+        curriculum.release("c", "first_thing")
+        row = curriculum.find("c", "t0001")
+        assert row["status"] == curriculum.PENDING
+        assert row["script"] == self.SCRIPT
+
+    def test_a_failed_run_leaves_its_script_untouched(self, planned):
+        curriculum.set_script("c", "t0001", self.SCRIPT)
+        curriculum.claim("c", "t0001")
+
+        curriculum.release_unattached("c", "t0001")
+        row = curriculum.find("c", "t0001")
+        assert row["status"] == curriculum.PENDING
+        assert row["script"] == self.SCRIPT
+
+
 class TestProgress:
     def test_counts_every_status(self, planned):
         curriculum.claim("c", "t0001")
@@ -636,6 +687,109 @@ class TestWebRoutes:
         curriculum.add_subtopics("c", "u01", [
             {"title": "Topic " + str(i), "angle": ""} for i in range(100)])
         assert "Running low on topics" not in client.get("/").get_data(as_text=True)
+
+    # --- script studio --------------------------------------------------
+
+    def test_scripts_page_renders_before_any_are_written(self, client, planned):
+        html = client.get("/channels/c/curriculum/u01/scripts").get_data(as_text=True)
+        assert "First thing" in html
+
+    def test_scripts_page_404s_for_an_unknown_topic(self, client, planned):
+        assert client.get("/channels/c/curriculum/u99/scripts").status_code == 404
+
+    def test_write_scripts_stores_real_scripts_on_real_subtopics(self, client, planned, monkeypatch):
+        from pipeline import script_gen
+
+        monkeypatch.setattr(script_gen, "write_scripts", lambda channel, topic, subs: [
+            {"subtopic_id": s["id"],
+             "script": {"citation": None,
+                       "segments": [{"text": f"about {s['title']}", "shot_brief": "b",
+                                    "keywords": ["k"], "start": 0.0, "end": 0.0}],
+                       "title_options": ["T"], "description_body": "d"}}
+            for s in subs])
+
+        response = client.post("/api/channels/c/curriculum/u01/write-scripts", json={},
+                               headers={"X-CSRF-Token": self._csrf(client)})
+        assert response.status_code == 200
+        assert set(response.get_json()["scripted"]) == {"t0001", "t0002", "t0003"}
+        row = curriculum.find("c", "t0001")
+        assert row["script"]["segments"][0]["text"] == "about First thing"
+
+    def test_write_scripts_skips_subtopics_that_already_have_one(self, client, planned, monkeypatch):
+        from pipeline import script_gen
+
+        curriculum.set_script("c", "t0001", {"citation": None, "segments": [], "title_options": [],
+                                             "description_body": ""})
+        captured = {}
+
+        def fake_write(channel, topic, subs):
+            captured["ids"] = [s["id"] for s in subs]
+            return [{"subtopic_id": s["id"],
+                    "script": {"citation": None,
+                              "segments": [{"text": "x", "shot_brief": "", "keywords": [],
+                                           "start": 0.0, "end": 0.0}],
+                              "title_options": [], "description_body": ""}}
+                   for s in subs]
+
+        monkeypatch.setattr(script_gen, "write_scripts", fake_write)
+        client.post("/api/channels/c/curriculum/u01/write-scripts", json={},
+                    headers={"X-CSRF-Token": self._csrf(client)})
+        assert "t0001" not in captured["ids"]
+        assert set(captured["ids"]) == {"t0002", "t0003"}
+
+    def test_write_scripts_says_so_when_nothing_is_left(self, client, planned):
+        for sub_id in ("t0001", "t0002", "t0003"):
+            curriculum.set_script("c", sub_id, {"citation": None, "segments": [],
+                                                "title_options": [], "description_body": ""})
+        response = client.post("/api/channels/c/curriculum/u01/write-scripts", json={},
+                               headers={"X-CSRF-Token": self._csrf(client)})
+        assert response.status_code == 400
+
+    def test_regenerate_script_overwrites_in_place(self, client, planned, monkeypatch):
+        from pipeline import script_gen
+
+        curriculum.set_script("c", "t0001", {"citation": None,
+                                             "segments": [{"text": "old", "shot_brief": "",
+                                                          "keywords": [], "start": 0.0, "end": 0.0}],
+                                             "title_options": [], "description_body": ""})
+        monkeypatch.setattr(script_gen, "regenerate_script", lambda *a, **k: {
+            "citation": None,
+            "segments": [{"text": "new", "shot_brief": "", "keywords": [], "start": 0.0, "end": 0.0}],
+            "title_options": [], "description_body": ""})
+
+        response = client.post("/api/channels/c/curriculum/t0001/regenerate-script",
+                               json={"instruction": "make it new"},
+                               headers={"X-CSRF-Token": self._csrf(client)})
+        assert response.status_code == 200
+        assert curriculum.find("c", "t0001")["script"]["segments"][0]["text"] == "new"
+
+    def test_regenerate_script_requires_csrf(self, client, planned):
+        assert client.post("/api/channels/c/curriculum/t0001/regenerate-script",
+                           json={}).status_code == 400
+
+    def test_edit_script_saves_and_redirects(self, client, planned):
+        response = client.post(
+            "/channels/c/curriculum/t0001/edit-script",
+            data={"segment_text": ["Hand-written line one.", "Hand-written line two."],
+                 "segment_shot_brief": ["a candle", "a road"],
+                 "segment_keywords": ["candle, wax", "road, dusk"],
+                 "title_options": "A Title\nAnother Title",
+                 "description_body": "A description.",
+                 "csrf_token": self._csrf(client)})
+        assert response.status_code == 302
+        row = curriculum.find("c", "t0001")
+        assert row["script"]["segments"][0]["text"] == "Hand-written line one."
+        assert row["script"]["segments"][1]["keywords"] == ["road", "dusk"]
+        assert row["script"]["title_options"] == ["A Title", "Another Title"]
+
+    def test_edit_script_with_no_segments_does_not_blank_an_existing_one(self, client, planned):
+        curriculum.set_script("c", "t0001", {"citation": None,
+                                             "segments": [{"text": "keep me", "shot_brief": "",
+                                                          "keywords": [], "start": 0.0, "end": 0.0}],
+                                             "title_options": [], "description_body": ""})
+        client.post("/channels/c/curriculum/t0001/edit-script",
+                    data={"segment_text": [""], "csrf_token": self._csrf(client)})
+        assert curriculum.find("c", "t0001")["script"]["segments"][0]["text"] == "keep me"
 
 
 class TestChannelIsolation:

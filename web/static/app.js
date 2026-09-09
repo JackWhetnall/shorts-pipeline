@@ -1861,3 +1861,267 @@ function chooseStyleCandidate(channelKey, stylePrompt) {
   form.submit();
 }
 
+// ---------------------------------------------------------------------
+// Script notebook
+//
+// A topic's scripts, written together and read one at a time — tabs
+// down the side, arrow keys to flip through, the same "one array and an
+// index" shape the review queue uses. Dynamic text only ever lands in a
+// text node via escapeHtml(), never in an HTML attribute string: an
+// earlier version of this project put JSON.stringify'd text inside an
+// onclick="..." attribute and a stray double quote in the generated text
+// silently truncated the handler. The edit form below avoids the same
+// class of bug a second way — it builds empty inputs from a static
+// template and fills them in via .value afterward, so a script
+// containing a quote can never break out of an attribute at all.
+// ---------------------------------------------------------------------
+
+let notebookState = null;
+
+function initScriptNotebook() {
+  const root = document.getElementById("script-notebook");
+  if (!root) return;
+
+  notebookState = {
+    key: root.dataset.key,
+    topicId: root.dataset.topicId,
+    subtopics: JSON.parse(root.dataset.subtopics || "[]"),
+    selectedIndex: 0,
+    editing: false,
+  };
+  const hash = window.location.hash.slice(1);
+  if (hash) {
+    const idx = notebookState.subtopics.findIndex((s) => s.id === hash);
+    if (idx >= 0) notebookState.selectedIndex = idx;
+  }
+  renderNotebook();
+  document.addEventListener("keydown", notebookKeys);
+}
+
+function notebookKeys(e) {
+  if (!notebookState) return;
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || e.metaKey || e.ctrlKey) return;
+  if (e.key === "ArrowRight") { e.preventDefault(); selectNotebookTab(notebookState.selectedIndex + 1); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); selectNotebookTab(notebookState.selectedIndex - 1); }
+}
+
+function selectNotebookTab(index) {
+  const n = notebookState.subtopics.length;
+  notebookState.selectedIndex = ((index % n) + n) % n;
+  notebookState.editing = false;
+  renderNotebook();
+}
+
+function renderNotebook() {
+  const root = document.getElementById("script-notebook");
+  const {subtopics, selectedIndex} = notebookState;
+  const current = subtopics[selectedIndex];
+  history.replaceState(null, "", `#${current.id}`);
+
+  const tabs = subtopics.map((s, i) => `
+    <button type="button"
+            class="notebook-tab ${i === selectedIndex ? "selected" : ""} ${!s.script ? "no-script" : ""}"
+            data-tab-index="${i}">${escapeHtml(s.title)}</button>`).join("");
+
+  root.innerHTML = `
+    <div class="notebook-tabs">${tabs}</div>
+    <div class="notebook-panel card" id="notebook-panel"></div>`;
+
+  for (const btn of root.querySelectorAll("[data-tab-index]")) {
+    btn.addEventListener("click", () => selectNotebookTab(Number(btn.dataset.tabIndex)));
+  }
+  renderNotebookPanel();
+}
+
+function renderNotebookPanel() {
+  const panel = document.getElementById("notebook-panel");
+  const current = notebookState.subtopics[notebookState.selectedIndex];
+
+  if (notebookState.editing) {
+    panel.innerHTML = editScriptForm();
+    wireEditForm(current);
+    return;
+  }
+
+  if (!current.script) {
+    panel.innerHTML = `
+      <p class="meta"><strong>${escapeHtml(current.title)}</strong></p>
+      ${current.angle ? `<p class="hint">${escapeHtml(current.angle)}</p>` : ""}
+      <p class="meta">No script yet.</p>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" data-write-one-btn>Write this one</button>
+      </div>
+      <p class="hint" id="notebook-status"></p>`;
+    panel.querySelector("[data-write-one-btn]")
+      .addEventListener("click", (e) => regenerateNotebookScript(e.target, ""));
+    return;
+  }
+
+  const script = current.script;
+  const segmentsHtml = script.segments.map((seg) => `
+    <div class="notebook-segment">
+      <p class="notebook-segment-text">${escapeHtml(seg.text)}</p>
+      <p class="hint">shot: ${escapeHtml(seg.shot_brief || "")}</p>
+      <p class="hint">keywords: ${escapeHtml((seg.keywords || []).join(", "))}</p>
+    </div>`).join("");
+
+  panel.innerHTML = `
+    <p class="meta"><strong>${escapeHtml(current.title)}</strong></p>
+    ${current.angle ? `<p class="hint">${escapeHtml(current.angle)}</p>` : ""}
+    ${(script.title_options || []).length
+      ? `<p class="meta">Title options: ${script.title_options.map(escapeHtml).join(" &middot; ")}</p>` : ""}
+    ${segmentsHtml}
+    ${script.description_body
+      ? `<details><summary class="summary-heading">Description</summary>
+          <p class="hint">${escapeHtml(script.description_body)}</p></details>` : ""}
+    <div class="actions">
+      <button type="button" class="btn-ghost" data-regenerate-btn>Regenerate</button>
+      <button type="button" class="btn-ghost" data-edit-btn>Edit</button>
+    </div>
+    <div class="notebook-instruction">
+      <label>Regenerate with instructions
+        <input type="text" id="notebook-instruction" placeholder="Also mention…">
+      </label>
+      <button type="button" class="btn-ghost" data-regenerate-prompted-btn>Regenerate with this</button>
+    </div>
+    <p class="hint" id="notebook-status"></p>`;
+
+  panel.querySelector("[data-regenerate-btn]")
+    .addEventListener("click", (e) => regenerateNotebookScript(e.target, ""));
+  panel.querySelector("[data-regenerate-prompted-btn]")
+    .addEventListener("click", (e) =>
+      regenerateNotebookScript(e.target, document.getElementById("notebook-instruction").value));
+  panel.querySelector("[data-edit-btn]").addEventListener("click", () => {
+    notebookState.editing = true;
+    renderNotebookPanel();
+  });
+}
+
+async function regenerateNotebookScript(button, instruction) {
+  const current = notebookState.subtopics[notebookState.selectedIndex];
+  await withButtonLoading(button, "Writing…", async () => {
+    const res = await apiFetch(
+      `/api/channels/${notebookState.key}/curriculum/${current.id}/regenerate-script`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({instruction: instruction || ""}),
+      });
+    const data = await res.json();
+    const status = document.getElementById("notebook-status");
+    if (!res.ok) { if (status) status.textContent = data.error || "Couldn't write that script."; return; }
+    current.script = data.script;
+    renderNotebookPanel();
+    renderNotebookTabsOnly();
+  });
+}
+
+// Redraws just the tab strip's "no-script" state after a write, without
+// losing the panel that was just re-rendered above it.
+function renderNotebookTabsOnly() {
+  const root = document.getElementById("script-notebook");
+  const {subtopics, selectedIndex} = notebookState;
+  const tabStrip = root.querySelector(".notebook-tabs");
+  if (!tabStrip) return;
+  tabStrip.innerHTML = subtopics.map((s, i) => `
+    <button type="button"
+            class="notebook-tab ${i === selectedIndex ? "selected" : ""} ${!s.script ? "no-script" : ""}"
+            data-tab-index="${i}">${escapeHtml(s.title)}</button>`).join("");
+  for (const btn of tabStrip.querySelectorAll("[data-tab-index]")) {
+    btn.addEventListener("click", () => selectNotebookTab(Number(btn.dataset.tabIndex)));
+  }
+}
+
+// The edit form's markup carries no dynamic text at all — every field
+// starts empty and is filled in afterward via .value, which is always
+// safe regardless of what characters the script contains.
+function editScriptForm() {
+  const current = notebookState.subtopics[notebookState.selectedIndex];
+  const segmentCount = current.script ? current.script.segments.length : 1;
+  const rowsHtml = Array.from({length: segmentCount}, (_, i) => notebookSegmentRowHtml(i + 1)).join("");
+
+  return `
+    <form method="post"
+          action="/channels/${notebookState.key}/curriculum/${current.id}/edit-script"
+          class="channel-form" id="notebook-edit-form">
+      <input type="hidden" name="csrf_token" value="${CSRF_TOKEN}">
+      <div id="notebook-edit-segments">${rowsHtml}</div>
+      <button type="button" class="btn-ghost" id="notebook-add-segment">Add another segment</button>
+      <label>Title options (one per line)
+        <textarea name="title_options" rows="3"></textarea>
+      </label>
+      <label>Description
+        <textarea name="description_body" rows="3"></textarea>
+      </label>
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="button" class="btn-ghost" id="notebook-cancel-edit">Cancel</button>
+      </div>
+    </form>`;
+}
+
+function notebookSegmentRowHtml(number) {
+  return `
+    <div class="notebook-edit-segment">
+      <label>Segment ${number} text
+        <textarea name="segment_text" rows="2"></textarea>
+      </label>
+      <label>Shot brief
+        <input type="text" name="segment_shot_brief">
+      </label>
+      <label>Keywords (comma separated)
+        <input type="text" name="segment_keywords">
+      </label>
+    </div>`;
+}
+
+function wireEditForm(current) {
+  const script = current.script || {segments: [{text: "", shot_brief: "", keywords: []}],
+                                    title_options: [], description_body: ""};
+  const rows = document.querySelectorAll("#notebook-edit-segments .notebook-edit-segment");
+  script.segments.forEach((seg, i) => {
+    const row = rows[i];
+    if (!row) return;
+    row.querySelector('[name="segment_text"]').value = seg.text || "";
+    row.querySelector('[name="segment_shot_brief"]').value = seg.shot_brief || "";
+    row.querySelector('[name="segment_keywords"]').value = (seg.keywords || []).join(", ");
+  });
+  document.querySelector('#notebook-edit-form [name="title_options"]').value =
+    (script.title_options || []).join("\n");
+  document.querySelector('#notebook-edit-form [name="description_body"]').value =
+    script.description_body || "";
+
+  document.getElementById("notebook-add-segment").addEventListener("click", () => {
+    const container = document.getElementById("notebook-edit-segments");
+    const div = document.createElement("div");
+    div.innerHTML = notebookSegmentRowHtml(container.children.length + 1);
+    container.appendChild(div.firstElementChild);
+  });
+  document.getElementById("notebook-cancel-edit").addEventListener("click", () => {
+    notebookState.editing = false;
+    renderNotebookPanel();
+  });
+}
+
+async function writeTopicScripts(key, topicId) {
+  const button = document.getElementById(`write-scripts-${topicId}`);
+  const status = document.getElementById("write-scripts-status");
+  if (status) status.textContent = "";
+  await withButtonLoading(button, "Writing…", async () => {
+    const res = await apiFetch(`/api/channels/${key}/curriculum/${topicId}/write-scripts`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if (status) status.textContent = data.error || "Couldn't write those scripts.";
+      else alert(data.error || "Couldn't write those scripts.");
+      return;
+    }
+    window.location.href = `/channels/${key}/curriculum/${topicId}/scripts`;
+  });
+}
+
+document.addEventListener("DOMContentLoaded", initScriptNotebook);
+

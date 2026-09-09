@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ topic.title }} — Scripts — {{ channel.channel_display_name }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('curriculum.page', key=key) }}#{{ topic.id }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  {{ channel.channel_display_name }} topic plan
+</a>
+<h1>{{ topic.title }}</h1>
+<p class="subtitle">{{ topic.summary }}</p>
+
+{% if not subtopics %}
+<div class="empty-state">
+  <p><strong>No subtopics yet.</strong></p>
+  <p>Write this topic's subtopics first, then come back to write their scripts.</p>
+  <a class="btn btn-ghost" href="{{ url_for('curriculum.page', key=key) }}#{{ topic.id }}">Back to the plan</a>
+</div>
+{% else %}
+
+{% if pending_without_script %}
+<div class="card">
+  <p class="meta">
+    {{ pending_without_script }} pending subtopic{{ 's' if pending_without_script != 1 }}
+    in this topic {{ 'has' if pending_without_script == 1 else 'have' }} no script yet.
+    Written together in one call &mdash; up to {{ max_per_call }} at a time &mdash; so they
+    read as one continuous topic rather than {{ pending_without_script }} unrelated videos.
+  </p>
+  <div class="actions">
+    <button type="button" class="btn btn-primary" id="write-scripts-{{ topic.id }}"
+            onclick="writeTopicScripts('{{ key }}', '{{ topic.id }}')">
+      Write scripts
+    </button>
+  </div>
+  <p class="hint" id="write-scripts-status"></p>
+</div>
+{% endif %}
+
+<div id="script-notebook"
+     data-key="{{ key }}"
+     data-topic-id="{{ topic.id }}"
+     data-subtopics="{{ subtopics|tojson|forceescape }}"></div>
+
+{% endif %}
+{% endblock %}

@@ -60,7 +60,10 @@ pipeline/     The generation stages. No web dependency at all.
                 usage recording.
   quote_source  Source text for static-corpus channels.
   curriculum_gen  Designs a syllabus outline, then one unit's topics at a time.
-  script_gen    Seed -> Script.
+  script_gen    Seed -> Script. Also the script studio: batch-writes real
+                scripts for several subtopics of one topic in a single call
+                (shared context, genuinely consistent), stored on the
+                syllabus ahead of any render — see decision 023.
   style_gen     AI-suggested palette/font, and the style & tone picker's
                 candidate drafting/sampling.
   tts           Script -> narration + word timings + real segment spans.
@@ -120,6 +123,8 @@ stage is a function and a line in `pipeline/run.generate`.
 fetch_seed(channel)          -> Seed          (no prompts, no side effects)
 _prepare_output(plan)        -> out_dir, stem
 script_gen.run(plan)         -> plan.script   (segments, shot briefs, title, description)
+                                 free when the subtopic already has a
+                                 script written by the script studio
 tts.run(plan)                -> plan.voiceover, and each Segment's real start/end
 assemble.run(plan)           -> plan.shots, the video file
 _finish(plan)                -> meta, description, originality report, cost, render report
