@@ -77,13 +77,25 @@ def video_detail(key, relpath):
         "video_detail.html", key=key, channel=channel, relpath=relpath,
         name=target.name, title=gallery_core.video_title(target.name),
         links=links, published=gallery_core.is_published(links),
-        discarded=links["discarded"],
+        discarded=links["discarded"], discard_reasons=gallery_core.DISCARD_REASONS,
         created_label=format_date(target.stat().st_mtime),
         published_label=format_iso_date(links["published_at"]),
         meta_text=(gallery_core.read_text_tolerantly(meta_path)
                    if meta_path.exists() else None),
         cost=gallery_core.load_cost_summary(target),
     )
+
+
+@bp.route("/channels/<key>/videos/<path:relpath>/discard-one", methods=["POST"])
+def discard_one(key, relpath):
+    """Discard from the video's own page. The gallery's multi-select
+    (`discard` above) and the review queue cover the other two places a
+    video can be discarded from; this is the one that was missing —
+    opening a video gave you a way to publish it but no way to say no."""
+    channel_or_404(key)
+    target = video_or_404(relpath)
+    gallery_core.set_discarded(target, True, reason=request.form.get("reason"))
+    return redirect(url_for("gallery.video_detail", key=key, relpath=relpath))
 
 
 @bp.route("/channels/<key>/videos/discard", methods=["POST"])
