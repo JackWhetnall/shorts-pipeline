@@ -74,6 +74,14 @@ MIN_CACHEABLE_CHARS = 4000
 TRUNCATION_RETRY_MULTIPLIER = 3
 MAX_ATTEMPTS = 2
 
+# The SDK refuses a non-streaming call above this (it estimates worst-case
+# duration from max_tokens alone and requires streaming past ten minutes'
+# worth) — see anthropic._base_client.Anthropic._calculate_nonstreaming_
+# timeout. Nothing here streams, so every budget — the caller's own and
+# the truncation retry's 3x multiple of it — is clamped under it rather
+# than ever finding out the hard way.
+MAX_NONSTREAMING_TOKENS = 20_000
+
 _client = None
 
 
@@ -201,7 +209,7 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
     Raises TruncatedResponse if the model runs out of budget twice, so a
     caller that can carry on without this answer is able to.
     """
-    budget = max_tokens
+    budget = min(max_tokens, MAX_NONSTREAMING_TOKENS)
     last_error = None
 
     for attempt in range(MAX_ATTEMPTS):
@@ -224,7 +232,7 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
             last_error = exc
             if is_last:
                 raise
-            budget *= TRUNCATION_RETRY_MULTIPLIER
+            budget = min(budget * TRUNCATION_RETRY_MULTIPLIER, MAX_NONSTREAMING_TOKENS)
             log.warning(f"  [llm] {operation}: response was cut short, retrying "
                         f"with room for {budget:,} tokens...")
             continue
@@ -241,7 +249,7 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
             )
             if is_last:
                 raise last_error
-            budget *= TRUNCATION_RETRY_MULTIPLIER
+            budget = min(budget * TRUNCATION_RETRY_MULTIPLIER, MAX_NONSTREAMING_TOKENS)
             log.warning(f"  [llm] {operation}: empty response, retrying with room "
                         f"for {budget:,} tokens...")
             continue
@@ -336,7 +344,16 @@ def _as_service_error(exc: Exception) -> Exception:
             user_message=("The AI service is having problems on their end. Retrying "
                           "should work once it recovers."),
         )
-    return exc
+    # Not an HTTP response at all — the SDK itself refused the request
+    # (e.g. a max_tokens large enough that it requires streaming). Still a
+    # bug in the pipeline rather than a service outage, but it must not
+    # escape as a raw exception with no user_message either.
+    return ExternalServiceError(
+        "The AI service (Claude)", str(exc),
+        user_message=("Something went wrong talking to the AI service. That's "
+                      "a bug in the pipeline rather than anything you did - "
+                      "the details are in the log."),
+    )
 
 
 def _log_cache_effect(operation: str, usage, record) -> None:
