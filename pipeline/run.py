@@ -248,11 +248,23 @@ def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
     seed = _claim_topic(channel, seed)
     plan = RenderPlan(channel=channel, seed=seed, interactive=interactive)
 
-    _prepare_output(plan)
-    script_gen.run(plan)
-    tts.run(plan)
-    assemble.run(plan)
-    _finish(plan, started_at)
+    try:
+        _prepare_output(plan)
+        script_gen.run(plan)
+        tts.run(plan)
+        assemble.run(plan)
+        _finish(plan, started_at)
+    except Exception:
+        # A claimed subtopic that never became a video (the common case:
+        # the run failed before there was anything to discard) must not
+        # sit "used" forever with no video and no way back to pending.
+        if seed.type == "topic" and seed.topic_id:
+            try:
+                curriculum.release_unattached(channel.key, seed.topic_id)
+            except Exception:  # noqa: BLE001 - the real failure matters more
+                log.debug("Could not release the claimed topic after a "
+                          "failed generation", exc_info=True)
+        raise
 
     log.info(f"Done: {plan.video_path}")
     return plan

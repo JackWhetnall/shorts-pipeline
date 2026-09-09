@@ -429,6 +429,30 @@ def release(channel_key: str, video_stem: str) -> None:
             return
 
 
+def release_unattached(channel_key: str, subtopic_id: str) -> None:
+    """Put back a claim that never became a video.
+
+    `claim()` marks a subtopic used the moment generation starts, before
+    anything has actually been produced — deliberately, so two videos
+    queued back to back claim different subtopics rather than racing for
+    the same one. If generation then fails (a script call errors, a TTS
+    quota runs out, anything before `attach_video` runs), that claim was
+    never converted into a real video and would otherwise sit "used"
+    forever with nothing to discard and no way back to pending. Guarded
+    on an empty `video_stem` so this never undoes a claim that already
+    became a real file — that case is a discard decision, made through
+    `release()` instead.
+    """
+    data = load(channel_key)
+    for row in data["subtopics"]:
+        if row["id"] == subtopic_id and row["status"] == USED and not row.get("video_stem"):
+            row["status"] = PENDING
+            row["used_at"] = ""
+            save(data)
+            log.info(f"{channel_key}: released subtopic {subtopic_id} after a failed generation")
+            return
+
+
 def skip(channel_key: str, subtopic_id: str, note: str = "") -> dict:
     return _set(channel_key, subtopic_id, status=SKIPPED, note=note.strip()[:200])
 

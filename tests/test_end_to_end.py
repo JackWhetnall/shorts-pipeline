@@ -292,6 +292,38 @@ class TestFullGenerationDegraded:
                         interactive=False)
         assert plan.video_path.exists()
 
+    def test_a_run_that_fails_releases_its_claimed_topic(self, world, monkeypatch):
+        """A syllabus subtopic is claimed the moment a run starts, before
+        anything has actually been produced. If the run then fails - a
+        script call errors, a TTS quota runs out, anything short of a
+        finished video - that claim must not be left "used" forever with
+        no video to discard and no way back to pending."""
+        from core import curriculum
+        from pipeline import script_gen
+        from pipeline.plan import Seed
+        from pipeline.run import generate
+
+        monkeypatch.setattr(curriculum, "CURRICULA_DIR", world["tmp"] / "curricula")
+        curriculum.start(world["channel"].key, "Testing", [
+            {"title": "Basics", "summary": "s", "level": "foundation",
+             "target_subtopics": 1},
+        ])
+        curriculum.add_subtopics(world["channel"].key, "u01",
+                                 [{"title": "quiet moments", "angle": "a"}])
+
+        def boom(plan):
+            raise RuntimeError("the script call blew up")
+
+        monkeypatch.setattr(script_gen, "run", boom)
+
+        with pytest.raises(RuntimeError):
+            generate(world["channel"], Seed(type="topic", topic="quiet moments"),
+                     interactive=False)
+
+        subtopic = curriculum.find(world["channel"].key, "t0001")
+        assert subtopic["status"] == curriculum.PENDING
+        assert subtopic["video_stem"] == ""
+
 
 # --- hostile input across every route ---------------------------------
 

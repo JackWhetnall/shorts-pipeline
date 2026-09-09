@@ -205,6 +205,28 @@ class TestStatusFollowsTheVideo:
         curriculum.release("c", "never_existed")
         assert curriculum.progress("c")["pending"] == 5
 
+    def test_a_claim_that_never_became_a_video_can_be_released(self, planned):
+        """The failure case release() can't reach: generation claimed a
+        subtopic, then errored before any video existed to discard. Without
+        this, a crashed run leaves a permanently used subtopic with nothing
+        to discard and no way back to pending."""
+        curriculum.claim("c", "t0001")
+        curriculum.release_unattached("c", "t0001")
+        assert curriculum.find("c", "t0001")["status"] == curriculum.PENDING
+        assert curriculum.next_pending("c")["id"] == "t0001"
+
+    def test_release_unattached_leaves_a_real_video_alone(self, planned):
+        """Once a claim became a real file, undoing it is a discard
+        decision, not something a failure handler should do automatically."""
+        curriculum.claim("c", "t0001")
+        curriculum.attach_video("c", "t0001", "first_thing")
+        curriculum.release_unattached("c", "t0001")
+        assert curriculum.find("c", "t0001")["status"] == curriculum.USED
+
+    def test_release_unattached_ignores_a_subtopic_that_was_never_claimed(self, planned):
+        curriculum.release_unattached("c", "t0001")
+        assert curriculum.find("c", "t0001")["status"] == curriculum.PENDING
+
 
 class TestProgress:
     def test_counts_every_status(self, planned):
@@ -598,7 +620,7 @@ class TestWebRoutes:
     def test_the_dashboard_links_to_the_plan_for_topic_channels(self, client, planned):
         html = client.get("/channels/c").get_data(as_text=True)
         assert "/channels/c/curriculum" in html
-        assert "5 left" in html
+        assert "topics left" in html
 
     def test_the_home_page_warns_before_a_channel_runs_out(self, client, planned):
         """Running out stops generation dead, so the warning is only
