@@ -549,6 +549,7 @@ video { max-width: 100%; width: 100%; border-radius: var(--radius-sm); backgroun
 }
 .dashboard-header .channel-logo-placeholder { font-size: 0.7rem; gap: var(--sp-1); }
 .dashboard-header h1 { margin-bottom: var(--sp-1); }
+.dashboard-header .dashboard-cta { margin-left: auto; flex-shrink: 0; }
 
 .stat-row { display: flex; gap: var(--sp-4); margin: var(--sp-4) 0; flex-wrap: wrap; }
 .stat-tile {
@@ -561,6 +562,13 @@ video { max-width: 100%; width: 100%; border-radius: var(--radius-sm); backgroun
 }
 .stat-tile .stat-value { font-size: 1.7rem; font-weight: 800; color: var(--accent); line-height: 1.1; }
 .stat-tile .stat-label { color: var(--text-dim); font-size: 0.82rem; margin-top: var(--sp-1); }
+.stat-tile-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.stat-tile-link:hover { border-color: var(--border-light); background: var(--surface-hover); }
 
 .todo-list { list-style: none; margin: var(--sp-3) 0 0; padding: 0; }
 .todo-item {
