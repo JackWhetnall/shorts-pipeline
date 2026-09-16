@@ -103,6 +103,9 @@ class TestApplyToStyle:
         assert style.outro_title_color == palette.outro_title_color
         assert style.outro_subtext_color == palette.outro_subtext_color
         assert style.outro_bg_color == palette.outro_bg_color
+        assert style.title_card_title_color == palette.title_card_title_color
+        assert style.title_card_channel_color == palette.title_card_channel_color
+        assert style.title_card_bg_color == palette.title_card_bg_color
 
     def test_defaults_to_the_palettes_first_face(self):
         from core.channels import Style

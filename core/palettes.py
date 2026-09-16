@@ -36,6 +36,12 @@ class Palette:
     outro_title_color: str
     outro_subtext_color: str
     outro_bg_color: tuple
+    # The title card is the same kind of surface as the outro (a branding
+    # card that may sit on a photo), so it shares the outro's colours
+    # rather than needing its own design judgement per palette.
+    title_card_title_color: str
+    title_card_channel_color: str
+    title_card_bg_color: tuple
     # Faces from core.fonts this palette suits. The first is the default
     # when a pick is random rather than AI-suggested.
     font_faces: tuple
@@ -44,28 +50,36 @@ class Palette:
 PALETTES = (
     Palette("warm_gold", "Warm Gold", "reassuring, traditional, devotional",
            "#FFFFFF", "#FFD400", "#000000", "#FFFFFF", "#FFD400",
-           (10, 10, 14, 255), ("arial_bold", "georgia_bold")),
+           (10, 10, 14, 255), "#FFFFFF", "#FFD400", (10, 10, 14, 255),
+           ("arial_bold", "georgia_bold")),
     Palette("cool_teal", "Cool Teal", "calm, clinical, modern",
            "#FFFFFF", "#2DE1C2", "#0A1A18", "#FFFFFF", "#2DE1C2",
-           (8, 18, 17, 255), ("segoe_bold", "verdana_bold")),
+           (8, 18, 17, 255), "#FFFFFF", "#2DE1C2", (8, 18, 17, 255),
+           ("segoe_bold", "verdana_bold")),
     Palette("crimson", "Crimson", "urgent, high-energy, punchy",
            "#FFFFFF", "#FF3B4E", "#1A0508", "#FFFFFF", "#FF3B4E",
-           (18, 6, 8, 255), ("impact", "franklin_gothic")),
+           (18, 6, 8, 255), "#FFFFFF", "#FF3B4E", (18, 6, 8, 255),
+           ("impact", "franklin_gothic")),
     Palette("violet_mystic", "Violet Mystic", "mysterious, spiritual, esoteric",
            "#F3E9FF", "#C084FC", "#160B24", "#F3E9FF", "#C084FC",
-           (16, 8, 26, 255), ("cambria_bold", "trebuchet_bold")),
+           (16, 8, 26, 255), "#F3E9FF", "#C084FC", (16, 8, 26, 255),
+           ("cambria_bold", "trebuchet_bold")),
     Palette("forest", "Forest", "grounded, natural, patient",
            "#FFFFFF", "#8BD46E", "#0C160C", "#FFFFFF", "#8BD46E",
-           (10, 16, 10, 255), ("verdana_bold", "tahoma_bold")),
+           (10, 16, 10, 255), "#FFFFFF", "#8BD46E", (10, 16, 10, 255),
+           ("verdana_bold", "tahoma_bold")),
     Palette("sunset_orange", "Sunset Orange", "warm, energetic, friendly",
            "#FFFFFF", "#FF9A3D", "#1C0F04", "#FFFFFF", "#FF9A3D",
-           (20, 12, 6, 255), ("bahnschrift", "trebuchet_bold")),
+           (20, 12, 6, 255), "#FFFFFF", "#FF9A3D", (20, 12, 6, 255),
+           ("bahnschrift", "trebuchet_bold")),
     Palette("ice_blue", "Ice Blue", "clean, technical, precise",
            "#FFFFFF", "#5AC8FA", "#04121C", "#FFFFFF", "#5AC8FA",
-           (5, 12, 20, 255), ("segoe_bold", "bahnschrift")),
+           (5, 12, 20, 255), "#FFFFFF", "#5AC8FA", (5, 12, 20, 255),
+           ("segoe_bold", "bahnschrift")),
     Palette("rose", "Rose", "soft, personal, intimate",
            "#FFFFFF", "#FF8FB1", "#1C0810", "#FFFFFF", "#FF8FB1",
-           (18, 8, 13, 255), ("georgia_bold", "comic_bold")),
+           (18, 8, 13, 255), "#FFFFFF", "#FF8FB1", (18, 8, 13, 255),
+           ("georgia_bold", "comic_bold")),
     Palette("slate_mono", "Slate Mono", "minimal, serious, understated",
            # The first draft used #D9DCE3, a grey so close to white the
            # highlighted word was unreadable against its own caption -
@@ -73,16 +87,20 @@ PALETTES = (
            # hex. #8FA3B8 keeps the muted, understated feel but is far
            # enough from white to stay legible.
            "#FFFFFF", "#8FA3B8", "#0B0C10", "#FFFFFF", "#8FA3B8",
-           (10, 11, 15, 255), ("rockwell_bold", "franklin_gothic")),
+           (10, 11, 15, 255), "#FFFFFF", "#8FA3B8", (10, 11, 15, 255),
+           ("rockwell_bold", "franklin_gothic")),
     Palette("amber_academic", "Amber Academic", "intellectual, formal, literary",
            "#F5EFE3", "#E0A94D", "#12100A", "#F5EFE3", "#E0A94D",
-           (14, 12, 8, 255), ("cambria_bold", "georgia_bold")),
+           (14, 12, 8, 255), "#F5EFE3", "#E0A94D", (14, 12, 8, 255),
+           ("cambria_bold", "georgia_bold")),
     Palette("electric_lime", "Electric Lime", "loud, playful, internet-native",
            "#FFFFFF", "#C8FF3D", "#0E140A", "#FFFFFF", "#C8FF3D",
-           (10, 14, 8, 255), ("impact", "comic_bold")),
+           (10, 14, 8, 255), "#FFFFFF", "#C8FF3D", (10, 14, 8, 255),
+           ("impact", "comic_bold")),
     Palette("midnight_gossip", "Midnight Gossip", "tabloid, dramatic, breathless",
            "#FFFFFF", "#FF5EDB", "#160616", "#FFFFFF", "#FF5EDB",
-           (14, 6, 16, 255), ("franklin_gothic", "impact")),
+           (14, 6, 16, 255), "#FFFFFF", "#FF5EDB", (14, 6, 16, 255),
+           ("franklin_gothic", "impact")),
 )
 
 PALETTES_BY_KEY = {p.key: p for p in PALETTES}
@@ -118,4 +136,7 @@ def apply_to_style(style, palette: "Palette", font_face: str = None) -> None:
     style.outro_title_color = palette.outro_title_color
     style.outro_subtext_color = palette.outro_subtext_color
     style.outro_bg_color = palette.outro_bg_color
+    style.title_card_title_color = palette.title_card_title_color
+    style.title_card_channel_color = palette.title_card_channel_color
+    style.title_card_bg_color = palette.title_card_bg_color
     style.font_face = font_face if font_face in palette.font_faces else palette.font_faces[0]

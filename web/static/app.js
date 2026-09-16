@@ -1303,20 +1303,31 @@ document.addEventListener("DOMContentLoaded", () => {
 // and each render is a real Pillow composite.
 const PREVIEW_DEBOUNCE_MS = 220;
 
-let previewTimer = null;
-let previewPending = null;
-
-function captionPreviewPayload(root) {
+// Three independent preview surfaces share this machinery: captions,
+// the title card, and the outro card. Fields relevant to any of them are
+// scattered across several fieldsets (and, for the channel name and
+// outro subtext, outside the Look section entirely), so the payload is
+// gathered from the whole form rather than scoped to one container —
+// each backend route only reads the keys it cares about and ignores the
+// rest. State (which request is newest) is tracked per surface name
+// rather than in one shared variable, since captions/title/outro can
+// all be mid-request at once and must never cancel each other.
+function previewPayload() {
   const body = new URLSearchParams();
-  for (const field of root.querySelectorAll("[data-preview-field]")) {
-    body.set(field.dataset.previewField, field.value);
+  for (const field of document.querySelectorAll("[data-preview-field]")) {
+    // A checkbox's .value is its (usually unhelpful) HTML attribute
+    // regardless of whether it's ticked - .checked is the real state.
+    const value = field.type === "checkbox" ? (field.checked ? "1" : "0") : field.value;
+    body.set(field.dataset.previewField, value);
   }
   return body;
 }
 
-async function renderCaptionPreview(root) {
-  const image = root.querySelector("[data-preview-image]");
-  const spinner = root.querySelector(".preview-spinner");
+const _previewState = {};
+
+async function renderPreview(root, name, endpoint, extra) {
+  const image = root.querySelector(`[data-preview-image="${name}"]`);
+  const spinner = root.querySelector(`[data-preview-spinner="${name}"]`);
   if (!image) return;
   if (spinner) spinner.hidden = false;
 
@@ -1324,15 +1335,14 @@ async function renderCaptionPreview(root) {
   // come back out of order, which would leave the preview showing a
   // value the form no longer holds.
   const token = {};
-  previewPending = token;
+  _previewState[name] = token;
   try {
-    const response = await apiFetch("/api/caption-preview", {
-      method: "POST",
-      body: captionPreviewPayload(root),
-    });
+    const body = previewPayload();
+    if (extra) for (const [k, v] of Object.entries(extra)) body.set(k, v);
+    const response = await apiFetch(endpoint, { method: "POST", body });
     if (!response.ok) throw new Error(response.status);
     const blob = await response.blob();
-    if (previewPending !== token) return;
+    if (_previewState[name] !== token) return;
     const url = URL.createObjectURL(blob);
     const previous = image.src;
     image.src = url;
@@ -1341,15 +1351,27 @@ async function renderCaptionPreview(root) {
   } catch (e) {
     // A failed preview is cosmetic: keep the last good frame rather than
     // replacing the panel with an error the user can't act on.
-    console.warn("Caption preview failed", e);
+    console.warn(`${name} preview failed`, e);
   } finally {
-    if (previewPending === token && spinner) spinner.hidden = true;
+    if (_previewState[name] === token && spinner) spinner.hidden = true;
   }
 }
 
-function queueCaptionPreview(root) {
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(() => renderCaptionPreview(root), PREVIEW_DEBOUNCE_MS);
+const _previewTimers = {};
+
+function queuePreview(root, name, endpoint, extra) {
+  clearTimeout(_previewTimers[name]);
+  _previewTimers[name] = setTimeout(() => renderPreview(root, name, endpoint, extra), PREVIEW_DEBOUNCE_MS);
+}
+
+function renderCaptionPreview(root) { return renderPreview(root, "caption", "/api/caption-preview"); }
+function queueCaptionPreview(root) { return queuePreview(root, "caption", "/api/caption-preview"); }
+
+function renderCardPreview(root, channelKey, card) {
+  return renderPreview(root, card, `/api/channels/${channelKey}/card-preview`, { card });
+}
+function queueCardPreview(root, channelKey, card) {
+  return queuePreview(root, card, `/api/channels/${channelKey}/card-preview`, { card });
 }
 
 // Keeps a <input type="color"> and its hex text box in step, in both
@@ -1395,6 +1417,7 @@ function hexToRgba(hex, current) {
 document.addEventListener("DOMContentLoaded", () => {
   const root = document.querySelector("[data-caption-preview]");
   if (!root) return;
+  const channelKey = root.dataset.channelKey;
 
   bindColorPickers(root);
 
@@ -1412,15 +1435,30 @@ document.addEventListener("DOMContentLoaded", () => {
     showNote();
   }
 
-  for (const field of root.querySelectorAll("[data-preview-field]")) {
+  const refreshPreviews = () => {
+    queueCaptionPreview(root);
+    if (channelKey) {
+      queueCardPreview(root, channelKey, "title");
+      queueCardPreview(root, channelKey, "outro");
+    }
+  };
+
+  // Every field any of the three previews reads from, not just captions'
+  // own — the channel name and outro subtext live outside this root
+  // entirely (the Channel section), and the title/outro cards need both.
+  for (const field of document.querySelectorAll("[data-preview-field]")) {
     field.addEventListener("input", () => {
       const output = field.parentElement.querySelector(".slider-value");
       if (output) output.value = field.value;
-      queueCaptionPreview(root);
+      refreshPreviews();
     });
   }
 
   renderCaptionPreview(root);
+  if (channelKey) {
+    renderCardPreview(root, channelKey, "title");
+    renderCardPreview(root, channelKey, "outro");
+  }
 });
 
 // --- Topic plan -------------------------------------------------------

@@ -12,7 +12,7 @@ from flask import (
 )
 
 from core import (
-    caption_preview, channel_admin, curriculum, fonts, gallery, jobs,
+    caption_preview, card_preview, channel_admin, curriculum, fonts, gallery, jobs,
     scheduler, youtube,
 )
 from core.assets import has_logo
@@ -641,3 +641,54 @@ _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 def _hex(value: str, fallback: str) -> str:
     value = (value or "").strip()
     return value if _HEX_RE.match(value) else fallback
+
+
+def _rgba(value: str, fallback: tuple) -> tuple:
+    value = (value or "").strip()
+    try:
+        parts = tuple(int(x.strip()) for x in value.split(",") if x.strip())
+    except ValueError:
+        return fallback
+    return parts if len(parts) == 4 else fallback
+
+
+@bp.route("/api/channels/<key>/card-preview", methods=["POST"])
+def card_preview_image(key):
+    """A real title/outro card frame, rendered from the Look form's
+    current values — same reasoning as `caption_preview_image`: this is
+    what an unsaved change would look like, not what's on disk.
+    """
+    channel = channel_or_404(key)
+    card = request.form.get("card")
+    if card not in ("title", "outro"):
+        return jsonify({"error": "Unknown card."}), 400
+
+    style = Style(
+        font_face=request.form.get("font_face") or Style.font_face,
+        use_background_image=request.form.get("use_background_image") == "1",
+    )
+    display_name = request.form.get("channel_display_name", "").strip() or channel.channel_display_name
+
+    try:
+        if card == "title":
+            style.title_card_title_color = _hex(
+                request.form.get("title_card_title_color"), Style.title_card_title_color)
+            style.title_card_channel_color = _hex(
+                request.form.get("title_card_channel_color"), Style.title_card_channel_color)
+            style.title_card_bg_color = _rgba(
+                request.form.get("title_card_bg_color"), Style.title_card_bg_color)
+            show_topic = request.form.get("title_card_show_topic") == "1"
+            png = card_preview.render_title_card(style, display_name, key, show_topic)
+        else:
+            style.outro_title_color = _hex(
+                request.form.get("outro_title_color"), Style.outro_title_color)
+            style.outro_subtext_color = _hex(
+                request.form.get("outro_subtext_color"), Style.outro_subtext_color)
+            style.outro_bg_color = _rgba(
+                request.form.get("outro_bg_color"), Style.outro_bg_color)
+            outro_subtext = request.form.get("outro_subtext", "").strip() or channel.outro_subtext
+            png = card_preview.render_outro(style, display_name, outro_subtext, key)
+    except Exception:
+        log.exception("Card preview failed")
+        return jsonify({"error": "Could not render a preview."}), 500
+    return Response(png, mimetype="image/png", headers={"Cache-Control": "no-store"})

@@ -46,11 +46,11 @@
 
     <label>Display name
       <input type="text" name="channel_display_name" required
-             value="{{ channel.channel_display_name or '' }}">
+             value="{{ channel.channel_display_name or '' }}" data-preview-field="channel_display_name">
     </label>
 
     <label>Outro subtext
-      <input type="text" name="outro_subtext"
+      <input type="text" name="outro_subtext" data-preview-field="outro_subtext"
              value="{{ channel.outro_subtext or 'Subscribe for more' }}">
     </label>
 
@@ -377,7 +377,7 @@
       <p class="hint" id="suggest-look-status"></p>
     </div>
 
-    <div class="look-layout" data-caption-preview>
+    <div class="look-layout" data-caption-preview data-channel-key="{{ channel.key }}">
     <div class="look-controls">
     <fieldset>
       <legend>Captions</legend>
@@ -425,8 +425,11 @@
 
     <fieldset>
       <legend>Outro card</legend>
-      <p class="hint">The branded card after the narration ends. Not shown
-        in the preview.</p>
+      <div class="preview-frame-inline">
+        <img alt="A sample outro card rendered with these settings"
+             data-preview-image="outro" src="" hidden>
+        <span class="preview-spinner" data-preview-spinner="outro" hidden></span>
+      </div>
       {% for field, label in [("outro_title_color", "Title colour"),
                               ("outro_subtext_color", "Subtext colour")] %}
         <label>{{ label }}
@@ -434,7 +437,7 @@
             <input type="color" value="{{ channel.style[field] }}"
                    data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
             <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
-                   spellcheck="false">
+                   spellcheck="false" data-preview-field="{{ field }}">
           </span>
         </label>
       {% endfor %}
@@ -442,22 +445,23 @@
         <span class="color-row">
           <input type="color" data-color-for="style_outro_bg_color" data-rgba
                  aria-label="Outro background picker">
-          <input type="text" name="style_outro_bg_color"
+          <input type="text" name="style_outro_bg_color" data-preview-field="outro_bg_color"
                  value="{{ channel.style.outro_bg_color|join(',') }}" spellcheck="false">
+          <button type="button" class="info-dot"
+                  data-tooltip="Red, green, blue, opacity — each 0-255.">?</button>
         </span>
-        <span class="hint">Red, green, blue, opacity &mdash; each 0&ndash;255.</span>
       </label>
     </fieldset>
 
     <fieldset>
-      <legend>Title card</legend>
-      <p class="hint">
-        An opening card naming the channel and what the video is about.
-        Off by default: seconds before the content starts are watch time
-        spent on nothing, and short-form is decided in the first of them.
-        Worth it for a channel whose videos are a series someone works
-        through.
-      </p>
+      <legend>Title card
+        <button type="button" class="info-dot" data-tooltip="An opening card naming the channel and what the video is about. Off by default — seconds before the content starts are watch time spent on nothing, but worth it for a series someone works through.">?</button>
+      </legend>
+      <div class="preview-frame-inline">
+        <img alt="A sample title card rendered with these settings"
+             data-preview-image="title" src="" hidden>
+        <span class="preview-spinner" data-preview-spinner="title" hidden></span>
+      </div>
       <label class="checkbox-label">
         <input type="checkbox" name="style_title_card_enabled"
                {% if channel.style.title_card_enabled %}checked{% endif %}>
@@ -468,35 +472,23 @@
         <label class="choice">
           <input type="radio" name="style_title_card_placement" value="start"
                  {% if channel.style.title_card_placement != 'after_intro' %}checked{% endif %}>
-          <span>
-            <strong>Before the narration</strong>
-            <span class="hint">The original behaviour &mdash; the card
-              plays first, then the video begins.</span>
-          </span>
+          <span>Before the narration</span>
         </label>
         <label class="choice">
           <input type="radio" name="style_title_card_placement" value="after_intro"
                  {% if channel.style.title_card_placement == 'after_intro' %}checked{% endif %}>
-          <span>
-            <strong>After the intro line</strong>
-            <span class="hint">The video opens straight into its first
-              line, then the card plays, then the rest follows &mdash; for
-              a channel whose opening line is its own hook.</span>
+          <span>After the intro line
+            <button type="button" class="info-dot" data-tooltip="Opens straight into its first line, then the card plays, then the rest follows — for a channel whose opening line is its own hook.">?</button>
           </span>
         </label>
       </fieldset>
       {% if topic_plan and topic_plan.has_curriculum %}
       <label class="checkbox-label">
-        <input type="checkbox" name="style_title_card_show_topic"
+        <input type="checkbox" name="style_title_card_show_topic" data-preview-field="title_card_show_topic"
                {% if channel.style.title_card_show_topic %}checked{% endif %}>
         Also show this video's topic
+        <button type="button" class="info-dot" data-tooltip="Adds the syllabus topic as a third line, above the subtopic title.">?</button>
       </label>
-      <p class="hint">
-        Adds the syllabus topic as a third line, above the subtopic
-        title &mdash; "{{ channel.channel_display_name }} / topic name /
-        this video's own title" &mdash; the orienting detail a series
-        someone works through actually benefits from.
-      </p>
       {% endif %}
       <label>How long
         <span class="slider-row">
@@ -514,7 +506,7 @@
             <input type="color" value="{{ channel.style[field] }}"
                    data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
             <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
-                   spellcheck="false">
+                   spellcheck="false" data-preview-field="{{ field }}">
           </span>
         </label>
       {% endfor %}
@@ -522,7 +514,7 @@
         <span class="color-row">
           <input type="color" data-color-for="style_title_card_bg_color" data-rgba
                  aria-label="Title card background picker">
-          <input type="text" name="style_title_card_bg_color"
+          <input type="text" name="style_title_card_bg_color" data-preview-field="title_card_bg_color"
                  value="{{ channel.style.title_card_bg_color|join(',') }}" spellcheck="false">
         </span>
         <span class="hint">Used when there is no background picture.</span>
@@ -530,16 +522,12 @@
     </fieldset>
 
     <fieldset data-background-picker data-channel="{{ channel.key }}">
-      <legend>Background picture</legend>
-      <p class="hint">
-        Sits behind the title and outro cards instead of a flat colour.
-        Chosen once per channel, so it costs nothing per video &mdash; and
-        it is the difference between a card that looks made and one that
-        looks generated.
-      </p>
+      <legend>Background picture
+        <button type="button" class="info-dot" data-tooltip="Sits behind the title and outro cards instead of a flat colour. Chosen once per channel, so it costs nothing per video.">?</button>
+      </legend>
 
       <label class="checkbox-label">
-        <input type="checkbox" name="style_use_background_image"
+        <input type="checkbox" name="style_use_background_image" data-preview-field="use_background_image"
                {% if channel.style.use_background_image %}checked{% endif %}>
         Use the picture below on cards
       </label>
@@ -608,12 +596,12 @@
       <p class="preview-label">Preview</p>
       <div class="preview-frame">
         <img alt="A sample caption rendered with these settings"
-             data-preview-image src="" hidden>
-        <span class="preview-spinner" hidden></span>
+             data-preview-image="caption" src="" hidden>
+        <span class="preview-spinner" data-preview-spinner="caption" hidden></span>
       </div>
-      <p class="hint">A real frame, drawn by the same code that renders the
-        video, over a bright clip from your own library &mdash; the hardest
-        case for white captions.</p>
+      <p class="hint">
+        <button type="button" class="info-dot" data-tooltip="A real frame, drawn by the same code that renders the video, over a bright clip from your library — the hardest case for white captions.">?</button>
+      </p>
     </div>
     </div>
   </section>

@@ -34,6 +34,11 @@
   --sp-5: 1.5rem;
   --sp-6: 2.25rem;
 
+  /* The site header's real rendered height (measured, not guessed) —
+     anything sticky or anchor-jumped below it clears by this amount so
+     it can never end up hidden behind it again. */
+  --header-height: 4rem;
+
   --font: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 }
@@ -63,7 +68,7 @@ h1 { font-size: 1.9rem; }
 h2 { font-size: 1.2rem; }
 
 main {
-  max-width: 960px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: var(--sp-6) var(--sp-5) var(--sp-6);
   animation: fade-in 0.25s ease;
@@ -1373,6 +1378,86 @@ a.tick:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
   animation: spin 0.7s linear infinite;
 }
 
+/* A card preview inside its own fieldset rather than the big sticky
+   sidebar panel — same real frame, shown small next to the fields that
+   change it. */
+.preview-frame-inline {
+  width: 140px;
+  aspect-ratio: 9 / 16;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface-2);
+  margin: var(--sp-2, 0.5rem) 0;
+}
+.preview-frame-inline img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.preview-frame-inline .preview-spinner {
+  top: var(--sp-1, 0.25rem);
+  right: var(--sp-1, 0.25rem);
+  width: 12px;
+  height: 12px;
+}
+
+/* --- Tooltip dots: a "?" for an explanation, a "$" for a cost, both
+   hover/focus-revealed rather than always-on prose. Pure CSS — no JS
+   needed for the static case; a dynamic cost figure just rewrites
+   data-tooltip before the user hovers it. */
+.info-dot, .cost-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-light);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  position: relative;
+  vertical-align: middle;
+}
+.cost-dot { border-color: var(--accent-dim); color: var(--accent); }
+.info-dot:hover, .info-dot:focus-visible,
+.cost-dot:hover, .cost-dot:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
+}
+.info-dot::after, .cost-dot::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 260px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  color: var(--text);
+  padding: var(--sp-2, 0.5rem) var(--sp-3, 0.85rem);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+  z-index: 20;
+}
+.info-dot:hover::after, .info-dot:focus-visible::after,
+.cost-dot:hover::after, .cost-dot:focus-visible::after { opacity: 1; }
+
 .color-row,
 .slider-row {
   display: flex;
@@ -1593,7 +1678,7 @@ label > textarea {
 
 .settings-nav {
   position: sticky;
-  top: var(--sp-4, 1.25rem);
+  top: calc(var(--header-height) + var(--sp-3));
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1628,8 +1713,9 @@ label > textarea {
   margin-bottom: var(--sp-5, 1.75rem);
   border-bottom: 1px solid var(--border);
   /* Cleared by the sticky header, so an anchor jump doesn't land with the
-     heading hidden underneath it. */
-  scroll-margin-top: 5rem;
+     heading hidden underneath it — same --header-height the sticky nav
+     uses, so the two can't drift out of sync with each other again. */
+  scroll-margin-top: calc(var(--header-height) + var(--sp-3));
 }
 .settings-section:last-of-type { border-bottom: none; }
 .settings-section > h2 { margin-top: 0; }
