@@ -55,13 +55,11 @@
     </label>
 
     <label>Style prompt &mdash; how it should be written
+      <button type="button" class="info-dot" data-tooltip="The highest-leverage setting here. Say the format, the audience, the voice, and anything to avoid.">?</button>
       <textarea name="style_prompt" rows="6" required>{{ channel.style_prompt or '' }}</textarea>
       <span class="hint">
-        The highest-leverage setting here. Say the format, the audience,
-        the voice, and anything to avoid.
         <a href="#" onclick="document.getElementById('preview-script-btn').click(); return false;">Preview a script</a>
-        runs generation alone for about a penny, so you can tune this
-        without rendering a video to find out what changed.
+        (about a penny, no render)
         {% if (channel.style_prompt or '').strip() %}
         &middot;
         <a href="{{ url_for('style_setup.page', key=channel.key) }}"
@@ -132,14 +130,8 @@
           <input type="checkbox" name="build_on_previous"
                  {% if channel.build_on_previous %}checked{% endif %}>
           Videos build on each other
+          <button type="button" class="info-dot" data-tooltip="A video is told what earlier videos already covered and asked not to re-explain them. Right for a channel teaching something in order; most short-form stands alone, so this is off by default.">?</button>
         </label>
-        <p class="hint">
-          A video is told what earlier videos already covered, and asked
-          not to re-explain them. Right for a channel teaching something
-          in order; wrong for one whose videos are meant to stand alone
-          and be found individually, which most short-form is &mdash; so
-          it is off unless you say otherwise.
-        </p>
         <label>How far back it looks
           <select name="context_scope">
             <option value="topic" {% if channel.context_scope == 'topic' %}selected{% endif %}>
@@ -258,12 +250,8 @@
     </fieldset>
 
     <label>Imagery to avoid &mdash; one word or phrase per line
+      <button type="button" class="info-dot" data-tooltip="The footage library is shared between channels, so a clip can be a strong match and completely wrong for this audience.">?</button>
       <textarea name="avoid_imagery" rows="3">{{ (channel.avoid_imagery or [])|join('\n') }}</textarea>
-      <span class="hint">
-        The footage library is shared between channels, so a clip can be a
-        strong match and completely wrong for this audience. Nothing whose
-        description mentions these will ever be used here.
-      </span>
     </label>
   </section>
 
@@ -318,17 +306,13 @@
       <legend>Length and pace</legend>
 
       <label>Target length
+        <button type="button" class="info-dot"
+                data-tooltip="The script's word budget comes from this — about {{ (channel.pacing.target_seconds * 2.5)|int }} spoken words at 2.5 words/second, this project's own measured rate. A target, not a guarantee.">?</button>
         <span class="slider-row">
           <input type="range" name="pacing_target_seconds" min="15" max="180" step="5"
                  value="{{ channel.pacing.target_seconds }}"
                  oninput="this.nextElementSibling.value = this.value + 's'">
           <output class="slider-value">{{ channel.pacing.target_seconds|int }}s</output>
-        </span>
-        <span class="hint">
-          The script's word budget comes from this &mdash; about
-          {{ (channel.pacing.target_seconds * 2.5)|int }} spoken words, measured at
-          2.5 words a second across this project's own finished videos.
-          A target, not a guarantee.
         </span>
       </label>
 
@@ -378,10 +362,7 @@
     <div class="suggest-look-row">
       <button type="button" class="btn-ghost" id="suggest-look-btn"
               onclick="suggestLook('{{ channel.key }}')">Suggest a look for this channel</button>
-      <span class="hint">Picks a font and colours from a curated, pre-checked
-        set based on what this channel is about &mdash; so channels don't all
-        end up looking the same, without risking something illegible. About
-        a fraction of a cent. Nothing is saved until you press Save below.</span>
+      <button type="button" class="cost-dot" data-tooltip="About a fraction of a cent. Picks a font and colours from a curated set based on what this channel is about. Nothing is saved until you press Save below.">$</button>
       <p class="hint" id="suggest-look-status"></p>
     </div>
 
