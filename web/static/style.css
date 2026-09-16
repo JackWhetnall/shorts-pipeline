@@ -1748,18 +1748,56 @@ label > textarea {
   .settings-nav-link span { display: none; }
 }
 
-/* --- Create page: choosing what to make ------------------------------ */
-.pick-fields {
-  padding: var(--sp-3, 0.85rem) var(--sp-4, 1.25rem);
-  margin-bottom: var(--sp-3, 0.85rem);
-  border-left: 2px solid var(--border-light);
+/* --- Create page: the topic table -------------------------------------- */
+.topic-table {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2, 0.5rem);
+  margin: var(--sp-3, 0.85rem) 0;
 }
-.pick-fields label { display: block; margin-bottom: var(--sp-3, 0.85rem); }
-.pick-fields label:last-child { margin-bottom: 0; }
+button.topic-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3, 0.85rem);
+  width: 100%;
+  padding: var(--sp-3, 0.85rem);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-weight: normal;
+  text-align: left;
+  cursor: pointer;
+}
+/* The base button:hover rule (button:hover:not(:disabled)) outranks a
+   plain .topic-row:hover on specificity - matching its element+pseudo
+   shape here is what actually wins, not just adding another class. */
+button.topic-row:hover { border-color: var(--border-light); background: var(--surface-hover); }
+button.topic-row.selected,
+button.topic-row.selected:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.topic-row.topic-row-empty { opacity: 0.7; }
+.topic-row-title { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topic-row-chips { display: flex; gap: 3px; flex-shrink: 0; }
+.topic-row-count { flex-shrink: 0; color: var(--text-dim); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
 
-/* The picker's radios are the same shape as the setup choices, but on a
-   card rather than a form panel. */
-[data-seed-picker] { border: none; padding: 0; margin-bottom: var(--sp-3, 0.85rem); }
+.topic-chip {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--border-light);   /* grey: not made yet */
+}
+.topic-chip-used { background: #e0b93d; }        /* yellow: made, not published */
+.topic-chip-published { background: var(--success); }  /* green */
+.topic-chip-next {
+  background: #4d9eff;               /* blue: the one about to be made */
+  box-shadow: 0 0 0 2px rgba(77, 158, 255, 0.3);
+}
 [data-seed-picker] legend {
   padding: 0;
   margin-bottom: var(--sp-2, 0.5rem);

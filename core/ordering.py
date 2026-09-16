@@ -22,6 +22,7 @@ docs/decisions/024-ordering-and-title-cards.md.
 from __future__ import annotations
 
 import random
+from types import SimpleNamespace
 
 from core import curriculum
 
@@ -134,3 +135,54 @@ def _natural_choice(topics: list, by_topic: dict, ordering, rng) -> dict:
 def _made_count(by_topic: dict, topic_id: str) -> int:
     return sum(1 for r in by_topic.get(topic_id, [])
               if r["status"] in (curriculum.USED, curriculum.PUBLISHED))
+
+
+def simulate(settings: dict, topic_count: int = 6, subtopics_per_topic: int = 5,
+            steps: int = 24, rng=None) -> list:
+    """A run of `choose_next_subtopic` against synthetic dummy data, for
+    the Ordering settings page's "preview this ordering" animation.
+
+    Deliberately calls the real function above rather than a second
+    implementation of the same rules — a preview that could show
+    behaviour the channel wouldn't actually produce would be worse than
+    no preview at all. `settings` mirrors `core.channels.Ordering`'s own
+    fields, taken as a plain dict (not a saved channel) since the whole
+    point is trying a setting before committing to it.
+
+    Returns up to `steps` `{"topic_id", "topic_title", "subtopic_id"}`
+    dicts in the order they'd be picked — fewer if the dummy plan runs
+    out first.
+    """
+    rng = rng or random
+    channel = SimpleNamespace(key="__ordering_preview__", ordering=SimpleNamespace(**settings))
+
+    topics = [{"id": f"t{i + 1}", "title": f"Topic {i + 1}", "summary": "",
+              "level": "foundation", "target_subtopics": subtopics_per_topic, "filled": True}
+             for i in range(topic_count)]
+    subtopics = []
+    position = 0
+    for topic in topics:
+        for j in range(subtopics_per_topic):
+            position += 1
+            subtopics.append({
+                "id": f"s{position}", "topic": topic["id"], "position": position,
+                "title": f"{topic['title']} #{j + 1}", "angle": "",
+                "status": curriculum.PENDING, "video_stem": "", "used_at": "",
+                "note": "", "script": None, "script_written_at": "",
+            })
+    data = {"topics": topics, "subtopics": subtopics}
+    titles = {t["id"]: t["title"] for t in topics}
+
+    results = []
+    for step in range(steps):
+        pick = choose_next_subtopic(channel, data, rng=rng)
+        if pick is None:
+            break
+        # Mutated in place: `pick` is the same dict object sitting inside
+        # `data["subtopics"]` (choose_next_subtopic never copies), so this
+        # is exactly what a real claim does to the real syllabus.
+        pick["status"] = curriculum.USED
+        pick["used_at"] = f"{step:06d}"
+        results.append({"topic_id": pick["topic"], "topic_title": titles[pick["topic"]],
+                        "subtopic_id": pick["id"]})
+    return results

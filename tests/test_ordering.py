@@ -182,3 +182,41 @@ class TestNatural:
         channel = _channel(mode="natural", stickiness=1.0)
         result = ordering.choose_next_subtopic(channel, data, rng=random.Random(1))
         assert result["topic"] in ("t1", "t2")  # no "current" topic yet - branches
+
+
+DEFAULT_SETTINGS = {"mode": "structured", "topic_order": "sequential",
+                    "subtopic_order": "sequential", "grouping": "topic_first",
+                    "stickiness": 0.8}
+
+
+class TestSimulate:
+    """The settings page's ordering-preview animation is only honest if
+    it calls the real function above against dummy data — this checks
+    the dummy data itself is well-formed and the loop terminates
+    correctly, not the ordering rules again."""
+
+    def test_returns_the_requested_number_of_steps(self):
+        steps = ordering.simulate(DEFAULT_SETTINGS, topic_count=3, subtopics_per_topic=3, steps=5)
+        assert len(steps) == 5
+
+    def test_stops_once_the_dummy_plan_is_exhausted(self):
+        steps = ordering.simulate(DEFAULT_SETTINGS, topic_count=2, subtopics_per_topic=2, steps=50)
+        assert len(steps) == 4
+
+    def test_each_step_names_a_real_topic_and_subtopic(self):
+        steps = ordering.simulate(DEFAULT_SETTINGS, topic_count=3, subtopics_per_topic=2, steps=6)
+        seen_subtopics = {s["subtopic_id"] for s in steps}
+        assert len(seen_subtopics) == 6  # every dummy subtopic used exactly once
+        for step in steps:
+            assert step["topic_title"].startswith("Topic")
+
+    def test_natural_mode_with_full_stickiness_never_leaves_its_first_topic_early(self):
+        """Same property tests/test_ordering.py already proves for the
+        real function directly - reachable through simulate's dummy data
+        construction too. The very first pick is a genuine branch (nothing
+        has been made yet, so there's no "current" topic to stick to) -
+        stickiness=1.0 only guarantees every pick AFTER that one stays put
+        while the topic still has something pending."""
+        settings = {**DEFAULT_SETTINGS, "mode": "natural", "stickiness": 1.0}
+        steps = ordering.simulate(settings, topic_count=3, subtopics_per_topic=4, steps=4)
+        assert len({s["topic_id"] for s in steps}) == 1

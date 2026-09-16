@@ -848,6 +848,77 @@ class TestWebRoutes:
         assert curriculum.find("c", "t0001")["script"]["segments"][0]["text"] == "keep me"
 
 
+class TestCreateVideoTable:
+    """web.blueprints.channels.create_video: the topic table replaces the
+    old three-dropdown picker for a curriculum channel, and must not
+    appear at all for one with nothing to show a table of."""
+
+    @pytest.fixture
+    def client(self, isolated, tmp_path, monkeypatch):
+        from core.channels import channel_to_sparse_dict, write_raw
+        from web import create_app
+
+        path = tmp_path / "channels.json"
+        monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", path)
+        channel = ChannelConfig(
+            key="c", channel_display_name="C", content_mode="topic",
+            voice="21m00Tcm4TlvDq8ikWAM", style_prompt="Explain one idea.", topics=["fallback"])
+        channel.output_dir = str(tmp_path / "out" / channel.key)
+        write_raw({"c": channel_to_sparse_dict(channel)}, path)
+
+        app = create_app()
+        app.config.update(TESTING=True)
+        with app.test_client() as test_client:
+            yield test_client
+
+    def _csrf(self, client):
+        html = client.get("/").get_data(as_text=True)
+        marker = 'name="csrf-token" content="'
+        start = html.index(marker) + len(marker)
+        return html[start:html.index('"', start)]
+
+    def test_a_flat_topic_list_channel_has_no_table(self, client):
+        html = client.get("/channels/c/create").get_data(as_text=True)
+        assert 'id="topic-table"' not in html
+
+    def test_a_curriculum_channel_gets_a_table_with_the_policy_pick_marked(
+            self, client, planned):
+        html = client.get("/channels/c/create").get_data(as_text=True)
+        assert 'id="topic-table"' in html
+        assert 'data-selected-topic="u01"' in html
+        assert "First thing" in html  # the real subtopic title, JSON-embedded
+
+    def test_ordering_preview_returns_the_requested_number_of_steps(self, client):
+        response = client.post(
+            "/api/channels/c/ordering-preview", json={},
+            headers={"X-CSRF-Token": self._csrf(client)})
+        assert response.status_code == 200
+        assert len(response.get_json()["steps"]) > 0
+
+    def test_ordering_preview_reflects_unsaved_form_values(self, client):
+        """The whole point is trying a setting before committing to it -
+        this must use exactly the settings posted, not the channel's
+        saved ones."""
+        response = client.post(
+            "/api/channels/c/ordering-preview",
+            json={"mode": "natural", "stickiness": 1.0},
+            headers={"X-CSRF-Token": self._csrf(client)})
+        steps = response.get_json()["steps"]
+        # stickiness=1.0: every step after the first genuine branch stays
+        # on the same topic while it has anything pending.
+        assert len({s["topic_id"] for s in steps[:3]}) == 1
+
+    def test_ordering_preview_requires_csrf(self, client):
+        assert client.post("/api/channels/c/ordering-preview", json={}).status_code == 400
+
+    def test_ordering_preview_falls_back_safely_on_junk_values(self, client):
+        response = client.post(
+            "/api/channels/c/ordering-preview",
+            json={"mode": "not_a_real_mode", "stickiness": "not_a_number"},
+            headers={"X-CSRF-Token": self._csrf(client)})
+        assert response.status_code == 200
+
+
 class TestChannelIsolation:
     """A channel must never be able to see another channel's videos.
 
@@ -1393,6 +1464,100 @@ class TestSchemaMigration:
         again = curriculum.load("c")
         assert len(again["topics"]) == 2
         assert len(again["subtopics"]) == 2
+
+
+def _current(topic_id):
+    """table_rows takes the full subtopic dict the ordering policy
+    picked, not just a topic id — this is that dict, for a test that
+    only cares which topic is "current"."""
+    return curriculum.next_pending("c", topic_id=topic_id)
+
+
+class TestTableRows:
+    """The Create Video table's windowing — never every topic, but never
+    a silent drop either."""
+
+    @pytest.fixture
+    def channel(self):
+        from core.channels import ChannelConfig
+        return ChannelConfig(key="c", channel_display_name="C", content_mode="topic",
+                             voice="21m00Tcm4TlvDq8ikWAM", style_prompt="p")
+
+    @pytest.fixture
+    def many_topics(self, isolated):
+        """10 topics, one subtopic each — enough to force windowing at a
+        small max_topics without a 40-topic fixture nobody can read."""
+        curriculum.start("c", "S", [
+            {"title": f"Topic {i}", "summary": "", "level": "foundation",
+             "target_subtopics": 1}
+            for i in range(10)])
+        for i in range(10):
+            curriculum.add_subtopics("c", f"u{i + 1:02d}", [{"title": f"Sub {i}", "angle": ""}])
+        return "c"
+
+    def test_the_current_topic_is_always_included(self, channel, many_topics):
+        result = curriculum.table_rows(channel, current_subtopic=_current("u07"), max_topics=3)
+        assert "u07" in [r["topic_id"] for r in result["rows"]]
+        assert result["rows"][0]["is_current"]
+
+    def test_hidden_topics_counts_what_was_left_out(self, channel, many_topics):
+        result = curriculum.table_rows(channel, current_subtopic=_current("u01"), max_topics=4)
+        assert len(result["rows"]) == 4
+        assert result["hidden_topics"] == 6
+
+    def test_nothing_is_hidden_when_everything_fits(self, channel, many_topics):
+        result = curriculum.table_rows(channel, current_subtopic=_current("u01"), max_topics=20)
+        assert result["hidden_topics"] == 0
+        assert len(result["rows"]) == 10
+
+    def test_sequential_topic_order_shows_upcoming_topics(self, channel, many_topics):
+        channel.ordering.topic_order = "sequential"
+        result = curriculum.table_rows(channel, current_subtopic=_current("u03"), max_topics=4)
+        ids = [r["topic_id"] for r in result["rows"]]
+        assert "u04" in ids or "u05" in ids  # something after u03 in file order
+
+    def test_random_topic_order_does_not_pad_with_untouched_upcoming_topics(
+            self, channel, many_topics):
+        """A channel that could jump anywhere next shouldn't render a run
+        of never-touched topics as if they were queued up — unlike a
+        sequential channel, it must not fall back to file order just
+        because there's still room to fill."""
+        channel.ordering.topic_order = "random"
+        curriculum.claim("c", "t0003")  # u03's only subtopic: some activity
+        result = curriculum.table_rows(channel, current_subtopic=_current("u01"), max_topics=5)
+        ids = {r["topic_id"] for r in result["rows"]}
+        # u01 (current) and u03 (touched) belong; nothing else has any
+        # activity, so nothing else should be padded in despite max_topics
+        # allowing 5.
+        assert ids == {"u01", "u03"}
+
+    def test_most_recently_active_topics_are_favoured(self, channel, many_topics):
+        curriculum.claim("c", "t0005")
+        curriculum.attach_video("c", "t0005", "s5")
+        result = curriculum.table_rows(channel, current_subtopic=_current("u01"), max_topics=2)
+        ids = [r["topic_id"] for r in result["rows"]]
+        assert "u05" in ids
+
+    def test_a_rows_sample_never_exceeds_the_cap(self, channel, isolated):
+        curriculum.start("c", "S", [{"title": "Big", "summary": "",
+                                     "level": "foundation", "target_subtopics": 20}])
+        curriculum.add_subtopics("c", "u01", [{"title": f"S{i}", "angle": ""} for i in range(20)])
+        result = curriculum.table_rows(channel, current_subtopic=_current("u01"))
+        assert len(result["rows"][0]["subtopics"]) <= curriculum.MAX_ROW_SAMPLE
+
+    def test_the_actual_next_subtopic_is_marked_and_guaranteed_a_slot(self, channel, isolated):
+        """Not just any pending subtopic in the current row - the exact
+        one the policy picked, even when subtopic order is random and it
+        wouldn't otherwise have made the sample's first-few cut."""
+        curriculum.start("c", "S", [{"title": "Big", "summary": "",
+                                     "level": "foundation", "target_subtopics": 10}])
+        curriculum.add_subtopics("c", "u01", [{"title": f"S{i}", "angle": ""} for i in range(10)])
+        last = curriculum.find("c", "t0010")  # the last subtopic, position-wise
+        result = curriculum.table_rows(channel, current_subtopic=last)
+        row = result["rows"][0]
+        marked = [s for s in row["subtopics"] if s["is_next"]]
+        assert marked == [{"id": "t0010", "title": "S9", "status": "pending", "is_next": True}]
+        assert result["rows"][0]["total"] == 10
 
 
 class TestChoosingWhatToMake:

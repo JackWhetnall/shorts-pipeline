@@ -27,7 +27,7 @@ from pipeline import quote_source
 from pipeline.run import fetch_seed
 from web import checklist
 from web.blueprints.curriculum import channels_running_low
-from web.forms import apply_channel_form, format_affiliate_links
+from web.forms import ORDERING_CHOICE_FIELDS, apply_channel_form, format_affiliate_links
 from web.helpers import (
     all_channels, as_int, channel_or_404, channel_progress, format_date,
 )
@@ -324,15 +324,51 @@ def create_video(key):
     """
     channel = channel_or_404(key)
     plan = None
+    table = None
+    current_topic_id = ""
     if channel.content_mode == "topic" and curriculum.exists(key):
+        from core import ordering
+
         plan = {
             "progress": curriculum.progress(key),
             "topics": curriculum.topics_with_subtopics(key),
         }
+        current = ordering.choose_next_subtopic(channel)
+        current_topic_id = current["topic"] if current else ""
+        table = curriculum.table_rows(channel, current_subtopic=current)
     from pipeline.curriculum_gen import estimate_cost
 
     return render_template("create_video.html", key=key, channel=channel,
-                           plan=plan, cost=estimate_cost())
+                           plan=plan, table=table, current_topic_id=current_topic_id,
+                           cost=estimate_cost())
+
+
+@bp.route("/api/channels/<key>/ordering-preview", methods=["POST"])
+def ordering_preview(key):
+    """A simulated run of the ordering settings currently sitting in the
+    form — not necessarily saved — against synthetic dummy data.
+
+    Calls the real core.ordering.choose_next_subtopic (via core.ordering.
+    simulate) rather than a JS reimplementation of the same rules, so the
+    animation this drives cannot show behaviour the channel wouldn't
+    actually produce once saved.
+    """
+    channel_or_404(key)
+    data = request.get_json(force=True, silent=True) or {}
+    from core import ordering
+
+    settings = {
+        field: data.get(field) if data.get(field) in choices else choices[0]
+        for field, choices in ORDERING_CHOICE_FIELDS.items()
+    }
+    try:
+        stickiness = float(data.get("stickiness", 0.8))
+    except (TypeError, ValueError):
+        stickiness = 0.8
+    settings["stickiness"] = max(0.0, min(1.0, stickiness))
+
+    steps = ordering.simulate(settings)
+    return jsonify({"steps": steps})
 
 
 # --- lifecycle --------------------------------------------------------

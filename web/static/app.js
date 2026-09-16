@@ -53,21 +53,18 @@ function withButtonLoading(button, loadingLabel, action) {
   });
 }
 
-// What the picker on the create page is currently asking for. Absent
-// picker (a quote channel, or a topic channel with no plan) means "next",
-// which is what fetch_seed does with no pick at all.
+// What the create-video table is currently asking for. Absent table (a
+// quote channel, or a topic channel with no plan) means "next", which is
+// what fetch_seed does with no pick at all. The default selection IS the
+// ordering policy's own pick, so sticking with it sends no pick at all
+// too — letting fetch_seed re-resolve it itself, which matters when
+// subtopic order is random: a topic-scoped next_pending isn't the same
+// thing as what the policy actually chose.
 function currentPick() {
-  const picker = document.querySelector("[data-seed-picker]");
-  if (!picker) return {};
-  const mode = picker.querySelector('input[name="pick_mode"]:checked')?.value;
-  if (mode !== "choose") return {};
-
-  const topicId = document.getElementById("pick-topic")?.value || "";
-  const within = document.getElementById("pick-within")?.value || "next";
-  if (within === "specific") {
-    return {subtopic_id: document.getElementById("pick-subtopic")?.value || ""};
-  }
-  return {topic_id: topicId, mode: within === "random" ? "random" : ""};
+  const table = document.getElementById("topic-table");
+  if (!table || !table.dataset.selectedTopic) return {};
+  if (table.dataset.selectedTopic === table.dataset.defaultTopic) return {};
+  return {topic_id: table.dataset.selectedTopic};
 }
 
 async function getSeed(channelKey) {
@@ -1597,86 +1594,119 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// --- Create page: choosing what the video is about ---------------------
+// --- Create page: the topic table ---------------------------------------
 //
-// "Just make me the next video" is the default because it is what you
-// want most days. The rest exists because sometimes it is not: a topic
-// you want to get to, a specific subtopic, or a shuffle.
+// Used to be three levels of dropdown (topic, then "within it", then
+// maybe a specific subtopic) that never showed you the plan you were
+// choosing from. Now: a small table of topics, colour-coded by status,
+// highlighting whichever one the channel's ordering policy would pick
+// next — click a different row to make that topic's next one instead.
+// The same renderer drives the settings page's ordering-preview
+// animation (see below), parameterised only by where the rows come from.
 
-function showPickMode(value) {
-  for (const block of document.querySelectorAll(".pick-fields")) {
-    block.hidden = block.dataset.pickMode !== value;
-  }
-  if (value === "choose") onTopicChosen();
-}
+const TOPIC_CHIP_CLASS = {
+  published: "topic-chip-published",
+  used: "topic-chip-used",
+  pending: "topic-chip-pending",
+};
 
-// A topic with no subtopics written yet cannot be picked from, so the
-// choice collapses to an offer to write them — the alternative is an
-// empty dropdown with no explanation.
-function onTopicChosen() {
-  const topic = document.getElementById("pick-topic");
-  const option = topic?.selectedOptions[0];
-  if (!option) return;
-  const written = parseInt(option.dataset.written || "0", 10);
-  const pending = parseInt(option.dataset.pending || "0", 10);
+// `rows` is the plain shape core.curriculum.table_rows returns (or the
+// same shape built client-side for the ordering-preview animation).
+// `selectedTopicId` controls which row renders as selected; `onSelect`,
+// when given, makes rows clickable (omitted for the read-only simulator).
+function renderTopicTable(container, rows, selectedTopicId, onSelect) {
+  container.innerHTML = rows.map((row, i) => {
+    const chips = row.subtopics.map((s) => {
+      const cls = s.is_next ? "topic-chip-next" : (TOPIC_CHIP_CLASS[s.status] || "topic-chip-pending");
+      return `<span class="topic-chip ${cls}" title="${escapeHtml(s.title)}"></span>`;
+    }).join("");
+    const madeCount = row.done + row.published;
+    const selected = row.topic_id === selectedTopicId;
+    const tag = onSelect ? "button" : "div";
+    return `
+      <${tag} type="${onSelect ? "button" : ""}"
+              class="topic-row ${selected ? "selected" : ""} ${row.total === 0 ? "topic-row-empty" : ""}"
+              data-row-index="${i}">
+        <span class="topic-row-title">${escapeHtml(row.title)}</span>
+        <span class="topic-row-chips">${chips || '<span class="hint">not written yet</span>'}</span>
+        <span class="topic-row-count">${madeCount}/${row.total}</span>
+      </${tag}>`;
+  }).join("");
 
-  document.getElementById("pick-empty-topic").hidden = written > 0;
-  document.getElementById("pick-within-topic").hidden = written === 0;
-
-  if (written && !pending) {
-    document.getElementById("pick-within-topic").hidden = true;
-    document.getElementById("pick-empty-topic").hidden = false;
-    document.getElementById("pick-fill-status").textContent =
-      "Every subtopic in this topic has been made already.";
-    document.getElementById("pick-fill-btn").hidden = true;
-    return;
-  }
-  document.getElementById("pick-fill-btn").hidden = false;
-  document.getElementById("pick-fill-status").textContent = "";
-
-  // Only this topic's own pending subtopics belong in the specific-pick
-  // list; the template renders them all, so the rest are hidden here.
-  const list = document.getElementById("pick-subtopic");
-  if (list) {
-    let first = null;
-    for (const item of list.options) {
-      item.hidden = item.dataset.topic !== topic.value;
-      if (!item.hidden && !first) first = item;
-    }
-    if (first) list.value = first.value;
+  if (!onSelect) return;
+  for (const btn of container.querySelectorAll("[data-row-index]")) {
+    btn.addEventListener("click", () => onSelect(rows[Number(btn.dataset.rowIndex)]));
   }
 }
 
-function onWithinChosen() {
-  const within = document.getElementById("pick-within").value;
-  document.getElementById("pick-subtopic-row").hidden = within !== "specific";
-}
-
-async function fillChosenTopic(channelKey) {
-  const topicId = document.getElementById("pick-topic").value;
-  const button = document.getElementById("pick-fill-btn");
-  const status = document.getElementById("pick-fill-status");
+async function selectTopicRow(channelKey, row) {
+  const table = document.getElementById("topic-table");
+  const status = document.getElementById("topic-table-status");
   status.textContent = "";
 
-  await withButtonLoading(button, "Writing…", async () => {
+  if (row.total === 0) {
+    status.textContent = "Writing this topic's subtopics…";
     const res = await apiFetch(`/api/channels/${channelKey}/curriculum/fill`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({count: 1, topic_id: topicId}),
+      body: JSON.stringify({count: 1, topic_id: row.topic_id}),
     });
     const data = await res.json();
     if (!res.ok) { status.textContent = data.error || "Couldn't write those."; return; }
-    // Reloading is right here: the page's whole subtopic list is now
-    // stale, and rebuilding it in the browser would be a second copy of
-    // what the template already does.
+    // The table's whole data is now stale (this topic went from empty to
+    // having subtopics) - simplest correct thing is to get the fresh
+    // page rather than reconstruct what the template already computed.
     window.location.reload();
+    return;
+  }
+  if (row.pending === 0) {
+    status.textContent = "Every subtopic in this topic has been made already.";
+    return;
+  }
+
+  table.dataset.selectedTopic = row.topic_id;
+  const rows = JSON.parse(table.dataset.rows);
+  renderTopicTable(table, rows, row.topic_id, (r) => selectTopicRow(channelKey, r));
+  previewTopicPick(channelKey);
+}
+
+// Separate from getSeed()/#seed-preview (used by the quote and flat-
+// topic-list flow below): the table has to stay on screen while its
+// preview updates, where getSeed's flow hides the whole picker the
+// moment a candidate is fetched. Simpler to keep the two flows apart
+// than to make one function serve two different panel layouts.
+async function previewTopicPick(channelKey) {
+  const status = document.getElementById("topic-table-status");
+  status.textContent = "";
+  const res = await apiFetch(`/api/channels/${channelKey}/seed`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(currentPick()),
   });
+  const data = await res.json();
+  if (!res.ok) { status.textContent = data.error || "Failed to fetch a candidate."; return; }
+  currentSeed = data.seed;
+
+  const history = data.history || {};
+  const repeat = history.count
+    ? `<p class="meta seed-repeat">Already used ${history.count} time${history.count === 1 ? "" : "s"}` +
+      `${history.last ? ", most recently " + escapeHtml(history.last) : ""}.</p>`
+    : "";
+  document.getElementById("topic-preview-text").innerHTML =
+    `<p><strong>${escapeHtml(currentSeed.topic)}</strong></p>${repeat}`;
+  document.getElementById("topic-preview").classList.remove("hidden");
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  if (!document.querySelector("[data-seed-picker]")) return;
-  onTopicChosen();
-  onWithinChosen();
+  const table = document.getElementById("topic-table");
+  if (!table) return;
+  const rows = JSON.parse(table.dataset.rows || "[]");
+  const channelKey = table.dataset.channelKey;
+  renderTopicTable(table, rows, table.dataset.selectedTopic,
+    (row) => selectTopicRow(channelKey, row));
+  // The preview starts in step with whichever row is selected, the same
+  // way clicking a different row immediately re-previews it.
+  if (table.dataset.selectedTopic) previewTopicPick(channelKey);
 });
 
 // --- Background picture ------------------------------------------------

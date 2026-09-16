@@ -348,6 +348,116 @@ def topics_with_subtopics(channel_key: str) -> list:
     return rows
 
 
+# How many subtopic "chips" a table row shows at most — enough to read
+# as a progress strip, not so many that a 40-subtopic topic renders 40
+# little squares. The row's own pending/done/published/total counts
+# carry the real numbers regardless of how many chips are drawn.
+MAX_ROW_SAMPLE = 6
+
+
+def table_rows(channel, current_subtopic: dict = None, max_topics: int = 8) -> dict:
+    """A curated window of topics for the Create Video table.
+
+    Never every topic — a 40-topic plan would be as overwhelming on
+    screen as it already is to choose from with dropdowns. Always
+    includes the topic holding `current_subtopic` (the ordering policy's
+    live pick — the full subtopic dict from `core.ordering.
+    choose_next_subtopic`, not just its topic, since the pick is marked
+    at the subtopic level too), then the topics with the most recent
+    activity ("where you've been"), then — only when `channel.ordering.
+    topic_order` is "sequential" — a couple of topics after the current
+    one in file order ("where you're headed"); skipped entirely for
+    random topic order, since a channel that could jump anywhere next
+    shouldn't render a run of untouched topics as if they were queued up.
+
+    Returns `{"rows": [...], "hidden_topics": int}` — the omitted count,
+    never a silent drop, so the page can offer "+N more — open the full
+    plan" rather than pretending the rest doesn't exist.
+    """
+    current_topic_id = current_subtopic["topic"] if current_subtopic else None
+    current_subtopic_id = current_subtopic["id"] if current_subtopic else None
+
+    data = load(channel.key)
+    topics = data["topics"]
+    by_topic = {}
+    for row in data["subtopics"]:
+        by_topic.setdefault(row["topic"], []).append(row)
+
+    def last_activity(topic_id: str) -> str:
+        made = [r["used_at"] for r in by_topic.get(topic_id, [])
+               if r["status"] in (USED, PUBLISHED) and r.get("used_at")]
+        return max(made) if made else ""
+
+    by_id = {t["id"]: t for t in topics}
+    order = [t["id"] for t in topics]
+
+    selected_ids = []
+    if current_topic_id and current_topic_id in by_id:
+        selected_ids.append(current_topic_id)
+
+    by_recency = sorted((t["id"] for t in topics if t["id"] not in selected_ids),
+                        key=last_activity, reverse=True)
+    for topic_id in by_recency:
+        if len(selected_ids) >= max_topics or not last_activity(topic_id):
+            break
+        selected_ids.append(topic_id)
+
+    if channel.ordering.topic_order == "sequential" and current_topic_id in order:
+        start = order.index(current_topic_id)
+        for topic_id in order[start + 1:]:
+            if len(selected_ids) >= max_topics:
+                break
+            if topic_id not in selected_ids:
+                selected_ids.append(topic_id)
+
+    # Still room and nothing left to add on purpose — fall back to
+    # whatever's next in file order so a fresh plan with no history yet
+    # still shows more than just its first topic. Not for random topic
+    # order: padding with untouched topics would imply they're "coming
+    # up next" for a channel that could jump anywhere, which is exactly
+    # what this windowing exists to avoid.
+    if channel.ordering.topic_order != "random":
+        for topic_id in order:
+            if len(selected_ids) >= max_topics:
+                break
+            if topic_id not in selected_ids:
+                selected_ids.append(topic_id)
+
+    rows = []
+    for topic_id in selected_ids:
+        topic = by_id[topic_id]
+        mine = by_topic.get(topic_id, [])
+        pending = [r for r in mine if r["status"] == PENDING]
+        done = [r for r in mine if r["status"] in (USED, PUBLISHED)]
+        sample = (done[-MAX_ROW_SAMPLE:] if len(done) <= MAX_ROW_SAMPLE
+                 else done[-(MAX_ROW_SAMPLE - 2):]) + pending[:2]
+        sample = sample[:MAX_ROW_SAMPLE]
+
+        # The exact subtopic the policy would make next, when it's this
+        # row — not just "some pending one in this topic". Guaranteed a
+        # spot in the sample even if it wouldn't otherwise make the cut
+        # (e.g. random subtopic order landed past the first couple).
+        if topic_id == current_topic_id and current_subtopic_id:
+            if not any(r["id"] == current_subtopic_id for r in sample):
+                sample = sample[:-1] + [next(r for r in mine if r["id"] == current_subtopic_id)]
+
+        rows.append({
+            "topic_id": topic_id,
+            "title": topic["title"],
+            "level": topic["level"],
+            "is_current": topic_id == current_topic_id,
+            "pending": len(pending),
+            "done": sum(1 for r in mine if r["status"] == USED),
+            "published": sum(1 for r in mine if r["status"] == PUBLISHED),
+            "total": len(mine),
+            "subtopics": [{"id": r["id"], "title": r["title"], "status": r["status"],
+                          "is_next": r["id"] == current_subtopic_id}
+                         for r in sample],
+        })
+
+    return {"rows": rows, "hidden_topics": max(0, len(topics) - len(selected_ids))}
+
+
 def covered_in_topic(channel_key: str, topic_id: str) -> list:
     """Subtopics of this topic that already became videos, in order.
 
