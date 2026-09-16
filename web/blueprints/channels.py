@@ -367,8 +367,7 @@ def ordering_preview(key):
         stickiness = 0.8
     settings["stickiness"] = max(0.0, min(1.0, stickiness))
 
-    steps = ordering.simulate(settings)
-    return jsonify({"steps": steps})
+    return jsonify(ordering.simulate(settings))
 
 
 # --- lifecycle --------------------------------------------------------

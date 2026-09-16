@@ -196,19 +196,28 @@ class TestSimulate:
     correctly, not the ordering rules again."""
 
     def test_returns_the_requested_number_of_steps(self):
-        steps = ordering.simulate(DEFAULT_SETTINGS, topic_count=3, subtopics_per_topic=3, steps=5)
-        assert len(steps) == 5
+        result = ordering.simulate(DEFAULT_SETTINGS, topic_count=3, subtopics_per_topic=3, steps=5)
+        assert len(result["steps"]) == 5
+
+    def test_the_starting_rows_are_all_pending_and_match_the_dummy_shape(self):
+        result = ordering.simulate(DEFAULT_SETTINGS, topic_count=3, subtopics_per_topic=4, steps=0)
+        assert len(result["rows"]) == 3
+        for row in result["rows"]:
+            assert row["pending"] == 4 and row["done"] == 0 and row["total"] == 4
+            assert len(row["subtopics"]) == 4
+            assert all(s["status"] == "pending" and not s["is_next"] for s in row["subtopics"])
 
     def test_stops_once_the_dummy_plan_is_exhausted(self):
-        steps = ordering.simulate(DEFAULT_SETTINGS, topic_count=2, subtopics_per_topic=2, steps=50)
-        assert len(steps) == 4
+        result = ordering.simulate(DEFAULT_SETTINGS, topic_count=2, subtopics_per_topic=2, steps=50)
+        assert len(result["steps"]) == 4
 
     def test_each_step_names_a_real_topic_and_subtopic(self):
-        steps = ordering.simulate(DEFAULT_SETTINGS, topic_count=3, subtopics_per_topic=2, steps=6)
-        seen_subtopics = {s["subtopic_id"] for s in steps}
+        result = ordering.simulate(DEFAULT_SETTINGS, topic_count=3, subtopics_per_topic=2, steps=6)
+        seen_subtopics = {s["subtopic_id"] for s in result["steps"]}
         assert len(seen_subtopics) == 6  # every dummy subtopic used exactly once
-        for step in steps:
-            assert step["topic_title"].startswith("Topic")
+        real_topic_ids = {row["topic_id"] for row in result["rows"]}
+        for step in result["steps"]:
+            assert step["topic_id"] in real_topic_ids
 
     def test_natural_mode_with_full_stickiness_never_leaves_its_first_topic_early(self):
         """Same property tests/test_ordering.py already proves for the
@@ -218,5 +227,5 @@ class TestSimulate:
         stickiness=1.0 only guarantees every pick AFTER that one stays put
         while the topic still has something pending."""
         settings = {**DEFAULT_SETTINGS, "mode": "natural", "stickiness": 1.0}
-        steps = ordering.simulate(settings, topic_count=3, subtopics_per_topic=4, steps=4)
-        assert len({s["topic_id"] for s in steps}) == 1
+        result = ordering.simulate(settings, topic_count=3, subtopics_per_topic=4, steps=4)
+        assert len({s["topic_id"] for s in result["steps"]}) == 1

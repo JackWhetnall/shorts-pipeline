@@ -138,7 +138,7 @@ def _made_count(by_topic: dict, topic_id: str) -> int:
 
 
 def simulate(settings: dict, topic_count: int = 6, subtopics_per_topic: int = 5,
-            steps: int = 24, rng=None) -> list:
+            steps: int = 24, rng=None) -> dict:
     """A run of `choose_next_subtopic` against synthetic dummy data, for
     the Ordering settings page's "preview this ordering" animation.
 
@@ -149,9 +149,13 @@ def simulate(settings: dict, topic_count: int = 6, subtopics_per_topic: int = 5,
     fields, taken as a plain dict (not a saved channel) since the whole
     point is trying a setting before committing to it.
 
-    Returns up to `steps` `{"topic_id", "topic_title", "subtopic_id"}`
-    dicts in the order they'd be picked — fewer if the dummy plan runs
-    out first.
+    Returns `{"rows": [...], "steps": [...]}`. `rows` is the all-pending
+    starting table, in exactly the shape `core.curriculum.table_rows`
+    produces, so the page's one table renderer draws both the real Create
+    Video table and this animation without knowing which is which.
+    `steps` is up to `steps` `{"topic_id", "subtopic_id"}` picks in the
+    order they'd happen — fewer if the dummy plan runs out first — for
+    the caller to reveal one at a time against those same rows.
     """
     rng = rng or random
     channel = SimpleNamespace(key="__ordering_preview__", ordering=SimpleNamespace(**settings))
@@ -171,7 +175,14 @@ def simulate(settings: dict, topic_count: int = 6, subtopics_per_topic: int = 5,
                 "note": "", "script": None, "script_written_at": "",
             })
     data = {"topics": topics, "subtopics": subtopics}
-    titles = {t["id"]: t["title"] for t in topics}
+    by_topic = {t["id"]: [s for s in subtopics if s["topic"] == t["id"]] for t in topics}
+
+    rows = [{
+        "topic_id": t["id"], "title": t["title"], "level": t["level"], "is_current": False,
+        "pending": subtopics_per_topic, "done": 0, "published": 0, "total": subtopics_per_topic,
+        "subtopics": [{"id": s["id"], "title": s["title"], "status": curriculum.PENDING,
+                      "is_next": False} for s in by_topic[t["id"]]],
+    } for t in topics]
 
     results = []
     for step in range(steps):
@@ -183,6 +194,5 @@ def simulate(settings: dict, topic_count: int = 6, subtopics_per_topic: int = 5,
         # is exactly what a real claim does to the real syllabus.
         pick["status"] = curriculum.USED
         pick["used_at"] = f"{step:06d}"
-        results.append({"topic_id": pick["topic"], "topic_title": titles[pick["topic"]],
-                        "subtopic_id": pick["id"]})
-    return results
+        results.append({"topic_id": pick["topic"], "subtopic_id": pick["id"]})
+    return {"rows": rows, "steps": results}

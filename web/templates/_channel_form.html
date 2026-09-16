@@ -212,10 +212,18 @@
               <output class="slider-value">{{ channel.ordering.stickiness }}</output>
             </span>
             <span class="hint">How often the next video continues the
-              topic already in progress rather than branching to another.
-              1.0 finishes every topic before moving on; 0.0 branches
-              every time.</span>
+              topic already in progress rather than branching to another
+              — and when it does branch, it favours whichever topic has
+              had the least attention so far, not the most.</span>
           </label>
+
+          <div class="actions">
+            <button type="button" class="btn-ghost" onclick="runOrderingPreview('{{ key }}')">
+              Preview this ordering
+            </button>
+          </div>
+          <p class="hint" id="ordering-preview-status"></p>
+          <div id="ordering-preview-table" class="topic-table hidden"></div>
         </fieldset>
         {% endif %}
       </div>

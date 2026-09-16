@@ -1709,6 +1709,70 @@ document.addEventListener("DOMContentLoaded", () => {
   if (table.dataset.selectedTopic) previewTopicPick(channelKey);
 });
 
+// --- Ordering settings: "watch it happen" -------------------------------
+//
+// A single stickiness number doesn't say what it does — this runs the
+// real core.ordering.choose_next_subtopic (via the ordering-preview
+// route) against a small dummy plan built from whatever's currently
+// sitting in the form, unsaved, and replays the resulting sequence one
+// pick at a time on the same table renderer the real Create Video page
+// uses. Never a second, JS implementation of the ordering rules: the
+// animation can't show behaviour the channel wouldn't actually produce.
+
+let orderingPreviewTimer = null;
+
+async function runOrderingPreview(channelKey) {
+  const status = document.getElementById("ordering-preview-status");
+  const table = document.getElementById("ordering-preview-table");
+  status.textContent = "";
+  clearInterval(orderingPreviewTimer);
+
+  const settings = {
+    mode: document.querySelector('[name="ordering_mode"]').value,
+    topic_order: document.querySelector('[name="ordering_topic_order"]').value,
+    subtopic_order: document.querySelector('[name="ordering_subtopic_order"]').value,
+    grouping: document.querySelector('[name="ordering_grouping"]').value,
+    stickiness: parseFloat(document.querySelector('[name="ordering_stickiness"]').value),
+  };
+
+  await withButtonLoading(event.target.closest("button"), "Simulating…", async () => {
+    const res = await apiFetch(`/api/channels/${channelKey}/ordering-preview`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(settings),
+    });
+    const data = await res.json();
+    if (!res.ok) { status.textContent = data.error || "Couldn't run the preview."; return; }
+    table.classList.remove("hidden");
+    animateOrderingPreview(table, data.rows, data.steps, status);
+  });
+}
+
+function animateOrderingPreview(table, rows, steps, status) {
+  const byTopic = Object.fromEntries(rows.map((r) => [r.topic_id, r]));
+  const bySubtopic = {};
+  for (const row of rows) for (const s of row.subtopics) bySubtopic[s.id] = s;
+
+  let i = 0;
+  renderTopicTable(table, rows, null);
+  status.textContent = `Replaying ${steps.length} simulated videos…`;
+
+  orderingPreviewTimer = setInterval(() => {
+    if (i >= steps.length) {
+      clearInterval(orderingPreviewTimer);
+      status.textContent = `Done — ${steps.length} simulated videos, in the order this setting would make them.`;
+      return;
+    }
+    const step = steps[i];
+    const sub = bySubtopic[step.subtopic_id];
+    const row = byTopic[step.topic_id];
+    if (sub) sub.status = "used";
+    if (row) { row.pending -= 1; row.done += 1; }
+    renderTopicTable(table, rows, step.topic_id);
+    i += 1;
+  }, 350);
+}
+
 // --- Background picture ------------------------------------------------
 //
 // Searching is free and returns preview URLs the browser loads directly.
