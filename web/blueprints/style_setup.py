@@ -29,6 +29,8 @@ DEFAULT_CANDIDATES = 5
 
 @bp.route("/channels/<key>/style-setup")
 def page(key):
+    from pipeline.style_gen import COST_PER_CANDIDATE_USD
+
     channel = channel_or_404(key)
     seed_error = _seed_error(channel)
     return render_template(
@@ -37,6 +39,7 @@ def page(key):
         default_count=DEFAULT_CANDIDATES,
         min_count=MIN_CANDIDATES, max_count=MAX_CANDIDATES,
         is_rewrite=bool((channel.style_prompt or "").strip()),
+        cost_per_candidate=COST_PER_CANDIDATE_USD,
     )
 
 

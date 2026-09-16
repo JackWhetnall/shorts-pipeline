@@ -585,9 +585,12 @@ class TestWebRoutes:
         assert "Design the outline" in html
 
     def test_page_states_the_cost_before_spending_it(self, client):
-        """Every other paid action in this project says the figure first."""
+        """Every other paid action in this project says the figure first —
+        now a live cost-dot tooltip rather than static prose, but the real
+        figure must still be present before anything is spent."""
         html = client.get("/channels/c/curriculum").get_data(as_text=True)
-        assert "dollars" in html
+        assert 'id="curriculum-cost-dot"' in html
+        assert "data-cost-outline=" in html and "data-cost-per-topic=" in html
 
     def test_page_renders_a_plan_in_progress(self, client, planned):
         html = client.get("/channels/c/curriculum").get_data(as_text=True)

@@ -18,47 +18,33 @@
 </p>
 
 <div class="card">
-  <h2>How it works</h2>
-  <p class="meta">
-    First an <strong>outline</strong> &mdash; one call, about
-    {{ '%.2f'|format(cost.outline_usd) }} dollars &mdash; giving
-    {{ default_topics }} topics in teaching order. You read those
-    {{ default_topics }} titles and decide whether the arc is right, which
-    is a thing a person can actually do; {{ default_subtopics }} subtopics
-    is not.
-  </p>
-  <p class="meta">
-    Then subtopics are written <strong>one topic at a time</strong>, as you
-    approach needing them, each costing about
-    {{ '%.2f'|format(cost.per_topic_usd) }} dollars. Filling the whole
-    syllabus eventually comes to roughly
-    <strong>{{ '%.2f'|format(cost.full_usd) }} dollars</strong>, spread
-    across the eighteen months it takes to use.
-  </p>
+  <h2>Design an outline
+    <button type="button" class="info-dot" data-tooltip="One call gives an ordered outline first, so you can read the topic titles and judge the arc before any subtopic is written. Subtopics are then written one topic at a time, only as you approach needing them.">?</button>
+  </h2>
 
   <form class="channel-form" onsubmit="return makeOutline(event, '{{ key }}')">
     <label>Subject
       <input type="text" name="subject" id="curriculum-subject"
              placeholder="Leave blank to infer it from the style prompt">
-      <span class="hint">Worth filling in if the style prompt describes a
-        format ("write dad jokes about&hellip;") rather than a subject.</span>
     </label>
     <label>Topics
       <input type="number" name="topic_count" id="curriculum-topics"
-             value="{{ default_topics }}" min="5" max="80">
+             value="{{ default_topics }}" min="5" max="80"
+             data-cost-outline="{{ cost.outline_usd }}" data-cost-per-topic="{{ cost.per_topic_usd }}"
+             oninput="updateCurriculumCostDot()">
     </label>
     <label>Subtopics in total
       <input type="number" name="total_subtopics" id="curriculum-subtopics"
              value="{{ default_subtopics }}" min="50" max="3000">
-      <span class="hint">One subtopic is one video. At two a day,
+      <span class="hint">One subtopic is one video: at two a day,
         {{ default_subtopics }} is about
-        {{ (default_subtopics / 730)|round(1) }} years &mdash; roughly
-        {{ (default_subtopics / default_topics)|int }} per topic.</span>
+        {{ (default_subtopics / 730)|round(1) }} years.</span>
     </label>
     <div class="actions">
       <button type="submit" class="btn btn-primary" id="curriculum-outline-btn">
-        Design the outline (~{{ '%.2f'|format(cost.outline_usd) }} dollars)
+        Design the outline
       </button>
+      <button type="button" class="cost-dot" id="curriculum-cost-dot" data-tooltip="">$</button>
     </div>
   </form>
   <p class="hint" id="curriculum-status"></p>

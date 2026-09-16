@@ -107,6 +107,17 @@ DRAFT_EFFORT = "medium"        # genuine writing judgement, not a listing task
 SAMPLE_SEGMENT_COUNT = 2
 SAMPLE_TARGET_SECONDS = 20.0   # short: enough to show cadence, not a full video
 
+# Grounded in a real run (see docs/decisions/022-style-tone-picker.md): 3
+# candidates, drafted and sampled, came to under a cent total. Rounded up
+# per candidate for the same reason curriculum_gen.estimate_cost rounds
+# up — a figure that turns out generous serves someone deciding whether
+# to spend better than one that turns out short.
+COST_PER_CANDIDATE_USD = 0.004
+
+
+def estimate_cost(count: int) -> float:
+    return COST_PER_CANDIDATE_USD * count
+
 
 def _candidates_schema() -> dict:
     return {

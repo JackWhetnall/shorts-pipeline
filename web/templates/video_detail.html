@@ -42,13 +42,14 @@
 
     {% if not discarded %}
     <div class="card" id="publish-form">
-      <h2>Platform links</h2>
-      <p class="subtitle">
-        Paste the link for wherever you've actually uploaded this
-        specific video. Leave a platform blank if you haven't posted it
-        there &mdash; this video counts as published as soon as any one
-        link is set.
-      </p>
+      <h2>Platform links
+        <button type="button" class="info-dot" data-tooltip="Leave a platform blank if you haven't posted there — this video counts as published as soon as any one link is set.">?</button>
+      </h2>
+      <div class="actions">
+        <a class="btn-ghost" href="https://www.tiktok.com/upload" target="_blank" rel="noopener">Open TikTok upload</a>
+        <a class="btn-ghost" href="https://www.instagram.com/" target="_blank" rel="noopener"
+           title="Instagram has no direct web uploader for Reels — this opens the site to post from there.">Open Instagram</a>
+      </div>
       {% if cost and cost.calls %}
       <p class="meta cost-line">
         Cost to make: <strong>{{ '$%.4f'|format(cost.total_usd) if cost.total_usd < 0.01 else '$%.2f'|format(cost.total_usd) }}</strong>

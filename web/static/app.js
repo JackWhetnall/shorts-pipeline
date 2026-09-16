@@ -1467,6 +1467,23 @@ document.addEventListener("DOMContentLoaded", () => {
 // neither is silent while it works — an outline call takes ten seconds or
 // so, and a page that looks frozen invites a second click.
 
+// full_usd already scales with topic_count server-side (curriculum_gen.
+// estimate_cost) - this just re-evaluates the same formula as the number
+// input changes, instead of a figure frozen at the page's default count.
+function updateCurriculumCostDot() {
+  const topics = document.getElementById("curriculum-topics");
+  const dot = document.getElementById("curriculum-cost-dot");
+  if (!topics || !dot) return;
+  const outline = parseFloat(topics.dataset.costOutline) || 0;
+  const perTopic = parseFloat(topics.dataset.costPerTopic) || 0;
+  const count = Number(topics.value) || 0;
+  const full = outline + perTopic * count;
+  dot.dataset.tooltip = `Designing the outline: about $${outline.toFixed(2)}. `
+    + `Filling all ${count} topics eventually: about $${full.toFixed(2)}, spread over time.`;
+}
+
+document.addEventListener("DOMContentLoaded", updateCurriculumCostDot);
+
 async function makeOutline(event, key) {
   event.preventDefault();
   const button = document.getElementById("curriculum-outline-btn");
@@ -1795,6 +1812,22 @@ function collectStyleChoices() {
   }
   return choices;
 }
+
+// The real per-unit cost is already known server-side (measured, not
+// guessed - see pipeline.style_gen.COST_PER_CANDIDATE_USD); this just
+// recomputes the product as the slider moves instead of showing a figure
+// frozen at whatever count the page happened to load with.
+function updateCandidateCostDot() {
+  const slider = document.getElementById("candidate-count");
+  const dot = document.getElementById("candidate-cost-dot");
+  if (!slider || !dot) return;
+  const perUnit = parseFloat(slider.dataset.costPerUnit) || 0;
+  const count = Number(slider.value);
+  const total = perUnit * count;
+  dot.dataset.tooltip = `About ${total < 0.01 ? "$" + total.toFixed(4) : "$" + total.toFixed(2)} for ${count} candidates.`;
+}
+
+document.addEventListener("DOMContentLoaded", updateCandidateCostDot);
 
 async function generateStyleCandidates(channelKey) {
   const button = document.getElementById("generate-candidates-btn");

@@ -69,11 +69,11 @@
   <label>How many to compare
     <span class="slider-row">
       <input type="range" id="candidate-count" min="{{ min_count }}" max="{{ max_count }}"
-             value="{{ default_count }}" oninput="this.nextElementSibling.value = this.value">
+             value="{{ default_count }}" data-cost-per-unit="{{ cost_per_candidate }}"
+             oninput="this.nextElementSibling.value = this.value; updateCandidateCostDot()">
       <output class="slider-value">{{ default_count }}</output>
+      <button type="button" class="cost-dot" id="candidate-cost-dot" data-tooltip="">$</button>
     </span>
-    <span class="hint">Each is a short real sample, not a one-line
-      guess &mdash; a handful of cents in total, shown before you spend it.</span>
   </label>
 
   <div class="actions">
