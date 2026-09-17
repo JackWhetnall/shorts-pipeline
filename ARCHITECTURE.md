@@ -31,6 +31,8 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   channel_admin Create / rename / reorder / archive / delete.
   jobs          The background queue, persistence, and retry.
   job_context   Which job the current work belongs to; progress reporting.
+  job_eta       How much longer a running job has, from this installation's
+                own finished jobs — per stage, per channel, median.
   logging_setup Logging for CLI and web, and the per-job log handler.
   progress      moviepy encode progress, as a number rather than scraped text.
   gallery       Finished videos: publish state, discard, thumbnails, cost,
@@ -38,9 +40,13 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   assets        Logos and merch photos on disk.
   fonts         The caption faces this machine can render, by key not path.
   caption_preview  One real caption frame, for the Look settings.
+  card_preview  One real title/outro card frame, likewise.
   logos         Logo generation via the image API.
   voice_lab     Voice/cadence/speed auditioning.
   costs         What every API call cost.
+  services      Which external APIs are configured, what each has cost, and
+                where its billing page is. Spend, never a balance — see the
+                module docstring for why that distinction is load-bearing.
   insights      Aggregate quality and spend — the improvement loop.
   scheduler     Recurring generation.
   youtube       OAuth and resumable upload to YouTube.
@@ -85,8 +91,9 @@ pipeline/     The generation stages. No web dependency at all.
 
 web/          Flask only.
   __init__      App factory: CSRF, error handling, blueprint registration.
-  blueprints/   backgrounds, channels, curriculum, footage, gallery, jobs,
-                logos, review, setup, style_setup, voice_lab, youtube.
+  blueprints/   backgrounds, channels, curriculum, footage, gallery, jobs
+                (incl. the Activity page), logos, review, services,
+                setup, style_setup, voice_lab, youtube.
   checklist     The launch checklist — one definition, no Flask import.
   forms, helpers
 
@@ -205,6 +212,18 @@ the process died reloads as `interrupted`. Retrying reuses the same job
 id, so the checkpoints for script, voiceover and footage picks are found
 and the completed work isn't paid for twice.
 
+`/activity` is the one page that shows everything in flight, in the order
+it will happen: the running job, the queue behind it, and what just
+finished or failed. Each job also carries an estimate of how much longer
+it has, built by `core.job_eta` from this installation's own completed
+records — every job stores when it entered each stage, so a finished one
+is five real measurements. Per stage rather than one total (footage
+matching dominates and varies most), this channel's history before
+everyone else's (segment count and target length drive the variance), and
+median rather than mean (one stalled download shouldn't rewrite every
+future estimate). Retried jobs are excluded: they reuse their checkpoints
+and measure nothing.
+
 ## Deleting output
 
 Discarded videos and their sidecars can be removed, from
@@ -261,13 +280,14 @@ words come out of the budget first, since they are not ours to write.
 
 ## Cards
 
-The outro card, and optionally an opening title card, sit on the
-channel's background picture when it has one and a flat colour otherwise.
-The title card is off by default — for short-form the scroll is decided
-in the first seconds — and worth turning on for a channel whose videos
-are a series. It is inserted in front of the narration, with matching
-silence in front of the audio; getting that wrong desynchronises every
-caption in the video. See decision
+The outro card and the opening title card sit on the channel's background
+picture when it has one and a flat colour otherwise. Each can be switched
+off: the title card is off by default — for short-form the scroll is
+decided in the first seconds — and worth turning on for a channel whose
+videos are a series; the outro is on by default, because it is where the
+subscribe prompt lives. The title card is inserted into the narration,
+with matching silence spliced into the audio at the same point; getting
+that wrong desynchronises every caption in the video. See decision
 [020](docs/decisions/020-cards-and-backgrounds.md).
 
 ## Publishing
@@ -289,6 +309,12 @@ differ. See decision [017](docs/decisions/017-youtube-upload.md).
 Every billable call appends a record to `config/cost_log.jsonl`. Each
 finished video gets a `{stem}_cost.json` sidecar; the channel dashboard
 shows a running total; `python main.py --costs` shows everything.
+
+`/apis` reads the same log the other way round — by provider rather than
+by video — beside whether each provider's key is actually configured and
+a link to its own billing page. It reports spend and never a balance: no
+provider exposes one to an ordinary API key, and a figure derived from
+this log would know nothing about the rest of the account.
 
 ## Conventions
 

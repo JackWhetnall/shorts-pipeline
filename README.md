@@ -29,6 +29,11 @@ Then set the keys you need:
 Only the first two are required to make a video. Without the footage
 keys, generation falls back to clips already in the library.
 
+**`/apis`** shows which of these are actually set, what this installation
+has spent through each, and a link to each provider's billing page. It
+reports spend, not balance — no provider gives a balance to an ordinary
+API key, so the number on the account lives behind the link.
+
 The first run downloads a Whisper model (~500 MB) used to verify each
 synthesized segment locally — expect that run to take longer.
 
@@ -77,6 +82,14 @@ discarding actually costs you.
 **`/footage`** is the library as a browsable grid — search it with the
 same index the matcher uses, watch a clip on hover, re-describe one whose
 description is wrong, confirm a licence, or delete it.
+
+**`/activity`** is everything being made right now, in the order it will
+happen: the one running job with its stage and an estimate of how much
+longer it has, the queue behind it with estimates of their own, and what
+just finished or failed. One video is made at a time, so the queue *is*
+the estimate. The times come from this installation's own finished
+videos, per stage and per channel, so they are a measurement rather than
+a guess as soon as one video has completed.
 
 ## Topic plans
 
@@ -144,20 +157,25 @@ again.
 
 ## How things look
 
-Settings is one page with a sidebar: **Channel** (what it's about, style
-prompt, where the words come from), **Voice & timing**, **Look**,
-**Publishing**, **Money**. One Save button, and nothing is written until
-you press it.
+Settings is one form with a sidebar that switches between its sections:
+**Channel** (what it's about, style prompt, where the words come from),
+**Voice & timing**, **Look**, **Publishing**, **Money**. One Save button
+covering all of them, and nothing is written until you press it. Settings
+that only apply while something else is switched on are hidden until it
+is, rather than sitting there editable and inert.
 
 **Length** is a slider in Voice & timing. The script's word budget comes
 from it, at 2.5 words per second of finished video — measured on this
 project's own output rather than guessed.
 
-**Look** carries the caption font, size, outline and colours with a live
-preview, the outro card, an optional **title card**, and a **background
-picture**.
+**Look** carries the captions (font, size, outline, colours), the
+**background picture** that sits behind both cards, the **title card**
+and the **outro card** — in that order, which is the order the video uses
+them. One preview panel shows a real rendered frame of whichever of the
+three you are working on.
 
-The title card names the channel and the video, and — for a channel with
+Both cards can be switched off. The title card names the channel and the
+video, has its own size and outline thickness, and — for a channel with
 a topic plan — can optionally add the syllabus topic as a third line. It
 is off by default: seconds before the content starts are watch time
 spent on nothing, and short-form is decided in the first of them. Worth
@@ -387,7 +405,8 @@ error here.
 ## Costs
 
 Every billable call is recorded. A finished video shows what it cost on
-its own page; a channel's dashboard shows its running total;
+its own page; a channel's dashboard shows its running total; **`/apis`**
+shows it by provider alongside where to top each one up;
 `python main.py --costs` shows everything, broken down by operation.
 
 ## Monetization and the setup wizard
