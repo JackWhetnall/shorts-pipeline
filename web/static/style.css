@@ -39,6 +39,25 @@
      it can never end up hidden behind it again. */
   --header-height: 4rem;
 
+  /* A fixed bar across the bottom of the page. Zero everywhere, set by
+     the one layout that has one (the review queue), so the expression
+     below covers both cases without either page knowing about the other. */
+  --action-bar-height: 0rem;
+
+  /* How much height is actually free between the chrome.
+
+     Anything meant to fit on screen without scrolling — a video player, a
+     tall preview frame — sizes itself against this and never against
+     100vh, which counts the sticky header and the fixed action bar as
+     usable space. That is exactly why the review player ran off the
+     bottom of the window: 9:16 at 400px wide is 711px tall, and the
+     header and the publish bar had already taken ~140px of the viewport
+     before it started. */
+  --fit-height: calc(100dvh - var(--header-height)
+                     - var(--action-bar-height) - var(--sp-5) * 2);
+  /* Sticky elements below the header clear it by the same amount. */
+  --sticky-top: var(--sticky-top);
+
   --font: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
 }
@@ -990,11 +1009,12 @@ details[open] > .summary-heading::before { transform: rotate(90deg); }
   flex-shrink: 0;
   width: min(320px, 40vw);
   position: sticky;
-  top: var(--sp-5);
+  top: var(--sticky-top);
 }
 .video-detail-player video {
-  width: 100%;
-  max-height: 80vh;
+  width: min(100%, calc(var(--fit-height) * 9 / 16));
+  aspect-ratio: 9 / 16;
+  margin-inline: auto;
   display: block;
   border-radius: var(--radius);
   background: #000;
@@ -1019,14 +1039,26 @@ details[open] > .summary-heading::before { transform: rotate(90deg); }
   gap: var(--sp-5);
   align-items: start;
   margin-bottom: 96px;
+  /* The publish bar is fixed across the bottom of this page and nowhere
+     else. --fit-height is substituted where it is *declared*, so raising
+     --action-bar-height here cannot reach the copy computed on :root —
+     the expression has to be restated alongside it. */
+  --action-bar-height: 4.5rem;
+  --fit-height: calc(100dvh - var(--header-height)
+                     - var(--action-bar-height) - var(--sp-5) * 2);
 }
-.review-player { padding: var(--sp-3); position: sticky; top: var(--sp-5); }
+.review-player { padding: var(--sp-3); position: sticky; top: var(--sticky-top); }
+/* Width is the binding constraint, not height: the aspect ratio then
+   derives a height that cannot exceed --fit-height, so the player always
+   fits between the header and the publish bar. Setting width: 100% with a
+   max-height instead would letterbox the video inside a too-wide box. */
 .review-player video {
-  width: 100%;
+  width: min(100%, calc(var(--fit-height) * 9 / 16));
   aspect-ratio: 9 / 16;
   border-radius: var(--radius-sm);
   background: #000;
   display: block;
+  margin-inline: auto;
 }
 .review-side { display: flex; flex-direction: column; gap: var(--sp-4); }
 
@@ -1335,7 +1367,7 @@ a.tick:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .look-preview {
   position: sticky;
-  top: var(--sp-4, 1.25rem);
+  top: var(--sticky-top);
 }
 
 .preview-label {
@@ -1349,7 +1381,9 @@ a.tick:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .preview-frame {
   position: relative;
+  width: min(100%, calc(var(--fit-height) * 9 / 16));
   aspect-ratio: 9 / 16;
+  margin-inline: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -1678,7 +1712,7 @@ label > textarea {
 
 .settings-nav {
   position: sticky;
-  top: calc(var(--header-height) + var(--sp-3));
+  top: var(--sticky-top);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1715,7 +1749,7 @@ label > textarea {
   /* Cleared by the sticky header, so an anchor jump doesn't land with the
      heading hidden underneath it — same --header-height the sticky nav
      uses, so the two can't drift out of sync with each other again. */
-  scroll-margin-top: calc(var(--header-height) + var(--sp-3));
+  scroll-margin-top: var(--sticky-top);
 }
 .settings-section:last-of-type { border-bottom: none; }
 .settings-section > h2 { margin-top: 0; }
