@@ -597,3 +597,24 @@ class TestActivityPage:
     def test_a_finished_job_is_not_given_an_estimate(self, client, empty_registry):
         self._job(empty_registry, "a", status="done", finished_at=5.0)
         assert client.get("/api/jobs/a").get_json().get("eta_label") is None
+
+
+class TestSaveReturnsToTheSameSection:
+    """Sections are switched rather than scrolled now, so a save from Look
+    that lands back on Channel reads as if it lost the edit."""
+
+    def test_the_open_section_comes_back_in_the_fragment(self, client):
+        response = client.post("/channels/test_channel/settings", data={
+            "csrf_token": csrf(client), "channel_display_name": "Test Channel",
+            "style_prompt": "p", "settings_section": "section-look"})
+        assert response.headers["Location"].endswith("#section-look")
+
+    def test_an_unknown_section_is_dropped_rather_than_echoed(self, client):
+        """It ends up in a URL fragment. A fragment is not somewhere to
+        put back whatever was posted."""
+        response = client.post("/channels/test_channel/settings", data={
+            "csrf_token": csrf(client), "channel_display_name": "Test Channel",
+            "style_prompt": "p",
+            "settings_section": "javascript:alert(1)"})
+        assert "javascript" not in response.headers["Location"]
+        assert "#" not in response.headers["Location"]

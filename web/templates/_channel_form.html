@@ -41,6 +41,10 @@
 
 <form method="post" class="channel-form settings-body" id="settings-form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {# Which section is open, so saving from Look comes back to Look rather
+     than to Channel. Kept current by initSettingsSections. #}
+  <input type="hidden" name="settings_section" id="settings-section-field"
+         value="section-content">
 
   <!-- ---------------------------------------------------------------- -->
   <section id="section-content" class="settings-section">

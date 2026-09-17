@@ -1778,6 +1778,11 @@ function showSettingsSection(id) {
   for (const link of document.querySelectorAll(".settings-nav-link")) {
     link.classList.toggle("active", link.getAttribute("href") === `#${id}`);
   }
+  // Posted with the form so the save redirect can come back to the same
+  // section — a save from Look landing on Channel looks like it lost the
+  // edit.
+  const field = document.getElementById("settings-section-field");
+  if (field && matched) field.value = id;
   return matched;
 }
 

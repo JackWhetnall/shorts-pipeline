@@ -117,12 +117,26 @@ def _channel_cost(key: str) -> dict:
     return costs.summary_for_channel(key)
 
 
+# The settings form's own section ids. Named here because the save
+# redirect puts one of them in a URL fragment, and a fragment is not
+# somewhere to echo back whatever was posted.
+SETTINGS_SECTIONS = ("section-content", "section-voice", "section-look",
+                     "section-publishing", "section-money")
+
+
 @bp.route("/channels/<key>/settings", methods=["GET", "POST"])
 def settings(key):
     channel = channel_or_404(key)
     if request.method == "POST":
         apply_channel_form(channel, request.form)
         notes = _save_quote_list(channel, request.form)
+        # Which section was open, carried back through the redirect.
+        # Sections are switched rather than scrolled now, so without this a
+        # save from Look drops you back on Channel with no sign of where
+        # you were. Validated against the known ids: it ends up in a URL
+        # fragment, and an id is not somewhere to put whatever was posted.
+        section = request.form.get("settings_section", "")
+        anchor = section if section in SETTINGS_SECTIONS else None
         # Saved either way. Refusing the save made a half-set-up channel
         # uneditable: you could not fix its style prompt until you had
         # also given it a voice and a source, which is the rigidity the
@@ -134,9 +148,11 @@ def settings(key):
         except ConfigError as exc:
             save_channel(channel)
             return redirect(url_for("channels.settings", key=key, saved=1,
-                                    incomplete=exc.user_message, note=notes))
+                                    incomplete=exc.user_message, note=notes,
+                                    _anchor=anchor))
         save_channel(channel)
-        return redirect(url_for("channels.settings", key=key, saved=1, note=notes))
+        return redirect(url_for("channels.settings", key=key, saved=1,
+                                note=notes, _anchor=anchor))
 
     return render_template("channel_settings.html", **_settings_context(channel))
 
