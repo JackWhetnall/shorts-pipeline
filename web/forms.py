@@ -21,11 +21,13 @@ from core.channels import (
 )
 
 PACING_INT_FIELDS = {"caption_max_group_size", "segment_count"}
-STYLE_INT_FIELDS = {"font_size", "stroke_width"}
+STYLE_INT_FIELDS = {"font_size", "stroke_width",
+                    "title_card_font_size", "title_card_stroke_width"}
 STYLE_TEXT_FIELDS = ("base_color", "highlight_color", "stroke_color",
                      "outro_title_color", "outro_subtext_color",
                      "title_card_title_color", "title_card_channel_color")
-STYLE_BOOL_FIELDS = ("title_card_enabled", "use_background_image", "title_card_show_topic")
+STYLE_BOOL_FIELDS = ("title_card_enabled", "outro_enabled", "use_background_image",
+                     "title_card_show_topic")
 TITLE_CARD_PLACEMENTS = ("start", "after_intro")
 
 ORDERING_CHOICE_FIELDS = {

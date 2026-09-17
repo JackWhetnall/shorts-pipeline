@@ -1522,6 +1522,22 @@ function queueCardPreview(root, channelKey, card) {
   return queuePreview(root, card, `/api/channels/${channelKey}/card-preview`, { card });
 }
 
+// One panel, three surfaces. The caption preview used to be a big sticky
+// column while the two cards had 140px boxes inside their own fieldsets:
+// the same kind of thing shown two different ways on one screen, and
+// neither small box was big enough to judge a colour by.
+function selectPreviewTab(name) {
+  for (const tab of document.querySelectorAll(".preview-tab")) {
+    tab.classList.toggle("active", tab.dataset.previewTab === name);
+  }
+  for (const panel of document.querySelectorAll("[data-preview-panel]")) {
+    panel.classList.toggle("hidden", panel.dataset.previewPanel !== name);
+  }
+  for (const note of document.querySelectorAll("[data-preview-note]")) {
+    note.hidden = note.dataset.previewNote !== name;
+  }
+}
+
 // Keeps a <input type="color"> and its hex text box in step, in both
 // directions. Two controls rather than one because the picker cannot be
 // typed into and the text box cannot be browsed — and because the outro
@@ -1583,13 +1599,24 @@ document.addEventListener("DOMContentLoaded", () => {
     showNote();
   }
 
+  // Only the surface on screen is rendered. Each one is a real Pillow
+  // composite server-side, and rendering all three on every keystroke
+  // paid for two frames nobody was looking at.
+  const visibleSurface = () =>
+    document.querySelector(".preview-tab.active")?.dataset.previewTab || "caption";
+
   const refreshPreviews = () => {
-    queueCaptionPreview(root);
-    if (channelKey) {
-      queueCardPreview(root, channelKey, "title");
-      queueCardPreview(root, channelKey, "outro");
-    }
+    const name = visibleSurface();
+    if (name === "caption") queueCaptionPreview(root);
+    else if (channelKey) queueCardPreview(root, channelKey, name);
   };
+
+  for (const tab of root.querySelectorAll(".preview-tab")) {
+    tab.addEventListener("click", () => {
+      selectPreviewTab(tab.dataset.previewTab);
+      refreshPreviews();
+    });
+  }
 
   // Every field any of the three previews reads from, not just captions'
   // own — the channel name and outro subtext live outside this root
@@ -1602,11 +1629,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  renderCaptionPreview(root);
-  if (channelKey) {
-    renderCardPreview(root, channelKey, "title");
-    renderCardPreview(root, channelKey, "outro");
-  }
+  refreshPreviews();
 });
 
 // --- Topic plan -------------------------------------------------------
@@ -1618,6 +1641,13 @@ document.addEventListener("DOMContentLoaded", () => {
 // full_usd already scales with topic_count server-side (curriculum_gen.
 // estimate_cost) - this just re-evaluates the same formula as the number
 // input changes, instead of a figure frozen at the page's default count.
+// A "$" carries a price and nothing else. Anything that needs explaining
+// is a "?" beside it — see the tooltip rules in style.css.
+function formatCostDot(usd) {
+  if (!usd) return "~$0.00";
+  return usd < 0.01 ? `~$${usd.toFixed(4)}` : `~$${usd.toFixed(2)}`;
+}
+
 function updateCurriculumCostDot() {
   const topics = document.getElementById("curriculum-topics");
   const dot = document.getElementById("curriculum-cost-dot");
@@ -1625,9 +1655,7 @@ function updateCurriculumCostDot() {
   const outline = parseFloat(topics.dataset.costOutline) || 0;
   const perTopic = parseFloat(topics.dataset.costPerTopic) || 0;
   const count = Number(topics.value) || 0;
-  const full = outline + perTopic * count;
-  dot.dataset.tooltip = `Designing the outline: about $${outline.toFixed(2)}. `
-    + `Filling all ${count} topics eventually: about $${full.toFixed(2)}, spread over time.`;
+  dot.dataset.tooltip = formatCostDot(outline + perTopic * count);
 }
 
 document.addEventListener("DOMContentLoaded", updateCurriculumCostDot);
@@ -1725,25 +1753,113 @@ document.addEventListener("DOMContentLoaded", () => {
     event.returnValue = "";
   });
 
-  // Highlights the section you are actually looking at. Scroll position
-  // rather than the clicked link, so it stays right when you scroll by
-  // hand or land on an anchor.
-  const links = [...document.querySelectorAll(".settings-nav-link")];
-  const sections = links
-    .map(link => document.querySelector(link.getAttribute("href")))
-    .filter(Boolean);
-
-  if (sections.length && "IntersectionObserver" in window) {
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        const index = sections.indexOf(entry.target);
-        links.forEach((link, i) => link.classList.toggle("active", i === index));
-      }
-    }, {rootMargin: "-20% 0px -70% 0px"});
-    sections.forEach(section => observer.observe(section));
-  }
+  initSettingsSections(form);
+  initConditionalFields(form);
 });
+
+// --- Settings: one section at a time ----------------------------------
+//
+// The sidebar used to be anchor jumps down one very long page, so asking
+// for "Look" scrolled you through Look and out the other side into
+// Publishing, which you had not asked to see. Now it switches sections.
+//
+// Still one <form>: the sections were never separate forms, and making
+// them separate would bring back the "which editor owns this setting"
+// problem that the single form exists to prevent. Save still saves
+// everything, and the confirmation says so.
+
+function showSettingsSection(id) {
+  let matched = false;
+  for (const section of document.querySelectorAll(".settings-section")) {
+    const on = section.id === id;
+    section.hidden = !on;
+    matched = matched || on;
+  }
+  for (const link of document.querySelectorAll(".settings-nav-link")) {
+    link.classList.toggle("active", link.getAttribute("href") === `#${id}`);
+  }
+  return matched;
+}
+
+function initSettingsSections(form) {
+  const links = [...document.querySelectorAll(".settings-nav-link")];
+  if (!links.length) return;
+
+  const first = links[0].getAttribute("href").slice(1);
+  // The hash still works: the dashboard, the checklist and the retired
+  // wizard's redirects all link to /settings#section-look and friends.
+  const wanted = (location.hash || "").slice(1);
+  if (!showSettingsSection(wanted)) showSettingsSection(first);
+
+  for (const link of links) {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      const id = link.getAttribute("href").slice(1);
+      showSettingsSection(id);
+      // Replace rather than push: the back button should leave the
+      // settings page, not walk back through tabs.
+      history.replaceState(null, "", `#${id}`);
+      window.scrollTo({top: 0});
+    });
+  }
+
+  // A required field in a hidden section fails validation somewhere the
+  // browser cannot scroll to, and Chrome reports "an invalid form control
+  // is not focusable" to the console and nothing to the user. Revealing
+  // the section first turns that into an ordinary validation message.
+  form.addEventListener("invalid", (event) => {
+    const section = event.target.closest(".settings-section");
+    if (section) showSettingsSection(section.id);
+  }, true);
+}
+
+// --- Settings: showing only what applies ------------------------------
+//
+// Half this page used to be live whichever way its switches were set: the
+// title card's timing, placement and colours were all editable with the
+// card switched off, and three ordering rules sat there labelled
+// "(structured only)" while the channel was in natural mode. A control
+// that has no effect is worse than a missing one — you change it, and
+// nothing happens.
+//
+// Declared in the markup rather than wired per field:
+//   data-show-when="some_checkbox"      shown while it is ticked
+//   data-show-when="some_field=a,b"     shown while its value is a or b
+//
+// Hidden, never disabled: a disabled input submits nothing, and
+// web/forms.py reads "nothing" as "cleared", so disabling the title
+// card's colours would wipe them the first time you saved with the card
+// switched off.
+function applyConditionalFields() {
+  for (const el of document.querySelectorAll("[data-show-when]")) {
+    const [name, raw] = el.dataset.showWhen.split("=");
+    const wanted = raw === undefined ? null : raw.split(",");
+    let on = false;
+    for (const control of document.querySelectorAll(`[name="${name}"]`)) {
+      if (control.type === "radio") {
+        on = on || (control.checked && wanted !== null && wanted.includes(control.value));
+      } else if (control.type === "checkbox") {
+        on = on || (wanted === null ? control.checked
+                                    : wanted.includes(String(control.checked)));
+      } else {
+        on = on || (wanted === null ? Boolean(control.value)
+                                    : wanted.includes(control.value));
+      }
+    }
+    el.hidden = !on;
+  }
+  // A preview tab for a card that is switched off is hidden by the same
+  // rule as the card's own settings, so the active tab can disappear
+  // underneath you.
+  const active = document.querySelector(".preview-tab.active");
+  if (active && active.hidden) selectPreviewTab("caption");
+}
+
+function initConditionalFields(form) {
+  form.addEventListener("change", applyConditionalFields);
+  form.addEventListener("input", applyConditionalFields);
+  applyConditionalFields();
+}
 
 // --- Create page: the topic table ---------------------------------------
 //
@@ -2067,9 +2183,7 @@ function updateCandidateCostDot() {
   const dot = document.getElementById("candidate-cost-dot");
   if (!slider || !dot) return;
   const perUnit = parseFloat(slider.dataset.costPerUnit) || 0;
-  const count = Number(slider.value);
-  const total = perUnit * count;
-  dot.dataset.tooltip = `About ${total < 0.01 ? "$" + total.toFixed(4) : "$" + total.toFixed(2)} for ${count} candidates.`;
+  dot.dataset.tooltip = formatCostDot(perUnit * Number(slider.value));
 }
 
 document.addEventListener("DOMContentLoaded", updateCandidateCostDot);

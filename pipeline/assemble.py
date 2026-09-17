@@ -284,8 +284,17 @@ def render_title_card(channel_display_name: str, title: str, style,
     channel line (a breadcrumb, not a second headline) rather than adding
     a whole new set of colour/size settings for one extra line.
     """
-    font_title = load_font(TITLE_CARD_SIZE, style.font_face)
-    font_channel = load_font(TITLE_CARD_CHANNEL_SIZE, style.font_face)
+    # The channel line keeps its original proportion to the title line
+    # rather than gaining a size setting of its own: the card is one
+    # decision, and the ratio was already what the card is supposed to
+    # look like.
+    title_size = int(getattr(style, "title_card_font_size", TITLE_CARD_SIZE))
+    channel_size = max(12, round(title_size * TITLE_CARD_CHANNEL_SIZE / TITLE_CARD_SIZE))
+    title_stroke = int(getattr(style, "title_card_stroke_width", 3))
+    channel_stroke = max(0, title_stroke - 1)
+
+    font_title = load_font(title_size, style.font_face)
+    font_channel = load_font(channel_size, style.font_face)
     max_width = int(W * 0.82)
 
     image = card_background(channel_key, style.title_card_bg_color, style)
@@ -294,22 +303,22 @@ def render_title_card(channel_display_name: str, title: str, style,
     channel_lines = wrap_words(channel_display_name.split(), font_channel, max_width)
     topic_lines = wrap_words(topic_title.split(), font_channel, max_width) if topic_title else []
     title_lines = wrap_words(title.split(), font_title, max_width)
-    channel_height = int(TITLE_CARD_CHANNEL_SIZE * 1.3)
-    title_height = int(TITLE_CARD_SIZE * 1.25)
+    channel_height = int(channel_size * 1.3)
+    title_height = int(title_size * 1.25)
     gap = 48
 
     total = (channel_height * (len(channel_lines) + len(topic_lines)) + gap
              + title_height * len(title_lines))
     y = (H - total) / 2
     y = _draw_centered_lines(draw, channel_lines, font_channel, y, channel_height,
-                             W, style.title_card_channel_color, 2, "black")
+                             W, style.title_card_channel_color, channel_stroke, "black")
     if topic_lines:
         y = _draw_centered_lines(draw, topic_lines, font_channel, y, channel_height,
-                                 W, style.title_card_channel_color, 2, "black")
+                                 W, style.title_card_channel_color, channel_stroke, "black")
     # A stroke on both, because the card may be sitting on a photograph
     # and a colour that reads on flat black can vanish on one.
     _draw_centered_lines(draw, title_lines, font_title, y + gap, title_height, W,
-                         style.title_card_title_color, 3, "black")
+                         style.title_card_title_color, title_stroke, "black")
     return np.array(image)
 
 
@@ -573,10 +582,12 @@ def run(plan):
     else:
         parts = [narration_video]
 
-    tail_seconds = pacing.outro_seconds
-    parts.append(ImageClip(render_outro(channel.channel_display_name,
-                                        channel.outro_subtext, style, channel.key))
-                .set_duration(pacing.outro_seconds))
+    tail_seconds = 0.0
+    if getattr(style, "outro_enabled", True):
+        tail_seconds = pacing.outro_seconds
+        parts.append(ImageClip(render_outro(channel.channel_display_name,
+                                            channel.outro_subtext, style, channel.key))
+                    .set_duration(pacing.outro_seconds))
 
     active_ctas = resolve_active_ctas(channel.monetization, channel.end_screen)
     if channel.end_screen.enabled and active_ctas:

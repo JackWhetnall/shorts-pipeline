@@ -109,3 +109,48 @@ class TestContextDepth:
         apply_channel_form(channel, {})
         assert channel.context_scope == "all"
         assert channel.context_topics == 9
+
+
+class TestTitleCardSizing:
+    """The card's own size and outline. Previously it rendered at two
+    hardcoded font sizes, so a channel could set its captions and had no
+    say at all over the card sitting in front of them."""
+
+    def test_size_and_outline_are_applied(self):
+        channel = _channel()
+        apply_channel_form(channel, {"style_title_card_font_size": "120",
+                                     "style_title_card_stroke_width": "6"})
+        assert channel.style.title_card_font_size == 120
+        assert channel.style.title_card_stroke_width == 6
+
+    def test_a_form_without_them_leaves_them_alone(self):
+        channel = _channel()
+        channel.style.title_card_font_size = 120
+        apply_channel_form(channel, {})
+        assert channel.style.title_card_font_size == 120
+
+
+class TestOutroToggle:
+    """The outro card gained the same on/off choice the title card has
+    always had. It is on by default — it is where the subscribe prompt
+    lives — so the marker has to be able to turn it off."""
+
+    def test_unchecking_it_turns_the_outro_off(self):
+        channel = _channel()
+        assert channel.style.outro_enabled is True
+        apply_channel_form(channel, {"style_flags_present": "1"})
+        assert channel.style.outro_enabled is False
+
+    def test_checking_it_turns_the_outro_back_on(self):
+        channel = _channel()
+        channel.style.outro_enabled = False
+        apply_channel_form(channel, {"style_flags_present": "1",
+                                     "style_outro_enabled": "on"})
+        assert channel.style.outro_enabled is True
+
+    def test_a_form_with_no_look_section_leaves_it_alone(self):
+        """Saving a different part of the page must not silently switch
+        the outro off — the same rule every other style flag follows."""
+        channel = _channel()
+        apply_channel_form(channel, {})
+        assert channel.style.outro_enabled is True

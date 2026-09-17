@@ -1,10 +1,17 @@
-{# One form, one Save button, every section on the page.
+{# One form, one Save button — but one section on screen at a time.
 
    This used to be four hidden tabs plus a nine-step wizard that saved on
    Next, and it was genuinely unclear which of the two owned a given
-   setting or when a change had been committed. Now there is one editor:
-   the sidebar jumps, nothing is hidden, and nothing is written until Save
-   is pressed. #}
+   setting or when a change had been committed. That became one long
+   scrolling page with a sidebar of anchor jumps, which fixed the
+   ownership question and introduced a new one: clicking "Look" scrolled
+   you through Look and out the other side into Publishing, which you had
+   not asked to see.
+
+   So the sidebar is real navigation now. Still one <form>, because the
+   sections were never separate forms and making them separate would
+   bring back exactly the "which editor owns this setting" problem the
+   single form was built to remove. Save still saves everything. #}
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
 <div class="settings-layout">
@@ -20,7 +27,7 @@
   </a>
   <a href="#section-look" class="settings-nav-link">
     <strong>Look</strong>
-    <span>Caption font, colours, outro card</span>
+    <span>Captions, background, title and outro cards</span>
   </a>
   <a href="#section-publishing" class="settings-nav-link">
     <strong>Publishing</strong>
@@ -55,11 +62,11 @@
     </label>
 
     <label>Style prompt &mdash; how it should be written
-      <button type="button" class="info-dot" data-tooltip="The highest-leverage setting here. Say the format, the audience, the voice, and anything to avoid.">?</button>
+      <button type="button" class="info-dot" data-tooltip="Say the format, the audience, the voice, and anything to avoid.">?</button>
       <textarea name="style_prompt" rows="6" required>{{ channel.style_prompt or '' }}</textarea>
       <span class="hint">
         <a href="#" onclick="document.getElementById('preview-script-btn').click(); return false;">Preview a script</a>
-        (about a penny, no render)
+        <button type="button" class="cost-dot" data-tooltip="~$0.01">$</button>
         {% if (channel.style_prompt or '').strip() %}
         &middot;
         <a href="{{ url_for('style_setup.page', key=channel.key) }}"
@@ -130,27 +137,32 @@
           <input type="checkbox" name="build_on_previous"
                  {% if channel.build_on_previous %}checked{% endif %}>
           Videos build on each other
-          <button type="button" class="info-dot" data-tooltip="A video is told what earlier videos already covered and asked not to re-explain them. Right for a channel teaching something in order; most short-form stands alone, so this is off by default.">?</button>
+          <button type="button" class="info-dot" data-tooltip="Each video is told what earlier ones covered, and asked not to repeat them.">?</button>
         </label>
-        <label>How far back it looks
-          <select name="context_scope">
-            <option value="topic" {% if channel.context_scope == 'topic' %}selected{% endif %}>
-              This topic only
-            </option>
-            <option value="recent_topics" {% if channel.context_scope == 'recent_topics' %}selected{% endif %}>
-              This topic, plus a few before it
-            </option>
-            <option value="all" {% if channel.context_scope == 'all' %}selected{% endif %}>
-              The whole channel so far
-            </option>
-          </select>
-          <span class="hint">Only matters while "videos build on each
-            other" is checked above.</span>
-        </label>
-        <label>Topics of lookback, when set to "a few before it"
-          <input type="number" name="context_topics" min="1" max="20"
-                 value="{{ channel.context_topics }}">
-        </label>
+
+        {# Only reachable while the videos actually build on each other —
+           set with it off and nothing you chose would ever be read. #}
+        <div data-show-when="build_on_previous" class="field-group">
+          <label class="field-row">
+            <span class="field-label">How far back it looks</span>
+            <select name="context_scope">
+              <option value="topic" {% if channel.context_scope == 'topic' %}selected{% endif %}>
+                This topic only
+              </option>
+              <option value="recent_topics" {% if channel.context_scope == 'recent_topics' %}selected{% endif %}>
+                This topic, plus a few before it
+              </option>
+              <option value="all" {% if channel.context_scope == 'all' %}selected{% endif %}>
+                The whole channel so far
+              </option>
+            </select>
+          </label>
+          <label class="field-row" data-show-when="context_scope=recent_topics">
+            <span class="field-label">How many topics back</span>
+            <input type="number" name="context_topics" min="1" max="20"
+                   value="{{ channel.context_topics }}">
+          </label>
+        </div>
 
         <label>Topics by hand, one per line
           <textarea name="topics" rows="4"
@@ -162,10 +174,11 @@
           <legend>Ordering &mdash; which subtopic "make the next video" picks</legend>
           <input type="hidden" name="ordering_present" value="1">
 
-          <label>Style
+          <label class="field-row">
+            <span class="field-label">Style</span>
             <select name="ordering_mode">
               <option value="structured" {% if channel.ordering.mode == 'structured' %}selected{% endif %}>
-                Structured &mdash; the three settings below
+                Structured &mdash; the rules below
               </option>
               <option value="natural" {% if channel.ordering.mode == 'natural' %}selected{% endif %}>
                 Natural &mdash; mostly stays on one topic, sometimes branches
@@ -173,40 +186,48 @@
             </select>
           </label>
 
-          <label>Topic order <span class="hint">(structured only)</span>
-            <select name="ordering_topic_order">
-              <option value="sequential" {% if channel.ordering.topic_order == 'sequential' %}selected{% endif %}>Sequential</option>
-              <option value="random" {% if channel.ordering.topic_order == 'random' %}selected{% endif %}>Random</option>
-            </select>
-          </label>
-          <label>Subtopic order <span class="hint">(structured only)</span>
-            <select name="ordering_subtopic_order">
-              <option value="sequential" {% if channel.ordering.subtopic_order == 'sequential' %}selected{% endif %}>Sequential</option>
-              <option value="random" {% if channel.ordering.subtopic_order == 'random' %}selected{% endif %}>Random</option>
-            </select>
-          </label>
-          <label>Grouping <span class="hint">(structured only)</span>
-            <select name="ordering_grouping">
-              <option value="topic_first" {% if channel.ordering.grouping == 'topic_first' %}selected{% endif %}>
-                Finish a topic before starting the next
-              </option>
-              <option value="round_robin" {% if channel.ordering.grouping == 'round_robin' %}selected{% endif %}>
-                Round-robin &mdash; one subtopic per topic, cycling
-              </option>
-            </select>
-          </label>
+          {# The three structured rules and the one natural one used to be
+             on screen together, each labelled "(structured only)" or
+             "(natural only)" — three controls that did nothing, live and
+             editable, whichever mode you were in. #}
+          <div data-show-when="ordering_mode=structured" class="field-group">
+            <label class="field-row">
+              <span class="field-label">Topic order</span>
+              <select name="ordering_topic_order">
+                <option value="sequential" {% if channel.ordering.topic_order == 'sequential' %}selected{% endif %}>Sequential</option>
+                <option value="random" {% if channel.ordering.topic_order == 'random' %}selected{% endif %}>Random</option>
+              </select>
+            </label>
+            <label class="field-row">
+              <span class="field-label">Subtopic order</span>
+              <select name="ordering_subtopic_order">
+                <option value="sequential" {% if channel.ordering.subtopic_order == 'sequential' %}selected{% endif %}>Sequential</option>
+                <option value="random" {% if channel.ordering.subtopic_order == 'random' %}selected{% endif %}>Random</option>
+              </select>
+            </label>
+            <label class="field-row">
+              <span class="field-label">Grouping</span>
+              <select name="ordering_grouping">
+                <option value="topic_first" {% if channel.ordering.grouping == 'topic_first' %}selected{% endif %}>
+                  Finish a topic before starting the next
+                </option>
+                <option value="round_robin" {% if channel.ordering.grouping == 'round_robin' %}selected{% endif %}>
+                  Round-robin &mdash; one subtopic per topic, cycling
+                </option>
+              </select>
+            </label>
+          </div>
 
-          <label>Stickiness <span class="hint">(natural only)</span>
+          <label class="field-row" data-show-when="ordering_mode=natural">
+            <span class="field-label">Stickiness
+              <button type="button" class="info-dot" data-tooltip="Higher stays on one topic longer. When it does branch, it picks the most neglected topic.">?</button>
+            </span>
             <span class="slider-row">
               <input type="range" name="ordering_stickiness" min="0" max="1" step="0.05"
                      value="{{ channel.ordering.stickiness }}"
                      oninput="this.nextElementSibling.value = this.value">
               <output class="slider-value">{{ channel.ordering.stickiness }}</output>
             </span>
-            <span class="hint">How often the next video continues the
-              topic already in progress rather than branching to another
-              — and when it does branch, it favours whichever topic has
-              had the least attention so far, not the most.</span>
           </label>
 
           <div class="actions">
@@ -237,7 +258,8 @@
       </div>
 
       <div class="words-from-fields" data-words-from="built_in">
-        <label>Library
+        <label class="field-row">
+          <span class="field-label">Library</span>
           <select name="source">
             {% for src in sources %}
             <option value="{{ src }}" {% if channel.source == src %}selected{% endif %}>
@@ -250,7 +272,7 @@
     </fieldset>
 
     <label>Imagery to avoid &mdash; one word or phrase per line
-      <button type="button" class="info-dot" data-tooltip="The footage library is shared between channels, so a clip can be a strong match and completely wrong for this audience.">?</button>
+      <button type="button" class="info-dot" data-tooltip="The footage library is shared between channels.">?</button>
       <textarea name="avoid_imagery" rows="3">{{ (channel.avoid_imagery or [])|join('\n') }}</textarea>
     </label>
   </section>
@@ -305,9 +327,11 @@
     <fieldset>
       <legend>Length and pace</legend>
 
-      <label>Target length
-        <button type="button" class="info-dot"
-                data-tooltip="The script's word budget comes from this — about {{ (channel.pacing.target_seconds * 2.5)|int }} spoken words at 2.5 words/second, this project's own measured rate. A target, not a guarantee.">?</button>
+      <label class="field-row">
+        <span class="field-label">Target length
+          <button type="button" class="info-dot"
+                  data-tooltip="About {{ (channel.pacing.target_seconds * 2.5)|int }} spoken words, at this project's measured 2.5 words a second.">?</button>
+        </span>
         <span class="slider-row">
           <input type="range" name="pacing_target_seconds" min="15" max="180" step="5"
                  value="{{ channel.pacing.target_seconds }}"
@@ -316,32 +340,35 @@
         </span>
       </label>
 
-      <label>Speed
+      <label class="field-row">
+        <span class="field-label">Speed
+          <button type="button" class="info-dot" data-tooltip="1.0 is the voice's own pace.">?</button>
+        </span>
         <span class="slider-row">
           <input type="range" name="speed" min="0.7" max="1.2" step="0.05"
                  value="{{ channel.speed if channel.speed is not none else 1.0 }}"
                  oninput="this.nextElementSibling.value = this.value">
           <output class="slider-value">{{ channel.speed if channel.speed is not none else 1.0 }}</output>
         </span>
-        <span class="hint">1.0 is the voice's natural pace.</span>
       </label>
 
-      <label>Cadence preset
+      <label class="field-row">
+        <span class="field-label">Cadence preset
+          <button type="button" class="info-dot" data-tooltip="Sets every pause length at once, overwriting what is saved.">?</button>
+        </span>
         <select name="preset">
-          <option value="">Leave the pauses below alone</option>
+          <option value="">Leave the pauses alone</option>
           {% for key, preset in presets.items() %}
           <option value="{{ key }}">{{ preset.label }}</option>
           {% endfor %}
         </select>
-        <span class="hint">Sets the pause lengths in one go, overwriting
-          whatever is below.</span>
       </label>
     </fieldset>
 
     <details class="card">
-      <summary class="summary-heading">Every timing number</summary>
-      <p class="hint">Set by the cadence preset and the target length above.
-        Change them here when you want something the presets don't cover.</p>
+      <summary class="summary-heading">Every timing number
+        <button type="button" class="info-dot" data-tooltip="Set by the cadence preset and the target length above.">?</button>
+      </summary>
       <div class="pacing-grid">
         {% for field, value in channel.pacing.items() %}
         {% if field != 'target_seconds' %}
@@ -355,6 +382,10 @@
   </section>
 
   <!-- ---------------------------------------------------------------- -->
+  {# Order matters here and it did not before: the background picture
+     sits behind both cards, so it is decided before either of them, and
+     the title card comes before the outro because that is the order they
+     appear in the video. #}
   <section id="section-look" class="settings-section">
     <h2>Look</h2>
     <input type="hidden" name="style_flags_present" value="1">
@@ -362,7 +393,8 @@
     <div class="suggest-look-row">
       <button type="button" class="btn-ghost" id="suggest-look-btn"
               onclick="suggestLook('{{ channel.key }}')">Suggest a look for this channel</button>
-      <button type="button" class="cost-dot" data-tooltip="About a fraction of a cent. Picks a font and colours from a curated set based on what this channel is about. Nothing is saved until you press Save below.">$</button>
+      <button type="button" class="info-dot" data-tooltip="Picks a font and a checked colour set to fit what this channel is about.">?</button>
+      <button type="button" class="cost-dot" data-tooltip="~$0.004">$</button>
       <p class="hint" id="suggest-look-status"></p>
     </div>
 
@@ -370,7 +402,8 @@
     <div class="look-controls">
     <fieldset>
       <legend>Captions</legend>
-      <label>Font
+      <label class="field-row">
+        <span class="field-label">Font</span>
         <select name="style_font_face" data-preview-field="font_face" data-font-select>
           {% for face in font_faces %}
             <option value="{{ face.key }}" data-note="{{ face.note }}"
@@ -382,7 +415,8 @@
         <span class="hint" data-font-note></span>
       </label>
 
-      <label>Size
+      <label class="field-row">
+        <span class="field-label">Size</span>
         <span class="slider-row">
           <input type="range" name="style_font_size" min="36" max="120" step="2"
                  value="{{ channel.style.font_size }}" data-preview-field="font_size">
@@ -390,7 +424,8 @@
         </span>
       </label>
 
-      <label>Outline thickness
+      <label class="field-row">
+        <span class="field-label">Outline thickness</span>
         <span class="slider-row">
           <input type="range" name="style_stroke_width" min="0" max="12"
                  value="{{ channel.style.stroke_width }}" data-preview-field="stroke_width">
@@ -401,7 +436,8 @@
       {% for field, label in [("base_color", "Word colour"),
                               ("highlight_color", "Spoken word"),
                               ("stroke_color", "Outline")] %}
-        <label>{{ label }}
+        <label class="field-row">
+          <span class="field-label">{{ label }}</span>
           <span class="color-row">
             <input type="color" value="{{ channel.style[field] }}"
                    data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
@@ -410,109 +446,11 @@
           </span>
         </label>
       {% endfor %}
-    </fieldset>
-
-    <fieldset>
-      <legend>Outro card</legend>
-      <div class="preview-frame-inline">
-        <img alt="A sample outro card rendered with these settings"
-             data-preview-image="outro" src="" hidden>
-        <span class="preview-spinner" data-preview-spinner="outro" hidden></span>
-      </div>
-      {% for field, label in [("outro_title_color", "Title colour"),
-                              ("outro_subtext_color", "Subtext colour")] %}
-        <label>{{ label }}
-          <span class="color-row">
-            <input type="color" value="{{ channel.style[field] }}"
-                   data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
-            <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
-                   spellcheck="false" data-preview-field="{{ field }}">
-          </span>
-        </label>
-      {% endfor %}
-      <label>Background colour
-        <span class="color-row">
-          <input type="color" data-color-for="style_outro_bg_color" data-rgba
-                 aria-label="Outro background picker">
-          <input type="text" name="style_outro_bg_color" data-preview-field="outro_bg_color"
-                 value="{{ channel.style.outro_bg_color|join(',') }}" spellcheck="false">
-          <button type="button" class="info-dot"
-                  data-tooltip="Red, green, blue, opacity — each 0-255.">?</button>
-        </span>
-      </label>
-    </fieldset>
-
-    <fieldset>
-      <legend>Title card
-        <button type="button" class="info-dot" data-tooltip="An opening card naming the channel and what the video is about. Off by default — seconds before the content starts are watch time spent on nothing, but worth it for a series someone works through.">?</button>
-      </legend>
-      <div class="preview-frame-inline">
-        <img alt="A sample title card rendered with these settings"
-             data-preview-image="title" src="" hidden>
-        <span class="preview-spinner" data-preview-spinner="title" hidden></span>
-      </div>
-      <label class="checkbox-label">
-        <input type="checkbox" name="style_title_card_enabled"
-               {% if channel.style.title_card_enabled %}checked{% endif %}>
-        Show a title card
-      </label>
-      <fieldset>
-        <legend>When</legend>
-        <label class="choice">
-          <input type="radio" name="style_title_card_placement" value="start"
-                 {% if channel.style.title_card_placement != 'after_intro' %}checked{% endif %}>
-          <span>Before the narration</span>
-        </label>
-        <label class="choice">
-          <input type="radio" name="style_title_card_placement" value="after_intro"
-                 {% if channel.style.title_card_placement == 'after_intro' %}checked{% endif %}>
-          <span>After the intro line
-            <button type="button" class="info-dot" data-tooltip="Opens straight into its first line, then the card plays, then the rest follows — for a channel whose opening line is its own hook.">?</button>
-          </span>
-        </label>
-      </fieldset>
-      {% if topic_plan and topic_plan.has_curriculum %}
-      <label class="checkbox-label">
-        <input type="checkbox" name="style_title_card_show_topic" data-preview-field="title_card_show_topic"
-               {% if channel.style.title_card_show_topic %}checked{% endif %}>
-        Also show this video's topic
-        <button type="button" class="info-dot" data-tooltip="Adds the syllabus topic as a third line, above the subtopic title.">?</button>
-      </label>
-      {% endif %}
-      <label>How long
-        <span class="slider-row">
-          <input type="range" name="style_title_card_seconds"
-                 min="0.5" max="5" step="0.1"
-                 value="{{ channel.style.title_card_seconds }}"
-                 oninput="this.nextElementSibling.value = this.value + 's'">
-          <output class="slider-value">{{ channel.style.title_card_seconds }}s</output>
-        </span>
-      </label>
-      {% for field, label in [("title_card_title_color", "Title colour"),
-                              ("title_card_channel_color", "Channel name colour")] %}
-        <label>{{ label }}
-          <span class="color-row">
-            <input type="color" value="{{ channel.style[field] }}"
-                   data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
-            <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
-                   spellcheck="false" data-preview-field="{{ field }}">
-          </span>
-        </label>
-      {% endfor %}
-      <label>Background colour
-        <span class="color-row">
-          <input type="color" data-color-for="style_title_card_bg_color" data-rgba
-                 aria-label="Title card background picker">
-          <input type="text" name="style_title_card_bg_color" data-preview-field="title_card_bg_color"
-                 value="{{ channel.style.title_card_bg_color|join(',') }}" spellcheck="false">
-        </span>
-        <span class="hint">Used when there is no background picture.</span>
-      </label>
     </fieldset>
 
     <fieldset data-background-picker data-channel="{{ channel.key }}">
       <legend>Background picture
-        <button type="button" class="info-dot" data-tooltip="Sits behind the title and outro cards instead of a flat colour. Chosen once per channel, so it costs nothing per video.">?</button>
+        <button type="button" class="info-dot" data-tooltip="Sits behind the title and outro cards instead of a flat colour. Chosen once, so it costs nothing per video.">?</button>
       </legend>
 
       <label class="checkbox-label">
@@ -528,7 +466,8 @@
         <img id="background-preview" alt="This channel's background"
              {% if has_background %}src="{{ url_for('backgrounds.serve', key=channel.key) }}"{% endif %}>
         <div class="background-edits">
-          <label>Blur
+          <label class="field-row">
+            <span class="field-label">Blur</span>
             <span class="slider-row">
               <input type="range" id="background-blur" min="0" max="{{ max_blur }}"
                      value="{{ background.get('blur', 0) }}"
@@ -536,7 +475,8 @@
               <output class="slider-value">{{ background.get('blur', 0) }}</output>
             </span>
           </label>
-          <label>Dim
+          <label class="field-row">
+            <span class="field-label">Dim</span>
             <span class="slider-row">
               <input type="range" id="background-dim" min="0" max="{{ max_dim }}"
                      value="{{ background.get('dim', 0) }}"
@@ -562,14 +502,13 @@
       {% if background_search_ready %}
       <div class="background-search">
         <label>Find one
+          <button type="button" class="info-dot" data-tooltip="Portrait photos from Pexels and Pixabay, the same sites the footage library uses.">?</button>
           <span class="slider-row">
             <input type="text" id="background-query"
                    placeholder="candlelight, dark wood, misty forest">
             <button type="button" class="btn-ghost" id="background-search-btn"
                     onclick="searchBackgrounds('{{ channel.key }}')">Search</button>
           </span>
-          <span class="hint">Portrait photos from Pexels and Pixabay, the same
-            sites the footage library uses.</span>
         </label>
         <p class="hint" id="background-status"></p>
         <div class="background-results" id="background-results"></div>
@@ -579,17 +518,169 @@
         <code>PIXABAY_API_KEY</code> to search for pictures.</p>
       {% endif %}
     </fieldset>
+
+    <fieldset>
+      <legend>Title card
+        <button type="button" class="info-dot" data-tooltip="An opening card naming the channel and the video. Off by default: seconds before the content starts are watch time spent on nothing.">?</button>
+      </legend>
+      <label class="checkbox-label">
+        <input type="checkbox" name="style_title_card_enabled"
+               {% if channel.style.title_card_enabled %}checked{% endif %}>
+        Show a title card
+      </label>
+
+      {# Everything below was editable with the card switched off. #}
+      <div data-show-when="style_title_card_enabled" class="field-group">
+        <fieldset>
+          <legend>When</legend>
+          <label class="choice">
+            <input type="radio" name="style_title_card_placement" value="start"
+                   {% if channel.style.title_card_placement != 'after_intro' %}checked{% endif %}>
+            <span>Before the narration</span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="style_title_card_placement" value="after_intro"
+                   {% if channel.style.title_card_placement == 'after_intro' %}checked{% endif %}>
+            <span>After the intro line
+              <button type="button" class="info-dot" data-tooltip="The first line plays, then the card, then the rest.">?</button>
+            </span>
+          </label>
+        </fieldset>
+        {% if topic_plan and topic_plan.has_curriculum %}
+        <label class="checkbox-label">
+          <input type="checkbox" name="style_title_card_show_topic" data-preview-field="title_card_show_topic"
+                 {% if channel.style.title_card_show_topic %}checked{% endif %}>
+          Also show this video's topic
+          <button type="button" class="info-dot" data-tooltip="Adds the syllabus topic above the title.">?</button>
+        </label>
+        {% endif %}
+        <label class="field-row">
+          <span class="field-label">How long</span>
+          <span class="slider-row">
+            <input type="range" name="style_title_card_seconds"
+                   min="0.5" max="5" step="0.1"
+                   value="{{ channel.style.title_card_seconds }}"
+                   oninput="this.nextElementSibling.value = this.value + 's'">
+            <output class="slider-value">{{ channel.style.title_card_seconds }}s</output>
+          </span>
+        </label>
+        <label class="field-row">
+          <span class="field-label">Size</span>
+          <span class="slider-row">
+            <input type="range" name="style_title_card_font_size" min="48" max="140" step="2"
+                   value="{{ channel.style.title_card_font_size }}"
+                   data-preview-field="title_card_font_size">
+            <output class="slider-value">{{ channel.style.title_card_font_size }}</output>
+          </span>
+        </label>
+        <label class="field-row">
+          <span class="field-label">Outline thickness</span>
+          <span class="slider-row">
+            <input type="range" name="style_title_card_stroke_width" min="0" max="12"
+                   value="{{ channel.style.title_card_stroke_width }}"
+                   data-preview-field="title_card_stroke_width">
+            <output class="slider-value">{{ channel.style.title_card_stroke_width }}</output>
+          </span>
+        </label>
+        {% for field, label in [("title_card_title_color", "Title colour"),
+                                ("title_card_channel_color", "Channel name colour")] %}
+          <label class="field-row">
+            <span class="field-label">{{ label }}</span>
+            <span class="color-row">
+              <input type="color" value="{{ channel.style[field] }}"
+                     data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
+              <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
+                     spellcheck="false" data-preview-field="{{ field }}">
+            </span>
+          </label>
+        {% endfor %}
+        <label class="field-row">
+          <span class="field-label">Background colour
+            <button type="button" class="info-dot" data-tooltip="Used when there is no background picture. Red, green, blue, opacity — each 0-255.">?</button>
+          </span>
+          <span class="color-row">
+            <input type="color" data-color-for="style_title_card_bg_color" data-rgba
+                   aria-label="Title card background picker">
+            <input type="text" name="style_title_card_bg_color" data-preview-field="title_card_bg_color"
+                   value="{{ channel.style.title_card_bg_color|join(',') }}" spellcheck="false">
+          </span>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Outro card
+        <button type="button" class="info-dot" data-tooltip="The branded end card, where the subscribe prompt lives.">?</button>
+      </legend>
+      <label class="checkbox-label">
+        <input type="checkbox" name="style_outro_enabled"
+               {% if channel.style.outro_enabled %}checked{% endif %}>
+        Show an outro card
+      </label>
+
+      <div data-show-when="style_outro_enabled" class="field-group">
+        {% for field, label in [("outro_title_color", "Title colour"),
+                                ("outro_subtext_color", "Subtext colour")] %}
+          <label class="field-row">
+            <span class="field-label">{{ label }}</span>
+            <span class="color-row">
+              <input type="color" value="{{ channel.style[field] }}"
+                     data-color-for="style_{{ field }}" aria-label="{{ label }} picker">
+              <input type="text" name="style_{{ field }}" value="{{ channel.style[field] }}"
+                     spellcheck="false" data-preview-field="{{ field }}">
+            </span>
+          </label>
+        {% endfor %}
+        <label class="field-row">
+          <span class="field-label">Background colour
+            <button type="button" class="info-dot" data-tooltip="Used when there is no background picture. Red, green, blue, opacity — each 0-255.">?</button>
+          </span>
+          <span class="color-row">
+            <input type="color" data-color-for="style_outro_bg_color" data-rgba
+                   aria-label="Outro background picker">
+            <input type="text" name="style_outro_bg_color" data-preview-field="outro_bg_color"
+                   value="{{ channel.style.outro_bg_color|join(',') }}" spellcheck="false">
+          </span>
+        </label>
+      </div>
+    </fieldset>
     </div>
 
+    {# One preview panel, three surfaces, switched by a tab. The caption
+       preview used to be a big sticky panel while the two cards had small
+       boxes inside their own fieldsets — the same kind of thing shown two
+       different ways on one screen, and neither of the small ones was big
+       enough to judge anything by. A tab for a card that is switched off
+       is hidden, same rule as its settings. #}
     <div class="look-preview">
-      <p class="preview-label">Preview</p>
-      <div class="preview-frame">
+      <div class="preview-tabs" role="tablist">
+        <button type="button" class="preview-tab active" role="tab"
+                data-preview-tab="caption">Captions</button>
+        <button type="button" class="preview-tab" role="tab"
+                data-preview-tab="title" data-show-when="style_title_card_enabled">Title card</button>
+        <button type="button" class="preview-tab" role="tab"
+                data-preview-tab="outro" data-show-when="style_outro_enabled">Outro</button>
+      </div>
+
+      <div class="preview-frame" data-preview-panel="caption">
         <img alt="A sample caption rendered with these settings"
              data-preview-image="caption" src="" hidden>
         <span class="preview-spinner" data-preview-spinner="caption" hidden></span>
       </div>
-      <p class="hint">
-        <button type="button" class="info-dot" data-tooltip="A real frame, drawn by the same code that renders the video, over a bright clip from your library — the hardest case for white captions.">?</button>
+      <div class="preview-frame hidden" data-preview-panel="title">
+        <img alt="A sample title card rendered with these settings"
+             data-preview-image="title" src="" hidden>
+        <span class="preview-spinner" data-preview-spinner="title" hidden></span>
+      </div>
+      <div class="preview-frame hidden" data-preview-panel="outro">
+        <img alt="A sample outro card rendered with these settings"
+             data-preview-image="outro" src="" hidden>
+        <span class="preview-spinner" data-preview-spinner="outro" hidden></span>
+      </div>
+
+      <p class="hint" data-preview-note="caption">
+        A real frame, over a bright clip from your library &mdash; the
+        hardest case for white captions.
       </p>
     </div>
     </div>
@@ -600,9 +691,9 @@
     <h2>Publishing</h2>
 
     <fieldset>
-      <legend>Where this channel lives</legend>
-      <p class="hint">Informational &mdash; nothing in the render path reads
-        these.</p>
+      <legend>Where this channel lives
+        <button type="button" class="info-dot" data-tooltip="For your reference. Nothing in the render path reads these.">?</button>
+      </legend>
       <label>YouTube channel URL
         <input type="text" name="youtube_url" placeholder="https://youtube.com/@yourchannel"
                value="{{ channel.socials.youtube_url or '' }}">
@@ -670,10 +761,9 @@
     </fieldset>
 
     <fieldset>
-      <legend>End screen</legend>
-      <p class="hint">An optional second card after the branding outro. One
-        active CTA is picked at random per video; the description lists them
-        all.</p>
+      <legend>End screen
+        <button type="button" class="info-dot" data-tooltip="A second card after the outro. One active CTA is picked at random per video; the description lists them all.">?</button>
+      </legend>
       {# Unchecked checkboxes submit nothing, so without this marker the
          parser can't tell "every CTA switched off" from "this form has no
          end-screen section at all". #}
@@ -682,26 +772,30 @@
         <input type="checkbox" name="end_screen_enabled" {% if channel.end_screen.enabled %}checked{% endif %}>
         Show a second end screen with the active CTAs below
       </label>
-      <label>Duration (seconds)
-        <input type="number" name="end_screen_duration_seconds" step="0.5" min="1" max="10"
-               value="{{ channel.end_screen.duration_seconds }}">
-      </label>
 
-      {% for cta_key, cta_default_text in [('patreon', 'Support us on Patreon'), ('merch', 'Check out our merch'), ('affiliate', 'Shop our picks below')] %}
-      <div class="cta-row">
-        <label class="checkbox-label">
-          <input type="checkbox" name="cta_{{ cta_key }}_enabled" {% if channel.end_screen.ctas[cta_key].enabled %}checked{% endif %}>
-          {{ cta_key|capitalize }} CTA active
+      <div data-show-when="end_screen_enabled" class="field-group">
+        <label class="field-row">
+          <span class="field-label">Duration (seconds)</span>
+          <input type="number" name="end_screen_duration_seconds" step="0.5" min="1" max="10"
+                 value="{{ channel.end_screen.duration_seconds }}">
         </label>
-        <input type="text" name="cta_{{ cta_key }}_text" placeholder="{{ cta_default_text }}"
-               value="{{ channel.end_screen.ctas[cta_key].text or '' }}">
+
+        {% for cta_key, cta_default_text in [('patreon', 'Support us on Patreon'), ('merch', 'Check out our merch'), ('affiliate', 'Shop our picks below')] %}
+        <div class="cta-row">
+          <label class="checkbox-label">
+            <input type="checkbox" name="cta_{{ cta_key }}_enabled" {% if channel.end_screen.ctas[cta_key].enabled %}checked{% endif %}>
+            {{ cta_key|capitalize }} CTA active
+          </label>
+          <input type="text" name="cta_{{ cta_key }}_text" placeholder="{{ cta_default_text }}"
+                 value="{{ channel.end_screen.ctas[cta_key].text or '' }}">
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
     </fieldset>
   </section>
 
-  {# Sticky, because the page is long and a Save button you have to scroll
-     to find is one you will forget to press. #}
+  {# Sticky, because a Save button you have to scroll to find is one you
+     will forget to press. #}
   <div class="settings-save-bar">
     <span class="settings-save-state" id="settings-save-state">No changes yet</span>
     <button type="submit" class="btn btn-primary"

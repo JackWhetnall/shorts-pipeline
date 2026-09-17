@@ -336,3 +336,72 @@ class TestFullRender:
         assemble.run(plan)
         leftovers = list(plan.out_dir.glob("*_TEMP_*"))
         assert not leftovers, f"temp files left behind: {leftovers}"
+
+
+class TestCardSizing:
+    """Size and outline for the title card, and an off switch for the
+    outro — both previously fixed, so a channel's cards looked the same
+    whatever else it chose."""
+
+    def test_a_bigger_title_card_font_changes_the_frame(self):
+        from core.channels import Style
+        from pipeline.assemble import render_title_card
+
+        small = render_title_card("Channel", "Video Title", Style(title_card_font_size=60))
+        large = render_title_card("Channel", "Video Title", Style(title_card_font_size=120))
+        assert small.shape == large.shape
+        assert not (small == large).all()
+
+    def test_a_thicker_outline_changes_the_frame(self):
+        from core.channels import Style
+        from pipeline.assemble import render_title_card
+
+        thin = render_title_card("Channel", "Video Title", Style(title_card_stroke_width=0))
+        thick = render_title_card("Channel", "Video Title", Style(title_card_stroke_width=10))
+        assert not (thin == thick).all()
+
+    def test_the_defaults_render_what_the_old_constants_did(self):
+        """Every channel saved before these settings existed must look
+        exactly as it did — the defaults are the old hardcoded numbers."""
+        from core.channels import Style
+        from pipeline import assemble
+
+        assert Style.title_card_font_size == assemble.TITLE_CARD_SIZE
+
+
+@needs_library
+class TestOutroOff:
+    def test_switching_the_outro_off_shortens_the_video_by_exactly_it(
+            self, plan, monkeypatch):
+        """The outro is where the subscribe prompt lives, so it is on by
+        default — but a channel that would rather end on its last spoken
+        word can turn it off, and the audio has to lose its matching
+        silence at the same time or the file ends with a second of
+        nothing."""
+        from core.paths import LIBRARY_DIR
+        from pipeline import assemble
+        from pipeline.footage import library, store
+
+        clips = [c for c in store.all_clips() if (LIBRARY_DIR / c.filename).exists()][:6]
+
+        def fake_assign(segments, shot_counts, avoid_imagery=None):
+            names, i = [], 0
+            for count in shot_counts:
+                names.append([clips[(i + n) % len(clips)].filename for n in range(count)])
+                i += count
+            return library.MatchOutcome(picks=names)
+
+        monkeypatch.setattr(library, "assign_clips", fake_assign)
+        monkeypatch.setattr(library, "mark_used", lambda *a, **k: None)
+
+        plan.channel.style.outro_enabled = False
+        assemble.run(plan)
+
+        from moviepy.editor import VideoFileClip
+        rendered = VideoFileClip(str(plan.video_path))
+        try:
+            # 5.4s of narration and nothing after it. With the outro on,
+            # the same render is 6.4 (see TestFullRender).
+            assert rendered.duration == pytest.approx(5.4, abs=0.3)
+        finally:
+            rendered.close()

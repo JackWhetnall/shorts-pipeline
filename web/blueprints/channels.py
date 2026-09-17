@@ -685,6 +685,13 @@ def _hex(value: str, fallback: str) -> str:
     return value if _HEX_RE.match(value) else fallback
 
 
+def _int(value: str, fallback: int) -> int:
+    try:
+        return int(float((value or "").strip()))
+    except ValueError:
+        return fallback
+
+
 def _rgba(value: str, fallback: tuple) -> tuple:
     value = (value or "").strip()
     try:
@@ -719,6 +726,10 @@ def card_preview_image(key):
                 request.form.get("title_card_channel_color"), Style.title_card_channel_color)
             style.title_card_bg_color = _rgba(
                 request.form.get("title_card_bg_color"), Style.title_card_bg_color)
+            style.title_card_font_size = _int(
+                request.form.get("title_card_font_size"), Style.title_card_font_size)
+            style.title_card_stroke_width = _int(
+                request.form.get("title_card_stroke_width"), Style.title_card_stroke_width)
             show_topic = request.form.get("title_card_show_topic") == "1"
             png = card_preview.render_title_card(style, display_name, key, show_topic)
         else:

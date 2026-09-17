@@ -111,6 +111,11 @@ class Style(_MappingLike):
     highlight_color: str = "#FFD400"
     stroke_color: str = "#000000"
     stroke_width: int = 4
+    # The channel-branded end card. On by default — it is where the
+    # subscribe prompt lives — but a channel that would rather end on its
+    # last spoken word can turn it off, the same choice the title card
+    # has always had at the other end.
+    outro_enabled: bool = True
     outro_bg_color: tuple = (10, 10, 14, 255)
     outro_title_color: str = "#FFFFFF"
     outro_subtext_color: str = "#FFD400"
@@ -126,6 +131,11 @@ class Style(_MappingLike):
     title_card_title_color: str = "#FFFFFF"
     title_card_channel_color: str = "#FFD400"
     title_card_bg_color: tuple = (10, 10, 14, 255)
+    # The title line's size and outline. The channel line under it scales
+    # from these rather than having its own pair, so the card is one
+    # decision instead of four — see `pipeline.assemble.render_title_card`.
+    title_card_font_size: int = 92
+    title_card_stroke_width: int = 3
     # "start" (in front of all narration, the original behaviour) or
     # "after_intro" (after the first segment's audio, before the rest) —
     # a channel whose first line is its own hook may want the card to

@@ -64,6 +64,12 @@
 
 * { box-sizing: border-box; }
 
+/* The UA's own [hidden] rule is the weakest thing in the cascade, so any
+   class that sets a display — `button` two rules down, for one — silently
+   keeps a hidden element on screen. Everything that hides itself in this
+   app does it by setting `hidden`, so this has to actually hold. */
+[hidden] { display: none !important; }
+
 body {
   font-family: var(--font);
   margin: 0;
@@ -321,7 +327,12 @@ input::placeholder, textarea::placeholder { color: var(--text-dim); opacity: 0.7
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.channel-form fieldset label { display: inline-block; width: 46%; margin-right: 2%; vertical-align: top; }
+/* Two fields per row in the plainer fieldsets. Explicitly not applied to
+   .field-row, whose whole purpose is a single aligned column — this rule
+   is more specific than the class and would otherwise win. */
+.channel-form fieldset label:not(.field-row) {
+  display: inline-block; width: 46%; margin-right: 2%; vertical-align: top;
+}
 .checkbox-label { display: flex !important; align-items: center; gap: var(--sp-2); width: auto !important; }
 .checkbox-label input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--accent); }
 .cta-row { display: flex; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-3); flex-wrap: wrap; }
@@ -1412,36 +1423,47 @@ a.tick:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
   animation: spin 0.7s linear infinite;
 }
 
-/* A card preview inside its own fieldset rather than the big sticky
-   sidebar panel — same real frame, shown small next to the fields that
-   change it. */
-.preview-frame-inline {
-  width: 140px;
-  aspect-ratio: 9 / 16;
-  position: relative;
+/* Captions, title card and outro share one panel and take turns in it,
+   rather than the captions getting a big sticky column and the two cards
+   getting 140px boxes wedged into their own fieldsets. */
+.preview-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: var(--sp-2, 0.5rem);
+}
+.preview-tab {
+  flex: 1 1 auto;
+  padding: var(--sp-2, 0.5rem) var(--sp-2, 0.5rem);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: var(--surface-2);
-  margin: var(--sp-2, 0.5rem) 0;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
 }
-.preview-frame-inline img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.preview-frame-inline .preview-spinner {
-  top: var(--sp-1, 0.25rem);
-  right: var(--sp-1, 0.25rem);
-  width: 12px;
-  height: 12px;
+.preview-tab:hover { color: var(--text); border-color: var(--border-light); }
+.preview-tab.active {
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--text);
 }
 
-/* --- Tooltip dots: a "?" for an explanation, a "$" for a cost, both
-   hover/focus-revealed rather than always-on prose. Pure CSS — no JS
-   needed for the static case; a dynamic cost figure just rewrites
-   data-tooltip before the user hovers it. */
+/* --- Tooltip dots ------------------------------------------------------
+
+   Two dots, and the difference between them is strict:
+
+     ?  an explanation. One or two short sentences. Not a paragraph, and
+        not a statement about the page as a whole — "nothing is saved
+        until you press Save" is not a fact about the control it was
+        hanging off, so it does not belong in its tooltip.
+     $  a price and nothing else. "~$0.005", "~$0.87". Never prose: a "$"
+        that reads "about a fraction of a cent" is a "?" wearing a "$",
+        and the number is the only thing anyone opens it for.
+
+   A control can carry both, and several do. Pure CSS — no JS needed for
+   the static case; a dynamic cost figure rewrites data-tooltip before
+   the user hovers it (see formatCostDot in app.js). */
 .info-dot, .cost-dot {
   display: inline-flex;
   align-items: center;
@@ -1492,6 +1514,52 @@ a.tick:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
 .info-dot:hover::after, .info-dot:focus-visible::after,
 .cost-dot:hover::after, .cost-dot:focus-visible::after { opacity: 1; }
 
+/* --- Aligned control rows ---------------------------------------------
+   Every control in a settings panel used to start wherever its own label
+   happened to leave it: a slider's track began at the left edge of the
+   column, a colour's text box began 42px further in behind its swatch,
+   and a select began somewhere else again. Nothing lined up with anything
+   vertically, which is most of what made a long panel of them hard to
+   read. One label column, one control column, and every control in the
+   panel starts and ends on the same two lines. */
+/* `label.field-row`, not `.field-row`: `.channel-form label` above sets
+   display:block at the same specificity, and a bare class would lose to
+   it wherever this is used inside the settings form — which is
+   everywhere it is used. */
+label.field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--sp-3, 0.85rem);
+  margin-bottom: var(--sp-3, 0.85rem);
+}
+.field-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+/* A hint or a note under the control belongs under the control, not
+   under the label. */
+.field-row > .hint { grid-column: 2; margin-top: var(--sp-1, 0.25rem); }
+.field-row > input,
+.field-row > select,
+.field-row > textarea { width: 100%; margin-top: 0; }
+
+/* Fields that only apply while something else is switched on, indented so
+   the dependency reads at a glance. */
+.field-group {
+  border-left: 2px solid var(--border);
+  padding-left: var(--sp-4, 1.25rem);
+  margin: var(--sp-3, 0.85rem) 0;
+}
+.field-group > fieldset:first-child { margin-top: 0; }
+
+@media (max-width: 720px) {
+  label.field-row { grid-template-columns: minmax(0, 1fr); row-gap: var(--sp-1, 0.25rem); }
+  .field-row > .hint { grid-column: 1; }
+}
+
 .color-row,
 .slider-row {
   display: flex;
@@ -1502,10 +1570,16 @@ a.tick:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
 .color-row input[type="text"] { flex: 1; min-width: 0; }
 
 /* Browsers draw a chunky bordered box around a colour input by default;
-   this makes it read as a swatch. */
+   this makes it read as a swatch.
+
+   `order: 2` puts the swatch after the hex box, at the same width as a
+   slider's value readout, so a colour row's editable field starts and
+   ends exactly where a slider's track does. With the swatch first, every
+   hex box in the panel sat 50px to the right of every slider. */
 .color-row input[type="color"] {
-  flex: 0 0 auto;
-  width: 42px;
+  order: 2;
+  flex: 0 0 2.5rem;
+  width: 2.5rem;
   height: 34px;
   padding: 2px;
   border: 1px solid var(--border-light);
@@ -1697,12 +1771,12 @@ label > textarea {
   font-weight: 400;
 }
 
-/* --- Settings: one page, a sidebar, one Save --------------------------
-   Four hidden tabs plus a nine-step wizard that saved on Next. Which of
-   the two owned a given setting was genuinely unclear, and there was no
-   way to tell whether a change had been committed. Everything is on the
-   page now; the sidebar jumps rather than hides, so Ctrl-F works and one
-   Save covers the lot. */
+/* --- Settings: one form, a sidebar, one Save --------------------------
+   Four hidden tabs plus a nine-step wizard that saved on Next, then one
+   very long page whose sidebar was anchor jumps — which meant asking for
+   "Look" scrolled you through it and out into Publishing. The sidebar
+   switches sections now, and the form underneath is still a single form,
+   so one Save covers the lot and it says so. */
 .settings-layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
@@ -1742,16 +1816,7 @@ label > textarea {
 
 .settings-body { min-width: 0; }
 
-.settings-section {
-  padding-bottom: var(--sp-5, 1.75rem);
-  margin-bottom: var(--sp-5, 1.75rem);
-  border-bottom: 1px solid var(--border);
-  /* Cleared by the sticky header, so an anchor jump doesn't land with the
-     heading hidden underneath it — same --header-height the sticky nav
-     uses, so the two can't drift out of sync with each other again. */
-  scroll-margin-top: var(--sticky-top);
-}
-.settings-section:last-of-type { border-bottom: none; }
+.settings-section { padding-bottom: var(--sp-5, 1.75rem); }
 .settings-section > h2 { margin-top: 0; }
 
 /* Sticky, because the page is long and a Save you have to scroll to find
@@ -1992,3 +2057,15 @@ button.topic-row.selected:hover {
   .activity-eta { text-align: left; }
   .activity-eta-at { display: block; }
 }
+
+/* ---------------------------------------------------------------------
+   APIs: what is wired up, what it cost, where to top it up.
+   --------------------------------------------------------------------- */
+
+.service-table td { vertical-align: top; }
+.service-table .hint { display: block; margin-top: 2px; }
+.service-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.service-table td.actions { white-space: nowrap; }
+
+.service-ok { color: var(--success); font-weight: 600; font-size: 0.88rem; }
+.service-missing { color: var(--danger); font-weight: 600; font-size: 0.88rem; }
