@@ -75,6 +75,16 @@ class Job:
     queued_at: float = None
     started_at: float = None
     finished_at: float = None
+    # When each stage began, keyed by stage number as a string because
+    # this round-trips through JSON. Finished records are the only honest
+    # source of "how long does a video take" this project has — see
+    # core.job_eta, which reads them back to answer it.
+    stage_entered: dict = field(default_factory=dict)
+    # A retry reuses this job's checkpoints, so its stages complete in
+    # seconds and its timings describe nothing. Marked so core.job_eta can
+    # leave it out of the history rather than learning that a video takes
+    # four seconds to make.
+    retried: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -118,6 +128,10 @@ class _Sink(job_context.JobSink):
             # Monotonic: an out-of-order report can never move the UI's
             # progress backwards.
             job.stage = max(job.stage, stage)
+            # setdefault, not assignment: a retry re-enters stage 1 with
+            # its checkpoints intact, and overwriting would record that
+            # near-instant second pass as this stage's real duration.
+            job.stage_entered.setdefault(str(stage), time.time())
             job.current_progress = None
             job.progress_percent = None
         _persist(job_id)
@@ -331,6 +345,7 @@ def retry_job(job_id: str) -> str:
         job.queued_at = now
         job.started_at = None if running_now else now
         job.finished_at = None
+        job.retried = True
         channel_key, seed = job.channel_key, job.seed
         if running_now:
             _queue.append(job_id)
@@ -384,6 +399,41 @@ def active_jobs() -> dict:
     with _lock:
         return {j.channel_key: _with_extras(j)
                 for j in _jobs.values() if j.status in RUNNING_STATES}
+
+
+def active_in_order() -> list:
+    """Everything in flight, in the order it will actually happen:
+    whatever is running, then the queue as the queue holds it.
+
+    `active_jobs` keys by channel, which is right for "does this channel
+    have one going" and wrong for a page whose whole subject is the order
+    — a dict has no queue in it.
+    """
+    with _lock:
+        running = [j for j in _jobs.values() if j.status == "running"]
+        queued = [_jobs[jid] for jid in _queue if jid in _jobs]
+        ordered = running + queued
+        return [_with_extras(j) for j in ordered]
+
+
+def history() -> list:
+    """Every record held, as plain dicts and without the log tail.
+
+    `_with_extras` reads a file per job; a caller measuring how long
+    videos take (core.job_eta) wants the numbers, not a week of logs.
+    """
+    with _lock:
+        return [j.to_dict() for j in _jobs.values()]
+
+
+def recent_finished(limit: int = 6) -> list:
+    """The last few jobs that stopped, newest first — done, failed and
+    interrupted alike. An empty queue with nothing else on the page reads
+    as "nothing happened"; these say what just did."""
+    with _lock:
+        done = [j for j in _jobs.values() if j.status not in RUNNING_STATES]
+        done.sort(key=lambda j: j.finished_at or j.queued_at or 0, reverse=True)
+        return [_with_extras(j) for j in done[:limit]]
 
 
 # --- persistence ------------------------------------------------------

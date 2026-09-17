@@ -440,6 +440,15 @@ function pollJob(jobId) {
       if (queueNote) queueNote.classList.add("hidden");
     }
 
+    // "Should I wait or come back later?" - answered here rather than
+    // only on Activity, since this is where someone who just pressed
+    // the button is looking.
+    const etaEl = document.getElementById("job-eta");
+    if (etaEl) {
+      etaEl.textContent = job.eta_label ? `${job.eta_label} left` : "";
+      etaEl.classList.toggle("hidden", !job.eta_label);
+    }
+
     updateStageTracker(job);
     updateDetailPanel(job);
 
@@ -854,6 +863,141 @@ async function discardSelected(channelKey) {
 }
 
 document.addEventListener("DOMContentLoaded", initGallerySelect);
+
+// ---------------------------------------------------------------------
+// Activity: every video in flight, on one page
+//
+// Deliberately its own renderer rather than a reuse of pollJob() above.
+// That function drives one job through a fixed set of element ids — a
+// heading, a stage tracker, a log — and is the right shape for the page
+// where you just pressed the button and are watching one thing happen.
+// This page's subject is the order: which one is going, what is behind
+// it, and when each will be done. Sharing code between the two would mean
+// parameterising every id in pollJob for a page that wants none of them.
+// ---------------------------------------------------------------------
+
+const ACTIVITY_POLL_MS = 2000;
+
+function activityTimeOfDay(ts) {
+  if (!ts) return "";
+  return new Date(ts * 1000).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+}
+
+function activityRow(job) {
+  const running = job.status === "running";
+  const stageLine = running
+    ? `${job.stage_label || "Starting"} &middot; step ${job.stage || 1} of ${job.stage_total || 5}`
+    : (job.queue_position ? `Waiting &mdash; ${job.queue_position} in the queue` : "Waiting");
+
+  // An indeterminate bar while a stage runs without a percentage of its
+  // own; a real one during the encode, which is the only stage that
+  // reports progress. Better than a fake percentage derived from the
+  // stage number, which would move in five jumps and mean nothing.
+  const pct = job.progress_percent;
+  const fill = !running ? `<div class="job-progress-bar-fill" style="width:0%"></div>`
+    : (pct === null || pct === undefined)
+      ? `<div class="job-progress-bar-fill indeterminate"></div>`
+      : `<div class="job-progress-bar-fill" style="width:${pct}%"></div>`;
+
+  const eta = job.eta_label
+    ? `<span class="activity-eta">${escapeHtml(job.eta_label)} left<span class="activity-eta-at"> &middot; done around ${activityTimeOfDay(job.eta_at)}</span></span>`
+    : "";
+
+  return `
+    <div class="card activity-item${running ? " activity-running" : ""}">
+      <div class="activity-head">
+        <div>
+          <p class="meta">${escapeHtml(job.channel_name)}</p>
+          <h3>${escapeHtml(job.title)}</h3>
+        </div>
+        ${eta}
+      </div>
+      <p class="meta">${stageLine}</p>
+      <div class="job-progress-bar${running ? "" : " job-progress-bar-queued"}">
+        <div class="job-progress-bar-track">${fill}</div>
+      </div>
+      <p class="hint"><a href="/channels/${encodeURIComponent(job.channel_key)}/create">Open ${escapeHtml(job.channel_name)}'s progress view &rarr;</a></p>
+    </div>`;
+}
+
+function activityFinishedRow(job) {
+  if (job.status === "done" && job.result_path_rel) {
+    return `
+      <div class="card activity-item">
+        <p class="meta">${escapeHtml(job.channel_name)} &middot; finished ${activityTimeOfDay(job.finished_at)}</p>
+        <h3>${escapeHtml(job.title)}</h3>
+        <p class="hint"><a href="/channels/${encodeURIComponent(job.channel_key)}/videos/${job.result_path_rel}">Watch it &rarr;</a></p>
+      </div>`;
+  }
+  // A failure that scrolled past in a log is a failure nobody saw. Retry
+  // is offered here because this page is where you find out it happened.
+  return `
+    <div class="card activity-item activity-failed">
+      <p class="meta">${escapeHtml(job.channel_name)} &middot; ${escapeHtml(job.status)} ${activityTimeOfDay(job.finished_at)}</p>
+      <h3>${escapeHtml(job.title)}</h3>
+      <p class="review-flag review-flag-warn">${escapeHtml(job.error || "Something went wrong.")}</p>
+      <button type="button" class="btn-ghost" onclick="activityRetry('${job.id}', this)">Retry</button>
+    </div>`;
+}
+
+async function activityRetry(jobId, button) {
+  await withButtonLoading(button, "Retrying…", async () => {
+    const res = await apiFetch(`/api/jobs/${jobId}/retry`, {method: "POST"});
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't retry that job.");
+      return;
+    }
+    refreshActivity();
+  });
+}
+
+function renderActivity(data) {
+  const list = document.getElementById("activity-list");
+  const empty = document.getElementById("activity-empty");
+  const recentSection = document.getElementById("activity-recent-section");
+  const recent = document.getElementById("activity-recent");
+  if (!list) return;
+
+  list.innerHTML = data.active.map(activityRow).join("");
+  empty.classList.toggle("hidden", data.active.length > 0);
+
+  recent.innerHTML = data.recent.map(activityFinishedRow).join("");
+  recentSection.classList.toggle("hidden", data.recent.length === 0);
+
+  const subtitle = document.getElementById("activity-subtitle");
+  if (subtitle) {
+    const n = data.active.length;
+    const basis = data.samples === 0
+      ? " Times are a first guess until a video finishes."
+      : ` Times are from ${data.samples} finished video${data.samples === 1 ? "" : "s"}.`;
+    subtitle.textContent = n === 0
+      ? "Nothing in flight."
+      : `${n} video${n === 1 ? "" : "s"} in flight. One is made at a time — the rest wait their turn.${basis}`;
+  }
+}
+
+async function refreshActivity() {
+  try {
+    const res = await apiFetch("/api/activity");
+    if (!res.ok) return;
+    renderActivity(await res.json());
+  } catch (err) {
+    // A dropped poll is not worth a message: the next one is two
+    // seconds away and the page still shows the last good state.
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const root = document.getElementById("activity-app");
+  if (!root) return;
+  renderActivity({
+    active: JSON.parse(root.dataset.active),
+    recent: JSON.parse(root.dataset.recent),
+    samples: parseInt(root.dataset.samples || "0", 10),
+  });
+  setInterval(refreshActivity, ACTIVITY_POLL_MS);
+});
 
 // ---------------------------------------------------------------------
 // Review queue

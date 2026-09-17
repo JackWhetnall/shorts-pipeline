@@ -1917,3 +1917,44 @@ button.topic-row.selected:hover {
   padding: var(--sp-3) 0;
   border-bottom: 1px solid var(--border);
 }
+
+/* ---------------------------------------------------------------------
+   Activity: everything in flight, in the order it will happen.
+   One column rather than a grid — the order is the content, and a grid
+   reads as a set of unrelated tiles.
+   --------------------------------------------------------------------- */
+
+.activity-list { display: flex; flex-direction: column; gap: var(--sp-4); }
+.activity-list:not(:empty) { margin-bottom: var(--sp-5); }
+
+.activity-item h3 { margin: 0 0 var(--sp-2); font-size: 1.05rem; }
+.activity-item p.meta { margin: 0 0 var(--sp-2); }
+.activity-item .hint { margin: var(--sp-3) 0 0; }
+
+/* The one that is actually being made, told apart from the queue at a
+   glance rather than by reading each row's status line. */
+.activity-running { border-color: var(--accent-dim); }
+.activity-failed { border-color: var(--danger); }
+
+.activity-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.activity-eta {
+  flex: 0 0 auto;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.activity-eta-at { color: var(--text-faint); }
+
+.global-activity-go { margin-left: auto; color: var(--accent); }
+
+@media (max-width: 600px) {
+  .activity-head { flex-direction: column; }
+  .activity-eta { text-align: left; }
+  .activity-eta-at { display: block; }
+}

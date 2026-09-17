@@ -60,7 +60,9 @@
 
 <div id="job-progress" class="card hidden">
   <h2 id="job-heading">Generating&hellip;</h2>
+  <p id="job-eta" class="meta hidden"></p>
   <p id="job-queue-note" class="meta hidden"></p>
+  <p class="meta"><a href="{{ url_for('jobs.activity') }}">See everything being made &rarr;</a></p>
   <div id="job-banner" class="error hidden">
     <p id="job-banner-message"></p>
     <button id="job-retry-btn" class="btn-ghost hidden" onclick="retryCurrentJob()">Retry</button>

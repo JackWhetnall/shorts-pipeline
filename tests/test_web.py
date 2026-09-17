@@ -70,6 +70,7 @@ class TestPagesRender:
         "/channels/test_channel/logo",
         "/channels/test_channel/delete",
         "/voice-lab",
+        "/activity",
     ])
     def test_renders(self, client, path):
         response = client.get(path)
@@ -511,3 +512,87 @@ class TestDeletingDiscardedVideos:
                             lambda key=None: [{"channel": "deleted_channel",
                                                "discard_reason": "footage"}])
         assert insights.collect()["totals"]["total"] == 0
+
+
+class TestActivityPage:
+    """One page for every video in flight. It exists because the only way
+    to watch a running job was the Create Video page of the channel that
+    owned it, so two at once meant two tabs — and the header's count, the
+    only hint there were two, led to the channels list."""
+
+    @pytest.fixture(autouse=True)
+    def empty_registry(self, monkeypatch):
+        """The job registry is process-global. Tests that put jobs in it
+        must not leak them into each other."""
+        from core import jobs
+
+        monkeypatch.setattr(jobs, "_jobs", {})
+        monkeypatch.setattr(jobs, "_queue", [])
+        return jobs
+
+    def _job(self, registry, job_id, channel="test_channel", status="running", **kw):
+        from core.jobs import Job
+
+        job = Job(id=job_id, channel_key=channel, seed={"type": "topic", "topic": "Coffee"},
+                  status=status, queued_at=1.0, **kw)
+        registry._jobs[job_id] = job
+        if status == "queued":
+            registry._queue.append(job_id)
+        return job
+
+    def test_the_header_banner_leads_here(self, client, empty_registry):
+        self._job(empty_registry, "a")
+        html = client.get("/").get_data(as_text=True)
+        assert 'class="global-activity" href="/activity"' in html
+
+    def test_running_first_then_the_queue_in_its_own_order(self, empty_registry):
+        """A dict keyed by channel has no queue in it; this page's whole
+        subject is the order."""
+        self._job(empty_registry, "second", channel="b", status="queued")
+        self._job(empty_registry, "third", channel="c", status="queued")
+        self._job(empty_registry, "first", status="running")
+        assert [j["id"] for j in empty_registry.active_in_order()] == [
+            "first", "second", "third"]
+
+    def test_every_active_job_appears_with_a_time_estimate(self, client, empty_registry):
+        self._job(empty_registry, "a", status="running", stage=2,
+                  stage_entered={"1": 1.0, "2": 2.0})
+        self._job(empty_registry, "b", channel="test_channel", status="queued")
+
+        data = client.get("/api/activity").get_json()
+        assert [j["id"] for j in data["active"]] == ["a", "b"]
+        assert all(j["eta_label"] for j in data["active"])
+        # Queued waits for the one in front of it, so it is always later.
+        assert data["active"][1]["eta_seconds"] > data["active"][0]["eta_seconds"]
+
+    def test_the_channel_is_named_not_keyed(self, client, empty_registry):
+        self._job(empty_registry, "a")
+        data = client.get("/api/activity").get_json()
+        assert data["active"][0]["channel_name"] == "Test Channel"
+
+    def test_a_failed_job_is_listed_as_recent_with_its_reason(self, client, empty_registry):
+        """A failure that only ever scrolled past in a log is a failure
+        nobody saw."""
+        self._job(empty_registry, "a", status="error", error="ElevenLabs said no.",
+                  finished_at=99.0)
+        data = client.get("/api/activity").get_json()
+        assert data["active"] == []
+        assert data["recent"][0]["error"] == "ElevenLabs said no."
+
+    def test_the_payload_carries_no_log_tail(self, client, empty_registry):
+        """Polled every couple of seconds with up to a dozen jobs on it.
+        The full log has its own place on the per-channel progress view."""
+        self._job(empty_registry, "a")
+        row = client.get("/api/activity").get_json()["active"][0]
+        assert "log" not in row
+
+    def test_a_running_jobs_own_poll_carries_the_estimate_too(self, client, empty_registry):
+        """Same question, asked from the page where you just pressed the
+        button."""
+        self._job(empty_registry, "a", stage=3, stage_entered={"3": 1.0})
+        job = client.get("/api/jobs/a").get_json()
+        assert job["eta_label"]
+
+    def test_a_finished_job_is_not_given_an_estimate(self, client, empty_registry):
+        self._job(empty_registry, "a", status="done", finished_at=5.0)
+        assert client.get("/api/jobs/a").get_json().get("eta_label") is None

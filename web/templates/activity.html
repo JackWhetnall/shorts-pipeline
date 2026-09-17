@@ -1,0 +1,33 @@
+{# Every video in flight, in the order it will actually happen.
+
+   The gallery answers "what have I made"; this answers "what is being
+   made, and when should I come back". Rendered server-side so the page is
+   right the instant it loads, then kept live by the same payload polled
+   from /api/activity - one shape, two entry points, so the two can't
+   drift. #}
+{% extends "base.html" %}
+{% block title %}Activity{% endblock %}
+{% block content %}
+<h1>Activity</h1>
+<p class="subtitle" id="activity-subtitle">
+  One video is made at a time &mdash; the rest wait their turn.
+</p>
+
+<div id="activity-app"
+     data-active="{{ active|tojson|forceescape }}"
+     data-recent="{{ recent|tojson|forceescape }}"
+     data-samples="{{ samples }}"></div>
+
+<div id="activity-empty" class="empty-state {% if active %}hidden{% endif %}">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+  <p><strong>Nothing being made right now.</strong></p>
+  <a class="btn btn-ghost" href="{{ url_for('channels.index') }}">Channels</a>
+</div>
+
+<div id="activity-list" class="activity-list"></div>
+
+<section id="activity-recent-section" class="{% if not recent %}hidden{% endif %}">
+  <h2>Just finished</h2>
+  <div id="activity-recent" class="activity-list"></div>
+</section>
+{% endblock %}

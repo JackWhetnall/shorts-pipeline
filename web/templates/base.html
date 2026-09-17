@@ -22,6 +22,10 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
         Review{% if review_waiting %} <span class="nav-count">{{ review_waiting }}</span>{% endif %}
       </a>
+      <a href="{{ url_for('jobs.activity') }}" class="{% if request.endpoint == 'jobs.activity' %}active{% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Activity{% if active_job_count %} <span class="nav-count">{{ active_job_count }}</span>{% endif %}
+      </a>
       <a href="{{ url_for('review.insights_page') }}" class="{% if request.endpoint == 'review.insights_page' %}active{% endif %}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
         Insights
@@ -37,9 +41,12 @@
     </nav>
   </header>
   {% if active_job_count %}
-  <a class="global-activity" href="{{ url_for('channels.index') }}">
+  {# Went to the channels list, which is neither where the progress is nor
+     where the queue is. #}
+  <a class="global-activity" href="{{ url_for('jobs.activity') }}">
     <span class="spinner"></span>
     {{ active_job_count }} video{{ 's' if active_job_count != 1 }} generating
+    <span class="global-activity-go">See them &rarr;</span>
   </a>
   {% endif %}
   <main>
