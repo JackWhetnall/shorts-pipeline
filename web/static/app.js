@@ -25,7 +25,11 @@ let currentJobId = null;
 // all three can never drift out of sync on what "starting fresh" resets.
 function showJobProgressView() {
   document.getElementById("seed-idle").classList.add("hidden");
-  document.getElementById("seed-preview").classList.add("hidden");
+  // #seed-preview only exists for a channel with no topic table (a quote
+  // channel, or a topic channel with no plan) - a curriculum channel's
+  // preview lives in #topic-preview, inside #seed-idle, already hidden
+  // by the line above.
+  document.getElementById("seed-preview")?.classList.add("hidden");
   document.getElementById("job-progress").classList.remove("hidden");
   seenLogLength = 0;
   document.getElementById("job-log").textContent = "";
