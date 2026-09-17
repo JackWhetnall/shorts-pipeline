@@ -71,6 +71,7 @@ class TestPagesRender:
         "/channels/test_channel/delete",
         "/voice-lab",
         "/activity",
+        "/apis",
     ])
     def test_renders(self, client, path):
         response = client.get(path)

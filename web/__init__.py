@@ -148,7 +148,7 @@ def create_app(debug: bool = False) -> Flask:
 
     from web.blueprints import (
         backgrounds, channels, curriculum, footage, gallery, jobs as jobs_bp,
-        logos, review, setup, style_setup, voice_lab, youtube,
+        logos, review, services, setup, style_setup, voice_lab, youtube,
     )
     app.register_blueprint(backgrounds.bp)
     app.register_blueprint(style_setup.bp)
@@ -159,6 +159,7 @@ def create_app(debug: bool = False) -> Flask:
     app.register_blueprint(footage.bp)
     app.register_blueprint(logos.bp)
     app.register_blueprint(review.bp)
+    app.register_blueprint(services.bp)
     app.register_blueprint(setup.bp)
     app.register_blueprint(voice_lab.bp)
     app.register_blueprint(youtube.bp)

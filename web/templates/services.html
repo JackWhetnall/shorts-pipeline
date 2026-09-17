@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}APIs{% endblock %}
+{% block content %}
+<h1>APIs</h1>
+<p class="subtitle">
+  What this installation is wired up to, what it has spent through each
+  one, and where to go when something needs topping up.
+</p>
+
+{% if missing %}
+<p class="error-banner">
+  Not set up: <strong>{{ missing|join(', ') }}</strong>. Anything that
+  needs one of these will fail part-way through a render rather than
+  before it starts.
+</p>
+{% endif %}
+
+<div class="stat-strip">
+  <div class="stat">
+    <span class="stat-num">{{ format_usd(recent_usd) }}</span>
+    <span class="stat-lab">Last {{ window_days }} days</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">{{ format_usd(total_usd) }}</span>
+    <span class="stat-lab">All time</span>
+  </div>
+</div>
+
+{# Said once, at the top, rather than repeated per row: this page shows
+   spend, not balance, and the difference matters if you came here to find
+   out whether an account is about to run dry. #}
+<p class="hint">
+  These are what <em>this app</em> has spent, from its own log of every
+  billable call. No provider exposes an account balance to an ordinary API
+  key, and a number invented from this log would know nothing about what
+  else is on the account or what was last topped up &mdash; so the balance
+  is behind each link below. Prices last checked {{ prices_checked }}.
+</p>
+
+<table class="voice-table service-table">
+  <thead>
+    <tr>
+      <th>Service</th>
+      <th>Status</th>
+      <th class="num">{{ window_days }}d</th>
+      <th class="num">All time</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in services %}
+    <tr>
+      <td>
+        <strong>{{ row.name }}</strong>
+        <span class="hint">{{ row.what_for }}</span>
+      </td>
+      <td>
+        {% if row.configured %}
+          <span class="service-ok">Set up</span>
+        {% else %}
+          <span class="service-missing">Not set up</span>
+        {% endif %}
+        {% if row.env_var %}<span class="hint"><code>{{ row.env_var }}</code></span>{% endif %}
+      </td>
+      <td class="num">{{ format_usd(row.recent_usd) if row.recent_usd is not none else '—' }}</td>
+      <td class="num">{{ format_usd(row.total_usd) if row.total_usd is not none else '—' }}</td>
+      <td class="actions">
+        <a class="btn-ghost" href="{{ row.dashboard_url }}" target="_blank" rel="noopener">
+          {{ row.dashboard_label }} &nearr;
+        </a>
+        {% if row.docs_url %}
+        <a class="btn-ghost" href="{{ row.docs_url }}" target="_blank" rel="noopener">Keys &nearr;</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p class="hint">
+  A dash means this app never bills through that service &mdash; Pexels and
+  Pixabay are free to use, and the YouTube Data API costs quota rather than
+  money. <a href="{{ url_for('youtube.setup') }}">YouTube upload setup</a>
+  &middot; <a href="{{ url_for('review.insights_page') }}">Where the money goes, per video</a>
+</p>
+{% endblock %}
