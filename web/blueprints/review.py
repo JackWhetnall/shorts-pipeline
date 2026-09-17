@@ -64,6 +64,7 @@ def _queue() -> list:
                 "created_label": format_date(video["mtime"]),
                 "footage_repeated": bool(report.get("footage_repeated")),
                 "footage_degraded": bool(report.get("footage_degraded")),
+                "script_suspect": report.get("script_suspect") or "",
                 "shot_count": report.get("shot_count"),
                 "similarity_flagged": bool(similarity.get("flagged")),
                 "similarity_closest": similarity.get("closest_title"),

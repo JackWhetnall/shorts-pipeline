@@ -175,6 +175,7 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
     gallery.save_report(plan.video_path, {
         "footage_repeated": plan.footage_repeated,
         "footage_degraded": plan.footage_degraded,
+        "script_suspect": plan.script_suspect,
         "shot_count": len(plan.shots),
         "clips": sorted({s.clip_path.name for s in plan.shots if s.clip_path}),
         "similarity": {

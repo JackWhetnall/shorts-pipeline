@@ -35,6 +35,8 @@ segment count is stated in the prompt and verified in code below.
 
 from __future__ import annotations
 
+import re
+
 from core import job_context
 from core.errors import PipelineError
 from core.logging_setup import get_logger
@@ -64,6 +66,72 @@ image — the things a stock footage site would have tagged. "open hands",
 "integrity" or "clarity": nothing in a footage library is tagged with
 those, so they match nothing.
 """.strip()
+
+
+SPOKEN_TEXT_GUIDANCE = """
+Every "text" is spoken aloud word for word by a voice and burned into the
+captions exactly as written. It is the finished line, not a note about
+what the line should be.
+
+So: write the sentence someone will hear. Never write a description of a
+line, a template, a placeholder, or an instruction to yourself. A segment
+reading `A catchy opening line with a "quoted phrase" in the middle of
+it` is a broken video — those are the words that get read out.
+
+Never use square brackets, curly braces or angle brackets. Nothing later
+fills them in; they are read aloud too.
+""".strip()
+
+# --- catching it when the guidance above doesn't hold -----------------
+#
+# A heuristic, and deliberately a narrow one. Spoken narration is
+# unconstrained prose, so anything clever enough to recognise "this
+# describes a line rather than being one" in general would misfire on real
+# writing more often than it caught anything. These three patterns are the
+# shapes an actual failure has taken, each rare enough in genuine
+# narration to be worth acting on:
+
+# Any bracketed slot. Nothing downstream substitutes these, so they are
+# wrong in spoken text however they got there.
+_BRACKETED = re.compile(r"[\[\{<][^\]\}>\n]{1,80}[\]\}>]")
+
+# A structural label the writer left attached: "Hook:", "Segment 2:".
+_LABELLED = re.compile(
+    r"^\s*(?:segment|section|part|step|hook|intro|introduction|opening|"
+    r"outro|closing|line|script|caption)\s*\d*\s*[:—-]\s",
+    re.I)
+
+# A noun phrase naming a piece of text, qualified the way an instruction
+# qualifies it — "A catchy line…", "An engaging hook…". The intervening
+# adjective is what keeps this off ordinary prose: "The line between two
+# things" has none and doesn't match.
+_DESCRIBES_A_LINE = re.compile(
+    r"^\s*(?:a|an|the|your|some)\s+(?:\w+[,\s]+){1,3}"
+    r"(?:line|lines|hook|opener|tagline|one-liner|phrase|sentence|segment|"
+    r"paragraph|caption|voiceover|placeholder|blurb|snippet)\b",
+    re.I)
+
+
+def placeholder_text(segments: list) -> str:
+    """The first segment that reads like a note about a line rather than
+    the line itself, or "" when nothing looks wrong.
+
+    The real defence is `SPOKEN_TEXT_GUIDANCE` in the prompt; this is the
+    net under it. A false positive costs one regenerated script and a
+    review flag, so it is tuned to be quiet rather than exhaustive — it
+    will miss subtler failures, and that is the right trade against
+    flagging honest writing.
+    """
+    for segment in segments:
+        text = getattr(segment, "text", None)
+        if text is None:
+            text = (segment or {}).get("text", "") if isinstance(segment, dict) else ""
+        if not text:
+            continue
+        if (_BRACKETED.search(text) or _LABELLED.match(text)
+                or _DESCRIBES_A_LINE.match(text)):
+            return text
+    return ""
 
 
 def _segment_properties() -> dict:
@@ -173,7 +241,7 @@ def _quote_instructions(count: int, budget: dict) -> str:
         "chunk rather than as a fragment of a longer sentence.\n\n"
         '"quote_shot_brief" and "quote_keywords" describe the footage for the quote '
         "itself; each segment's own fields describe the footage for that segment.\n\n"
-        f"{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}"
+        f"{SPOKEN_TEXT_GUIDANCE}\n\n{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}"
     )
 
 
@@ -188,7 +256,7 @@ def _topic_instructions(count: int, budget: dict) -> str:
         f"short.\n\n"
         "Each segment is spoken on its own, so it must read naturally as a standalone "
         "chunk rather than as a fragment of a longer sentence.\n\n"
-        f"{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}"
+        f"{SPOKEN_TEXT_GUIDANCE}\n\n{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}"
     )
 
 
@@ -301,8 +369,26 @@ def generate_script(seed: Seed, channel) -> Script:
         channel.style_prompt, user_msg, schema,
         operation="script", max_tokens=2500,
     )
-
     generated = [_to_segment(s) for s in data["segments"]]
+
+    # One retry, and only one, when a segment reads like a note about a
+    # line rather than the line itself. A second script call is about a
+    # penny; a video whose opening line is `A catchy line with a "quoted
+    # phrase" in it` is unpublishable, so the trade is not close. Retrying
+    # further would be chasing a prompt problem with money.
+    offender = placeholder_text(generated)
+    if offender:
+        log.warning(f"  [script] a segment described a line instead of writing one "
+                    f"({offender[:80]!r}). Rewriting it once.")
+        data = llm.call_json(
+            channel.style_prompt,
+            f"{user_msg}\n\nA previous attempt returned {offender!r} as a segment's "
+            f"spoken text. That is a description of a line, not a line. Write the "
+            f"actual words this time.",
+            schema, operation="script", max_tokens=2500,
+        )
+        generated = [_to_segment(s) for s in data["segments"]]
+
     _check_count(generated, count)
     if not generated:
         raise PipelineError(
@@ -380,6 +466,16 @@ def run(plan):
         log.info("[1/5] Writing the script...")
         plan.script = generate_script(plan.seed, plan.channel)
     log.info(f"      {len(plan.script.segments)} segment(s).")
+
+    # Checked here rather than only in `generate_script`, because this is
+    # the one place every script passes through however it got here —
+    # freshly written, pre-written on the syllabus, or reloaded from an
+    # interrupted attempt's checkpoint. Flagged, not failed: the words are
+    # already paid for and are right there on the review screen to judge.
+    plan.script_suspect = placeholder_text(plan.script.segments)
+    if plan.script_suspect:
+        log.warning("  [script] a segment reads like a note about a line rather "
+                    "than the line itself. Read this one before publishing.")
 
     try:
         job_context.save_json_checkpoint("script", plan.script.to_jsonable())
@@ -509,7 +605,7 @@ def write_scripts(channel, topic: dict, subtopics: list) -> list:
             f"no repeated examples or phrasing habits — but each one "
             f"complete and correct on its own.\n\n"
             f"{_covered_titles(channel, topic['id'])}"
-            f"{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}",
+            f"{SPOKEN_TEXT_GUIDANCE}\n\n{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}",
             cacheable=True),
     ]
 
@@ -606,7 +702,7 @@ def regenerate_script(channel, topic: dict, subtopic: dict,
             f"channel's syllabus, topic \"{topic['title']}\" — "
             f"{topic.get('summary', '')}.\n\n"
             f"{_sibling_context(siblings)}"
-            f"{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}",
+            f"{SPOKEN_TEXT_GUIDANCE}\n\n{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}",
             cacheable=True),
     ]
     ask = f"Also: {instruction.strip()}\n\n" if instruction.strip() else ""

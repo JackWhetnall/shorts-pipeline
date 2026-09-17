@@ -940,6 +940,9 @@ function renderReview() {
   // The two "looks mass-produced" flags, shown where the decision is
   // made rather than buried in a log.
   const flags = [];
+  if (item.script_suspect) {
+    flags.push(`<p class="review-flag review-flag-warn">A line reads like a note about a line rather than a line: &ldquo;${escapeHtml(item.script_suspect)}&rdquo; &mdash; it is spoken aloud as written.</p>`);
+  }
   if (item.footage_degraded) {
     flags.push(`<p class="review-flag review-flag-warn">Footage was picked without scoring &mdash; the matching step failed. Watch this one closely.</p>`);
   }

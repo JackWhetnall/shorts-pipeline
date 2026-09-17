@@ -236,6 +236,10 @@ class RenderPlan:
     # call failed. The render still completes; the video is flagged so
     # nobody publishes it thinking it had the usual treatment.
     footage_degraded: bool = False
+    # The offending text when a segment reads like a description of a line
+    # rather than a line — see `script_gen.placeholder_text`. Held as the
+    # text itself, not a bool, so the review screen can quote it.
+    script_suspect: str = ""
     # Set by the originality check at the end of a run (see
     # pipeline.similarity). Carried on the plan so the caller can surface
     # it without re-running the comparison.

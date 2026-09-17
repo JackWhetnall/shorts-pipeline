@@ -265,3 +265,96 @@ class TestStoredScript:
                           seed=Seed(type="topic", topic="First", topic_id="t0001"))
         script_gen.run(plan)
         assert plan.script.segments[0].text == "generated fresh"
+
+
+class TestPlaceholderText:
+    """The bug: a generated video's opening line was `A catchy line with a
+    "quoted phrase" in the middle of it` — the model described the line
+    instead of writing it, and the voice read the description out.
+
+    The fix is mostly `SPOKEN_TEXT_GUIDANCE` in the prompt. These tests
+    cover the net under it, which matters at both ends: it has to catch
+    the shapes that actually went wrong, and it has to leave ordinary
+    prose alone, because every false positive costs a paid rewrite.
+    """
+
+    @pytest.mark.parametrize("text", [
+        'A catchy line with a "quoted phrase" in the middle of it',
+        "An engaging opening hook that draws the viewer in",
+        "Hook: so you want to learn to read tea leaves",
+        "Segment 2: next, lay the cloth out flat",
+        "So today we are looking at [topic] and why it matters",
+        "Start with a question about {subject}",
+    ])
+    def test_catches_a_line_that_describes_itself(self, text):
+        assert script_gen.placeholder_text([{"text": text}]) == text
+
+    @pytest.mark.parametrize("text", [
+        "The line between ritual and habit is thinner than you think.",
+        "So, have you ever wondered what a candle is actually doing?",
+        "First, lay the cloth out flat. Next, set the bowl in the middle.",
+        "A quiet morning is the easiest time to try this.",
+        "Some people find that the smell alone settles them.",
+        "The phrase your grandmother used was probably closer to the truth.",
+    ])
+    def test_leaves_ordinary_narration_alone(self, text):
+        assert script_gen.placeholder_text([{"text": text}]) == ""
+
+    def test_reads_segment_objects_as_well_as_dicts(self):
+        from pipeline.plan import Segment
+        good = Segment(text="A quiet morning works well.", shot_brief="", keywords=[])
+        bad = Segment(text="A catchy opening line goes here", shot_brief="", keywords=[])
+        assert script_gen.placeholder_text([good, bad]) == bad.text
+
+    def test_generate_script_rewrites_once_then_takes_what_comes_back(self, monkeypatch):
+        """One retry, not a loop: a second call is cheap, a third is
+        chasing a prompt problem with money."""
+        calls = []
+
+        def fake_call_json(system, user, schema, **kwargs):
+            calls.append(user)
+            text = ("A catchy line with a \"quoted phrase\" in it" if len(calls) == 1
+                    else "So, have you ever tried this before?")
+            return {"segments": [{"text": text, "shot_brief": "b", "keywords": ["k"]}],
+                    "title_options": ["T"], "description_body": "d"}
+
+        monkeypatch.setattr(llm, "call_json", fake_call_json)
+        script = script_gen.generate_script(Seed(type="topic", topic="Tea"), _channel())
+
+        assert len(calls) == 2
+        assert "actual words" in calls[1]
+        assert script.segments[0].text == "So, have you ever tried this before?"
+
+    def test_a_retry_that_fails_again_is_flagged_not_failed(self, isolated, monkeypatch):
+        """The words are already paid for and are on the review screen to
+        judge. Failing the run here would spend money and produce nothing."""
+        monkeypatch.setattr(llm, "call_json", lambda *a, **k: {
+            "segments": [{"text": "A catchy opening line goes here",
+                         "shot_brief": "b", "keywords": ["k"]}],
+            "title_options": ["T"], "description_body": "d"})
+
+        plan = RenderPlan(channel=_channel(), seed=Seed(type="topic", topic="Tea"))
+        script_gen.run(plan)
+        assert plan.script_suspect == "A catchy opening line goes here"
+
+    def test_a_stored_script_is_checked_too(self, isolated, monkeypatch):
+        """`run` is the only point every script passes through, whether it
+        was written now, pre-written on the syllabus, or reloaded from a
+        checkpoint. A pre-written one skips `generate_script` entirely."""
+        from core import curriculum
+
+        curriculum.start("c", "T", [{"title": "B", "summary": "s",
+                                     "level": "foundation", "target_subtopics": 1}])
+        curriculum.add_subtopics("c", "u01", [{"title": "First", "angle": "a"}])
+        curriculum.set_script("c", "t0001", {
+            "citation": None, "title_options": [], "description_body": "",
+            "segments": [{"text": "A catchy line with a \"quoted phrase\" in it",
+                         "shot_brief": "", "keywords": [], "start": 0.0, "end": 0.0}]})
+
+        monkeypatch.setattr(llm, "call_json", lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError("a stored script must not pay for a call")))
+
+        plan = RenderPlan(channel=_channel(),
+                          seed=Seed(type="topic", topic="First", topic_id="t0001"))
+        script_gen.run(plan)
+        assert plan.script_suspect
