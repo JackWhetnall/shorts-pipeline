@@ -108,6 +108,27 @@ class TestSuggestLookRoute:
         assert data["colors"]["highlight_color"] == "#5AC8FA"
         assert data["font_key"] == "segoe_bold"
 
+    def test_every_colour_a_palette_sets_comes_back(self, client, monkeypatch):
+        """The regression this guards: the palette gained title-card
+        colours, `apply_to_style` set them, and this route's response
+        didn't list them — so a suggestion visibly changed the captions
+        and the outro and left the title card alone. Asserting against
+        `apply_to_style` rather than a hardcoded list means the next field
+        added to a palette can't slip through the same gap."""
+        monkeypatch.setattr(style_gen, "call_json", lambda *a, **k: {
+            "palette_key": "ice_blue", "font_key": "segoe_bold", "reason": "x"})
+        response = client.post("/api/channels/c/suggest-look",
+                               headers={"X-CSRF-Token": self._csrf(client)})
+
+        class _Spy:
+            def __setattr__(self, name, value):
+                object.__setattr__(self, name, value)
+
+        spy = _Spy()
+        palettes.apply_to_style(spy, palettes.get("ice_blue"))
+        written = {n for n in vars(spy) if n != "font_face"}
+        assert written <= set(response.get_json()["colors"])
+
     def test_never_writes_to_the_channel(self, client, monkeypatch):
         """Suggesting is not saving. The route must be a pure read."""
         from core.channels import load_channels

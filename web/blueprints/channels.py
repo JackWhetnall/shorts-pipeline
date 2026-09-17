@@ -554,6 +554,13 @@ def suggest_look(key):
             "outro_title_color": palette.outro_title_color,
             "outro_subtext_color": palette.outro_subtext_color,
             "outro_bg_color": ",".join(str(c) for c in palette.outro_bg_color),
+            # The title card is in the palette too. It was left out of this
+            # response when the palette gained the fields, so a suggestion
+            # visibly changed the captions and the outro and left the title
+            # card on whatever it already was.
+            "title_card_title_color": palette.title_card_title_color,
+            "title_card_channel_color": palette.title_card_channel_color,
+            "title_card_bg_color": ",".join(str(c) for c in palette.title_card_bg_color),
         },
     })
 
