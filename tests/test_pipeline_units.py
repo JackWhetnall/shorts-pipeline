@@ -758,6 +758,14 @@ class TestWordBudget:
         from pipeline.script_gen import word_budget
         assert word_budget(self._pacing(15), 8)["per_segment"] >= 12
 
+    def test_a_slower_voice_gets_proportionally_fewer_words(self):
+        """Regression: a channel read at 0.85x with a 60-second target
+        was budgeted as if read at normal speed and came out at 74s."""
+        from pipeline.script_gen import word_budget
+        normal = word_budget(self._pacing(60), 3)["total_words"]
+        slow = word_budget(self._pacing(60), 3, speed=0.85)["total_words"]
+        assert slow == pytest.approx(normal * 0.85, abs=3)
+
     def test_a_quote_longer_than_the_whole_budget_still_yields_segments(self):
         from pipeline.script_gen import word_budget
         budget = word_budget(self._pacing(20), 3, spoken_words=500)
@@ -924,3 +932,63 @@ class TestVoiceContinuity:
         assert tts._billed_characters(SimpleNamespace(headers={}), "x" * 20) == 20
         assert tts._billed_characters(
             SimpleNamespace(headers={"x-character-count": "n/a"}), "x" * 20) == 20
+
+
+class TestDiscardedTakesInScriptHistory:
+    """Regression: a subtopic re-rendered after its first take was
+    discarded was flagged as a 100% copy of itself, because the discarded
+    take's script was still in the history. A take nobody published is
+    not something a new script can be a retread of."""
+
+    TEXT = "Light a candle, sit with the flame, and notice what you are hoping for."
+
+    def _script(self, text):
+        from pipeline.plan import Script, Segment
+        return Script(segments=[Segment(text=text)], citation=None)
+
+    def test_a_discarded_take_is_not_compared_against(self, tmp_path):
+        from pipeline import similarity
+
+        history = tmp_path / "h.json"
+        video = tmp_path / "out" / "take1.mp4"
+        similarity.record("c", "take1", self._script(self.TEXT), path=history, video_path=video)
+        assert similarity.check("c", self._script(self.TEXT), path=history).flagged
+
+        assert similarity.set_discarded("c", video, True, path=history) == 1
+        assert not similarity.check("c", self._script(self.TEXT), path=history).flagged
+
+        # Restoring it puts it back.
+        similarity.set_discarded("c", video, False, path=history)
+        assert similarity.check("c", self._script(self.TEXT), path=history).flagged
+
+    def test_takes_are_told_apart_by_video_not_by_name(self, tmp_path):
+        """A re-render reuses the stem on another day, so marking by name
+        would also hide the live take."""
+        from pipeline import similarity
+
+        history = tmp_path / "h.json"
+        first = tmp_path / "out" / "2026-09-01" / "welcome.mp4"
+        second = tmp_path / "out" / "2026-09-02" / "welcome.mp4"
+        similarity.record("c", "welcome", self._script(self.TEXT), path=history, video_path=first)
+        similarity.record("c", "welcome", self._script(self.TEXT), path=history, video_path=second)
+
+        similarity.set_discarded("c", first, True, path=history)
+        assert similarity.check("c", self._script(self.TEXT), path=history).flagged
+
+    def test_discarding_in_the_gallery_updates_the_history(self, tmp_path, monkeypatch):
+        from core import gallery
+        from pipeline import similarity
+
+        history = tmp_path / "h.json"
+        monkeypatch.setattr("pipeline.similarity.SCRIPT_HISTORY_PATH", history)
+        video = tmp_path / "out" / "take1.mp4"
+        video.parent.mkdir(parents=True)
+        video.write_bytes(b"")
+        similarity.record("c", "take1", self._script(self.TEXT), video_path=video)
+        monkeypatch.setattr(gallery, "_channel_key_for", lambda path: "c")
+        monkeypatch.setattr(gallery, "_sync_curriculum", lambda *a: None)
+
+        gallery.set_discarded(video, True, "script")
+        assert not similarity.check("c", self._script(self.TEXT)).flagged
+        gallery.set_discarded(video, False)
+        assert similarity.check("c", self._script(self.TEXT)).flagged

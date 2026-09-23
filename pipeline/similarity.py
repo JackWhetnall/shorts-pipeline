@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.logging_setup import get_logger
-from core.paths import SCRIPT_HISTORY_PATH
+from core.paths import PROJECT_ROOT, SCRIPT_HISTORY_PATH
 
 log = get_logger(__name__)
 
@@ -160,9 +160,21 @@ def _save(history: dict, path: Path = None) -> None:
         log.warning("  [similarity] couldn't write script history.")
 
 
+def _live(entries: list) -> list:
+    """History entries still worth comparing against.
+
+    A discarded take was never published, so a new script resembling it
+    is not a retread of anything an audience has seen. Counting it did
+    worse than nothing: re-rendering a subtopic after discarding its
+    first take compared the script against itself and flagged it as a
+    100% copy.
+    """
+    return [e for e in entries if not e.get("discarded")]
+
+
 def check(channel_key: str, script, path: Path = None) -> SimilarityReport:
     """Compare against this channel's earlier scripts. Read-only."""
-    history = _load(path).get(channel_key, [])
+    history = _live(_load(path).get(channel_key, []))
     words = _words(script_text(script))
     report = SimilarityReport(compared_against=len(history))
     if not words or not history:
@@ -209,7 +221,8 @@ def cross_channel_report(path: Path = None) -> list:
     Returns one entry per channel pair, most similar first.
     """
     history = _load(path)
-    channels = {key: entries for key, entries in history.items() if entries}
+    channels = {key: _live(entries) for key, entries in history.items()}
+    channels = {key: entries for key, entries in channels.items() if entries}
     if len(channels) < 2:
         return []
 
@@ -235,7 +248,19 @@ def cross_channel_report(path: Path = None) -> list:
     return out
 
 
-def record(channel_key: str, title: str, script, path: Path = None) -> None:
+def video_id(video_path) -> str:
+    """How a history entry names its video: the path relative to the
+    project, or absolute for an output directory outside it. The stem
+    alone isn't unique - a re-rendered subtopic reuses it on another day."""
+    video_path = Path(video_path).resolve()
+    try:
+        return video_path.relative_to(PROJECT_ROOT.resolve()).as_posix()
+    except ValueError:
+        return video_path.as_posix()
+
+
+def record(channel_key: str, title: str, script, path: Path = None,
+           video_path=None) -> None:
     """Add a script to the history, oldest entries dropped past the
     limit. Called after a successful render, so a failed attempt doesn't
     leave a phantom entry that later scripts get compared against."""
@@ -245,6 +270,23 @@ def record(channel_key: str, title: str, script, path: Path = None) -> None:
         "title": title,
         "at": datetime.now(timezone.utc).isoformat(),
         "text": script_text(script),
+        "video": video_id(video_path) if video_path else "",
     })
     history[channel_key] = entries[-HISTORY_LIMIT:]
     _save(history, path)
+
+
+def set_discarded(channel_key: str, video_path, discarded: bool, path: Path = None) -> int:
+    """Mark a video's history entry discarded, or clear the mark when it's
+    restored. Returns how many entries changed; entries recorded before
+    they carried a video id can't be matched and are left alone."""
+    history = _load(path)
+    target = video_id(video_path)
+    changed = 0
+    for entry in history.get(channel_key, []):
+        if entry.get("video") == target and bool(entry.get("discarded")) != bool(discarded):
+            entry["discarded"] = bool(discarded)
+            changed += 1
+    if changed:
+        _save(history, path)
+    return changed

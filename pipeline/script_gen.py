@@ -205,7 +205,7 @@ QUOTE_SCHEMA_EXTRA = {
 WORDS_PER_SECOND = 2.5
 
 
-def word_budget(pacing, count: int, spoken_words: int = 0) -> dict:
+def word_budget(pacing, count: int, spoken_words: int = 0, speed: float = 1.0) -> dict:
     """How many words this video's segments should come to.
 
     `spoken_words` is text that will be read but is not ours to write —
@@ -215,8 +215,13 @@ def word_budget(pacing, count: int, spoken_words: int = 0) -> dict:
 
     Floors at 12 words a segment: below that the model writes captions
     rather than sentences, and the result is not worth rendering.
+
+    `speed` is the channel's voice speed. The 2.5 words a second was
+    measured at normal speed, so a channel read at 0.85 fits proportionally
+    fewer words in the same time. Ignoring it is how a 60-second target
+    produced a 74-second video.
     """
-    total = max(0, int(pacing.target_seconds * WORDS_PER_SECOND) - spoken_words)
+    total = max(0, int(pacing.target_seconds * WORDS_PER_SECOND * speed) - spoken_words)
     per_segment = max(12, total // max(1, count))
     return {
         "total_words": per_segment * count,
@@ -350,13 +355,13 @@ def generate_script(seed: Seed, channel, avoid: str = "") -> Script:
         # first, so a 60-word verse and a 12-word one leave the analysis
         # the right amount of room rather than the same amount.
         budget = word_budget(channel.pacing, count,
-                             spoken_words=len(seed.text.split()))
+                             spoken_words=len(seed.text.split()), speed=channel.speed)
         schema = _segments_schema(extra=QUOTE_SCHEMA_EXTRA)
         user_msg = (f'Quote: "{seed.text}"\n'
                     f"Reference: {seed.reference}\n\n"
                     f"{_quote_instructions(count, budget)}")
     elif seed.type == "topic":
-        budget = word_budget(channel.pacing, count)
+        budget = word_budget(channel.pacing, count, speed=channel.speed)
         schema = _segments_schema()
         user_msg = (f'Topic: "{seed.topic}"\n\n'
                     f"{_continuity(channel, seed)}"
@@ -640,7 +645,7 @@ def write_scripts(channel, topic: dict, subtopics: list) -> list:
     fewer than asked, exactly like every other generator here.
     """
     count = channel.pacing.segment_count
-    budget = word_budget(channel.pacing, count)
+    budget = word_budget(channel.pacing, count, speed=channel.speed)
 
     system = [
         llm.SystemBlock(channel.style_prompt, cacheable=True),
@@ -742,7 +747,7 @@ def regenerate_script(channel, topic: dict, subtopic: dict,
     retry, the same request with a fresh roll.
     """
     count = channel.pacing.segment_count
-    budget = word_budget(channel.pacing, count)
+    budget = word_budget(channel.pacing, count, speed=channel.speed)
 
     system = [
         llm.SystemBlock(channel.style_prompt, cacheable=True),

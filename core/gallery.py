@@ -161,20 +161,41 @@ def _sync_curriculum(video_path: Path, action: str) -> None:
     """
     try:
         from core import curriculum
-        from core.channels import load_channels
 
-        video_path = Path(video_path)
-        for key, channel in load_channels(validate=False).items():
-            directory = resolve_output_dir(channel.output_dir)
-            if directory not in video_path.parents:
-                continue
-            if action == "published":
-                curriculum.mark_published(key, video_path.stem)
-            else:
-                curriculum.release(key, video_path.stem)
+        key = _channel_key_for(video_path)
+        if key is None:
             return
+        if action == "published":
+            curriculum.mark_published(key, Path(video_path).stem)
+        else:
+            curriculum.release(key, Path(video_path).stem)
     except Exception:  # noqa: BLE001 - never blocks the decision itself
         log.debug("Could not update the curriculum for %s", video_path, exc_info=True)
+
+
+def _channel_key_for(video_path: Path):
+    """Which channel's output directory a video lives in, or None."""
+    from core.channels import load_channels
+
+    video_path = Path(video_path)
+    for key, channel in load_channels(validate=False).items():
+        if resolve_output_dir(channel.output_dir) in video_path.parents:
+            return key
+    return None
+
+
+def _sync_script_history(video_path: Path, discarded: bool) -> None:
+    """Keep a discarded take out of the originality comparison, and put a
+    restored one back. Best-effort for the same reason as the curriculum
+    sync: the decision has already been made, and this is bookkeeping."""
+    try:
+        from pipeline import similarity
+
+        key = _channel_key_for(video_path)
+        if key is not None:
+            similarity.set_discarded(key, video_path, discarded)
+    except Exception:  # noqa: BLE001 - never blocks the decision itself
+        log.debug("Could not update script history for %s", video_path, exc_info=True)
 
 
 def set_discarded(video_path: Path, discarded: bool, reason: str = None) -> None:
@@ -203,6 +224,7 @@ def set_discarded(video_path: Path, discarded: bool, reason: str = None) -> None
     # A discarded take is not a topic that has been covered, so its topic
     # goes back in the queue rather than leaving a hole in the syllabus.
     _sync_curriculum(video_path, "released" if discarded else "published")
+    _sync_script_history(video_path, bool(discarded))
 
     now_footage_reject = bool(discarded) and info["discard_reason"] == "footage"
     if now_footage_reject and not was_footage_reject:
