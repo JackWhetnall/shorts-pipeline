@@ -74,6 +74,13 @@ class SimilarityReport:
     closest_title: str = None
     flagged: bool = False
     compared_against: int = 0
+    # The closest earlier script's own words, so a rewrite can be told
+    # what to steer away from rather than just that it's too close.
+    closest_text: str = ""
+    # How far past the nearer threshold the closest script is: 1.0 is
+    # exactly at the flag line. One number, so two candidate scripts can
+    # be compared to see which is more original.
+    exceedance: float = 0.0
 
     @property
     def summary(self) -> str:
@@ -178,7 +185,9 @@ def check(channel_key: str, script, path: Path = None) -> SimilarityReport:
         if exceedance > best_exceedance:
             best_exceedance = exceedance
             report.closest_title = entry.get("title")
+            report.closest_text = entry.get("text", "")
 
+    report.exceedance = max(best_exceedance, 0.0)
     report.flagged = (report.max_trigram >= TRIGRAM_THRESHOLD
                       or report.max_cosine >= COSINE_THRESHOLD)
     return report

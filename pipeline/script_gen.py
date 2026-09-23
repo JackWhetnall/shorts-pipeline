@@ -40,7 +40,7 @@ import re
 from core import job_context
 from core.errors import PipelineError
 from core.logging_setup import get_logger
-from pipeline import llm
+from pipeline import llm, similarity
 from pipeline.plan import Script, Seed, Segment
 
 log = get_logger(__name__)
@@ -333,12 +333,14 @@ def _to_segment(raw: dict) -> Segment:
     )
 
 
-def generate_script(seed: Seed, channel) -> Script:
+def generate_script(seed: Seed, channel, avoid: str = "") -> Script:
     """Seed plus channel config in, Script out.
 
     Takes the whole channel rather than an unpacked style prompt and
     pacing dict, so adding a channel-level knob that affects script
-    generation doesn't change this signature.
+    generation doesn't change this signature. `avoid`, when given, is
+    appended to the request: the originality gate uses it to say what an
+    earlier script already said.
     """
     count = channel.pacing.segment_count
 
@@ -364,6 +366,8 @@ def generate_script(seed: Seed, channel) -> Script:
             f"unknown seed type {seed.type!r}",
             user_message="This channel produced a seed the pipeline doesn't recognise.",
         )
+    if avoid:
+        user_msg = f"{user_msg}\n\n{avoid}"
 
     data = llm.call_json(
         channel.style_prompt, user_msg, schema,
@@ -465,6 +469,7 @@ def run(plan):
     else:
         log.info("[1/5] Writing the script...")
         plan.script = generate_script(plan.seed, plan.channel)
+    _originality_gate(plan, rewritable=stored is None)
     log.info(f"      {len(plan.script.segments)} segment(s).")
 
     # Checked here rather than only in `generate_script`, because this is
@@ -482,6 +487,50 @@ def run(plan):
     except Exception:  # noqa: BLE001 - checkpointing is best-effort
         pass
     return plan
+
+
+# How much of the earlier script a rewrite is shown. Enough to recognise
+# its phrasing and structure; not so much that the request doubles.
+AVOID_EXCERPT_CHARS = 1200
+
+
+def _avoid_note(report) -> str:
+    excerpt = (report.closest_text or "")[:AVOID_EXCERPT_CHARS]
+    return (f'This channel has already published a script that reads very much like '
+            f'your first attempt ("{report.closest_title}"). It said:\n\n'
+            f'"""{excerpt}"""\n\n'
+            f"Write something genuinely different from it: a different opening, a "
+            f"different angle or example, different phrasing throughout. Do not reuse "
+            f"its sentences or its structure.")
+
+
+def _originality_gate(plan, rewritable: bool) -> None:
+    """Check the script against this channel's history before anything
+    is spent on voicing it, and rewrite it once if it's a retread.
+
+    This used to run after the render, which meant a flagged script had
+    already paid for its voiceover, its footage and its encode, and the
+    flag only reached the review screen. Here it costs one more script
+    call, about a cent, and the voice quota is spent on the better of the
+    two. The better one is kept, not the second one regardless: a rewrite
+    can land closer to some other earlier script.
+
+    A pre-written studio script is only checked, never rewritten, because
+    it may carry hand edits. See decision 026.
+    """
+    report = similarity.check(plan.channel.key, plan.script)
+    if report.flagged and rewritable:
+        log.warning(f"  [similarity] {report.summary} Rewriting it once before "
+                    f"it's voiced.")
+        rewrite = generate_script(plan.seed, plan.channel, avoid=_avoid_note(report))
+        second = similarity.check(plan.channel.key, rewrite)
+        if second.exceedance < report.exceedance:
+            plan.script, report = rewrite, second
+        if report.flagged:
+            log.warning(f"  [similarity] still close after one rewrite: {report.summary}")
+    elif report.flagged:
+        log.warning(f"  [similarity] {report.summary}")
+    plan.similarity = report
 
 
 # --- batch script generation: a topic's videos, written together ------

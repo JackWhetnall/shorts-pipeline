@@ -358,3 +358,90 @@ class TestPlaceholderText:
                           seed=Seed(type="topic", topic="First", topic_id="t0001"))
         script_gen.run(plan)
         assert plan.script_suspect
+
+
+class TestOriginalityGate:
+    """The check used to run after the render: a retread of an earlier
+    script had already paid for its voiceover, footage and encode before
+    anyone was told. Now it gates the voiceover, and rewrites once."""
+
+    EARLIER = ("The shepherd walks ahead of the flock through the dark valley, "
+               "and the sheep follow the sound of his voice without seeing the path.")
+
+    def _history(self):
+        from pipeline import similarity
+        from pipeline.plan import Script, Segment
+        similarity.record("c", "Earlier video", Script(
+            segments=[Segment(text=self.EARLIER)], citation=None))
+
+    def _payload(self, text):
+        return {"segments": [{"text": text, "shot_brief": "b", "keywords": ["k"]}],
+                "title_options": ["T"], "description_body": "d"}
+
+    def _plan(self):
+        return RenderPlan(channel=_channel(), seed=Seed(type="topic", topic="Shepherds"))
+
+    def test_a_retread_is_rewritten_once_with_the_earlier_text_to_avoid(self, monkeypatch):
+        self._history()
+        calls = []
+
+        def fake(system, user, schema, **kwargs):
+            calls.append(user)
+            if len(calls) == 1:
+                return self._payload(self.EARLIER)
+            return self._payload("Bread rises overnight in a cold kitchen while the baker sleeps.")
+
+        monkeypatch.setattr(llm, "call_json", fake)
+        plan = self._plan()
+        script_gen.run(plan)
+
+        assert len(calls) == 2
+        assert "Earlier video" in calls[1] and "shepherd walks ahead" in calls[1]
+        assert plan.script.segments[0].text.startswith("Bread rises")
+        assert not plan.similarity.flagged
+
+    def test_a_rewrite_that_is_no_better_is_not_kept(self, monkeypatch):
+        self._history()
+        first = self.EARLIER + " Hope."
+        responses = iter([self._payload(first), self._payload(self.EARLIER)])
+        monkeypatch.setattr(llm, "call_json", lambda *a, **k: next(responses))
+        plan = self._plan()
+        script_gen.run(plan)
+
+        assert plan.script.segments[0].text == first
+        assert plan.similarity.flagged
+
+    def test_an_original_script_costs_no_extra_call(self, monkeypatch):
+        self._history()
+        calls = []
+
+        def fake(*a, **k):
+            calls.append(1)
+            return self._payload("Bread rises overnight in a cold kitchen while the baker sleeps.")
+
+        monkeypatch.setattr(llm, "call_json", fake)
+        plan = self._plan()
+        script_gen.run(plan)
+        assert len(calls) == 1
+        assert not plan.similarity.flagged
+
+    def test_a_stored_studio_script_is_flagged_but_never_rewritten(self, isolated, monkeypatch):
+        from core import curriculum
+
+        self._history()
+        curriculum.start("c", "T", [{"title": "B", "summary": "s",
+                                     "level": "foundation", "target_subtopics": 1}])
+        curriculum.add_subtopics("c", "u01", [{"title": "First", "angle": "a"}])
+        curriculum.set_script("c", "t0001", {
+            "citation": None, "title_options": ["T"], "description_body": "d",
+            "segments": [{"text": self.EARLIER, "shot_brief": "b", "keywords": ["k"]}]})
+
+        def explode(*a, **k):
+            raise AssertionError("a stored script may carry hand edits; never rewrite it")
+        monkeypatch.setattr(llm, "call_json", explode)
+
+        plan = RenderPlan(channel=_channel(),
+                          seed=Seed(type="topic", topic="First", topic_id="t0001"))
+        script_gen.run(plan)
+        assert plan.similarity.flagged
+        assert plan.script.segments[0].text == self.EARLIER

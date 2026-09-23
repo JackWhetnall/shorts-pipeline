@@ -136,3 +136,30 @@ class TestEveryServiceIsUsable:
         written = {r["service"] for r in costs.read_records()}
         for service in services.SERVICES:
             assert set(service.cost_services) <= written
+
+
+def test_video_cost_is_keyed_by_job_not_by_time_window(cost_log):
+    """Regression: a video's cost was everything its channel spent while
+    it rendered, so a script preview clicked mid-render was billed to the
+    video, and an interrupted first attempt's spend (same job id on
+    retry) was left out."""
+    from core import job_context
+    from pipeline import run
+
+    started = time.time() - 60
+    rows = [
+        {**_record("claude", 0.05), "job_id": "job1", "channel_key": "chan",
+         "ts": started - 3600},                                   # first attempt
+        {**_record("claude", 0.10), "job_id": "job1", "channel_key": "chan"},
+        {**_record("claude", 0.99), "job_id": None, "channel_key": "chan"},  # UI preview
+    ]
+    _write(cost_log, rows)
+
+    token = job_context.set_job_id("job1")
+    try:
+        assert run._video_cost(started, "chan")["total_usd"] == pytest.approx(0.15)
+    finally:
+        job_context._current_job_id.reset(token)
+
+    # Without a job (a CLI run) it falls back to the channel's window.
+    assert run._video_cost(started, "chan")["total_usd"] == pytest.approx(1.09)

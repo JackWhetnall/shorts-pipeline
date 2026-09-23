@@ -138,6 +138,21 @@ def _prepare_output(plan: RenderPlan) -> RenderPlan:
     return plan
 
 
+def _video_cost(started_at: float, channel_key: str) -> dict:
+    """What this video cost.
+
+    By job id when there is one. A time window also caught anything the
+    UI spent on the same channel meanwhile (a script preview, style
+    candidates), and missed an interrupted first attempt's spend, which a
+    retry reuses the id of and is genuinely part of this video's cost. A
+    plain CLI run has no job, so it falls back to the window.
+    """
+    job_id = job_context.get_job_id()
+    if job_id:
+        return costs.summary_for_job(job_id)
+    return costs.summary_between(started_at, time.time(), channel_key)
+
+
 def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
     """Metadata, description, the originality check, and the cost record."""
     job_context.report_stage(5)
@@ -153,7 +168,10 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
         except Exception:  # noqa: BLE001 - bookkeeping never fails a finished video
             log.exception("Could not link this video to its curriculum topic")
 
-    report = similarity.check(plan.channel.key, plan.script)
+    # Checked (and, if needed, rewritten) before the voiceover by the
+    # script stage. A resumed job that reloaded its script from a
+    # checkpoint skipped that, so it's checked here instead.
+    report = plan.similarity or similarity.check(plan.channel.key, plan.script)
     if report.flagged:
         log.warning(f"  [similarity] {report.summary}")
     similarity.record(plan.channel.key, plan.stem, plan.script)
@@ -190,7 +208,7 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
     # What this specific video cost, saved beside it. A per-video number
     # at the moment you're looking at the video is what makes an
     # expensive step visible; a monthly invoice never is.
-    summary = costs.summary_between(started_at, time.time(), plan.channel.key)
+    summary = _video_cost(started_at, plan.channel.key)
     gallery.save_cost_summary(plan.video_path, summary)
     log.info(f"      Cost: {costs.format_usd(summary['total_usd'])} "
              f"across {summary['calls']} API call(s).")
