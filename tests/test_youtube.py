@@ -86,7 +86,19 @@ class TestCredentials:
 class TestTokens:
     def test_unknown_channel_is_simply_not_connected(self, isolated):
         assert youtube.connection("nobody") == {
-            "connected": False, "account": "", "connected_at": ""}
+            "connected": False, "account": "", "connected_at": "", "stats": False}
+
+    def test_statistics_need_both_read_scopes_actually_granted(self, isolated):
+        """A token from before the statistics scopes existed has no scope
+        record; one where a person unticked a scope has a partial one."""
+        youtube.save_tokens("old", {"refresh_token": "r"})
+        youtube.save_tokens("partial", {"refresh_token": "r",
+                                        "scope": f"{youtube.UPLOAD_SCOPE} {youtube.READ_SCOPE}"})
+        youtube.save_tokens("full", {"refresh_token": "r", "scope": " ".join(youtube.SCOPES)})
+        old = youtube.connection("old")
+        assert old["connected"] and not old["stats"]
+        assert not youtube.connection("partial")["stats"]
+        assert youtube.connection("full")["stats"]
 
     def test_damaged_token_file_reads_as_disconnected(self, isolated):
         youtube.TOKENS_DIR.mkdir(parents=True, exist_ok=True)

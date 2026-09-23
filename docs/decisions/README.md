@@ -40,3 +40,5 @@ reason for a change stays true forever.
 | [025](025-voice-quota.md) | The voice allowance is the limit, so read it | Active |
 | [026](026-originality-gate.md) | Check originality before the voiceover, and rewrite once | Active |
 | [027](027-no-cache-on-footage-match.md) | The footage-match cache never hit | Reverses 007's caching |
+| [028](028-publishing-without-review.md) | Publishing without a person, behind a gate | Active |
+| [029](029-audience-numbers.md) | Reading back what viewers do | Active |

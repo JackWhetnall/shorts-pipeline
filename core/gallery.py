@@ -300,6 +300,25 @@ def load_report(video_path: Path):
         return None
 
 
+def save_stats(video_path: Path, stats: dict) -> None:
+    """How a published video is doing with viewers (core.audience).
+    Overwritten on each refresh: only the latest snapshot is kept, which is
+    also what YouTube's API policies ask of stored statistics."""
+    with open(_sidecar(video_path, "stats.json"), "w", encoding="utf-8") as f:
+        json.dump(stats, f, indent=2)
+
+
+def load_stats(video_path: Path):
+    path = _sidecar(video_path, "stats.json")
+    if not path.exists():
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 # --- thumbnails -------------------------------------------------------
 
 def get_or_create_thumbnail(video_path: Path) -> Path:
@@ -397,6 +416,7 @@ def list_videos(output_dir: str) -> list:
             "discarded": links["discarded"],
             "cost": load_cost_summary(path),
             "report": load_report(path),
+            "stats": load_stats(path),
             "title": links["title"] or video_title(path.name),
             "description": links["description"],
         })
@@ -423,7 +443,7 @@ def list_videos(output_dir: str) -> list:
 # `john_3_1` would sweep up `john_3_16`'s files.
 SIDECAR_SUFFIXES = (
     "audio.mp3", "meta.txt", "description.txt", "publish.json",
-    "thumb.jpg", "cost.json", "report.json",
+    "thumb.jpg", "cost.json", "report.json", "stats.json",
 )
 
 

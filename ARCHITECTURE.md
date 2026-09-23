@@ -50,9 +50,15 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   services      Which external APIs are configured, what each has cost, and
                 where its billing page is. Spend, never a balance — see the
                 module docstring for why that distinction is load-bearing.
-  insights      Aggregate quality and spend — the improvement loop.
+  insights      Aggregate quality, spend and audience — the improvement loop.
+  audience      Views and retention for published videos, read back from
+                YouTube twice a day — see decision 029.
   scheduler     Recurring generation.
   youtube       OAuth and resumable upload to YouTube.
+  publish_gate  Whether a finished video could go out without a person:
+                one pure function over its render report.
+  autopilot     Uploads a video that passed the gate, on a channel that
+                publishes itself; otherwise records why it's waiting.
   curriculum    A channel's ordered syllabus of topics, and where it has got to.
   ordering      Which pending subtopic "make the next video" offers next,
                 per a channel's Ordering settings — see decision 024.
@@ -80,6 +86,7 @@ pipeline/     The generation stages. No web dependency at all.
   tts           Script -> narration + word timings + real segment spans.
   assemble      Footage + narration + captions -> the video file.
   description   The paste-ready description and the meta sidecar.
+  editor_check  The automatic script and picture checks run on every video.
   similarity    Originality checking against the channel's own history.
   audio         Sample-level audio helpers.
   run           The stage sequence.
@@ -121,7 +128,8 @@ frequencies:
   here is a video, not a channel, so the queue is not channel-scoped and
   its actions address videos by path alone.
 - **Working out why the output is not good enough** (continuous) —
-  `/insights` and `/footage`. Discard reasons, render quality, cost per
+  `/insights` and `/footage`. How published videos are doing with
+  viewers (views, % viewed), discard reasons, render quality, cost per
   *published* video, and a browsable library. This loop did not exist,
   which is why the footage matching problem survived for months with no
   way to see it.
@@ -143,7 +151,9 @@ tts.run(plan)                -> plan.voiceover, and each Segment's real start/en
                                  (refused up front if the voice quota
                                  can't cover it)
 assemble.run(plan)           -> plan.shots, the video file
-_finish(plan)                -> meta, description, script history, cost, render report
+_finish(plan)                -> meta, description, script history, cost, render
+                                 report, the script and picture checks, and
+                                 the publish gate's verdict
 ```
 
 Each segment carries a **shot brief** — a literal, filmable sentence
@@ -337,6 +347,16 @@ whatever privacy is requested. `upload()` therefore returns the privacy
 that was granted as well as the one asked for, and the UI says when they
 differ. See decision [017](docs/decisions/017-youtube-upload.md).
 
+Publishing can also happen without a person. Every video gets two
+automatic checks (script, and six frames of the finished picture) and a
+verdict from `core.publish_gate`, which holds it for any pipeline flag,
+any blocking problem either check reports, or any check that couldn't
+run. On a channel set to publish itself, `core.autopilot` uploads a video
+that passed, holds one clean video in every N as a spot check, and
+otherwise writes why it's waiting into the report for the review queue.
+The verdict is shown on every channel, whether it publishes itself or
+not. See decision [028](docs/decisions/028-publishing-without-review.md).
+
 ## Costs
 
 Every billable call appends a record to `config/cost_log.jsonl`. Each
@@ -385,6 +405,8 @@ for, so:
 | One channel's output directory | Skipped; the review queue still lists every other channel |
 | The footage database | The home page still loads and says the library is unreadable |
 | Reading the ElevenLabs quota | Treated as unknown; nothing is refused on a number that couldn't be read |
+| An automatic script or picture check | Recorded as not run; the gate holds the video for a person |
+| An automatic upload | The video waits in review with the reason; it is not marked published |
 
 Anything that degrades sets a flag carried into the render report, the
 job warnings and the review queue, so a degraded video is never published

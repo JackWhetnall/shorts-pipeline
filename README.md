@@ -78,9 +78,12 @@ description, and the two "looks mass-produced" flags — whether footage
 had to repeat, and whether the wording is drifting toward an earlier
 script.
 
-**`/insights`** answers "how is this going": discard rate, *why* videos
-get discarded, render-quality rates, and cost per published video as
-opposed to cost per video made. The gap between those two is what
+**`/insights`** answers "how is this going". It starts with the audience:
+views, the average percentage of each video people watched, and
+subscribers gained, read back from YouTube twice a day for videos
+published through a connected channel. It also shows discard rate, *why*
+videos get discarded, render-quality rates, and cost per published video
+as opposed to cost per video made. The gap between those two is what
 discarding actually costs you.
 
 **`/footage`** is the library as a browsable grid — search it with the
@@ -227,12 +230,35 @@ queue gains an **Upload to YouTube** button that sends the file, the
 title you just edited, the description and the tags, and records the
 resulting link as the publish.
 
+Connecting also grants read-only access to the channel's statistics,
+which is what fills the audience numbers on `/insights`. For retention,
+also enable the **YouTube Analytics API** in the same Cloud project;
+without it you still get views. A channel connected before this existed
+needs reconnecting once; `/insights` says which.
+
 One thing to know before relying on it: Google restricts uploads from API
 projects that have not passed a compliance audit to **private**, whatever
 privacy you ask for. Until yours is audited this replaces the whole
 manual upload with one switch in Studio, rather than removing it
 entirely. The setup page says so, and the app tells you at the moment it
 happens rather than leaving you to find a private video days later.
+
+### Publishing automatically
+
+Every video now gets two quick automatic checks as it finishes. One reads
+the script against the channel's own style prompt, for wrong facts,
+advice stated as fact, broken rules and leftover notes. The other looks
+at six frames of the finished video, for pictures that contradict the
+line, imagery the channel avoids, technical faults and unreadable
+captions. Together they cost under a cent. The review queue shows what
+they found, and whether the video "could have published itself".
+
+Settings → Publishing → **Publish automatically** turns that into action
+for one channel: a video that passes everything uploads on its own, and
+one that doesn't waits in review with the reason. One clean video in
+every five (adjustable) still waits anyway, as a spot check on the checks
+themselves. It's off by default. Leave it off until the review queue has
+shown you a week or two of verdicts you agree with.
 
 TikTok and Instagram are not built. Both need a reviewed developer app
 rather than just credentials, which is a different order of effort and

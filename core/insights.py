@@ -62,6 +62,7 @@ def collect(channel_keys=None) -> dict:
         "quality": _quality(videos),
         "spend": _spend(videos),
         "recent": _recent(videos, limit=30),
+        "audience": _audience(videos),
         "by_channel": _by_channel(videos, channels),
         "video_count": len(videos),
         "purged_count": len(purged),
@@ -170,6 +171,49 @@ def _spend(videos: list) -> dict:
         "per_published_usd": (all_time["total_usd"] / len(published)) if published else 0.0,
         "published_count": len(published),
         "all_time": all_time,
+    }
+
+
+def _audience(videos: list, limit: int = 30) -> dict:
+    """How published videos are doing with viewers (core.audience).
+
+    Medians rather than means: one video that happens to take off would
+    otherwise say more about luck than about the channel. Percentage
+    viewed is the one to watch for short-form; views follow it.
+    """
+    measured = [v for v in videos if v["published"] and v.get("stats")]
+    rows = []
+    for video in sorted(measured, key=lambda v: v["links"].get("published_at") or "",
+                        reverse=True)[:limit]:
+        stats = video["stats"]
+        rows.append({
+            "name": video["title"],
+            "channel": video["channel_name"],
+            "channel_key": video["channel_key"],
+            "relpath": video["relpath"],
+            "published_at": (video["links"].get("published_at") or "")[:10],
+            "url": video["links"].get("youtube_url"),
+            "views": stats.get("views"),
+            "likes": stats.get("likes"),
+            "avg_view_percent": stats.get("avg_view_percent"),
+            "avg_view_seconds": stats.get("avg_view_seconds"),
+            "subscribers_gained": stats.get("subscribers_gained"),
+        })
+
+    def median(field):
+        values = sorted(v["stats"][field] for v in measured
+                        if isinstance(v["stats"].get(field), (int, float)))
+        if not values:
+            return None
+        middle = len(values) // 2
+        return values[middle] if len(values) % 2 else (values[middle - 1] + values[middle]) / 2
+
+    return {
+        "measured": len(measured),
+        "published": sum(1 for v in videos if v["published"]),
+        "median_views": median("views"),
+        "median_view_percent": median("avg_view_percent"),
+        "rows": rows,
     }
 
 

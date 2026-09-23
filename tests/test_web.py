@@ -720,3 +720,26 @@ class TestSeedHistoryIgnoresDiscardedTakes:
         response = client.post("/api/channels/test_channel/seed", json={},
                                headers={"X-CSRF-Token": csrf(client)})
         assert response.get_json()["history"]["count"] == 1
+
+
+class TestAudienceCard:
+    def test_published_numbers_and_a_reconnect_prompt_are_shown(self, client, tmp_path, monkeypatch):
+        from core import gallery, youtube
+
+        monkeypatch.setattr("core.gallery.OUTPUT_DIR", tmp_path / "out")
+        monkeypatch.setattr("core.gallery._sync_curriculum", lambda *a: None)
+        monkeypatch.setattr("core.audience.STATUS_PATH", tmp_path / "status.json")
+        video = tmp_path / "out" / "test_channel" / "2026-09-20" / "clip.mp4"
+        video.parent.mkdir(parents=True)
+        video.write_bytes(b"")
+        gallery.save_publish_info(video, {"youtube_url": "https://youtube.com/shorts/AAAAAAAAAAA"})
+        gallery.save_stats(video, {"views": 1234, "avg_view_percent": 71.2,
+                                   "avg_view_seconds": 33, "subscribers_gained": 3,
+                                   "fetched_at": 1})
+        monkeypatch.setattr(youtube, "connection",
+                            lambda key: {"connected": True, "stats": False,
+                                         "account": "", "connected_at": ""})
+
+        html = client.get("/insights").get_data(as_text=True)
+        assert "1,234" in html and "71%" in html
+        assert "Reconnect to see numbers" in html

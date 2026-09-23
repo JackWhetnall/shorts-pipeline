@@ -174,6 +174,13 @@ def start_background(path: Path = None) -> None:
                 run_due(path)
             except Exception as exc:  # noqa: BLE001 - the ticker must never die
                 log.warning(f"Scheduler tick failed: {exc}")
+            # Cheap when nothing is due: each video's numbers are refreshed
+            # at most every audience.REFRESH_HOURS.
+            try:
+                from core import audience
+                audience.refresh(load_channels(validate=False))
+            except Exception as exc:  # noqa: BLE001 - the ticker must never die
+                log.warning(f"Refreshing video statistics failed: {exc}")
 
     _stop.clear()
     _thread = threading.Thread(target=loop, daemon=True, name="scheduler")

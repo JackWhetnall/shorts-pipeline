@@ -36,6 +36,72 @@
   </div>
 </div>
 
+{% set a = data.audience %}
+<div class="card" id="audience">
+  <h2>Audience</h2>
+  {% if needs_reconnect %}
+  <p class="meta info-banner">
+    Reconnect to see numbers:
+    {% for key, name in needs_reconnect %}<a href="{{ url_for('youtube.connect', key=key) }}">{{ name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+    &mdash; connected before reading statistics was part of the permission.
+  </p>
+  {% endif %}
+  {% for name, s in audience_status.items() if s.error %}
+  <p class="meta info-banner">{{ name }}: {{ s.error }}</p>
+  {% endfor %}
+  {% if a.measured %}
+  <div class="stat-strip">
+    <div class="stat">
+      <span class="stat-num">{{ '{:,}'.format(a.median_views|int) if a.median_views is not none else '—' }}</span>
+      <span class="stat-lab">Median views</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">{{ '%.0f'|format(a.median_view_percent) ~ '%' if a.median_view_percent is not none else '—' }}</span>
+      <span class="stat-lab">Median % viewed</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">{{ a.measured }} / {{ a.published }}</span>
+      <span class="stat-lab">Published videos measured</span>
+    </div>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Video</th><th>Published</th><th class="num">Views</th><th class="num">% viewed</th>
+            <th class="num">Avg watch</th><th class="num">Subs</th></tr>
+      </thead>
+      <tbody>
+        {% for row in a.rows %}
+        <tr>
+          <td><a href="{{ url_for('gallery.video_detail', key=row.channel_key, relpath=row.relpath) }}">{{ row.name }}</a>
+              <span class="hint">{{ row.channel }}</span></td>
+          <td>{{ row.published_at }}</td>
+          <td class="num">{{ '{:,}'.format(row.views) if row.views is not none else '—' }}</td>
+          <td class="num">{{ '%.0f'|format(row.avg_view_percent) ~ '%' if row.avg_view_percent is not none else '—' }}</td>
+          <td class="num">{{ '%ds'|format(row.avg_view_seconds) if row.avg_view_seconds is not none else '—' }}</td>
+          <td class="num">{{ row.subscribers_gained if row.subscribers_gained is not none else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="hint">% viewed is the number that matters most for short-form, and YouTube
+    reports it a day or two late. Views arrive first.</p>
+  {% elif any_stats_connection %}
+  <p class="meta">No numbers yet. They're fetched twice a day for videos published
+    through a connected channel.</p>
+  {% else %}
+  <p class="meta">Connect a channel to YouTube (Settings &rarr; Publishing) to see how
+    its published videos are doing here.</p>
+  {% endif %}
+  {% if any_stats_connection %}
+  <form method="post" action="{{ url_for('review.refresh_stats') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-ghost">Refresh numbers now</button>
+  </form>
+  {% endif %}
+</div>
+
 <div class="card">
   <h2>Why videos get discarded</h2>
   {% if data.discard_reasons.rows %}

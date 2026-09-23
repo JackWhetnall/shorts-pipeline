@@ -73,7 +73,15 @@ UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
 # connected to — with several channels, connecting the wrong account is an
 # easy mistake and an expensive one to notice late. It is not a YouTube
 # scope and grants no access to the account's data beyond the address.
-SCOPES = ("openid", "email", "https://www.googleapis.com/auth/youtube.upload")
+#
+# The two read-only scopes are for core.audience: views and likes from the
+# Data API, retention and subscribers from the Analytics API. Without them
+# nothing measures whether anyone watches what this pipeline makes. Neither
+# can change anything on the channel.
+UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
+READ_SCOPE = "https://www.googleapis.com/auth/youtube.readonly"
+ANALYTICS_SCOPE = "https://www.googleapis.com/auth/yt-analytics.readonly"
+SCOPES = ("openid", "email", UPLOAD_SCOPE, READ_SCOPE, ANALYTICS_SCOPE)
 
 # 8 MB chunks. Big enough that the per-chunk overhead is irrelevant, small
 # enough that a dropped connection loses seconds rather than the upload.
@@ -195,10 +203,15 @@ def disconnect(channel_key: str) -> None:
 def connection(channel_key: str) -> dict:
     """What the UI needs to say about this channel's YouTube link."""
     tokens = load_tokens(channel_key)
+    granted = set((tokens.get("scope") or "").split())
     return {
         "connected": bool(tokens.get("refresh_token")),
         "account": tokens.get("account", ""),
         "connected_at": tokens.get("connected_at", ""),
+        # A channel connected before the statistics scopes existed can
+        # still upload, but needs one reconnect before its numbers can be
+        # read. Tokens saved then didn't record their scopes at all.
+        "stats": {READ_SCOPE, ANALYTICS_SCOPE} <= granted,
     }
 
 
@@ -252,6 +265,9 @@ def exchange_code(code: str, redirect_uri: str) -> dict:
         "expires_at": time.time() + float(payload.get("expires_in", 0)),
         "account": _email_from_id_token(payload.get("id_token", "")),
         "connected_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        # What was actually granted: the consent screen lets a person
+        # untick a scope, so what was asked for isn't proof.
+        "scope": payload.get("scope", ""),
     }
 
 
@@ -464,6 +480,13 @@ def _api_error(response, doing: str) -> YouTubeError:
                      "the right one and still has upload permission.",
         "youtubeSignupRequired": "That Google account has no YouTube channel yet. "
                                  "Create one, then reconnect.",
+        "accessNotConfigured": "This Google Cloud project hasn't enabled the API this "
+                               "needs. Enable it in the Cloud console's API Library "
+                               "(YouTube Data API v3, and YouTube Analytics API for "
+                               "retention), then try again.",
+        "insufficientPermissions": "This channel was connected before it was asked for "
+                                   "permission to read statistics. Reconnect it from "
+                                   "its settings.",
     }
     message = messages.get(reason) or f"YouTube wouldn't {doing} (HTTP {response.status_code})."
     log.error(f"YouTube API error while trying to {doing}: {response.status_code} {detail}")

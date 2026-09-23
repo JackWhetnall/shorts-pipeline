@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
-from core import gallery, insights, youtube
+from core import audience, gallery, insights, youtube
 from core.channels import load_channels
 from core.logging_setup import get_logger
 from web.helpers import format_date, format_iso_date, video_or_404
@@ -70,6 +70,9 @@ def _queue() -> list:
                 "similarity_flagged": bool(similarity.get("flagged")),
                 "similarity_closest": similarity.get("closest_title"),
                 "title_options": report.get("title_options") or [],
+                "gate": report.get("gate"),
+                "checks": report.get("checks") or {},
+                "autopilot": report.get("autopilot"),
             })
     items.sort(key=lambda v: v["mtime"])
     return items
@@ -89,12 +92,29 @@ def queue():
 @bp.route("/insights")
 def insights_page():
     data = insights.collect()
+    channels = load_channels(validate=False)
+    connections = {key: youtube.connection(key) for key in channels}
     return render_template(
         "insights.html",
         data=data,
         headline=insights.headline(data),
         reason_labels=gallery.DISCARD_REASON_LABELS,
+        # Channels whose connection predates the statistics permission:
+        # they can upload, but their numbers can't be read until reconnected.
+        needs_reconnect=[(key, channels[key].channel_display_name)
+                         for key, c in connections.items() if c["connected"] and not c["stats"]],
+        any_stats_connection=any(c["stats"] for c in connections.values()),
+        audience_status={channels[k].channel_display_name: v
+                         for k, v in audience.status().items() if k in channels},
     )
+
+
+@bp.route("/insights/refresh-stats", methods=["POST"])
+def refresh_stats():
+    """Fetch every published video's numbers now, rather than waiting for
+    the scheduler's twice-daily refresh."""
+    audience.refresh(load_channels(validate=False), force=True)
+    return redirect(url_for("review.insights_page") + "#audience")
 
 
 # --- actions, addressed by path alone --------------------------------
