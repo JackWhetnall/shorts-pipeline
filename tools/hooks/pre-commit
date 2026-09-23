@@ -1,0 +1,18 @@
+#!/bin/sh
+# Runs the fast test suite before every commit. Installed by:
+#   git config core.hooksPath tools/hooks
+# Skip it for one commit (e.g. a docs-only change) with: git commit --no-verify
+#
+# Only when Python files or templates are staged: a commit that touches
+# nothing the tests exercise shouldn't wait on them.
+if ! git diff --cached --name-only | grep -qE '\.(py|html|js|css|ini|txt)$'; then
+    exit 0
+fi
+
+echo "pre-commit: running python -m pytest -m \"not slow\" ..."
+python -m pytest -m "not slow" -q -p no:cacheprovider
+status=$?
+if [ $status -ne 0 ]; then
+    echo "pre-commit: tests failed; commit stopped."
+fi
+exit $status
