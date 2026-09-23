@@ -13,7 +13,7 @@ from flask import (
 
 from core import (
     caption_preview, card_preview, channel_admin, curriculum, fonts, gallery, jobs,
-    scheduler, youtube,
+    scheduler, voice_quota, youtube,
 )
 from core.assets import has_logo
 from core.channels import (
@@ -63,6 +63,9 @@ def index():
         # Running out of topics stops generation dead, and the warning is
         # only useful in advance — so it goes where you look daily.
         topics_running_low=channels_running_low(),
+        # Same reasoning: on a small plan the voice allowance is what
+        # stops generation, and it's only worth knowing before it does.
+        voice_quota=voice_quota.summary(list(channels)),
         deleted_key=request.args.get("deleted"),
         backup_path=request.args.get("backup"),
     )

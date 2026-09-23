@@ -35,6 +35,9 @@
   key, and a number invented from this log would know nothing about what
   else is on the account or what was last topped up &mdash; so the balance
   is behind each link below. Prices last checked {{ prices_checked }}.
+  The one exception is ElevenLabs' character allowance, which its API does
+  report{% if not voice_quota %} &mdash; to see it here, give the key the
+  <code>user_read</code> permission{% endif %}.
 </p>
 
 <table class="voice-table service-table">
@@ -53,6 +56,13 @@
       <td>
         <strong>{{ row.name }}</strong>
         <span class="hint">{{ row.what_for }}</span>
+        {% if row.key == 'elevenlabs' and voice_quota %}
+        <span class="hint {{ 'service-missing' if voice_quota.low }}">
+          {{ '{:,}'.format(voice_quota.remaining) }} of {{ '{:,}'.format(voice_quota.limit) }}
+          characters left{% if voice_quota.resets_label %}, resets {{ voice_quota.resets_label }}{% endif %}
+          &mdash; about {{ voice_quota.videos_left }} video{{ 's' if voice_quota.videos_left != 1 }}
+        </span>
+        {% endif %}
       </td>
       <td>
         {% if row.configured %}

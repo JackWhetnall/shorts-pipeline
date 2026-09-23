@@ -30,7 +30,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from core import gallery, jobs
+from core import gallery, jobs, voice_quota
 from core.channels import load_channels
 from core.logging_setup import get_logger
 from core.paths import SCHEDULE_PATH
@@ -123,8 +123,15 @@ def due_channels(path: Path = None) -> list:
         if schedule is None or not schedule.due():
             continue
         state = gallery.video_state_counts(channel.output_dir)
-        if is_eligible(channel, remaining_count(key, channel, state), state, key in active):
-            out.append((key, channel, schedule))
+        if not is_eligible(channel, remaining_count(key, channel, state), state, key in active):
+            continue
+        # Starting a run the voice quota can't finish would pay for a
+        # script and then fail. Skipped without touching last_run_at, so
+        # it stays due and runs once the quota resets.
+        if not voice_quota.has_room_for(voice_quota.typical_video_characters(key)):
+            log.info(f"Scheduled run for {key} skipped: not enough ElevenLabs quota left.")
+            continue
+        out.append((key, channel, schedule))
     return out
 
 

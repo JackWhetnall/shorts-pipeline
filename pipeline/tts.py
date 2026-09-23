@@ -37,7 +37,7 @@ from pathlib import Path
 import numpy as np
 import requests
 
-from core import costs, job_context
+from core import costs, job_context, voice_quota
 from core.errors import ExternalServiceError, MissingCredentialError
 from core.logging_setup import get_logger
 from pipeline.audio import apply_fade, decode_audio_file, match_channels
@@ -430,6 +430,12 @@ def build_plan(segments: list, citation: str, pacing) -> list:
     return plan
 
 
+def narration_characters(segments: list, citation: str, pacing) -> int:
+    """Characters ElevenLabs will bill for one clean pass of this script."""
+    return sum(len(apply_pronunciation_overrides(text))
+               for text, _, _ in build_plan(segments, citation, pacing))
+
+
 def _stitch(results, segments, out_audio_path: str):
     """Assemble segment audio into one track, filling in segment spans.
 
@@ -557,6 +563,12 @@ def run(plan):
             samples=samples, fps=fps,
         )
         return plan
+
+    # Checked before the first request rather than discovered on the
+    # third segment: a quota that runs out mid-narration still bills the
+    # segments that did get through.
+    voice_quota.require_room(narration_characters(plan.script.segments, plan.script.citation,
+                                                  plan.channel.pacing))
 
     log.info("[2/5] Generating the voiceover...")
     plan.voiceover = generate_voiceover(

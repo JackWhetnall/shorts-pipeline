@@ -35,6 +35,16 @@
 </p>
 {% endif %}
 
+{% if voice_quota and voice_quota.low %}
+<p class="meta info-banner">
+  ElevenLabs: <strong>{{ '{:,}'.format(voice_quota.remaining) }}</strong> of
+  {{ '{:,}'.format(voice_quota.limit) }} characters left
+  (about {{ voice_quota.videos_left }} video{{ 's' if voice_quota.videos_left != 1 }}){% if voice_quota.resets_label %},
+  resets {{ voice_quota.resets_label }}{% endif %}. A video that won't fit is stopped
+  before its voiceover starts. <a href="{{ url_for('services.page') }}">APIs</a>
+</p>
+{% endif %}
+
 {% if not channels %}
 <div class="empty-state">
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l4-4 3 3 4-4 3 3v14a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M4 8h16"/></svg>
