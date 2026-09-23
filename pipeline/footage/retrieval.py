@@ -114,11 +114,17 @@ def clip_violates_avoid_list(clip, avoid_imagery) -> bool:
     strong thematic match and still be completely wrong for one audience
     — the real case this exists for is prayer imagery of the wrong
     religion scoring well on a segment about "prayer".
+
+    Matched from the start of a word, not anywhere: a plain substring test
+    made "witch" exclude every "light switch" and "spell" every "spelling".
+    Anchoring only the start keeps plurals and derived forms ("mosques",
+    "Hinduism" for "hindu"). Underscores in filenames count as spaces.
     """
     if not avoid_imagery:
         return False
-    haystack = f"{clip.description} {clip.filename}".lower()
-    return any(term.lower() in haystack for term in avoid_imagery)
+    haystack = f"{clip.description} {clip.filename}".lower().replace("_", " ")
+    return any(re.search(r"\b" + re.escape(term.lower().strip()), haystack)
+               for term in avoid_imagery if term.strip())
 
 
 def _search(conn, query: str, limit: int) -> list:

@@ -535,3 +535,19 @@ def test_a_failed_enrichment_does_not_fail_the_render(db, monkeypatch):
 
     monkeypatch.setattr(library.enrich, "enrich_batch", boom)
     library._enrich_new([fresh])
+
+
+def test_avoid_terms_match_whole_words_not_fragments():
+    """Regression: substring matching meant "witch" excluded every clip of
+    a light switch. Word-start matching keeps plurals and derived forms."""
+    from types import SimpleNamespace
+
+    def clip(description, filename="x.mp4"):
+        return SimpleNamespace(description=description, filename=filename)
+
+    avoid = ["witch", "mosque", "hindu"]
+    assert not retrieval.clip_violates_avoid_list(clip("a hand flips a light switch"), avoid)
+    assert retrieval.clip_violates_avoid_list(clip("a witch stirs a cauldron"), avoid)
+    assert retrieval.clip_violates_avoid_list(clip("two mosques at dusk"), avoid)
+    assert retrieval.clip_violates_avoid_list(clip("a temple of Hinduism"), avoid)
+    assert retrieval.clip_violates_avoid_list(clip("a candle", "old_witch_auto1.mp4"), avoid)
