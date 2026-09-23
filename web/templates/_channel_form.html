@@ -69,20 +69,29 @@
       <button type="button" class="info-dot" data-tooltip="Say the format, the audience, the voice, and anything to avoid.">?</button>
       <textarea name="style_prompt" rows="6" required>{{ channel.style_prompt or '' }}</textarea>
       <span class="hint">
-        <a href="#" onclick="document.getElementById('preview-script-btn').click(); return false;">Preview a script</a>
-        <button type="button" class="cost-dot" data-tooltip="~$0.01">$</button>
         {% if (channel.style_prompt or '').strip() %}
-        &middot;
         <a href="{{ url_for('style_setup.page', key=channel.key) }}"
            onclick="return confirm('This rewrites the style prompt from scratch through a picker of questions, and replaces what is here entirely — it does not blend with it. Continue?');">
           Rewrite this from scratch &rarr;
         </a>
         {% else %}
-        &middot;
         <a href="{{ url_for('style_setup.page', key=channel.key) }}">Let AI help you write this &rarr;</a>
         {% endif %}
       </span>
     </label>
+
+    {# The actual preview: script generation only, no voiceover, no
+       footage, no render — a few seconds and about a penny, so a style
+       prompt can be iterated on without committing a whole video to find
+       out what changed. Used to be a permanent card at the top of the
+       page, ahead of everything else on it, for a button that belongs
+       next to the one field it tests. #}
+    <div class="actions">
+      <button type="button" class="btn-ghost" id="preview-script-btn"
+              onclick="previewScript('{{ channel.key }}', this)">Preview a script</button>
+      <button type="button" class="cost-dot" data-tooltip="~$0.01">$</button>
+    </div>
+    <div id="script-preview" class="hidden"></div>
 
     <fieldset>
       <legend>Where the words come from</legend>

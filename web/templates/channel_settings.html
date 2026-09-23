@@ -22,18 +22,6 @@
 </p>
 {% endif %}
 
-<div class="card preview-card">
-  <h2>Try the prompt</h2>
-  <p class="subtitle">
-    Runs script generation only &mdash; no voiceover, no footage, no render.
-    A few seconds and about a penny, so you can iterate on the style prompt
-    instead of committing a whole video to find out what changed.
-  </p>
-  <button type="button" class="btn-ghost" id="preview-script-btn"
-          onclick="previewScript('{{ channel.key }}', this)">Preview a script</button>
-  <div id="script-preview" class="hidden"></div>
-</div>
-
 {% if published_count %}
 <p class="error-banner" id="published-warning" data-published="{{ published_count }}"
    data-name="{{ channel.channel_display_name }}">

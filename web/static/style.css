@@ -1303,8 +1303,7 @@ a.tick:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
    Script preview — cheap prompt iteration, next to the prompt itself.
    --------------------------------------------------------------------- */
 
-.preview-card { margin-bottom: var(--sp-5); }
-#script-preview { margin-top: var(--sp-4); }
+#script-preview { margin-top: var(--sp-3); }
 .preview-title { font-size: 1.15rem; font-weight: 600; margin: var(--sp-3) 0; }
 .preview-segment {
   border-left: 2px solid var(--border);

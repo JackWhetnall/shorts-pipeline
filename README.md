@@ -314,10 +314,10 @@ money to get wrong.
 
 ### Prompt iteration
 
-The style prompt is the highest-leverage setting in the system. Its
-settings page has a **Preview a script** button that runs script
-generation alone — a few seconds, about a penny, no render — so you can
-tune it without committing a whole video to find out what changed.
+The style prompt is the highest-leverage setting in the system. Right
+under it, a **Preview a script** button runs script generation alone — a
+few seconds, about a penny, no render — so you can tune it without
+committing a whole video to find out what changed.
 
 ### The Look tab
 
