@@ -22,7 +22,17 @@
         "judaism",
         "jewish",
         "hinduism",
-        "hindu"
+        "hindu",
+        "pendulum",
+        "tarot",
+        "occult",
+        "witch",
+        "witchcraft",
+        "spell",
+        "divination",
+        "ouija",
+        "pentagram",
+        "crystal ball"
       ],
       "monetization": {
         "merch_url": "https://minute-pastor.printify.me/"
@@ -41,7 +51,8 @@
     "shakespeare_lines": {
       "content_mode": "static_corpus",
       "voice": "onwK4e9ZLuTAKqWW03F9",
-      "style_prompt": "You are writing a short, engaging explainer unpacking a Shakespeare quote for a YouTube Shorts audience with no literary background. Explain what it means in plain English and why it still lands today. No academic tone.",
+      "style_prompt": "You are writing a short, engaging explainer unpacking a Shakespeare quote for a social media audience with no literary background. Explain what it means in plain English and why it still lands today. No academic tone.",
+      "outro_subtext": "Follow our page",
       "source": "shakespeare",
       "pacing": {
         "pause_after_first_segment": 0.3,
@@ -58,24 +69,43 @@
     "wrens_guide_to_witchcraft": {
       "channel_display_name": "Wren's Guide to Witchcraft",
       "voice": "SAz9YHcvj6GT2YYXdXww",
-      "style_prompt": "You are writing a script for a channel that produces educational videos about how to learn to become a witch, creating your own spells and manifesting the life you want. You should be a nice, laidback teacher, spiritual and ethereal, while maintaining an air of knowledge and mystical understanding. You should make sure that your lessons don't try to create actual facts, merely suggestions that can be interpreted in many ways, much like a horoscope. You should seem outwardly to have profound wisdom, and your videos should seem, yet most importantly not make specific claims.",
-      "outro_subtext": "Follow our page",
+      "style_prompt": "Write for Wren's Guide to Witchcraft as a step-by-step tutorial series: each episode teaches exactly one practice, laid out in the order a person would actually do it. Every script needs to open with a direct question or address to the viewer \u2014 something that singles them out and makes them feel spoken to personally in that first line, since this has to stop a scroll cold. After that hook, transition into the practice itself using plain sequencing language \u2014 first, next, after that, last \u2014 so someone could follow along without rewinding. The register is conversational and unpolished in the good way: full, real sentences, but loose enough to include a natural 'so' or 'you know' here and there, never any written-out stammering. Treat the audience as complete beginners \u2014 anytime a material, symbol, or term shows up, unpack it briefly and simply, folded into the instruction rather than set apart as a definition. Every statement about effects, meanings, or outcomes should be phrased as a soft possibility, never a confirmed fact \u2014 think 'may,' 'can,' 'some find that' instead of definite claims. Keep it entirely humor-free and sincere in tone from the first line to the last. Use American spellings and idioms consistently. Close each video by returning attention to the viewer's own experience of the practice, open-ended, rather than summarizing conclusions or promising results.",
+      "outro_subtext": "Follow for more",
       "source": "shakespeare",
       "build_on_previous": true,
       "avoid_imagery": [
         "religious",
         "religion"
       ],
-      "speed": 0.95,
+      "speed": 0.85,
       "pacing": {
         "pause_after_first_segment": 1.0,
         "pause_after_citation": 0.8,
-        "pause_between_segments": 0.7,
+        "pause_between_segments": 1.1,
         "target_seconds": 60.0
       },
       "style": {
-        "font_face": "franklin_gothic",
-        "highlight_color": "#00FFBF"
+        "font_face": "cambria_bold",
+        "base_color": "#F3E9FF",
+        "highlight_color": "#C084FC",
+        "stroke_color": "#23100B",
+        "stroke_width": 3,
+        "outro_bg_color": [
+          16,
+          8,
+          26,
+          255
+        ],
+        "outro_title_color": "#F3E9FF",
+        "outro_subtext_color": "#C084FC",
+        "outro_font_size": 96,
+        "outro_stroke_width": 4,
+        "title_card_enabled": false,
+        "title_card_title_color": "#F3E9FF",
+        "title_card_channel_color": "#C084FC",
+        "title_card_font_size": 106,
+        "title_card_stroke_width": 4,
+        "title_card_show_topic": true
       },
       "content_mode": "topic"
     }
