@@ -475,6 +475,11 @@ def _times_used(channel, seed) -> dict:
     Filenames were deliberately made readable so repeats are visible at a
     glance — but only while browsing a folder. At the moment of decision,
     with Reroll and Use this on screen, nothing said so.
+
+    A discarded take doesn't count. Discarding is the explicit "this one
+    didn't work" decision, and its whole point is that the topic goes back
+    in the pool as if it had never been made — a discarded video still
+    warning "already used" here would fight that directly.
     """
     from core.paths import slugify
     stem = slugify(seed.title, fallback="video")
@@ -483,6 +488,7 @@ def _times_used(channel, seed) -> dict:
         return {"count": 0, "last": None}
     matches = [p for p in directory.rglob("*.mp4")
                if p.stem == stem or p.stem.rsplit("_", 1)[0] == stem]
+    matches = [p for p in matches if not gallery.load_publish_info(p)["discarded"]]
     if not matches:
         return {"count": 0, "last": None}
     return {"count": len(matches),

@@ -618,3 +618,46 @@ class TestSaveReturnsToTheSameSection:
             "settings_section": "javascript:alert(1)"})
         assert "javascript" not in response.headers["Location"]
         assert "#" not in response.headers["Location"]
+
+
+class TestSeedHistoryIgnoresDiscardedTakes:
+    """"Already used 3 times, most recently..." kept counting takes that
+    had been explicitly thrown away. Discarding a video's whole point is
+    to put its topic back as if it had never been made — the warning
+    fighting that made the two features contradict each other."""
+
+    def _video(self, tmp_path, stem="coffee", folder="2026-09-01"):
+        directory = tmp_path / "out" / "test_channel" / folder
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / f"{stem}.mp4"
+        path.write_bytes(b"not a real video")
+        return path
+
+    def test_a_discarded_take_does_not_count(self, client, tmp_path):
+        from core import gallery
+
+        video = self._video(tmp_path)
+        gallery.set_discarded(video, True, reason="footage")
+
+        response = client.post("/api/channels/test_channel/seed", json={},
+                               headers={"X-CSRF-Token": csrf(client)})
+        assert response.get_json()["history"] == {"count": 0, "last": None}
+
+    def test_an_undiscarded_take_still_counts(self, client, tmp_path):
+        self._video(tmp_path)
+
+        response = client.post("/api/channels/test_channel/seed", json={},
+                               headers={"X-CSRF-Token": csrf(client)})
+        history = response.get_json()["history"]
+        assert history["count"] == 1
+        assert history["last"]
+
+    def test_one_discarded_and_one_kept_counts_only_the_kept_one(self, client, tmp_path):
+        from core import gallery
+
+        gallery.set_discarded(self._video(tmp_path, folder="2026-09-01"), True)
+        self._video(tmp_path, folder="2026-09-02")
+
+        response = client.post("/api/channels/test_channel/seed", json={},
+                               headers={"X-CSRF-Token": csrf(client)})
+        assert response.get_json()["history"]["count"] == 1
