@@ -407,3 +407,58 @@ class TestDiscardFeedback:
         video = tmp_path / "v.mp4"
         video.write_bytes(b"x")
         gallery.set_discarded(video, True, reason="footage")   # must not raise
+
+
+def test_match_call_is_not_marked_for_prompt_caching(monkeypatch):
+    """Regression: the candidate block was marked cacheable and, across a
+    month of real runs, was written to the cache 26 times and read from
+    it zero times — every round re-shortlists, every video differs — so
+    the marker only added the cache-write premium to every call."""
+    from types import SimpleNamespace
+
+    from pipeline import llm
+    from pipeline.footage import library
+
+    captured = {}
+
+    def fake_call_json(system, user, schema, **kwargs):
+        captured["system"] = llm._render_system(system)
+        return {"picks": []}
+
+    monkeypatch.setattr(library.llm, "call_json", fake_call_json)
+    clips = [SimpleNamespace(filename=f"clip{i}.mp4", description="x " * 400)
+             for i in range(50)]
+    segments = [SimpleNamespace(text="a line", keywords=["k"])]
+    library._run_match(segments, [1], clips, [], {})
+
+    assert captured["system"]
+    assert not any("cache_control" in block for block in captured["system"])
+
+
+def test_frames_are_downscaled_before_description(monkeypatch):
+    """Full-resolution frames made each description ~8k input tokens;
+    the vision call only needs enough to name subject, setting and
+    light."""
+    import base64
+    import io
+
+    from PIL import Image
+
+    from pipeline.footage import intake
+
+    sent = {}
+
+    def fake_vision(prompt, images, **kwargs):
+        sent["images"] = images
+        return "a candle on a table"
+
+    monkeypatch.setattr(intake.llm, "call_vision", fake_vision)
+    frames = [Image.new("RGB", (1080, 1920), (200, 100, 50)) for _ in range(3)]
+    assert intake.describe(frames) == "a candle on a table"
+
+    assert len(sent["images"]) == 3
+    for media_type, data in sent["images"]:
+        size = Image.open(io.BytesIO(base64.b64decode(data))).size
+        assert size == (540, 960)
+    # The caller's frames are untouched; they're also used for hashing.
+    assert frames[0].size == (1080, 1920)

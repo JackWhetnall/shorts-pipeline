@@ -4,10 +4,13 @@ The one place this project talks to Claude.
 Three things this layer owes its callers, and the third is the one that
 broke a real run:
 
-**Prompt caching.** The footage matcher re-sends a stable block of clip
-descriptions on every call and on each retry round. `call_json` takes the
+**Prompt caching, where it can actually hit.** `call_json` takes the
 system prompt as ordered blocks and marks the stable prefix cacheable, so
-repeats read at a tenth of the input price.
+a genuine repeat reads at a tenth of the input price. A write costs 25%
+more than an uncached read, so a block should only be marked cacheable if
+the same bytes really will be sent again within a few minutes. The footage
+matcher's candidate block was marked, and never repeated — see decision
+027. `_log_cache_effect` reports writes and reads per call.
 
 **Structured outputs.** `output_config.format` constrains the response to
 a schema, so there is no `{...}` block to dig out of prose with a regex

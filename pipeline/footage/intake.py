@@ -45,6 +45,9 @@ log = get_logger(__name__)
 
 FRAME_COUNT = 3
 
+# Largest size a frame is sent at for description. See describe().
+DESCRIBE_MAX_SIZE = (FRAME_WIDTH // 2, FRAME_HEIGHT // 2)
+
 # 8x8 average hash: 64 bits per frame, comparing each pixel against the
 # frame's mean brightness.
 HASH_SIZE = 8
@@ -163,10 +166,20 @@ def find_duplicate(hashes: list, duration: float, skip_filename: str = None,
 
 
 def describe(frames: list) -> str:
+    """A prose description of a clip from its sampled frames.
+
+    Frames are sent at half the output resolution. At full 1080x1920
+    each one cost roughly 2,000 image tokens, which made describing a
+    fetched clip the second-largest line on the Claude bill; at 540x960
+    it's about a quarter of that. A description names the subject,
+    setting, light and colour, none of which needs the full resolution.
+    """
     images = []
     for frame in frames:
+        small = frame.convert("RGB")
+        small.thumbnail(DESCRIBE_MAX_SIZE, Image.LANCZOS)
         buffer = io.BytesIO()
-        frame.convert("RGB").save(buffer, format="JPEG", quality=85)
+        small.save(buffer, format="JPEG", quality=85)
         images.append(("image/jpeg", base64.b64encode(buffer.getvalue()).decode("ascii")))
     return llm.call_vision(VISION_PROMPT, images, operation="describe_clip")
 

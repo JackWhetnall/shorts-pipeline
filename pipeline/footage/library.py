@@ -215,13 +215,11 @@ class MatchOutcome:
 
 
 def _clip_block(clips: list) -> str:
-    """The candidate descriptions, in a stable order.
+    """The candidate descriptions, sorted by filename.
 
-    Sorted by filename rather than by relevance rank: a stable ordering
-    is what lets the block be cached across the retry rounds within one
-    video. Relevance ordering would reshuffle on every call and
-    guarantee a cache miss for no benefit — the model reads all of them
-    regardless.
+    Sorted rather than in relevance order so the prompt is deterministic
+    for a given shortlist; the model reads and scores all of them
+    regardless of position.
     """
     return "\n".join(f"- {c.filename}: {c.description}" for c in sorted(clips, key=lambda c: c.filename))
 
@@ -255,16 +253,17 @@ the general theme. Keep "search_queries" away from these too."""
 def _run_match(segments, shot_counts, clips, avoid_imagery, tried_queries) -> dict:
     """One matching call.
 
-    The system prompt is split so the stable half can be cached: the role
-    and rubric never change, and the candidate block is stable within a
-    video. The segments, the avoid list and the already-tried queries all
-    vary per call and per round, so they go in the user message, after
-    the cache boundary.
+    Not prompt-cached. It was, on the theory that the candidate block
+    repeats across a video's fetch rounds, but it doesn't: every round
+    re-shortlists against a library that has just grown, and every video
+    shortlists differently. Across a month of real runs the cache was
+    written 26 times and read zero, so marking it cacheable only added
+    the 25% cache-write premium to every call. The role and rubric alone
+    are too short to cache. See decision 027.
     """
     stable = llm.SystemBlock(
         f"{MATCH_SYSTEM_ROLE}\n\n{SCORING_RUBRIC}\n\n"
         f"Available footage (filename: description):\n{_clip_block(clips)}",
-        cacheable=True,
     )
     user_msg = (
         "Here are the segments of a short video script, in order. Each segment's "
