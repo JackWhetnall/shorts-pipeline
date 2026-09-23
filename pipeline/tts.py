@@ -348,9 +348,35 @@ def _rejection_error(response) -> ExternalServiceError:
     )
 
 
+def _billed_characters(response, tts_text: str) -> int:
+    """What ElevenLabs says it charged for this request, from its
+    `x-character-count` header, falling back to the text's length.
+
+    Read rather than assumed, because the quota is the scarce resource on
+    a small plan and the cost log's per-video figure is what the quota
+    check budgets a scheduled run by. Whether continuity context counts
+    toward the charge is ElevenLabs' decision, and this records it
+    either way.
+    """
+    header = getattr(response, "headers", {}).get("x-character-count")
+    try:
+        return int(header)
+    except (TypeError, ValueError):
+        return len(tts_text)
+
+
 def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1.0,
-                       max_attempts: int = 3) -> tuple:
+                       max_attempts: int = 3, previous_text: str = "",
+                       next_text: str = "") -> tuple:
     """One segment. Returns (word_timings, samples, fps).
+
+    `previous_text` and `next_text` are the neighbouring lines. They are
+    context for the engine's intonation, never spoken themselves: without
+    them every segment is read as though it were the whole script, so the
+    pitch resets at each join and a sentence meant to continue a thought
+    lands like a fresh opening. Request ids would do this better but need
+    the previous request to have finished, and segments synthesize in
+    parallel.
 
     Retries on either quality signal, since both indicate a transient
     service-side hiccup rather than a deterministic failure.
@@ -366,13 +392,19 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
     word_timings, samples = [], None
 
     for attempt in range(max_attempts):
-        response = _post_with_backoff(voice_id, {
+        payload = {
             "text": tts_text,
             "model_id": ELEVENLABS_MODEL,
             "output_format": OUTPUT_FORMAT,
             "voice_settings": {"speed": speed},
-        })
-        costs.record_elevenlabs("voiceover", ELEVENLABS_MODEL, len(tts_text))
+        }
+        if previous_text:
+            payload["previous_text"] = apply_pronunciation_overrides(previous_text)
+        if next_text:
+            payload["next_text"] = apply_pronunciation_overrides(next_text)
+        response = _post_with_backoff(voice_id, payload)
+        costs.record_elevenlabs("voiceover", ELEVENLABS_MODEL,
+                                _billed_characters(response, tts_text))
 
         data = response.json()
         with open(out_path, "wb") as f:
@@ -518,7 +550,10 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
         log.info(f'  [tts] synthesizing {i + 1}/{len(plan)}: "{preview}"')
         job_context.report_detail("tts", i, {"status": "active"})
         try:
-            timings, samples, _ = synthesize_segment(text, voice_id, str(segment_paths[i]), speed)
+            timings, samples, _ = synthesize_segment(
+                text, voice_id, str(segment_paths[i]), speed,
+                previous_text=plan[i - 1][0] if i > 0 else "",
+                next_text=plan[i + 1][0] if i + 1 < len(plan) else "")
         except Exception:
             job_context.report_detail("tts", i, {"status": "error"})
             raise

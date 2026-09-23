@@ -859,3 +859,68 @@ class TestElevenLabsRejections:
         response = self._Response(401, {"detail": {"code": "quota_exceeded",
                                                     "message": "x"}})
         assert tts._rejection_error(response).status == 401
+
+
+class TestVoiceContinuity:
+    """Each segment is synthesized on its own, so without its neighbours
+    the engine read every line as if it were the whole script and the
+    intonation reset at each join."""
+
+    def test_each_segment_is_sent_its_neighbours(self, tmp_path, monkeypatch):
+        from types import SimpleNamespace
+
+        import numpy as np
+
+        from pipeline import tts
+        from pipeline.plan import Segment
+
+        seen = {}
+
+        def fake_segment(text, voice_id, out_path, speed=1.0, **kwargs):
+            seen[text] = (kwargs.get("previous_text"), kwargs.get("next_text"))
+            return [], np.zeros((441, 1)), tts.SAMPLE_RATE
+
+        monkeypatch.setattr(tts, "synthesize_segment", fake_segment)
+        monkeypatch.setattr(tts.job_context, "report_detail", lambda *a, **k: None)
+        pacing = SimpleNamespace(pause_after_first_segment=0.1, pause_after_citation=0.1,
+                                 pause_between_segments=0.1)
+        segments = [Segment(text="One."), Segment(text="Two."), Segment(text="Three.")]
+        tts.generate_voiceover(segments, "John 3:16", "v", str(tmp_path / "a.mp3"), pacing)
+
+        citation = "John, chapter 3, verse 16"
+        assert seen["One."] == ("", citation)
+        assert seen[citation] == ("One.", "Two.")
+        assert seen["Two."] == (citation, "Three.")
+        assert seen["Three."] == ("Two.", "")
+
+    def test_context_goes_in_the_request_respelled_like_the_text(self, monkeypatch):
+        from pipeline import tts
+
+        sent = {}
+
+        class Stop(Exception):
+            pass
+
+        def fake_post(voice_id, payload):
+            sent.update(payload)
+            raise Stop
+
+        monkeypatch.setattr(tts, "_post_with_backoff", fake_post)
+        with pytest.raises(Stop):
+            tts.synthesize_segment("Then Job answered.", "v", "x.mp3",
+                                   previous_text="Job said nothing.", next_text="")
+        assert sent["text"] == "Then Jobe answered."
+        # Respelled like the spoken text, so the context matches what's read.
+        assert sent["previous_text"] == "Jobe said nothing."
+        assert "next_text" not in sent
+
+    def test_billed_characters_come_from_elevenlabs_when_it_says(self):
+        from types import SimpleNamespace
+
+        from pipeline import tts
+
+        assert tts._billed_characters(
+            SimpleNamespace(headers={"x-character-count": "57"}), "x" * 20) == 57
+        assert tts._billed_characters(SimpleNamespace(headers={}), "x" * 20) == 20
+        assert tts._billed_characters(
+            SimpleNamespace(headers={"x-character-count": "n/a"}), "x" * 20) == 20
