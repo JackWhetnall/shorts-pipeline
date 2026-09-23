@@ -225,6 +225,10 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
                 job.warnings.append(
                     "Footage was chosen without scoring because the matching step "
                     "failed. The video rendered, but watch it before publishing.")
+            if plan.footage_unconfident and not plan.footage_degraded:
+                job.warnings.append(
+                    f"{plan.footage_unconfident} shot(s) had no footage that scored as a "
+                    f"good match, even after fetching. Watch those before publishing.")
             if plan.footage_repeated:
                 job.warnings.append(
                     "This video reuses a footage clip — the library ran out of distinct "

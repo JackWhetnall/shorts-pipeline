@@ -551,6 +551,7 @@ def run(plan):
     outcome = library.assign_clips(segments, shot_counts, channel.avoid_imagery)
     plan.footage_repeated = outcome.repeated
     plan.footage_degraded = outcome.degraded
+    plan.footage_unconfident = outcome.unconfident
 
     from core.paths import LIBRARY_DIR
     per_segment = {i: list(names) for i, names in enumerate(outcome.picks)}

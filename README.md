@@ -280,8 +280,11 @@ shortlists ~50 plausible clips, then one AI call scores those by meaning
 and picks. Every shot in a video gets a different clip.
 
 When a segment has no good match and the footage keys are set, the
-pipeline searches, downloads, crops, describes and adds real clips
-automatically, then re-scores everything — up to three rounds.
+pipeline searches, downloads, crops, describes, enriches and adds real
+clips automatically, then re-scores everything — up to three rounds. If a
+segment is still short after that, it gets the closest thing available
+(the matcher's runner-up, then the best text match), and the review
+screen says how many shots were filled that way.
 
 Consecutive shots never share a subject or look alike, so a video doesn't
 cut between two clips that read as the same shot. And discarding a video
@@ -305,7 +308,9 @@ distilled from the description it already has. Matching weights `subject`
 eight times the prose, so a brief asking for prayer beads stops ranking
 clips that merely have some on a table. It reads the descriptions rather
 than the videos, so the whole library costs about 22 cents — it tells you
-the figure and asks before spending it.
+the figure and asks before spending it. Newly fetched clips are enriched
+automatically; this is for clips added by hand, or ones whose enrichment
+failed.
 
 **`compact`** trims clips to 15 seconds and re-encodes them. Clips average
 20 seconds while a shot is capped at 5, and run at 6.5 Mbps for material

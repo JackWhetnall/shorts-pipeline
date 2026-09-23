@@ -1090,6 +1090,10 @@ function renderReview() {
   if (item.footage_degraded) {
     flags.push(`<p class="review-flag review-flag-warn">Footage was picked without scoring &mdash; the matching step failed. Watch this one closely.</p>`);
   }
+  if (item.footage_unconfident && !item.footage_degraded) {
+    const n = item.footage_unconfident;
+    flags.push(`<p class="review-flag review-flag-warn">${n} shot${n === 1 ? "" : "s"} had no footage that scored as a good match, even after fetching &mdash; check ${n === 1 ? "it" : "them"}.</p>`);
+  }
   if (item.footage_repeated) {
     flags.push(`<p class="review-flag review-flag-warn">Reused a footage clip &mdash; the library ran short.</p>`);
   }

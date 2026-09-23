@@ -462,3 +462,76 @@ def test_frames_are_downscaled_before_description(monkeypatch):
         assert size == (540, 960)
     # The caller's frames are untouched; they're also used for hashing.
     assert frames[0].size == (1080, 1920)
+
+
+class TestShortfallFallback:
+    """Regression: once fetching ran out of rounds, a short segment was
+    filled with the least-recently-used clips in the whole library, with
+    no connection to the line and no flag. A line about a crowd in
+    Jerusalem got an elephant procession."""
+
+    def _setup(self, db):
+        from pipeline.plan import Segment
+        add(db, "runner_up.mp4", description="people walking in a stone courtyard")
+        add(db, "wrong.mp4", description="a crowd at a festival with elephants")
+        add(db, "lexical.mp4", description="a large crowd gathered in an old city square",
+            subject="crowd")
+        add(db, "unrelated.mp4", description="a vulture on a railing over the sea")
+        segment = Segment("Peter spoke to a crowd.", shot_brief="a crowd in an old city",
+                          keywords=["crowd", "old city"])
+        return segment
+
+    def test_the_models_runner_up_is_used_before_anything_unscored(self, db):
+        from pipeline.footage.library import Shortfall, _fill_fallbacks
+
+        segment = self._setup(db)
+        data = {"picks": [{"segment_index": 0, "search_queries": [], "matches": [
+            {"filename": "runner_up.mp4", "confidence": 4},
+            {"filename": "wrong.mp4", "confidence": 1}]}]}
+        available = {c.filename: c for c in store.all_clips()}
+
+        outcome = _fill_fallbacks([[]], [Shortfall(0, 1)], [1], [], set(),
+                                  segments=[segment], data=data, available=available)
+        assert outcome.picks == [["runner_up.mp4"]]
+        assert outcome.unconfident == 1
+
+    def test_then_the_segments_own_shortlist_never_a_clip_scored_wrong(self, db):
+        from pipeline.footage.library import Shortfall, _fill_fallbacks
+
+        segment = self._setup(db)
+        data = {"picks": [{"segment_index": 0, "search_queries": [], "matches": [
+            {"filename": "wrong.mp4", "confidence": 1}]}]}
+
+        outcome = _fill_fallbacks([[]], [Shortfall(0, 2)], [2], [], set(),
+                                  segments=[segment], data=data, available={})
+        assert outcome.picks[0][0] == "lexical.mp4"
+        assert "wrong.mp4" not in outcome.picks[0]
+        assert outcome.unconfident == 2
+
+
+def test_new_clips_are_enriched_as_they_are_fetched(db, monkeypatch):
+    """Regression: enrichment only ran when someone ran the CLI, so every
+    clip fetched since had no subject - the newest quarter of the library
+    was invisible to subject weighting and the same-subject check."""
+    from pipeline.footage import library
+
+    fresh = add(db, "fresh.mp4", description="a candle on a wooden table")
+    done = add(db, "done.mp4", description="a road at dusk", subject="road")
+    seen = []
+    monkeypatch.setattr(library.enrich, "enrich_batch", lambda clips: seen.extend(clips))
+
+    library._enrich_new([fresh, done])
+    assert [c.filename for c in seen] == ["fresh.mp4"]
+
+
+def test_a_failed_enrichment_does_not_fail_the_render(db, monkeypatch):
+    from core.errors import ExternalServiceError
+    from pipeline.footage import library
+
+    fresh = add(db, "fresh.mp4", description="a candle on a wooden table")
+
+    def boom(clips):
+        raise ExternalServiceError("Claude", "down")
+
+    monkeypatch.setattr(library.enrich, "enrich_batch", boom)
+    library._enrich_new([fresh])

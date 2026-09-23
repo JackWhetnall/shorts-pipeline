@@ -236,6 +236,9 @@ class RenderPlan:
     # call failed. The render still completes; the video is flagged so
     # nobody publishes it thinking it had the usual treatment.
     footage_degraded: bool = False
+    # How many shots were filled after footage fetching ran out, without
+    # any clip scoring at or above the confidence bar for them.
+    footage_unconfident: int = 0
     # The offending text when a segment reads like a description of a line
     # rather than a line — see `script_gen.placeholder_text`. Held as the
     # text itself, not a bool, so the review screen can quote it.

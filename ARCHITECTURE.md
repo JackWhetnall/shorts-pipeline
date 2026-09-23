@@ -187,7 +187,14 @@ one Claude call scores those by meaning and picks. The shortlist is what keeps p
 size. Anything the model scores below `MATCH_CONFIDENCE_THRESHOLD` is
 treated as no match at all; a shortfall triggers a capped, round-robin
 fetch from Pexels/Pixabay and then re-scores everything, up to three
-rounds.
+rounds. Clips a round adds are described and then enriched in the same
+round, so the re-score sees their subject.
+
+A segment still short after the last round is filled from the best of
+what is left: the model's own 3-4 scores for that segment first, then its
+lexical shortlist (never a clip the model called actively wrong for it),
+and least-recently-used only when both run out. Every shot filled that
+way is counted as `footage_unconfident` and shown in review.
 
 The rubric scores one question — *would a competent editor cut to this
 clip here?* — and penalises contradiction and inertness rather than

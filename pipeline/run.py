@@ -174,7 +174,7 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
     report = plan.similarity or similarity.check(plan.channel.key, plan.script)
     if report.flagged:
         log.warning(f"  [similarity] {report.summary}")
-    similarity.record(plan.channel.key, plan.stem, plan.script)
+    similarity.record(plan.channel.key, plan.stem, plan.script, video_path=plan.video_path)
     plan.similarity = report
 
     # Seed the editable title and description. Stored on the video rather
@@ -193,6 +193,7 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
     gallery.save_report(plan.video_path, {
         "footage_repeated": plan.footage_repeated,
         "footage_degraded": plan.footage_degraded,
+        "footage_unconfident": plan.footage_unconfident,
         "script_suspect": plan.script_suspect,
         "shot_count": len(plan.shots),
         "clips": sorted({s.clip_path.name for s in plan.shots if s.clip_path}),

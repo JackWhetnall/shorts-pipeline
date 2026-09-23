@@ -42,11 +42,11 @@ import re
 from dataclasses import dataclass, field
 
 from core import job_context
-from core.errors import ExternalServiceError, FootageLibraryError
+from core.errors import ExternalServiceError, FootageLibraryError, PipelineError
 from core.logging_setup import get_logger
 from core.paths import CACHE_DIR, LIBRARY_DIR
 from pipeline import llm
-from pipeline.footage import intake, retrieval, sources, store
+from pipeline.footage import enrich, intake, retrieval, sources, store
 
 log = get_logger(__name__)
 
@@ -55,6 +55,10 @@ log = get_logger(__name__)
 # in code is a real mechanism — stronger prompt wording alone left the
 # model free to call a loosely-related clip "good enough".
 MATCH_CONFIDENCE_THRESHOLD = 5
+
+# At or below this, the model called a clip "actively wrong" for the
+# segment. A shortfall fill never uses such a clip, however short it is.
+FALLBACK_REJECT_AT_OR_BELOW = 2
 
 # Fetch-and-recheck rounds per video before settling for fallbacks.
 MAX_FETCH_ATTEMPTS = 3
@@ -212,6 +216,9 @@ class MatchOutcome:
     # call failed. The video still renders; it just says so.
     degraded: bool = False
     shortfalls: list = field(default_factory=list)
+    # Shots filled after fetching ran out, without a score at or above the
+    # bar. See _fill_fallbacks.
+    unconfident: int = 0
 
 
 def _clip_block(clips: list) -> str:
@@ -481,7 +488,32 @@ def _fetch_and_add(queries: list) -> list:
             job_context.report_detail("footage", index, {"step": "failed"})
             log.info(f'  [footage] couldn\'t add one clip for "{hit.query}": {exc}')
 
+    _enrich_new(added)
     return added
+
+
+def _enrich_new(clips: list) -> None:
+    """Give freshly fetched clips their subject, setting and the rest
+    before the re-score that's about to read them.
+
+    Enrichment used to happen only when someone ran `manage_library.py
+    enrich`, so every clip fetched since the last run had no subject. That
+    was a quarter of the library, and the newest quarter: the 8x subject
+    weighting in the shortlist and the "never cut between two shots of the
+    same subject" check did nothing for exactly the clips fetched for
+    recent videos. One text call per round covers every clip it added.
+
+    Failing here costs the enrichment, not the render: an unenriched clip
+    still matches on its prose, and the next `enrich` run picks it up.
+    """
+    pending = [c for c in clips if not c.enriched]
+    if not pending:
+        return
+    try:
+        enrich.enrich_batch(pending)
+    except PipelineError as exc:
+        log.warning(f"  [footage] couldn't enrich {len(pending)} new clip(s) ({exc}); "
+                    f"they'll match on description alone until the next enrich run.")
 
 
 def assign_clips(segments, shot_counts, avoid_imagery=None) -> MatchOutcome:
@@ -547,7 +579,9 @@ def assign_clips(segments, shot_counts, avoid_imagery=None) -> MatchOutcome:
 
         is_last = attempt >= MAX_FETCH_ATTEMPTS
         if is_last or not sources.any_key_configured():
-            return _finalize(_fill_fallbacks(picks, shortfalls, shot_counts, avoid_imagery, used),
+            return _finalize(_fill_fallbacks(picks, shortfalls, shot_counts, avoid_imagery,
+                                             used, segments=segments, data=data,
+                                             available=available),
                              shot_counts)
 
         job_context.report_detail("footage", None,
@@ -615,30 +649,74 @@ def _degraded_picks(segments, shot_counts, avoid_imagery) -> MatchOutcome:
     return MatchOutcome(picks=picks, repeated=repeated, degraded=True)
 
 
-def _fill_fallbacks(picks, shortfalls, shot_counts, avoid_imagery, used) -> MatchOutcome:
-    """Top up whatever is still short with the least-recently-used clips.
+def _fill_fallbacks(picks, shortfalls, shot_counts, avoid_imagery, used,
+                    segments=None, data=None, available=None) -> MatchOutcome:
+    """Top up whatever is still short once fetching has run out of rounds.
 
-    Reaching here means the library genuinely can't cover this video.
-    Recording `repeated` matters more than the fallback itself: repeated
-    footage is a visible quality problem, and it should reach the person
-    reviewing the video rather than only a log line.
+    This used to go straight to the least-recently-used clips in the
+    whole library, which for these purposes is random: nothing tied them
+    to the line being spoken, nothing said it had happened, and it is how
+    a line about a crowd in Jerusalem got an elephant procession. Now the
+    best of what's left is used first, in order:
+
+    1. The model's own runners-up for this segment: clips it scored 3-4,
+       "harmless but inert", already judged against this brief.
+    2. This segment's lexical shortlist, minus anything the model scored
+       1-2 ("actively wrong") for it.
+    3. Least-recently-used, as before, only when both are exhausted.
+
+    Every shot filled here is counted in `unconfident`, which reaches the
+    review screen: the video didn't fail, but nobody vouched for those
+    shots. `repeated` is still set if the library is smaller than the
+    video and a clip has to appear twice.
     """
     summary = ", ".join(f"#{s.segment_index} (needs {s.needed} more)" for s in shortfalls)
     log.warning(f"  [footage] still short after fetching for segment(s): {summary}")
 
+    scored = {p.get("segment_index"): p for p in (data or {}).get("picks", [])}
+    available = available or {}
     repeated = False
+    unconfident = 0
+
+    def take(i, name):
+        nonlocal unconfident
+        picks[i].append(name)
+        used.add(name)
+        unconfident += 1
+
     for shortfall in shortfalls:
         i = shortfall.segment_index
+        matches = [m for m in (scored.get(i) or {}).get("matches") or [] if isinstance(m, dict)]
+        rejected = {m.get("filename") for m in matches
+                    if (m.get("confidence") or 0) <= FALLBACK_REJECT_AT_OR_BELOW}
+
+        runners_up = sorted(
+            (m for m in matches
+             if FALLBACK_REJECT_AT_OR_BELOW < (m.get("confidence") or 0) < MATCH_CONFIDENCE_THRESHOLD),
+            key=lambda m: m.get("confidence", 0), reverse=True)
+        for match in runners_up:
+            if len(picks[i]) >= shot_counts[i]:
+                break
+            name = match.get("filename")
+            if name in available and name not in used:
+                take(i, name)
+
+        while len(picks[i]) < shot_counts[i] and segments is not None:
+            candidates = retrieval.shortlist(
+                [segments[i]], avoid_imagery, max_clips=1, exclude=used | rejected)
+            if not candidates:
+                break
+            take(i, candidates[0].filename)
+
         while len(picks[i]) < shot_counts[i]:
             # Least-recently-used, skipping anything already claimed in
             # this video and anything this channel must not show.
             candidates = [
-                c for c in store.least_recently_used(len(used) + 20, exclude=used)
+                c for c in store.least_recently_used(len(used) + 20, exclude=used | rejected)
                 if not retrieval.clip_violates_avoid_list(c, avoid_imagery)
             ]
             if candidates:
-                picks[i].append(candidates[0].filename)
-                used.add(candidates[0].filename)
+                take(i, candidates[0].filename)
                 continue
 
             # Nothing unused left: the library is smaller than this one
@@ -650,10 +728,13 @@ def _fill_fallbacks(picks, shortfalls, shot_counts, avoid_imagery, used) -> Matc
                     user_message="The footage library is empty.",
                 )
             picks[i].append(any_clip[0].filename)
+            unconfident += 1
             repeated = True
             log.warning("  [footage] library exhausted for this video — a clip will repeat.")
 
-    return MatchOutcome(picks=picks, repeated=repeated, shortfalls=shortfalls)
+    log.warning(f"  [footage] {unconfident} shot(s) filled without a confident match.")
+    return MatchOutcome(picks=picks, repeated=repeated, shortfalls=shortfalls,
+                        unconfident=unconfident)
 
 
 def _finalize(outcome: MatchOutcome, shot_counts) -> MatchOutcome:
@@ -663,6 +744,7 @@ def _finalize(outcome: MatchOutcome, shot_counts) -> MatchOutcome:
             "picks": outcome.picks,
             "repeated": outcome.repeated,
             "degraded": outcome.degraded,
+            "unconfident": outcome.unconfident,
         })
     except Exception:  # noqa: BLE001 - checkpointing is best-effort
         pass
@@ -682,7 +764,8 @@ def _load_checkpoint(shot_counts):
         return None
     log.info("  [footage] reusing previously matched footage (resumed).")
     return MatchOutcome(picks=cached["picks"], repeated=cached.get("repeated", False),
-                        degraded=cached.get("degraded", False))
+                        degraded=cached.get("degraded", False),
+                        unconfident=cached.get("unconfident", 0))
 
 
 def mark_used(filenames) -> None:
