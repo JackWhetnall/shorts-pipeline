@@ -151,7 +151,8 @@ def fake_services(monkeypatch, world):
     client.messages.create.side_effect = fake_create
     monkeypatch.setattr(llm, "client", lambda: client)
 
-    def fake_segment(text, voice_id, out_path, speed=1.0, max_attempts=3):
+    def fake_segment(text, voice_id, out_path, speed=1.0, max_attempts=3,
+                     previous_text="", next_text=""):
         """Silence of a plausible length, with word timings to match."""
         words = text.split()
         per_word = 0.3
