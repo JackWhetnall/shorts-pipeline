@@ -17,7 +17,8 @@ from __future__ import annotations
 from core import fonts
 from core.voice_lab import CADENCE_PRESETS
 from core.channels import (
-    Cta, EndScreen, ChannelConfig, Monetization, Ordering, Pacing, Socials, Style,
+    AUTOPILOT_MODES, Cta, EndScreen, ChannelConfig, Monetization, Ordering, Pacing,
+    Socials, Style,
 )
 
 PACING_INT_FIELDS = {"caption_max_group_size", "segment_count"}
@@ -197,6 +198,13 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             if value in choices:
                 setattr(ordering, field, value)
         ordering.stickiness = _maybe_float(form, "ordering_stickiness", ordering.stickiness)
+
+    if "autopilot_present" in form:
+        mode = form.get("autopilot_mode", "").strip()
+        if mode in AUTOPILOT_MODES:
+            channel.autopilot.mode = mode
+        channel.autopilot.spot_check_every = max(0, _maybe_int(
+            form, "autopilot_spot_check_every", channel.autopilot.spot_check_every))
 
     if "youtube_url" in form:
         channel.socials = Socials(

@@ -764,6 +764,34 @@
       </p>
     </fieldset>
     {% endif %}
+
+    <fieldset>
+      <legend>Publish automatically
+        <button type="button" class="info-dot" data-tooltip="Every video is checked either way. This decides whether a clean one waits for you.">?</button>
+      </legend>
+      <input type="hidden" name="autopilot_present" value="1">
+      <label>When a video finishes
+        <select name="autopilot_mode">
+          <option value="off" {{ 'selected' if channel.autopilot.mode == 'off' }}>Wait in the review queue for me</option>
+          <option value="when_clean" {{ 'selected' if channel.autopilot.mode == 'when_clean' }}>Upload it if it passes every automatic check</option>
+        </select>
+      </label>
+      <div data-show-when="autopilot_mode=when_clean" class="field-group">
+        <label class="field-row">
+          <span class="field-label">Hold every Nth clean video for me anyway</span>
+          <input type="number" name="autopilot_spot_check_every" min="0" step="1"
+                 value="{{ channel.autopilot.spot_check_every }}">
+        </label>
+        <p class="hint">5 means one in five still waits for you, as a spot check on the
+          checks themselves. 0 means never.</p>
+        <p class="hint">
+          Anything flagged always waits: repeated or unscored footage, wording close to an
+          earlier video, or a problem the script or picture check calls blocking. Uploads
+          need this channel connected above. Until your Google project is audited, YouTube
+          makes them private, and you make them public in Studio.
+        </p>
+      </div>
+    </fieldset>
   </section>
 
   <!-- ---------------------------------------------------------------- -->

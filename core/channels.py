@@ -258,6 +258,30 @@ class Ordering(_MappingLike):
     stickiness: float = 0.8
 
 
+# "off": every video waits in /review for a person. "when_clean": a video
+# that passes every automatic check uploads itself; anything flagged still
+# waits. See core.publish_gate and decision 028.
+AUTOPILOT_MODES = ("off", "when_clean")
+
+
+@dataclass
+class Autopilot(_MappingLike):
+    """Whether finished videos publish themselves.
+
+    Off by default, and never on by accident: an unreviewed AI video on a
+    channel's public page is the one mistake that can cost the channel
+    rather than the video.
+
+    `spot_check_every`: even when on, one clean video in this many is held
+    for a person anyway. The automatic checks can only catch what they were
+    written to catch, and a sample is how anyone finds out what they miss.
+    0 turns spot checks off.
+    """
+
+    mode: str = "off"
+    spot_check_every: int = 5
+
+
 @dataclass
 class ChannelConfig:
     key: str
@@ -296,6 +320,7 @@ class ChannelConfig:
     socials: Socials = field(default_factory=Socials)
     end_screen: EndScreen = field(default_factory=EndScreen)
     ordering: Ordering = field(default_factory=Ordering)
+    autopilot: Autopilot = field(default_factory=Autopilot)
     archived: bool = False
     # Launch-checklist items marked done by hand. Some steps (Patreon's
     # signup flow) are annoying enough that "noting I'm skipping this"
@@ -371,6 +396,14 @@ class ChannelConfig:
             raise ConfigError(f"{where} has a segment count below 1. It needs at least one segment.")
         if self.speed <= 0:
             raise ConfigError(f"{where} has a speech speed of {self.speed}. It must be greater than 0.")
+        if self.autopilot.mode not in AUTOPILOT_MODES:
+            raise ConfigError(
+                f"{where} has automatic publishing set to {self.autopilot.mode!r}, which "
+                f"isn't recognised. It must be one of: {', '.join(AUTOPILOT_MODES)}.")
+        if self.autopilot.spot_check_every < 0:
+            raise ConfigError(
+                f"{where} spot-checks every {self.autopilot.spot_check_every} videos. "
+                f"Use 0 for never, or a positive number.")
         self._validate_output_dir(where)
 
     def _has_corpus(self) -> bool:
@@ -422,6 +455,7 @@ _NESTED = {
     "socials": Socials,
     "end_screen": EndScreen,
     "ordering": Ordering,
+    "autopilot": Autopilot,
 }
 
 

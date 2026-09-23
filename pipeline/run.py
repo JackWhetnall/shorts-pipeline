@@ -20,11 +20,11 @@ from pathlib import Path
 
 import time
 
-from core import costs, curriculum, gallery, job_context
+from core import costs, curriculum, gallery, job_context, publish_gate
 from core.errors import ConfigError
 from core.logging_setup import get_logger
 from core.paths import PROJECT_ROOT, slugify, unique_stem
-from pipeline import description, script_gen, similarity, tts
+from pipeline import description, editor_check, script_gen, similarity, tts
 from pipeline.plan import RenderPlan, Seed
 from pipeline.quote_source import get_quote
 
@@ -153,6 +153,16 @@ def _video_cost(started_at: float, channel_key: str) -> dict:
     return costs.summary_between(started_at, time.time(), channel_key)
 
 
+def _run_checks(plan: RenderPlan) -> dict:
+    """The automatic script and picture checks (pipeline.editor_check).
+    Each reports whether it ran; neither raises for a service problem."""
+    log.info("      Checking the script and the picture...")
+    return {
+        "script": editor_check.check_script(plan.script, plan.channel).to_jsonable(),
+        "frames": editor_check.check_frames(plan.video_path, plan).to_jsonable(),
+    }
+
+
 def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
     """Metadata, description, the originality check, and the cost record."""
     job_context.report_stage(5)
@@ -190,7 +200,7 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
     # The quality signals this render produced, kept beside the video.
     # They used to exist only as log lines inside a job record that gets
     # pruned after a week.
-    gallery.save_report(plan.video_path, {
+    render_report = {
         "footage_repeated": plan.footage_repeated,
         "footage_degraded": plan.footage_degraded,
         "footage_unconfident": plan.footage_unconfident,
@@ -204,7 +214,14 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
             "closest_title": report.closest_title,
         },
         "title_options": list(plan.script.title_options),
-    })
+        "checks": _run_checks(plan),
+    }
+    # Whether this could go out without a person looking at it. Decided
+    # here for every video, not only on channels that publish themselves,
+    # so the review queue shows how the gate would have called it.
+    render_report["gate"] = publish_gate.evaluate(render_report)
+    plan.gate = render_report["gate"]
+    gallery.save_report(plan.video_path, render_report)
 
     # What this specific video cost, saved beside it. A per-video number
     # at the moment you're looking at the video is what makes an

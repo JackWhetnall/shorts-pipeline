@@ -616,6 +616,9 @@ def run(plan):
             parts = [title_card_clip, narration_video]
     else:
         parts = [narration_video]
+    # Recorded so anything reading the finished file (the frame check) can
+    # map narration time to video time without re-deriving this.
+    plan.title_card_at, plan.title_card_seconds = split_at, lead_seconds
 
     tail_seconds = 0.0
     if getattr(style, "outro_enabled", True):

@@ -154,3 +154,28 @@ class TestOutroToggle:
         channel = _channel()
         apply_channel_form(channel, {})
         assert channel.style.outro_enabled is True
+
+
+class TestAutopilot:
+    def _channel(self):
+        return ChannelConfig(key="c", voice="21m00Tcm4TlvDq8ikWAM", style_prompt="x")
+
+    def test_saves_mode_and_spot_check(self):
+        channel = self._channel()
+        apply_channel_form(channel, {"autopilot_present": "1", "autopilot_mode": "when_clean",
+                                     "autopilot_spot_check_every": "3"})
+        assert channel.autopilot.mode == "when_clean"
+        assert channel.autopilot.spot_check_every == 3
+
+    def test_a_form_without_the_section_changes_nothing(self):
+        channel = self._channel()
+        channel.autopilot.mode = "when_clean"
+        apply_channel_form(channel, {"autopilot_mode": "off"})
+        assert channel.autopilot.mode == "when_clean"
+
+    def test_unknown_mode_and_negative_count_are_refused(self):
+        channel = self._channel()
+        apply_channel_form(channel, {"autopilot_present": "1", "autopilot_mode": "always",
+                                     "autopilot_spot_check_every": "-4"})
+        assert channel.autopilot.mode == "off"
+        assert channel.autopilot.spot_check_every == 0

@@ -145,6 +145,8 @@ def fake_services(monkeypatch, world):
                  "matches": [{"filename": n, "confidence": 9} for n in clip_names],
                  "search_queries": ["candle", "road"]}
                 for i in range(2)]})
+        if "problems" in properties:
+            return FakeResponse({"problems": []})
         return FakeResponse(SCRIPT_PAYLOAD)
 
     client = MagicMock()
@@ -222,6 +224,10 @@ class TestFullGeneration:
         # Quality signals recorded beside the video, not just logged.
         report = gallery.load_report(plan.video_path)
         assert report["footage_repeated"] is False
+        # Both automatic checks ran against the real render, and the gate
+        # recorded a verdict for the review queue.
+        assert report["checks"]["script"]["ran"] and report["checks"]["frames"]["ran"]
+        assert report["gate"] == {"passed": True, "reasons": []}
         assert report["footage_degraded"] is False
         assert report["shot_count"] == len(plan.shots)
         assert len(set(report["clips"])) == len(report["clips"]), "clips must be distinct"

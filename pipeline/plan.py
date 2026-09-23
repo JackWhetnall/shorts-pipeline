@@ -239,6 +239,14 @@ class RenderPlan:
     # How many shots were filled after footage fetching ran out, without
     # any clip scoring at or above the confidence bar for them.
     footage_unconfident: int = 0
+    # Where the title card was spliced into the narration (0 = in front of
+    # it) and how long it runs; 0 seconds when there is no card. Narration
+    # time t is video time t before the card and t + title_card_seconds
+    # after it.
+    title_card_at: float = 0.0
+    title_card_seconds: float = 0.0
+    # The publish gate's verdict for this render (core.publish_gate).
+    gate: dict = None
     # The offending text when a segment reads like a description of a line
     # rather than a line — see `script_gen.placeholder_text`. Held as the
     # text itself, not a bool, so the review screen can quote it.

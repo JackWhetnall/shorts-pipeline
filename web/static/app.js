@@ -922,10 +922,15 @@ function activityRow(job) {
 
 function activityFinishedRow(job) {
   if (job.status === "done" && job.result_path_rel) {
+    // Warnings were collected on every job and shown nowhere; this is the
+    // page you look at to see what just finished, so they belong here.
+    const notes = (job.notes || []).map(n => `<p class="review-flag">${escapeHtml(n)}</p>`).join("");
+    const warnings = (job.warnings || []).map(w => `<p class="review-flag review-flag-warn">${escapeHtml(w)}</p>`).join("");
     return `
       <div class="card activity-item">
         <p class="meta">${escapeHtml(job.channel_name)} &middot; finished ${activityTimeOfDay(job.finished_at)}</p>
         <h3>${escapeHtml(job.title)}</h3>
+        ${notes}${warnings}
         <p class="hint"><a href="/channels/${encodeURIComponent(job.channel_key)}/videos/${job.result_path_rel}">Watch it &rarr;</a></p>
       </div>`;
   }
@@ -1099,6 +1104,30 @@ function renderReview() {
   }
   if (item.similarity_flagged) {
     flags.push(`<p class="review-flag review-flag-warn">Wording is close to ${escapeHtml(item.similarity_closest || "an earlier video")}.</p>`);
+  }
+  // What the automatic checks found, and whether the gate would have let
+  // this publish itself. Shown on every channel, autopilot or not, so the
+  // gate earns trust (or doesn't) before anyone switches it on.
+  // When the gate held it, the reasons are already the flags below; the
+  // message only adds something for a spot check, a failed upload or a
+  // channel that isn't connected.
+  if (item.autopilot && item.autopilot.message && item.gate && item.gate.passed) {
+    flags.push(`<p class="review-flag review-flag-warn">${escapeHtml(item.autopilot.message)}</p>`);
+  }
+  for (const [name, label] of [["script", "Script"], ["frames", "Picture"]]) {
+    const check = (item.checks || {})[name];
+    if (!check) continue;
+    if (!check.ran) {
+      flags.push(`<p class="review-flag review-flag-warn">${label} check couldn't run.</p>`);
+      continue;
+    }
+    for (const p of check.problems || []) {
+      const cls = p.severity === "block" ? "review-flag review-flag-warn" : "review-flag";
+      flags.push(`<p class="${cls}">${label} check${p.where ? " (" + escapeHtml(p.where) + ")" : ""}: ${escapeHtml(p.problem)}</p>`);
+    }
+  }
+  if (item.gate && item.gate.passed && !(item.autopilot && item.autopilot.spot_check)) {
+    flags.push(`<p class="review-flag">Passed every automatic check &mdash; this could have published itself.</p>`);
   }
   if (item.cost && item.cost.total_usd != null) {
     const c = item.cost.total_usd;

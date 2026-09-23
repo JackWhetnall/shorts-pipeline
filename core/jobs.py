@@ -72,6 +72,10 @@ class Job:
     error: str = None
     error_traceback: str = None
     warnings: list = field(default_factory=list)
+    # Things that went right and are worth saying, such as an automatic
+    # upload - kept apart from warnings so they don't read as problems.
+    notes: list = field(default_factory=list)
+    published_url: str = None
     queued_at: float = None
     started_at: float = None
     finished_at: float = None
@@ -236,6 +240,7 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
             if plan.similarity is not None and plan.similarity.flagged:
                 job.warnings.append(f"Originality check: {plan.similarity.summary}")
         _persist(job_id)
+        _autopilot(job_id, channel, plan)
         # Nothing checkpointed is needed once the real output exists.
         job_context.clear_checkpoints(job_id)
     except Exception as exc:  # noqa: BLE001 - a failed render must not kill the thread
@@ -252,6 +257,25 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
 
 def _spawn(job_id: str, channel_key: str, seed: dict) -> None:
     threading.Thread(target=_run, args=(job_id, channel_key, seed), daemon=True).start()
+
+
+def _autopilot(job_id: str, channel, plan) -> None:
+    """Publish the video if this channel publishes itself and it passed
+    the gate; otherwise record why it's waiting. After the job is marked
+    done, so an upload in progress never reads as a render in progress."""
+    from core import autopilot
+
+    decision = autopilot.after_render(channel, plan.video_path)
+    if decision.action == autopilot.OFF:
+        return
+    with _lock:
+        job = _jobs[job_id]
+        if decision.action == autopilot.UPLOADED:
+            job.published_url = decision.url
+            job.notes.append(decision.message)
+        else:
+            job.warnings.append(decision.message)
+    _persist(job_id)
 
 
 def _advance_queue() -> None:

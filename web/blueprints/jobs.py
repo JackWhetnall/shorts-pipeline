@@ -66,6 +66,8 @@ def _for_activity(job: dict, names: dict) -> dict:
         "finished_at": job.get("finished_at"),
         "error": job.get("error"),
         "warnings": job.get("warnings") or [],
+        "notes": job.get("notes") or [],
+        "published_url": job.get("published_url"),
         "result_path_rel": _with_relpath(job)["result_path_rel"],
         "eta_seconds": job.get("eta_seconds"),
         "eta_at": job.get("eta_at"),
