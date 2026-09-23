@@ -35,3 +35,8 @@ reason for a change stays true forever.
 | [020](020-cards-and-backgrounds.md) | Title cards, and a picture behind them | Active |
 | [021](021-elevenlabs-error-messages.md) | "Check your API key" was a guess, and usually the wrong one | Active |
 | [022](022-style-tone-picker.md) | Selecting a voice instead of inventing one | Active |
+| [023](023-script-studio.md) | Scripts as their own thing, ahead of any video | Active |
+| [024](024-ordering-and-title-cards.md) | Ordering as policy, and two things the title card can say | Active |
+| [025](025-voice-quota.md) | The voice allowance is the limit, so read it | Active |
+| [026](026-originality-gate.md) | Check originality before the voiceover, and rewrite once | Active |
+| [027](027-no-cache-on-footage-match.md) | The footage-match cache never hit | Reverses 007's caching |

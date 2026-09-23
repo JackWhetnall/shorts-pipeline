@@ -44,6 +44,9 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   logos         Logo generation via the image API.
   voice_lab     Voice/cadence/speed auditioning.
   costs         What every API call cost.
+  voice_quota   The ElevenLabs character allowance: read, shown, and checked
+                before a voiceover or a scheduled run — see decision 025.
+  backup        A dated zip of the state nothing else can rebuild.
   services      Which external APIs are configured, what each has cost, and
                 where its billing page is. Spend, never a balance — see the
                 module docstring for why that distinction is load-bearing.
@@ -133,10 +136,14 @@ fetch_seed(channel)          -> Seed          (no prompts, no side effects)
 _prepare_output(plan)        -> out_dir, stem
 script_gen.run(plan)         -> plan.script   (segments, shot briefs, title, description)
                                  free when the subtopic already has a
-                                 script written by the script studio
+                                 script written by the script studio;
+                                 checked for originality here, and
+                                 rewritten once if it's a retread
 tts.run(plan)                -> plan.voiceover, and each Segment's real start/end
+                                 (refused up front if the voice quota
+                                 can't cover it)
 assemble.run(plan)           -> plan.shots, the video file
-_finish(plan)                -> meta, description, originality report, cost, render report
+_finish(plan)                -> meta, description, script history, cost, render report
 ```
 
 Each segment carries a **shot brief** — a literal, filmable sentence
@@ -238,6 +245,15 @@ channel, stem, reason, dates — and `insights.collect` folds those into the
 totals and the discard reasons, but deliberately not into quality, spend
 or the recent list, whose sidecars are gone.
 
+## Backups
+
+`tools/backup.py DEST` writes a dated zip of `config/` (minus OAuth
+credentials), `channels/`, the output sidecars and a consistent snapshot
+of `footage/library.db`, keeping the newest 14. The clip files and the
+videos are left out: the clips can be fetched again from their recorded
+sources, and published videos live on the platforms. The zip is written
+as `.partial` and renamed only when complete. See `core/backup.py`.
+
 ## Where a channel's words come from
 
 One decision, two stored fields. `content_mode` is `topic` (everything
@@ -320,11 +336,17 @@ Every billable call appends a record to `config/cost_log.jsonl`. Each
 finished video gets a `{stem}_cost.json` sidecar; the channel dashboard
 shows a running total; `python main.py --costs` shows everything.
 
+A video's cost is keyed by its job id, so a retried job includes its
+interrupted first attempt and excludes anything the UI spent meanwhile.
+
 `/apis` reads the same log the other way round — by provider rather than
 by video — beside whether each provider's key is actually configured and
-a link to its own billing page. It reports spend and never a balance: no
-provider exposes one to an ordinary API key, and a figure derived from
-this log would know nothing about the rest of the account.
+a link to its own billing page. For money it reports spend and never a
+balance: no provider exposes one to an ordinary API key, and a figure
+derived from this log would know nothing about the rest of the account.
+The exception is ElevenLabs' character allowance, which its API does
+report, and which on a small plan is what actually limits output — see
+decision [025](docs/decisions/025-voice-quota.md).
 
 ## Conventions
 
@@ -355,6 +377,7 @@ for, so:
 | The local transcript check | Reports a pass; reported unavailable once, not per segment |
 | One channel's output directory | Skipped; the review queue still lists every other channel |
 | The footage database | The home page still loads and says the library is unreadable |
+| Reading the ElevenLabs quota | Treated as unknown; nothing is refused on a number that couldn't be read |
 
 Anything that degrades sets a flag carried into the render report, the
 job warnings and the review queue, so a degraded video is never published

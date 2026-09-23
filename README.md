@@ -32,7 +32,11 @@ keys, generation falls back to clips already in the library.
 **`/apis`** shows which of these are actually set, what this installation
 has spent through each, and a link to each provider's billing page. It
 reports spend, not balance — no provider gives a balance to an ordinary
-API key, so the number on the account lives behind the link.
+API key, so the number on the account lives behind the link. The one
+exception is ElevenLabs' character allowance, which is shown (and warned
+about on the home page when it runs low) if the key has the `user_read`
+permission. A video that won't fit in what's left is stopped before its
+voiceover, and a scheduled run waits for the reset.
 
 The first run downloads a Whisper model (~500 MB) used to verify each
 synthesized segment locally — expect that run to take longer.
@@ -249,6 +253,19 @@ python tools/clean_output.py --older-than 30  # keep recent discards
 
 The gallery's **Discarded** section has the same thing as a button.
 
+### Backups
+
+```bash
+python tools/backup.py "C:/Users/you/OneDrive/ShortsBackups"
+```
+
+One dated zip per run, newest 14 kept: settings, topic plans, script
+history, cost and discard logs, logos, video sidecars and the footage
+database. Not the clips (re-fetchable from their recorded sources) and
+not the videos. YouTube credentials are left out unless you pass
+`--include-secrets`; reconnecting recreates them. Point it at a synced
+folder and run it daily from Windows Task Scheduler.
+
 Deleting a discarded video does not delete the fact that it was
 discarded: a line goes to `config/discard_history.jsonl` first, so the
 discard rate and its reasons on `/insights` survive the cleanup. Without
@@ -430,9 +447,12 @@ affiliate link is included.
 ## Originality
 
 Every generated script is compared against that channel's own history —
-phrase overlap and wording overlap, both — and flagged if it is drifting
-toward a reworded copy of something already published. It reports; it
-never blocks. This matters because the whole monetization case rests on
+phrase overlap and wording overlap, both — before it is voiced. A script
+drifting toward a reworded copy of something already published is
+rewritten once, told what the earlier one said, and the more original of
+the two is kept. If it's still close it goes ahead with a flag for
+review; it never blocks. A script written ahead of time in the script
+studio is flagged but never rewritten, since it may carry your edits. This matters because the whole monetization case rests on
 the output being genuinely original, and a pipeline generating from one
 style prompt forever will converge on its own house phrasing long before
 anyone watching one video at a time would notice.
@@ -446,6 +466,13 @@ same reason.
 python -m pytest                    # everything
 python -m pytest -m "not slow"      # skip the real video render
 ```
+
+`tools/hooks/pre-commit` runs the fast suite before each commit that
+touches code. Enable it once per clone with
+`git config core.hooksPath tools/hooks`.
+
+Dependencies in `requirements.txt` are pinned to the versions the suite
+last passed against. Upgrade one at a time and re-run the tests.
 
 ## Layout
 
