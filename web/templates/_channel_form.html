@@ -484,7 +484,7 @@
             <span class="slider-row">
               <input type="range" id="background-blur" min="0" max="{{ max_blur }}"
                      value="{{ background.get('blur', 0) }}"
-                     oninput="this.nextElementSibling.value = this.value">
+                     data-preview-field="background_blur">
               <output class="slider-value">{{ background.get('blur', 0) }}</output>
             </span>
           </label>
@@ -493,10 +493,12 @@
             <span class="slider-row">
               <input type="range" id="background-dim" min="0" max="{{ max_dim }}"
                      value="{{ background.get('dim', 0) }}"
-                     oninput="this.nextElementSibling.value = this.value">
+                     data-preview-field="background_dim">
               <output class="slider-value">{{ background.get('dim', 0) }}</output>
             </span>
           </label>
+          <p class="hint">Dragging shows up live in the title/outro
+            preview &mdash; Apply saves it as the picture itself.</p>
           <div class="actions">
             <button type="button" class="btn-ghost" id="background-apply-btn"
                     onclick="applyBackgroundEdits('{{ channel.key }}')">Apply</button>
@@ -632,6 +634,26 @@
       </label>
 
       <div data-show-when="style_outro_enabled" class="field-group">
+        <label class="field-row">
+          <span class="field-label">Size</span>
+          <span class="slider-row">
+            <input type="range" name="style_outro_font_size" min="36" max="140" step="2"
+                   value="{{ channel.style.outro_font_size }}"
+                   data-preview-field="outro_font_size">
+            <output class="slider-value">{{ channel.style.outro_font_size }}</output>
+          </span>
+        </label>
+        <label class="field-row">
+          <span class="field-label">Outline thickness
+            <button type="button" class="info-dot" data-tooltip="Text with no outline can vanish into a busy background picture.">?</button>
+          </span>
+          <span class="slider-row">
+            <input type="range" name="style_outro_stroke_width" min="0" max="12"
+                   value="{{ channel.style.outro_stroke_width }}"
+                   data-preview-field="outro_stroke_width">
+            <output class="slider-value">{{ channel.style.outro_stroke_width }}</output>
+          </span>
+        </label>
         {% for field, label in [("outro_title_color", "Title colour"),
                                 ("outro_subtext_color", "Subtext colour")] %}
           <label class="field-row">

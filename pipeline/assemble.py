@@ -243,13 +243,20 @@ TITLE_CARD_SIZE = 92
 TITLE_CARD_CHANNEL_SIZE = 44
 
 
-def card_background(channel_key: str, colour, style) -> "Image.Image":
+def card_background(channel_key: str, colour, style,
+                    blur: int = None, dim: int = None) -> "Image.Image":
     """The base layer for a title or outro card.
 
     The channel's own picture when it has one and wants it, the flat
     colour otherwise. Every card in every video sitting on the same
     rectangle is the most obviously templated thing a viewer sees, and a
     picture chosen once per channel costs nothing per video.
+
+    `blur`/`dim` are for the Look settings preview only: a real render
+    never passes them, and reads the already-committed, already-edited
+    picture exactly as before. Given, they re-derive the picture from its
+    untouched original at those values instead — so dragging a slider
+    shows what pressing Apply would actually save, before it is saved.
 
     Best-effort: a missing or unreadable file falls back to the colour
     rather than failing a render that is otherwise finished.
@@ -259,6 +266,11 @@ def card_background(channel_key: str, colour, style) -> "Image.Image":
         return base
     try:
         from core import backgrounds
+
+        if blur is not None or dim is not None:
+            preview = backgrounds.preview_image(
+                channel_key, blur=blur or 0, dim=dim or 0)
+            return preview.convert("RGBA") if preview is not None else base
 
         picture = backgrounds.path(channel_key)
         if not picture.exists():
@@ -271,7 +283,8 @@ def card_background(channel_key: str, colour, style) -> "Image.Image":
 
 
 def render_title_card(channel_display_name: str, title: str, style,
-                      channel_key: str = "", topic_title: str = "") -> np.ndarray:
+                      channel_key: str = "", topic_title: str = "",
+                      background_blur: int = None, background_dim: int = None) -> np.ndarray:
     """An opening card: the channel above, what this video is about below.
 
     Off unless the channel asks for it. Seconds before the content starts
@@ -283,6 +296,9 @@ def render_title_card(channel_display_name: str, title: str, style,
     the video's own title — the enclosing syllabus topic, styled like the
     channel line (a breadcrumb, not a second headline) rather than adding
     a whole new set of colour/size settings for one extra line.
+
+    `background_blur`/`background_dim` are for the Look settings preview
+    only — see `card_background`. A real render never passes them.
     """
     # The channel line keeps its original proportion to the title line
     # rather than gaining a size setting of its own: the card is one
@@ -297,7 +313,8 @@ def render_title_card(channel_display_name: str, title: str, style,
     font_channel = load_font(channel_size, style.font_face)
     max_width = int(W * 0.82)
 
-    image = card_background(channel_key, style.title_card_bg_color, style)
+    image = card_background(channel_key, style.title_card_bg_color, style,
+                            background_blur, background_dim)
     draw = ImageDraw.Draw(image)
 
     channel_lines = wrap_words(channel_display_name.split(), font_channel, max_width)
@@ -341,27 +358,44 @@ def _topic_title_for_card(channel, seed) -> str:
 
 
 def render_outro(channel_display_name: str, subtext: str, style,
-                 channel_key: str = "") -> np.ndarray:
-    """The channel-branded end card."""
-    font_title = load_font(OUTRO_TITLE_SIZE, style.font_face)
-    font_subtext = load_font(OUTRO_SUBTEXT_SIZE, style.font_face)
+                 channel_key: str = "",
+                 background_blur: int = None, background_dim: int = None) -> np.ndarray:
+    """The channel-branded end card.
+
+    `background_blur`/`background_dim` are for the Look settings preview
+    only — see `card_background`. A real render never passes them.
+    """
+    # The subtext line keeps its original proportion to the title line,
+    # same reasoning as the title card's channel line: one size decision,
+    # not two. Both default to the old hardcoded constants, so a channel
+    # saved before these settings existed renders exactly as it did.
+    title_size = int(getattr(style, "outro_font_size", OUTRO_TITLE_SIZE))
+    subtext_size = max(10, round(title_size * OUTRO_SUBTEXT_SIZE / OUTRO_TITLE_SIZE))
+    # Previously hardcoded to 2 for the title and 0 (no outline at all)
+    # for the subtext — which is exactly why subtext went unreadable over
+    # a busy background. Both now come from one setting.
+    stroke = int(getattr(style, "outro_stroke_width", 2))
+
+    font_title = load_font(title_size, style.font_face)
+    font_subtext = load_font(subtext_size, style.font_face)
     max_width = int(W * 0.85)
 
-    image = card_background(channel_key, style.outro_bg_color, style)
+    image = card_background(channel_key, style.outro_bg_color, style,
+                            background_blur, background_dim)
     draw = ImageDraw.Draw(image)
 
     title_lines = wrap_words(channel_display_name.split(), font_title, max_width)
     subtext_lines = wrap_words(subtext.split(), font_subtext, max_width)
-    title_height = int(OUTRO_TITLE_SIZE * 1.3)
-    subtext_height = int(OUTRO_SUBTEXT_SIZE * 1.3)
+    title_height = int(title_size * 1.3)
+    subtext_height = int(subtext_size * 1.3)
     gap = 40
 
     total = title_height * len(title_lines) + gap + subtext_height * len(subtext_lines)
     y = (H - total) / 2
     y = _draw_centered_lines(draw, title_lines, font_title, y, title_height, W,
-                             style.outro_title_color, 2, "black")
+                             style.outro_title_color, stroke, "black")
     _draw_centered_lines(draw, subtext_lines, font_subtext, y + gap, subtext_height, W,
-                         style.outro_subtext_color)
+                         style.outro_subtext_color, stroke, "black")
     return np.array(image)
 
 

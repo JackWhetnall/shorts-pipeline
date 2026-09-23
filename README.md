@@ -174,21 +174,25 @@ and the **outro card** — in that order, which is the order the video uses
 them. One preview panel shows a real rendered frame of whichever of the
 three you are working on.
 
-Both cards can be switched off. The title card names the channel and the
-video, has its own size and outline thickness, and — for a channel with
-a topic plan — can optionally add the syllabus topic as a third line. It
-is off by default: seconds before the content starts are watch time
-spent on nothing, and short-form is decided in the first of them. Worth
-turning on for a channel whose videos are a series someone works
-through, and can play either before the narration (the original
-behaviour) or after the first line, so a channel whose opening line is
-its own hook doesn't have to delay it.
+Both cards can be switched off, and both have their own text size and
+outline thickness — the outro's subtext line used to have no outline at
+all, which is why it tended to vanish into a busy background photo. The
+title card names the channel and the video, and — for a channel with a
+topic plan — can optionally add the syllabus topic as a third line. It is
+off by default: seconds before the content starts are watch time spent
+on nothing, and short-form is decided in the first of them. Worth turning
+on for a channel whose videos are a series someone works through, and can
+play either before the narration (the original behaviour) or after the
+first line, so a channel whose opening line is its own hook doesn't have
+to delay it.
 
 The background picture is searched from Pexels and Pixabay, chosen once
 per channel, and sits behind the title and outro cards instead of a flat
-colour. Blur and dim sliders make it sit behind text properly; both
-re-derive from the stored original, so moving one back actually undoes.
-Its licence is recorded the same way a footage clip's is.
+colour. Blur and dim sliders show their effect live in the title/outro
+preview as you drag them — re-derived from the stored original each time,
+so moving one back actually undoes rather than compounding — and Apply
+saves that as the picture itself. Its licence is recorded the same way a
+footage clip's is.
 
 ## Writing a channel's style prompt for you
 

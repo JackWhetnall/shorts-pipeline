@@ -229,36 +229,69 @@ def choose(channel_key: str, url: str, source: str, credit: str = "",
 
 
 def apply_edits(channel_key: str, blur: int = 0, dim: int = 0) -> dict:
-    """Re-derive the edited picture from the original.
+    """Re-derive the edited picture from the original, and save it.
 
     Always from the original, never from the last edited version —
     otherwise moving a slider back would not undo anything, because blur
     applied twice is not the same as more blur applied once.
     """
-    from PIL import Image, ImageFilter
-
     source = original_path(channel_key)
     if not source.exists():
         raise BackgroundError(f"{channel_key} has no background to edit",
                               user_message="This channel has no background picture yet.")
 
+    from PIL import Image
+
     blur = max(0, min(MAX_BLUR, int(blur)))
     dim = max(0, min(MAX_DIM, int(dim)))
 
     with Image.open(source) as image:
-        image = image.convert("RGB")
-        image = _fill_frame(image)
-        if blur:
-            image = image.filter(ImageFilter.GaussianBlur(blur))
-        if dim:
-            black = Image.new("RGB", image.size, (0, 0, 0))
-            image = Image.blend(image, black, dim / 100)
+        image = _render_edited(image.convert("RGB"), blur, dim)
         image.save(path(channel_key), quality=88)
 
     metadata = info(channel_key)
     metadata.update({"blur": blur, "dim": dim})
     meta_path(channel_key).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return metadata
+
+
+def _render_edited(image, blur: int, dim: int):
+    """Frame-fill, blur, dim — the one transform `apply_edits` and
+    `preview_image` both need, so the preview can never drift from what
+    Apply would actually save."""
+    from PIL import ImageFilter
+
+    image = _fill_frame(image)
+    if blur:
+        image = image.filter(ImageFilter.GaussianBlur(blur))
+    if dim:
+        from PIL import Image as PILImage
+        black = PILImage.new("RGB", image.size, (0, 0, 0))
+        image = PILImage.blend(image, black, dim / 100)
+    return image
+
+
+def preview_image(channel_key: str, blur: int = 0, dim: int = 0):
+    """The background as moving the sliders to `blur`/`dim` would render
+    it, without writing anything to disk.
+
+    Read from the original every time, exactly like `apply_edits` —
+    otherwise a live preview while dragging would show blur compounding
+    on top of whatever was last applied, rather than the same "from
+    scratch" result Apply itself would produce. Returns None when there
+    is no picture to preview, the same "fall back to the flat colour"
+    signal `card_background` already reads from a missing file.
+    """
+    from PIL import Image
+
+    source = original_path(channel_key)
+    if not source.exists():
+        return None
+
+    blur = max(0, min(MAX_BLUR, int(blur)))
+    dim = max(0, min(MAX_DIM, int(dim)))
+    with Image.open(source) as image:
+        return _render_edited(image.convert("RGB"), blur, dim)
 
 
 def _fill_frame(image):

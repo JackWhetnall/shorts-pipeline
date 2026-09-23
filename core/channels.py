@@ -119,6 +119,14 @@ class Style(_MappingLike):
     outro_bg_color: tuple = (10, 10, 14, 255)
     outro_title_color: str = "#FFFFFF"
     outro_subtext_color: str = "#FFD400"
+    # The title line's size and outline. The subtext line scales from
+    # these rather than having its own pair, same reasoning as the title
+    # card below — see `pipeline.assemble.render_outro`. Previously
+    # hardcoded at 84/2 for the title and 48/0 for the subtext: the
+    # subtext had no outline at all, which is why it went unreadable over
+    # a busy background photo.
+    outro_font_size: int = 84
+    outro_stroke_width: int = 2
 
     # An opening card naming the channel and what this video is about.
     # Off by default and deliberately so: for short-form, seconds before

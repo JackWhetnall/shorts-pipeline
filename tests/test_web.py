@@ -434,6 +434,65 @@ class TestLookSettings:
         assert load_channels(validate=False)["test_channel"].style.font_face == "arial_bold"
 
 
+class TestCardPreviewBackgroundEdits:
+    """The Look preview's title/outro tabs used to always read the
+    channel's already-committed background picture, so dragging Blur or
+    Dim changed nothing on screen until Apply was pressed and the page
+    reloaded."""
+
+    @pytest.fixture
+    def background(self, client, tmp_path, monkeypatch):
+        from PIL import Image
+
+        monkeypatch.setattr("core.backgrounds.CHANNELS_DIR", tmp_path / "channels")
+        from core import backgrounds
+
+        path = backgrounds.original_path("test_channel")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        import numpy as np
+        pixels = np.zeros((900, 600, 3), dtype="uint8")
+        pixels[::20, :, :] = 255
+        pixels[:, ::20, :] = 255
+        Image.fromarray(pixels).save(path, format="JPEG", quality=95)
+        return path
+
+    def _preview(self, client, background, **extra):
+        data = {"card": "title", "use_background_image": "1",
+               "channel_display_name": "Test Channel"}
+        data.update(extra)
+        return client.post("/api/channels/test_channel/card-preview", data=data,
+                           headers={"X-CSRF-Token": csrf(client)})
+
+    def test_dragging_blur_changes_the_preview(self, client, background):
+        low = self._preview(client, background, background_blur="0").get_data()
+        high = self._preview(client, background, background_blur="25").get_data()
+        assert low != high
+
+    def test_dragging_dim_changes_the_preview(self, client, background):
+        low = self._preview(client, background, background_dim="0").get_data()
+        high = self._preview(client, background, background_dim="80").get_data()
+        assert low != high
+
+    def test_nothing_is_written_to_the_committed_background(self, client, background):
+        """A preview is not an Apply: it must never touch the file the
+        real render reads."""
+        from core import backgrounds
+
+        self._preview(client, background, background_blur="25", background_dim="80")
+        assert not backgrounds.path("test_channel").exists()
+
+    def test_outro_size_and_outline_also_reach_the_preview(self, client, background):
+        small = client.post("/api/channels/test_channel/card-preview", data={
+            "card": "outro", "channel_display_name": "Test Channel",
+            "outro_font_size": "40", "outro_stroke_width": "0",
+        }, headers={"X-CSRF-Token": csrf(client)}).get_data()
+        large = client.post("/api/channels/test_channel/card-preview", data={
+            "card": "outro", "channel_display_name": "Test Channel",
+            "outro_font_size": "120", "outro_stroke_width": "10",
+        }, headers={"X-CSRF-Token": csrf(client)}).get_data()
+        assert small != large
+
+
 class TestDeletingDiscardedVideos:
     """The only irreversible action in the web UI."""
 

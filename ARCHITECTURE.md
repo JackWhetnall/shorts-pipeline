@@ -285,10 +285,20 @@ picture when it has one and a flat colour otherwise. Each can be switched
 off: the title card is off by default — for short-form the scroll is
 decided in the first seconds — and worth turning on for a channel whose
 videos are a series; the outro is on by default, because it is where the
-subscribe prompt lives. The title card is inserted into the narration,
-with matching silence spliced into the audio at the same point; getting
-that wrong desynchronises every caption in the video. See decision
-[020](docs/decisions/020-cards-and-backgrounds.md).
+subscribe prompt lives. Both have their own text size and outline
+thickness — the outro's subtext line used to have no outline at all,
+which is why it disappeared into a busy background photo. The title card
+is inserted into the narration, with matching silence spliced into the
+audio at the same point; getting that wrong desynchronises every caption
+in the video. See decision [020](docs/decisions/020-cards-and-backgrounds.md).
+
+The Look settings preview shows a real composite of whichever card is on
+screen, including the background picture's blur and dim exactly as
+dragging those sliders would leave them — `core.backgrounds.preview_image`
+re-derives the picture from its untouched original at the live slider
+values, in memory, so the preview can never promise something the
+picture's own Apply button wouldn't actually save. A real render never
+passes an override and always reads the already-committed file.
 
 ## Publishing
 

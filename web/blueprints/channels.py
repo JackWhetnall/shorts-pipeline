@@ -740,6 +740,15 @@ def card_preview_image(key):
     )
     display_name = request.form.get("channel_display_name", "").strip() or channel.channel_display_name
 
+    # Posted by every field on the page (previewPayload() gathers the
+    # whole document), so these two are present whether or not a
+    # background is even in use — card_background() ignores them either
+    # way when use_background_image is off or there's no picture yet.
+    # None only when the field itself is missing, which only happens in
+    # a request built by hand rather than by the real page.
+    background_blur = _int(request.form.get("background_blur"), None)
+    background_dim = _int(request.form.get("background_dim"), None)
+
     try:
         if card == "title":
             style.title_card_title_color = _hex(
@@ -753,7 +762,8 @@ def card_preview_image(key):
             style.title_card_stroke_width = _int(
                 request.form.get("title_card_stroke_width"), Style.title_card_stroke_width)
             show_topic = request.form.get("title_card_show_topic") == "1"
-            png = card_preview.render_title_card(style, display_name, key, show_topic)
+            png = card_preview.render_title_card(style, display_name, key, show_topic,
+                                                 background_blur, background_dim)
         else:
             style.outro_title_color = _hex(
                 request.form.get("outro_title_color"), Style.outro_title_color)
@@ -761,8 +771,13 @@ def card_preview_image(key):
                 request.form.get("outro_subtext_color"), Style.outro_subtext_color)
             style.outro_bg_color = _rgba(
                 request.form.get("outro_bg_color"), Style.outro_bg_color)
+            style.outro_font_size = _int(
+                request.form.get("outro_font_size"), Style.outro_font_size)
+            style.outro_stroke_width = _int(
+                request.form.get("outro_stroke_width"), Style.outro_stroke_width)
             outro_subtext = request.form.get("outro_subtext", "").strip() or channel.outro_subtext
-            png = card_preview.render_outro(style, display_name, outro_subtext, key)
+            png = card_preview.render_outro(style, display_name, outro_subtext, key,
+                                            background_blur, background_dim)
     except Exception:
         log.exception("Card preview failed")
         return jsonify({"error": "Could not render a preview."}), 500

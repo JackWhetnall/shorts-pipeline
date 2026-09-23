@@ -369,6 +369,47 @@ class TestCardSizing:
         assert Style.title_card_font_size == assemble.TITLE_CARD_SIZE
 
 
+class TestOutroCardSizing:
+    """Same treatment for the outro card: it had no size or outline
+    settings at all, and its subtext line had no outline EVER — which is
+    exactly why it disappeared into a busy background picture."""
+
+    def test_a_bigger_outro_font_changes_the_frame(self):
+        from core.channels import Style
+        from pipeline.assemble import render_outro
+
+        small = render_outro("Channel", "Subscribe", Style(outro_font_size=40))
+        large = render_outro("Channel", "Subscribe", Style(outro_font_size=120))
+        assert small.shape == large.shape
+        assert not (small == large).all()
+
+    def test_a_thicker_outline_changes_the_frame(self):
+        from core.channels import Style
+        from pipeline.assemble import render_outro
+
+        thin = render_outro("Channel", "Subscribe", Style(outro_stroke_width=0))
+        thick = render_outro("Channel", "Subscribe", Style(outro_stroke_width=10))
+        assert not (thin == thick).all()
+
+    def test_the_default_size_renders_what_the_old_constant_did(self):
+        from core.channels import Style
+        from pipeline import assemble
+
+        assert Style.outro_font_size == assemble.OUTRO_TITLE_SIZE
+
+    def test_the_subtext_line_now_gets_an_outline_by_default(self):
+        """The actual bug: the subtext line was drawn with stroke_width=0
+        no matter what, so text over a busy photo had nothing keeping it
+        legible. A stroke of 0 must now produce a visibly different frame
+        from the real default."""
+        from core.channels import Style
+        from pipeline.assemble import render_outro
+
+        no_outline = render_outro("Channel", "Subscribe", Style(outro_stroke_width=0))
+        default = render_outro("Channel", "Subscribe", Style())
+        assert not (no_outline == default).all()
+
+
 @needs_library
 class TestOutroOff:
     def test_switching_the_outro_off_shortens_the_video_by_exactly_it(

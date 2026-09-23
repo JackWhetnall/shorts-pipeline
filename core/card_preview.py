@@ -33,21 +33,31 @@ def _encode(frame) -> bytes:
 
 
 def render_title_card(style, channel_display_name: str, channel_key: str = "",
-                      show_topic: bool = False) -> bytes:
+                      show_topic: bool = False,
+                      background_blur: int = None, background_dim: int = None) -> bytes:
     """Imports `pipeline.assemble` lazily — it pulls in moviepy, which the
-    settings page shouldn't pay for just being opened."""
+    settings page shouldn't pay for just being opened.
+
+    `background_blur`/`background_dim`, when given, override the
+    channel's saved background edit for this one frame — so dragging
+    those sliders shows what pressing their own Apply button would
+    produce, before it has been pressed.
+    """
     from pipeline import assemble
 
     frame = assemble.render_title_card(
         channel_display_name, SAMPLE_TITLE, style, channel_key,
-        topic_title=SAMPLE_TOPIC if show_topic else "")
+        topic_title=SAMPLE_TOPIC if show_topic else "",
+        background_blur=background_blur, background_dim=background_dim)
     return _encode(frame)
 
 
 def render_outro(style, channel_display_name: str, outro_subtext: str,
-                 channel_key: str = "") -> bytes:
+                 channel_key: str = "",
+                 background_blur: int = None, background_dim: int = None) -> bytes:
     from pipeline import assemble
 
     frame = assemble.render_outro(
-        channel_display_name, outro_subtext or SAMPLE_OUTRO_SUBTEXT, style, channel_key)
+        channel_display_name, outro_subtext or SAMPLE_OUTRO_SUBTEXT, style, channel_key,
+        background_blur=background_blur, background_dim=background_dim)
     return _encode(frame)
