@@ -4,7 +4,7 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 24 Sep 2026.*
+*Last updated: 24 Sep 2026 (evening).*
 
 ---
 
@@ -29,21 +29,33 @@ The copy you started by hand is running old code.
    seconds, open `cache\web.log` in the project folder and send me the
    last few lines.
 
-### 2b. Watch the two animated-scene samples
-The first animated explanations, in the *Clean flat* style. They're in
-`cache\scene_samples\`: `pentagram_clean_flat.mp4` and
-`compound_interest_clean_flat.mp4`. The empty bottom third is on purpose,
-because captions go there.
+### 2b. Watch the Pythagoras video, and look at the maths draft
+A full example with animated scenes throughout, made by pitching a maths
+channel ("maths explained visually, for adults put off it at school").
+The draft picked the Chalkboard look and set 100% animated by itself.
 
-Tell me:
-1. Is this the right direction? Say what feels off: too plain, too busy,
-   too slow, the wrong fonts or colours.
-2. Which art style should come next? For example: parchment and ink for
-   Wren's, a chalkboard, neon on dark, paper cut-out, or a
-   gentle watercolour for Minute Pastor.
+1. Watch `cache\scene_samples\maths_demo\pythagoras_scenes.mp4`. Tell me
+   what's off: pacing, how busy it is, fonts, whether the pictures match
+   the words.
+2. The draft it came from is in your drafts: **Channels → New channel**,
+   under the pitch box (*Second Look Maths*). Its **Animated scenes** card
+   shows the look with a live preview. Create it only if you want a
+   maths channel; otherwise throw the draft away.
 
-Once the look is settled I'll build the part where the script writer
-makes these scenes itself.
+### 2c. Decide scenes for your existing channels
+Every existing channel is **stock only** until you change it. On each
+channel's dashboard there's now an **Animated scenes** card: a slider
+for how much is animated, and the look (four starting presets, then
+your own colours, fonts and drawing style), with a preview.
+- **Wren's Guide**: try about 30% (explanations only), with the Parchment
+  look to start from.
+- **Minute Pastor**: probably 0-20%. It's reflective, and stock footage
+  suits it; a scene now and then for a structure (a list, a timeline)
+  could help.
+
+Scenes cost about 5-6 cents each, plus about 4 cents the first time a
+channel needs an illustrated object (reused after that). The voice
+quota is unaffected.
 
 ## When you have time to focus (testing the automation)
 
@@ -152,9 +164,9 @@ you can show it working.
   proves itself? Its Launch card shows its next step.
 - **ElevenLabs plan**: Starter covers about one channel posting daily.
   Upgrade only when a second channel needs it.
-- **Which channel gets animated scenes first**: Wren's (the pentagram
-  kind of scene) or a maths/money pitch (step 7). See
-  `docs/specs/animated-scenes.md`.
+- **A maths channel?** The Pythagoras demo's draft (step 2b) is ready to
+  accept if the video convinces you. It would be the first channel built
+  around animated scenes.
 
 ---
 

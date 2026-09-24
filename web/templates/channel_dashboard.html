@@ -222,6 +222,19 @@
   {% endif %}
 </div>
 
+<div class="card" id="animated-scenes">
+  <h2>Animated scenes</h2>
+  <p class="subtitle">
+    Explanations drawn in this channel's own look, timed to the words:
+    shapes, labels, equations, counters, charts and illustrated objects.
+  </p>
+  <form method="post" action="{{ url_for('scenes.save', key=key) }}" class="channel-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% include "_scene_settings.html" %}
+    <div class="actions"><button type="submit" class="btn btn-primary">Save the look</button></div>
+  </form>
+</div>
+
 {% if cost and cost.calls %}
 <div class="card">
   <h2>What this channel has cost</h2>

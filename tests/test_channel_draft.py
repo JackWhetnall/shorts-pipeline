@@ -35,7 +35,12 @@ def model_answer(**overrides):
         "voice_brief": "young, bright, clear",
         "voice_ids": [VOICE_IDS[2], VOICE_IDS[0], VOICE_IDS[4]],
         "palette_key": "cool_teal",
-        "visual_approach": "diagrams", "visual_reason": "science needs showing",
+        "art": {"preset": "chalkboard", "background": "#1e2b24", "ink": "#F4F1E8",
+                "ink_soft": "#B9C2B8", "label_fill": "#2C3E35", "accent1": "#F7D56B",
+                "accent2": "#8FD3E8", "accent3": "#F29CA3", "accent4": "#A8E08F",
+                "accent5": "not a colour", "font_display": "Segoe Print",
+                "font_text": "Wingdings", "prop_style": "chalk drawings",
+                "scene_share": 140, "reason": "science needs showing"},
         "needs_news_source": False,
         "risks": ["Generic science facts channels are common; the draft narrows to one idea a day."],
     }
@@ -71,6 +76,18 @@ class TestClean:
     def test_avoid_terms_are_normalised(self):
         assert channel_draft.clean(model_answer(), VOICE_IDS)["avoid_imagery"] == ["weapons", "gore"]
 
+    def test_the_art_direction_is_held_to_what_renders(self):
+        art = channel_draft.clean(model_answer(), VOICE_IDS)["art"]
+        assert art["preset"] == "chalkboard" and art["background"] == "#1E2B24"
+        assert "accent5" not in art          # not a colour: the preset's is used
+        assert "font_text" not in art        # not an installed font
+        assert art["font_display"] == "Segoe Print"
+        assert art["scene_share"] == 100 and art["reason"] == "science needs showing"
+
+    def test_an_unknown_preset_falls_back_to_the_default(self):
+        art = channel_draft.clean(model_answer(art={"preset": "vaporwave"}), VOICE_IDS)["art"]
+        assert art["preset"] == "clean_flat" and art["scene_share"] == 30
+
     def test_no_style_prompt_is_an_error_not_an_empty_channel(self):
         from core.errors import PipelineError
         with pytest.raises(PipelineError):
@@ -90,6 +107,7 @@ def test_the_draft_call_offers_only_real_voices_and_palettes(monkeypatch):
     props = seen["schema"]["properties"]
     assert props["voice_ids"]["items"]["enum"] == VOICE_IDS
     assert "cool_teal" in props["palette_key"]["enum"]
+    assert "chalkboard" in props["art"]["properties"]["preset"]["enum"]
     assert seen["kwargs"]["operation"] == "channel_draft"
 
 
@@ -178,7 +196,8 @@ class TestPages:
         review_url = response.headers["Location"]
         page = client.get(review_url).get_data(as_text=True)
         assert "Orbit Notes" in page and "What things are made of" in page
-        assert "aren't built yet" in page      # diagrams flagged honestly
+        assert "Animated scenes" in page and "science needs showing" in page
+        assert "art_preset=chalkboard" in page          # the preview shows the drafted look
 
         draft_id = review_url.rstrip("/").split("/")[-1]
         response = client.post(f"/channels/drafts/{draft_id}/accept", data={
@@ -186,8 +205,13 @@ class TestPages:
             "voice": VOICE_IDS[1], "palette": "cool_teal", "style_prompt": "Edited prompt.",
             "target_seconds": "45", "segment_count": "3", "speed": "1.0",
             "avoid_imagery": "weapons, Gore",
+            "scene_share": "70", "art_preset": "neon", "art_accent1": "#FF0000",
+            "art_font_display": "Georgia",
         })
         assert response.status_code == 302 and "/channels/my_science" in response.headers["Location"]
         from core.channels import load_channels
         saved = load_channels()["my_science"]
         assert saved.style_prompt == "Edited prompt." and saved.avoid_imagery == ["weapons", "gore"]
+        # The look as reviewed, keeping only what differs from its preset.
+        assert saved.scenes.share == 70
+        assert saved.scenes.art == {"preset": "neon", "accent1": "#FF0000", "font_display": "Georgia"}

@@ -286,6 +286,22 @@ SLOT_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
 @dataclass
+class Scenes(_MappingLike):
+    """Animated explanations in this channel's own art direction.
+
+    `share`: roughly how much of each video is animated rather than stock
+    footage, 0-100. 0 is stock only; around 30 animates the explaining
+    moments; 100 animates every segment (a maths channel).
+
+    `art`: `{"preset": ..., ...overrides}`; pipeline.scenes.art resolves
+    it to a full art direction and checks every value. See decision 035.
+    """
+
+    share: int = 0
+    art: dict = field(default_factory=dict)
+
+
+@dataclass
 class Publishing(_MappingLike):
     """When this channel's videos go out, and how many to keep ready.
 
@@ -353,6 +369,7 @@ class ChannelConfig:
     ordering: Ordering = field(default_factory=Ordering)
     autopilot: Autopilot = field(default_factory=Autopilot)
     publishing: Publishing = field(default_factory=Publishing)
+    scenes: Scenes = field(default_factory=Scenes)
     archived: bool = False
     # Launch-checklist items marked done by hand. Some steps (Patreon's
     # signup flow) are annoying enough that "noting I'm skipping this"
@@ -446,6 +463,9 @@ class ChannelConfig:
             raise ConfigError(
                 f"{where} spot-checks every {self.autopilot.spot_check_every} videos. "
                 f"Use 0 for never, or a positive number.")
+        if not 0 <= self.scenes.share <= 100:
+            raise ConfigError(
+                f"{where} animates {self.scenes.share}% of each video. Pick 0 to 100.")
         self._validate_output_dir(where)
 
     def _has_corpus(self) -> bool:
@@ -499,6 +519,7 @@ _NESTED = {
     "ordering": Ordering,
     "autopilot": Autopilot,
     "publishing": Publishing,
+    "scenes": Scenes,
 }
 
 

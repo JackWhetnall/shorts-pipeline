@@ -108,15 +108,23 @@ pipeline/     The generation stages. No web dependency at all.
     intake        Normalize, perceptual-dedupe, describe, record.
     sources       Pexels / Pixabay search and download.
     library       The semantic matcher and the fetch-and-recheck loop.
-  scenes/       Animated explanations in a channel's art style (decision 034;
-                not yet called by the pipeline).
+  scenes/       Animated explanations in a channel's own art direction
+                (decisions 034, 035).
+    stage         The pipeline stage: plan, write, check, repair once, draw
+                  props, render; a scene that can't be made falls back to
+                  stock footage and is noted on the video's report.
+    writer        The model calls (plan which segments; write each scene
+                  with actions anchored to spoken words) and the checks
+                  (structure; layout measured in the browser).
+    art           A channel's art direction: preset + its own overrides,
+                  validated; the preview still.
     runtime.js    The SVG timeline engine: scene JSON in, `__seek(t)` sets
                   every element for time t. Pure, so frames are deterministic.
     render        Scene + art direction -> one self-contained page, captured
                   frame by frame in the installed Chrome, piped to ffmpeg.
-    props         The per-channel prop library: illustrated once, cleaned,
-                  reused.
-    styles/       Art directions (colours, type, stroke, motion, prop prompt).
+    props         The per-channel prop library (channels/<key>/props/<style>):
+                  illustrated once, cleaned, reused.
+    styles/       Art direction presets: clean_flat, chalkboard, neon, parchment.
     examples/     Hand-written scenes: the pentagram, compound interest.
 
 web/          Flask only.
@@ -176,7 +184,11 @@ script_gen.run(plan)         -> plan.script   (segments, shot briefs, title, des
 tts.run(plan)                -> plan.voiceover, and each Segment's real start/end
                                  (refused up front if the voice quota
                                  can't cover it)
-assemble.run(plan)           -> plan.shots, the video file
+scenes.stage.run(plan)       -> plan.scene_clips: animated scenes for the
+                                 stretches of segments the channel's
+                                 `scenes.share` asks for (none at 0)
+assemble.run(plan)           -> plan.shots (one per scene; stock footage
+                                 matched for the rest), the video file
 _finish(plan)                -> meta, description, script history, cost, render
                                  report, the script and picture checks, and
                                  the publish gate's verdict

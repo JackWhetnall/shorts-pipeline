@@ -3,10 +3,14 @@
 *24 Sep 2026. Supersedes the "diagrams" option in
 `generated-footage.md`: same seam (the shot brief), much wider idea.*
 
-**Status:** phase 1 built (renderer, Clean flat, two hand-written
-scenes); see decision [034](../decisions/034-animated-scenes-renderer.md).
-Decisions in §6 answered: Playwright yes (using the installed Chrome),
-Clean flat first, explanations only. Phases 2 and 3 not started.
+**Status:** built. Phase 1 (renderer, looks):
+decision [034](../decisions/034-animated-scenes-renderer.md). Phases 2
+and 3 (scene writer, checks, pipeline, per-channel art direction and
+share, set by the pitch): decision
+[035](../decisions/035-scenes-in-the-pipeline.md). "Explanations only"
+became a per-channel slider (0-100%) the draft sets. The picture check
+is the existing frame check on the finished video, not a separate
+per-scene call.
 
 ## 1. What we want
 

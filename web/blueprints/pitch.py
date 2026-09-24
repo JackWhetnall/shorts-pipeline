@@ -12,6 +12,7 @@ from flask import Blueprint, abort, redirect, render_template, request, url_for
 from core import drafts, palettes
 from core.errors import PipelineError
 from core.logging_setup import get_logger
+from web.blueprints.scenes import art_from, form_context
 
 log = get_logger(__name__)
 
@@ -41,10 +42,12 @@ def pitch():
 def review(draft_id):
     record = _draft_or_404(draft_id)
     body = record["channel"]
+    drafted_art = body.get("art") or {}
     return render_template(
         "channel_draft.html", draft=record, body=body,
         palettes=palettes.PALETTES,
         error=request.args.get("error"),
+        **form_context(drafted_art, drafted_art.get("scene_share", 0)),
     )
 
 
@@ -79,6 +82,8 @@ def accept(draft_id):
         "speed": form.get("speed"),
         "avoid_imagery": [a.strip().lower() for a in form.get("avoid_imagery", "").split(",")
                           if a.strip()],
+        "art": art_from(form),
+        "scene_share": form.get("scene_share"),
     }
     if "quotes" in form:
         choices["quotes"] = form.get("quotes", "")

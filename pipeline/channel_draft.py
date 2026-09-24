@@ -5,8 +5,9 @@ A pitch in, a complete draft channel out, for a person to review.
 call turns an idea into every decision a new channel needs. Names, the
 format, a style prompt, length and pacing, what imagery to keep off it,
 three narrator voices chosen from the account's own ElevenLabs list, a
-caption palette from the vetted set, the visual approach, and the risks
-worth knowing before starting. A second, cheaper call (the existing
+caption palette from the vetted set, the art direction for its animated
+scenes and how much of each video to animate, and the risks worth knowing
+before starting. A second, cheaper call (the existing
 `curriculum_gen.plan_outline`) designs the topic plan for a channel that
 generates its own topics.
 
@@ -34,7 +35,6 @@ OUTLINE_TOPICS = 25
 OUTLINE_SUBTOPICS = 750      # ~2 years at one a day; units are written as needed
 
 BUILT_IN_SOURCES = ("bible", "shakespeare")
-VISUAL_APPROACHES = ("stock", "diagrams", "illustration")
 VOICE_DESCRIPTION_CHARS = 220
 
 SYSTEM = """
@@ -45,11 +45,23 @@ the idea is weak.
 
 What the pipeline makes: vertical videos of about 30-90 seconds. A script
 is split into a few spoken segments, read by an AI narrator voice, with
-burned-in word-by-word captions over background footage matched to each
-segment. The footage is stock b-roll by default. It carries mood well and
-cannot demonstrate anything precise: no diagrams, equations, charts, maps
-or on-screen text beyond captions. Some channels will later get generated
-diagrams or illustrations; say which this one would benefit from.
+burned-in word-by-word captions. Under the captions, each segment shows
+either stock b-roll matched to it, or an animated scene drawn for it:
+shapes that draw themselves, labels, equations, counters, charts and
+illustrated props (a piggy bank, a candle), built up in time with the
+words. Stock footage carries mood and cannot demonstrate anything precise.
+Scenes explain: structures, processes, quantities, comparisons, symbols.
+
+Every channel has its own art direction for its scenes, used in every
+video so the channel is recognisable: a starting preset, its own palette
+(background, ink and five accents that read well on the background),
+fonts from the installed list, and a prop style (how its illustrated
+objects are drawn: medium, line, colour, mood; never a subject). Choose
+a look that fits the audience and is distinct, not generic. Then choose
+how much of each video is animated: 0 for pure mood and atmosphere, about
+30 to animate only the moments that explain something, 60-80 for
+teaching channels, 100 for subjects that are explained visually all the
+way through (maths, most science).
 
 Where the words come from: either `topic` mode, where every script is
 written from one topic in an ordered syllabus that runs from what anyone
@@ -76,6 +88,44 @@ follow. The writer model reuses any sample sentence almost verbatim in
 nearly every video, which is exactly the sameness that gets a channel
 demonetised. Describe what a good opening DOES, never what one SAYS.
 """.strip()
+
+
+def _art_schema() -> dict:
+    from pipeline.scenes import art
+
+    colour = {"type": "string", "description": "#RRGGBB"}
+    fonts = list(art.FONTS)
+    return {
+        "type": "object",
+        "properties": {
+            "preset": {"type": "string", "enum": list(art.presets())},
+            "background": colour, "ink": colour, "ink_soft": colour, "label_fill": colour,
+            "accent1": colour, "accent2": colour, "accent3": colour, "accent4": colour,
+            "accent5": colour,
+            "font_display": {"type": "string", "enum": fonts,
+                             "description": "Headings AND every label, number and equation."},
+            "font_text": {"type": "string", "enum": fonts},
+            "prop_style": {"type": "string",
+                           "description": "How illustrated props are drawn, in one sentence: "
+                                          "medium, linework, palette, mood. No subject."},
+            "scene_share": {"type": "integer", "description": "0-100: how much of each video "
+                                                             "is animated scenes."},
+            "reason": {"type": "string", "description": "Why this look and this amount, "
+                                                        "in a sentence."},
+        },
+        "required": ["preset", "background", "ink", "ink_soft", "label_fill", "accent1",
+                     "accent2", "accent3", "accent4", "accent5", "font_display", "font_text",
+                     "prop_style", "scene_share", "reason"],
+        "additionalProperties": False,
+    }
+
+
+def _art_menu() -> str:
+    from pipeline.scenes import art
+
+    presets = "\n".join(f"- {k}: {p['label']}. {p['description']}" for k, p in art.presets().items())
+    fonts = "\n".join(f"- {name}: {what}" for name, what in art.FONTS.items())
+    return f"Art direction presets:\n{presets}\n\nFonts available:\n{fonts}"
 
 
 def _schema(palette_keys: list, voice_ids: list) -> dict:
@@ -114,8 +164,7 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
                           "description": "The three best-fitting voices from the list, "
                                          "best first."},
             "palette_key": {"type": "string", "enum": palette_keys},
-            "visual_approach": {"type": "string", "enum": list(VISUAL_APPROACHES)},
-            "visual_reason": {"type": "string"},
+            "art": _art_schema(),
             "needs_news_source": {"type": "boolean",
                                   "description": "True if the idea depends on recent "
                                                  "events that a syllabus can't provide."},
@@ -127,8 +176,8 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
         "required": ["name_options", "summary", "audience", "content_mode",
                      "corpus_source", "custom_quotes", "subject", "style_prompt",
                      "target_seconds", "segment_count", "speed", "avoid_imagery",
-                     "voice_brief", "voice_ids", "palette_key", "visual_approach",
-                     "visual_reason", "needs_news_source", "risks"],
+                     "voice_brief", "voice_ids", "palette_key", "art",
+                     "needs_news_source", "risks"],
         "additionalProperties": False,
     }
 
@@ -154,7 +203,7 @@ def draft(pitch: str, voices: list, note: str = "", previous: dict = None) -> di
     system = [
         SystemBlock(SYSTEM, cacheable=True),
         SystemBlock(f"Narrator voices available:\n{voice_list}\n\n"
-                    f"Caption palettes available:\n{palette_list}"),
+                    f"Caption palettes available:\n{palette_list}\n\n{_art_menu()}"),
     ]
     user = f"The pitch: {pitch}"
     if previous and note:
@@ -203,8 +252,7 @@ def clean(data: dict, voice_ids: list) -> dict:
     out["voice_ids"] = list(dict.fromkeys(ids + voice_ids))[:3]
     if data.get("palette_key") not in palettes.PALETTES_BY_KEY:
         out["palette_key"] = palettes.DEFAULT_PALETTE
-    if data.get("visual_approach") not in VISUAL_APPROACHES:
-        out["visual_approach"] = "stock"
+    out["art"] = clean_art(data.get("art") or {})
     out["avoid_imagery"] = [a.strip().lower() for a in data.get("avoid_imagery") or []
                             if a and a.strip()][:30]
     out["risks"] = [r for r in data.get("risks") or [] if r][:5]
@@ -212,6 +260,17 @@ def clean(data: dict, voice_ids: list) -> dict:
         raise PipelineError("draft had no style prompt", user_message=(
             "The draft came back without a style prompt. Try again, perhaps with a "
             "more specific pitch."))
+    return out
+
+
+def clean_art(raw: dict) -> dict:
+    """The art direction as the channel stores it, plus the share and the
+    reason, with anything unusable dropped (the preset's value is used)."""
+    from pipeline.scenes import art
+
+    out = art.clean(raw)
+    out["scene_share"] = int(_clamp(raw.get("scene_share"), 30, 0, 100))
+    out["reason"] = (raw.get("reason") or "").strip()
     return out
 
 

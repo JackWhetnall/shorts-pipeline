@@ -200,3 +200,37 @@ def test_render_encodes_a_video_of_the_scene_length(tmp_path):
     probe = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-i", str(out)],
                            capture_output=True, text=True).stderr
     assert "1080x1920" in probe and "Duration: 00:00:01.00" in probe
+
+
+@pytest.mark.slow
+def test_constructions_are_exact_and_side_labels_sit_outside_their_side(tmp_path):
+    # A 3-4-5 triangle at 100px a unit: the square on the hypotenuse must
+    # be 500px a side, and a label on a side must land outside the figure.
+    scene = {"duration": 1.0, "elements": [
+        {"id": "tri", "type": "shape", "kind": "poly", "vertices": [[300, 900], [700, 900], [300, 600]]},
+        {"id": "hyp", "type": "shape", "kind": "square", "on": {"of": "tri", "edge": 1}},
+        {"id": "b", "type": "label", "text": "b", "size": 50, "anchor": {"of": "tri", "edge": 0, "offset": 60}},
+        {"id": "eq", "type": "label", "style": "title", "pill": False, "x": 540, "y": 300,
+         "parts": [{"text": "a² ", "color": "accent1"}, {"text": "+ b²"}]},
+    ], "actions": []}
+    page = _open(scene, {})
+    try:
+        page.frame(1.0)
+        hyp = _box(page, "hyp")
+        # Rotated square of side 500 on a 3-4-5 hypotenuse: its box is 700 x 700.
+        assert hyp[2] - hyp[0] == pytest.approx(700, abs=16)
+        assert hyp[3] - hyp[1] == pytest.approx(700, abs=16)
+        assert hyp[0] > 300 - 5 and hyp[3] < 900 + 5          # outward: up and right, away from the triangle
+        b = _box(page, "b")
+        assert b[1] > 900                                       # below the bottom side
+        assert page.page.evaluate("document.querySelectorAll(\"[data-id='eq'] tspan\").length") == 2
+    finally:
+        page.__exit__(None, None, None)
+
+
+@pytest.mark.slow
+def test_every_preset_builds_without_errors(tmp_path):
+    from pipeline.scenes import art
+    for key in art.presets():
+        art.preview({"preset": key}, tmp_path)               # raises if the page fails to build
+    assert len(list(tmp_path.glob("*.jpg"))) == len(art.presets())

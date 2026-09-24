@@ -206,7 +206,10 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
         "footage_unconfident": plan.footage_unconfident,
         "script_suspect": plan.script_suspect,
         "shot_count": len(plan.shots),
-        "clips": sorted({s.clip_path.name for s in plan.shots if s.clip_path}),
+        "clips": sorted({s.clip_path.name for s in plan.shots if s.clip_path and not s.scene}),
+        "scenes": len(plan.scene_clips),
+        "scenes_fell_back": plan.scenes_fell_back,
+        "scene_notes": list(plan.scene_notes),
         "similarity": {
             "flagged": report.flagged,
             "max_trigram": report.max_trigram,
@@ -281,6 +284,7 @@ def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
     # and Pillow, which are slow to import and not needed by anything that
     # only wants fetch_seed.
     from pipeline import assemble
+    from pipeline.scenes import stage as scenes_stage
 
     job_context.set_channel_key(channel.key)
     started_at = time.time()
@@ -291,6 +295,7 @@ def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
         _prepare_output(plan)
         script_gen.run(plan)
         tts.run(plan)
+        scenes_stage.run(plan)
         assemble.run(plan)
         _finish(plan, started_at)
     except Exception:

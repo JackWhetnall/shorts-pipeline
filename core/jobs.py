@@ -232,6 +232,10 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
                 job.warnings.append(
                     f"{plan.footage_unconfident} shot(s) had no footage that scored as a "
                     f"good match, even after fetching. Watch those before publishing.")
+            if getattr(plan, "scenes_fell_back", 0):
+                job.warnings.append(
+                    f"{plan.scenes_fell_back} animated scene(s) couldn't be made and used "
+                    f"stock footage instead.")
             if plan.footage_repeated:
                 job.warnings.append(
                     "This video reuses a footage clip — the library ran out of distinct "

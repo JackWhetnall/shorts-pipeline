@@ -1152,6 +1152,16 @@ function renderReview() {
   if (item.footage_repeated) {
     flags.push(`<p class="review-flag review-flag-warn">Reused a footage clip &mdash; the library ran short.</p>`);
   }
+  if (item.scenes_fell_back) {
+    const n = item.scenes_fell_back;
+    flags.push(`<p class="review-flag review-flag-warn">${n} animated scene${n === 1 ? "" : "s"} couldn't be made and used stock footage instead.</p>`);
+  }
+  // Anything a scene's layout check still disliked after its repair:
+  // cosmetic, but worth a glance at that moment of the video.
+  const sceneNotes = (item.scene_notes || []).filter(n => !/replaced by stock footage|all stock footage/.test(n));
+  if (sceneNotes.length) {
+    flags.push(`<details class="review-flag"><summary>${item.scenes} animated scene${item.scenes === 1 ? "" : "s"}; ${sceneNotes.length} layout note${sceneNotes.length === 1 ? "" : "s"}</summary><ul>${sceneNotes.map(n => `<li>${escapeHtml(n)}</li>`).join("")}</ul></details>`);
+  }
   if (item.similarity_flagged) {
     flags.push(`<p class="review-flag review-flag-warn">Wording is close to ${escapeHtml(item.similarity_closest || "an earlier video")}.</p>`);
   }
@@ -2746,3 +2756,53 @@ async function markPosted(event, form) {
     if (!card.querySelector(".handoff-form")) card.remove();
   });
 }
+
+// --- Animated scenes settings (_scene_settings.html) -------------------
+// The share slider's wording, the preset filling in its own colours and
+// fonts, and the preview re-rendering (debounced) as anything changes.
+function sceneShareLabel(value) {
+  const v = Number(value);
+  if (v === 0) return "Stock only";
+  if (v <= 20) return `${v}%: now and then`;
+  if (v <= 45) return `${v}%: explanations`;
+  if (v <= 80) return `${v}%: most of it`;
+  return `${v}%: throughout`;
+}
+
+function initSceneSettings(root) {
+  const presets = JSON.parse(root.querySelector("[data-scene-presets]").textContent);
+  const img = root.querySelector("[data-scene-preview]");
+  const status = root.querySelector("[data-scene-preview-status]");
+  const share = root.querySelector("[data-scene-share]");
+  const shareLabel = root.querySelector("[data-scene-share-label]");
+  const preset = root.querySelector("[data-scene-preset]");
+  const description = root.querySelector("[data-scene-preset-description]");
+  const fields = [...root.querySelectorAll("[data-scene-field]")];
+  let timer = null;
+
+  const showShare = () => { shareLabel.value = sceneShareLabel(share.value); };
+  share.addEventListener("input", showShare);
+  showShare();
+
+  const refresh = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const params = new URLSearchParams({art_preset: preset.value});
+      fields.forEach(f => { if (f.value) params.set(`art_${f.dataset.sceneField}`, f.value); });
+      status.textContent = "Drawing…";
+      img.onload = () => { status.textContent = ""; };
+      img.onerror = () => { status.textContent = "Couldn't draw the preview."; };
+      img.src = `${img.dataset.previewBase}?${params}`;
+    }, 600);
+  };
+
+  preset.addEventListener("change", () => {
+    const values = presets[preset.value];
+    fields.forEach(f => { if (values[f.dataset.sceneField] != null) f.value = values[f.dataset.sceneField]; });
+    description.textContent = values.description;
+    refresh();
+  });
+  fields.forEach(f => f.addEventListener("change", refresh));
+}
+
+document.querySelectorAll("[data-scene-settings]").forEach(initSceneSettings);

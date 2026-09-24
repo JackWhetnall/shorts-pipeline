@@ -27,6 +27,7 @@ from core.channels import ChannelConfig, read_raw
 from core.errors import ConfigError, PipelineError
 from core.logging_setup import get_logger
 from core.paths import CACHE_DIR, safe_join, slugify
+from pipeline.scenes import art
 
 log = get_logger(__name__)
 
@@ -96,7 +97,8 @@ def accept(draft_id: str, choices: dict) -> ChannelConfig:
 
     `choices` is what the review page sent: name, style_prompt, voice,
     palette, target_seconds, segment_count, speed, avoid_imagery (a list),
-    quotes (text, for a custom quote channel). Anything missing falls back
+    quotes (text, for a custom quote channel), art (the scenes' art
+    direction fields) and scene_share. Anything missing falls back
     to the draft's own value.
     """
     record = load(draft_id)
@@ -127,6 +129,12 @@ def accept(draft_id: str, choices: dict) -> ChannelConfig:
     channel.pacing.segment_count = int(_number(choices.get("segment_count"),
                                                body["segment_count"], 1, 8))
     palettes.apply_to_style(channel.style, palettes.get(choices.get("palette") or body["palette_key"]))
+    # The animated scenes' look and amount, as reviewed (drafts made
+    # before scenes existed have none, and start with stock only).
+    drafted_art = body.get("art") or {}
+    channel.scenes.art = art.clean(choices.get("art") or drafted_art)
+    channel.scenes.share = int(_number(choices.get("scene_share"),
+                                       drafted_art.get("scene_share", 0), 0, 100))
 
     # Written before the channel exists, because validation looks for them:
     # a quote channel needs its list, a topic channel its plan.

@@ -46,4 +46,5 @@ reason for a change stays true forever.
 | [031](031-launch-pipeline-and-publishing-queue.md) | A launch pipeline, and a queue between making and publishing | Supersedes the launch checklist and the day/hour schedule |
 | [032](032-pitch-to-channel.md) | A pitch becomes a whole draft channel | Active |
 | [033](033-posting-from-this-pc.md) | Posting to TikTok and Instagram from this PC | Replaces 031's phone hand-off |
-| [034](034-animated-scenes-renderer.md) | Animated scenes: a timeline engine in headless Chrome | Active (phase 1 of 3) |
+| [034](034-animated-scenes-renderer.md) | Animated scenes: a timeline engine in headless Chrome | Active; extended by 035 |
+| [035](035-scenes-in-the-pipeline.md) | Animated scenes in the pipeline, per channel | Active |

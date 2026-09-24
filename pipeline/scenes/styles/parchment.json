@@ -1,0 +1,29 @@
+{
+  "key": "parchment",
+  "label": "Parchment",
+  "description": "Sepia ink on aged paper: fine lines with a slight hand-drawn waver, old-book serif type, muted oxblood, ochre and verdigris. For history, folklore, philosophy and faith.",
+  "background": {"color": "#F1E4C8", "pattern": "none", "grain": 0.13, "vignette": 0.24},
+  "ink": "#3B2A1A",
+  "colors": {
+    "ink": "#3B2A1A",
+    "ink_soft": "#7A6247",
+    "label_fill": "#F8EFD9",
+    "accent1": "#8C2F1B",
+    "accent2": "#2F5D50",
+    "accent3": "#B8862B",
+    "accent4": "#4B3F72",
+    "accent5": "#A0522D"
+  },
+  "stroke_width": 7,
+  "label_size": 60,
+  "label_radius": 6,
+  "label_stroke": 3,
+  "font_display": "Palatino Linotype",
+  "font_display_weight": 700,
+  "font_text": "Constantia",
+  "font_text_weight": 400,
+  "shadow": {"dx": 0, "dy": 4, "blur": 2, "color": "#3B2A1A", "opacity": 0.14},
+  "sketch": 3,
+  "motion": {"appear": "out", "draw": "inout", "move": "inout", "count": "out"},
+  "prop_style": "antique ink engraving illustration: fine sepia ink linework with light cross-hatching, muted watercolour washes in oxblood red, ochre and verdigris green, like a plate from an old almanac, no paper or background drawn"
+}

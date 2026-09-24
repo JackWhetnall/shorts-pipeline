@@ -211,6 +211,11 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
 
     Raises TruncatedResponse if the model runs out of budget twice, so a
     caller that can carry on without this answer is able to.
+
+    `schema=None` asks for JSON without constraining it, for shapes too
+    rich for structured outputs (which allow at most 24 optional fields
+    per schema). The caller must then validate what comes back; the scene
+    writer does, field by field.
     """
     budget = min(max_tokens, MAX_NONSTREAMING_TOKENS)
     last_error = None
@@ -222,10 +227,13 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
             "max_tokens": budget,
             "system": _render_system(system),
             "messages": [{"role": "user", "content": user_msg}],
-            "output_config": {"format": {"type": "json_schema", "schema": schema}},
+            "output_config": ({"format": {"type": "json_schema", "schema": schema}}
+                              if schema is not None else {}),
         }
         if effort:
             request["output_config"]["effort"] = effort
+        if not request["output_config"]:
+            del request["output_config"]
 
         response = _call(request, operation, model)
 
@@ -258,7 +266,7 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
             continue
 
         try:
-            return json.loads(text)
+            return json.loads(text if schema is not None else _json_part(text))
         except json.JSONDecodeError as exc:
             # Shouldn't happen with a constrained format, but a silent
             # wrong answer is worse than a clear failure.
@@ -275,6 +283,13 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
 
     raise last_error or ExternalServiceError(
         "The AI service (Claude)", f"{operation}: exhausted attempts")
+
+
+def _json_part(text: str) -> str:
+    """The JSON object in an unconstrained answer: without a code fence
+    or any sentence around it."""
+    start, end = text.find("{"), text.rfind("}")
+    return text[start:end + 1] if start != -1 and end > start else text
 
 
 def call_vision(prompt: str, images: list, *, operation: str,

@@ -32,9 +32,6 @@
     {% for risk in body.risks %}<li>{{ risk }}</li>{% endfor %}
   </ul>
   {% endif %}
-  <p class="meta">Visuals: <strong>{{ body.visual_approach }}</strong>, {{ body.visual_reason }}
-    {% if body.visual_approach != 'stock' %}(Generated {{ body.visual_approach }} aren't built yet;
-    it uses stock footage until they are.){% endif %}</p>
 </div>
 
 <form method="post" action="{{ url_for('pitch.accept', draft_id=draft.id) }}" class="channel-form"
@@ -120,6 +117,12 @@
     <label>Footage it must never show (comma-separated)
       <input type="text" name="avoid_imagery" value="{{ body.avoid_imagery|join(', ') }}">
     </label>
+  </div>
+
+  <div class="card">
+    <h2>Animated scenes</h2>
+    {% if body.art and body.art.reason %}<p class="meta">{{ body.art.reason }}</p>{% endif %}
+    {% include "_scene_settings.html" %}
   </div>
 
   {% if draft.outline %}

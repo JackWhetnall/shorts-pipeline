@@ -62,6 +62,12 @@ def channel_logo_dir(channel_key: str) -> Path:
     return CHANNELS_DIR / channel_key / "logo"
 
 
+def channel_props_dir(channel_key: str, style_key: str) -> Path:
+    """A channel's illustrated scene props, per art direction: a prop drawn
+    in chalk doesn't belong in a neon scene."""
+    return CHANNELS_DIR / channel_key / "props" / style_key
+
+
 def channel_merch_dir(channel_key: str) -> Path:
     return CHANNELS_DIR / channel_key / "merch"
 

@@ -185,6 +185,9 @@ class Shot:
     end: float
     segment_index: int
     clip_path: Path = None
+    # An animated scene rather than library footage: played from its
+    # start (it's timed to the words), never a random window of it.
+    scene: bool = False
 
     @property
     def duration(self) -> float:
@@ -245,6 +248,13 @@ class RenderPlan:
     # after it.
     title_card_at: float = 0.0
     title_card_seconds: float = 0.0
+    # Animated scenes (pipeline.scenes.stage): [{first, last, clip}] for
+    # the stretches of segments they cover. Stock footage fills the rest.
+    scene_clips: list = field(default_factory=list)
+    # Scenes that were planned but fell back to stock footage, and notes
+    # on anything imperfect in the ones that were made. Shown on review.
+    scenes_fell_back: int = 0
+    scene_notes: list = field(default_factory=list)
     # The publish gate's verdict for this render (core.publish_gate).
     gate: dict = None
     # The offending text when a segment reads like a description of a line

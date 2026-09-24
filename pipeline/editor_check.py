@@ -113,6 +113,12 @@ Burned-in captions are part of the video. Report only real problems:
 A shot that is merely generic, or only loosely related, is fine: this is
 background footage. Do not report it.
 
+Some frames are animated explanations (diagrams, labels, equations drawn
+in the channel's style) rather than footage. Judge those against the
+words only: are the numbers, labels and pictures right for what is being
+said, and readable? A diagram is never a problem for not being the
+footage a shot brief described.
+
 {SEVERITY_GUIDE}
 """.strip()
 
@@ -163,10 +169,17 @@ def check_frames(video_path: Path, plan) -> CheckResult:
     segments = plan.script.segments
     content = []
     for n, (shot, data) in enumerate(zip(picked, images), 1):
-        segment = segments[shot.segment_index]
+        # An animated scene's shot spans several segments: judge the frame
+        # against the words actually being spoken at that moment.
+        middle = (shot.start + shot.end) / 2
+        segment = next((s for s in segments if s.start <= middle < s.end),
+                       segments[shot.segment_index])
+        # A scene is drawn from the words, not the stock-footage brief:
+        # judged against the brief, every diagram "fails" to be footage.
+        asked = ("an animated explanation of these words" if shot.scene
+                 else f'"{segment.shot_brief}"')
         content.append({"type": "text",
-                        "text": f'Frame {n}. Spoken: "{segment.text}" '
-                                f'Shot asked for: "{segment.shot_brief}"'})
+                        "text": f'Frame {n}. Spoken: "{segment.text}" Shot asked for: {asked}'})
         content.append({"type": "image",
                         "source": {"type": "base64", "media_type": "image/jpeg", "data": data}})
     avoid = ", ".join(plan.channel.avoid_imagery) or "(none)"

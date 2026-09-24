@@ -474,10 +474,29 @@ def split_into_shots(segments: list, max_seconds: float) -> list:
     return shots
 
 
+def plan_shots(segments: list, scene_clips: list, max_seconds: float) -> list:
+    """The shots in order: one per animated scene, covering every segment
+    it spans, and stock shots (split_into_shots) for the rest."""
+    scene_at = {c["first"]: c for c in scene_clips or []}
+    covered = {i for c in scene_clips or [] for i in range(c["first"], c["last"] + 1)}
+    shots = []
+    for index, segment in enumerate(segments):
+        if index in scene_at:
+            c = scene_at[index]
+            shots.append(Shot(start=segment.start, end=segments[c["last"]].end,
+                              segment_index=index, clip_path=Path(c["clip"]), scene=True))
+        elif index not in covered:
+            for shot in split_into_shots([segment], max_seconds):
+                shot.segment_index = index
+                shots.append(shot)
+    return shots
+
+
 def _background_layer(clip_path, target_duration: float, start_time: float,
-                      is_first: bool, crossfade: float):
-    """Prepare one shot's footage: fill the frame, take a random window,
-    position at its exact real timestamp."""
+                      is_first: bool, crossfade: float, from_start: bool = False):
+    """Prepare one shot's footage: fill the frame, take a random window
+    (or, for an animated scene, play it from the start), position at its
+    exact real timestamp."""
     from moviepy.editor import VideoFileClip
     from moviepy.video.fx.loop import loop as loop_fx
 
@@ -492,7 +511,7 @@ def _background_layer(clip_path, target_duration: float, start_time: float,
         background = loop_fx(background, duration=target_duration)
     else:
         latest_start = background.duration - target_duration
-        start = random.uniform(0, latest_start) if latest_start > 0 else 0.0
+        start = random.uniform(0, latest_start) if latest_start > 0 and not from_start else 0.0
         background = background.subclip(start, start + target_duration)
 
     background = background.without_audio().set_start(start_time)
@@ -552,21 +571,26 @@ def run(plan):
 
     # --- footage
     job_context.report_stage(3)
-    plan.shots = split_into_shots(segments, pacing.max_shot_seconds)
-    shot_counts = [len(plan.shots_for_segment(i)) for i in range(len(segments))]
-    log.info(f"[3/5] Matching footage for {len(plan.shots)} shot(s) "
-             f"across {len(segments)} segment(s)...")
+    plan.shots = plan_shots(segments, plan.scene_clips, pacing.max_shot_seconds)
+    stock = [i for i in range(len(segments)) if any(
+        s.segment_index == i and not s.scene for s in plan.shots)]
+    if stock:
+        shot_counts = [len(plan.shots_for_segment(i)) for i in stock]
+        log.info(f"[3/5] Matching footage for {sum(shot_counts)} shot(s) "
+                 f"across {len(stock)} segment(s)...")
+        outcome = library.assign_clips([segments[i] for i in stock], shot_counts,
+                                       channel.avoid_imagery, channel_key=channel.key)
+        plan.footage_repeated = outcome.repeated
+        plan.footage_degraded = outcome.degraded
+        plan.footage_unconfident = outcome.unconfident
 
-    outcome = library.assign_clips(segments, shot_counts, channel.avoid_imagery,
-                                   channel_key=channel.key)
-    plan.footage_repeated = outcome.repeated
-    plan.footage_degraded = outcome.degraded
-    plan.footage_unconfident = outcome.unconfident
-
-    from core.paths import LIBRARY_DIR
-    per_segment = {i: list(names) for i, names in enumerate(outcome.picks)}
-    for shot in plan.shots:
-        shot.clip_path = LIBRARY_DIR / per_segment[shot.segment_index].pop(0)
+        from core.paths import LIBRARY_DIR
+        per_segment = {i: list(names) for i, names in zip(stock, outcome.picks)}
+        for shot in plan.shots:
+            if not shot.scene:
+                shot.clip_path = LIBRARY_DIR / per_segment[shot.segment_index].pop(0)
+    else:
+        log.info("[3/5] Every segment is an animated scene; no footage to match.")
 
     # A database row whose file has gone is invisible until moviepy tries
     # to open it, roughly a minute into the render. Substituting here
@@ -590,7 +614,7 @@ def run(plan):
         is_last = i == len(plan.shots) - 1
         target = shot.duration if is_last else shot.duration + crossfade
         backgrounds.append(_background_layer(shot.clip_path, target, shot.start,
-                                             i == 0, crossfade))
+                                             i == 0, crossfade, from_start=shot.scene))
 
     log.info("  [video] rendering captions...")
     captions = build_caption_clips(plan.voiceover.word_timings, style, pacing)

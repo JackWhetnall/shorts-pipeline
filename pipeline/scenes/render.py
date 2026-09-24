@@ -111,6 +111,15 @@ def render_frame(scene: dict, style: dict, assets: dict, t: float, out_path: Pat
     return Path(out_path)
 
 
+def layout(scene: dict, style: dict, assets: dict, step: float = 0.5) -> list:
+    """[(t, [{id, type, kind, box}])] every `step` seconds and at the end:
+    what the layout check measures."""
+    duration = float(scene["duration"])
+    times = [round(i * step, 3) for i in range(int(duration / step) + 1)] + [duration - 0.05]
+    with _Page(scene, style, assets) as page:
+        return [(t, page.page.evaluate("t => window.__layout(t)", t)) for t in times]
+
+
 def render(scene: dict, style: dict, assets: dict, out_path: Path, fps: int = FPS) -> Path:
     """The whole scene to an mp4 (no audio) of `scene["duration"]` seconds."""
     import imageio_ffmpeg

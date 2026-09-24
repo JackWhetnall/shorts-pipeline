@@ -2151,3 +2151,14 @@ button.topic-row.selected:hover {
 }
 .draft-palette input:checked + .draft-swatch { outline: 2px solid var(--accent); outline-offset: 2px; }
 .draft-outline { padding-left: 1.4rem; margin: var(--sp-2) 0 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+
+/* --- Animated scenes settings ------------------------------------------ */
+.scene-settings { display: grid; grid-template-columns: 13.5rem 1fr; gap: var(--sp-5, 1.5rem); align-items: start; }
+.scene-preview img { width: 100%; aspect-ratio: 9 / 16; border-radius: 10px; border: 1px solid var(--border); background: var(--border); display: block; }
+.scene-controls { display: flex; flex-direction: column; gap: var(--sp-3, 0.75rem); min-width: 0; }
+.scene-colours { display: grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr)); gap: var(--sp-2, 0.5rem); }
+.scene-colour { display: flex; align-items: center; gap: var(--sp-2, 0.5rem); }
+.scene-colour input[type="color"] { width: 2.2rem; height: 2.2rem; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; flex: 0 0 auto; }
+.scene-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--sp-3, 0.75rem); align-items: end; }
+.scene-share-value { flex-basis: 9rem; }
+@media (max-width: 700px) { .scene-settings { grid-template-columns: 1fr; } .scene-preview img { max-width: 14rem; } }

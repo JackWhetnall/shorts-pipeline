@@ -205,6 +205,31 @@ so moving one back actually undoes rather than compounding — and Apply
 saves that as the picture itself. Its licence is recorded the same way a
 footage clip's is.
 
+### Animated scenes
+
+Under the captions, a segment shows either stock footage or an animated
+**scene**. Shapes draw themselves and labels, equations, counters, charts
+and illustrated objects arrive on the word that names them, all in the
+channel's own look. The **Animated scenes** card on a channel's dashboard
+sets:
+
+- **How much of each video is animated**, from 0 (stock only, the
+  default) through "explanations" (about 30%) to 100 (every segment; a
+  maths channel).
+- **The look**: a starting preset (Clean flat, Chalkboard, Neon,
+  Parchment), then its colours, fonts, background pattern, line weight,
+  and how its illustrated objects are drawn. The preview still redraws
+  as you change things.
+
+A channel made from a pitch gets both chosen for it, and they're
+reviewed on the draft page like everything else.
+
+Each object (a piggy bank, a ladder) is drawn once per channel by
+OpenAI's image model, at about 4 cents, and reused in every later
+video; they live in `channels/<key>/props/`. A scene that can't be made
+cleanly falls back to stock footage, and the review page says so. Scenes
+render in the Chrome installed on this PC, so Chrome must stay installed.
+
 ## Writing a channel's style prompt for you
 
 The style prompt used to mean inventing, from a blank textarea, the exact

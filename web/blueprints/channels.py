@@ -26,6 +26,7 @@ from core.paths import PROJECT_ROOT, slugify
 from pipeline import quote_source
 from pipeline.run import fetch_seed
 from web.blueprints.curriculum import channels_running_low
+from web.blueprints.scenes import form_context as scene_form_context
 from web.forms import ORDERING_CHOICE_FIELDS, apply_channel_form, format_affiliate_links
 from web.helpers import (
     all_channels, as_int, channel_or_404, channel_progress, format_date,
@@ -115,6 +116,7 @@ def dashboard(key):
         plan_estimate=_plan_estimate(key, channel),
         cost=_channel_cost(key),
         rename_error=request.args.get("rename_error"),
+        **scene_form_context(channel.scenes.art, channel.scenes.share),
     )
 
 

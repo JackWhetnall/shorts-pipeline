@@ -1,0 +1,29 @@
+{
+  "key": "chalkboard",
+  "label": "Chalkboard",
+  "description": "Chalk on a dark green board: hand-drawn wobble, pastel chalk colours, handwriting. The patient-teacher look for maths, science and history.",
+  "background": {"color": "#23332B", "pattern": "none", "grain": 0.10, "grain_light": true, "vignette": 0.28},
+  "ink": "#F4F1E8",
+  "colors": {
+    "ink": "#F4F1E8",
+    "ink_soft": "#B9C2B8",
+    "label_fill": "#2C3E35",
+    "accent1": "#F7D56B",
+    "accent2": "#8FD3E8",
+    "accent3": "#F29CA3",
+    "accent4": "#A8E08F",
+    "accent5": "#F5B36B"
+  },
+  "stroke_width": 9,
+  "label_size": 60,
+  "label_radius": 14,
+  "label_stroke": 4,
+  "font_display": "Segoe Print",
+  "font_display_weight": 700,
+  "font_text": "Segoe Print",
+  "font_text_weight": 400,
+  "shadow": null,
+  "sketch": 6,
+  "motion": {"appear": "out", "draw": "inout", "move": "inout", "count": "out"},
+  "prop_style": "chalk drawing as if on a blackboard: loose hand-drawn outlines in white chalk with visible chalk texture, flat pastel chalk fills in yellow, pale blue and pink, simple and clear, no board or background drawn"
+}

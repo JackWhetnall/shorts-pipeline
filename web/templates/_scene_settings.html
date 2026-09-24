@@ -1,0 +1,87 @@
+{# Animated scenes: the art direction and how much of each video is
+   animated. Used inside a <form> on the draft page and the dashboard.
+   Context from web.blueprints.scenes.form_context. #}
+<div class="scene-settings" data-scene-settings>
+  <script type="application/json" data-scene-presets>{{ scene_presets|tojson }}</script>
+  <div class="scene-preview">
+    <img data-scene-preview data-preview-base="{{ url_for('scenes.preview') }}"
+         alt="A still in this art direction" src="{{ scene_preview_url }}">
+    <span class="hint" data-scene-preview-status></span>
+  </div>
+  <div class="scene-controls">
+    <label class="field-row">
+      <span class="field-label">How much of each video is animated</span>
+      <span class="slider-row">
+        <input type="range" name="scene_share" min="0" max="100" step="5" value="{{ scene_share }}"
+               data-scene-share>
+        <output class="slider-value scene-share-value" data-scene-share-label></output>
+      </span>
+      <span class="hint">The rest is stock footage. Scenes go where a picture explains best.</span>
+    </label>
+
+    <label class="field-row">
+      <span class="field-label">Starting look</span>
+      <select name="art_preset" data-scene-preset>
+        {% for key, p in scene_presets.items() %}
+        <option value="{{ key }}" {% if key == scene_art.preset %}selected{% endif %}>{{ p.label }}</option>
+        {% endfor %}
+      </select>
+      <span class="hint" data-scene-preset-description>{{ scene_presets[scene_art.preset].description }}</span>
+    </label>
+
+    <div class="scene-colours">
+      {% for field in ('background', 'ink', 'ink_soft', 'label_fill', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5') %}
+      <label class="scene-colour">
+        <input type="color" name="art_{{ field }}" value="{{ scene_art[field] }}" data-scene-field="{{ field }}">
+        <span class="hint">{{ scene_color_labels[field] }}</span>
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="scene-row">
+      <label class="field-row">
+        <span class="field-label">Heading font</span>
+        <select name="art_font_display" data-scene-field="font_display">
+          {% for name, what in scene_fonts.items() %}
+          <option value="{{ name }}" {% if name == scene_art.font_display %}selected{% endif %}>{{ name }}: {{ what }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field-row">
+        <span class="field-label">Text font</span>
+        <select name="art_font_text" data-scene-field="font_text">
+          {% for name, what in scene_fonts.items() %}
+          <option value="{{ name }}" {% if name == scene_art.font_text %}selected{% endif %}>{{ name }}: {{ what }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="scene-row">
+      <label class="field-row">
+        <span class="field-label">Background pattern</span>
+        <select name="art_pattern" data-scene-field="pattern">
+          {% for p in scene_patterns %}
+          <option value="{{ p }}" {% if p == scene_art.pattern %}selected{% endif %}>{{ p|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="scene-colour">
+        <input type="color" name="art_pattern_color" value="{{ scene_art.pattern_color }}" data-scene-field="pattern_color">
+        <span class="hint">{{ scene_color_labels.pattern_color }}</span>
+      </label>
+      <label class="field-row">
+        <span class="field-label">Line weight</span>
+        <input type="number" name="art_stroke_width" min="3" max="20" value="{{ scene_art.stroke_width }}"
+               data-scene-field="stroke_width">
+      </label>
+    </div>
+
+    <label class="field-row">
+      <span class="field-label">How its illustrated objects are drawn</span>
+      <textarea name="art_prop_style" rows="3" data-scene-field="prop_style">{{ scene_art.prop_style }}</textarea>
+      <span class="hint">Each object (a piggy bank, a candle) is drawn once in this style, then
+        reused in every video. Changing this only affects objects drawn from now on.</span>
+    </label>
+  </div>
+</div>
