@@ -21,7 +21,33 @@
 
 <div id="review-app"
      data-items="{{ items|tojson|forceescape }}"
-     data-reasons="{{ discard_reasons|tojson|forceescape }}"></div>
+     data-reasons="{{ discard_reasons|tojson|forceescape }}"
+     data-channel="{{ request.args.get('channel', '') }}"></div>
+
+{# Which videos to look at. "Needs a look" is anything the publish gate
+   held, or that has no verdict yet; "Passed checks" could have published
+   itself, so it's the quick pass. #}
+<div class="review-filters">
+  <label class="review-filter">Channel
+    <select id="review-channel-filter" onchange="applyReviewFilter()">
+      <option value="">All channels</option>
+      {% for key, name in review_channels %}
+      <option value="{{ key }}">{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="segmented" role="group" aria-label="Which videos">
+    <button type="button" data-review-state="all" class="active" onclick="setReviewState(this)">All</button>
+    <button type="button" data-review-state="flagged" onclick="setReviewState(this)">Needs a look</button>
+    <button type="button" data-review-state="clean" onclick="setReviewState(this)">Passed checks</button>
+  </div>
+</div>
+
+<div class="empty-state" id="review-empty" hidden>
+  <p><strong id="review-empty-title">Done.</strong></p>
+  <p id="review-empty-text">Nothing left in the queue.</p>
+  <a class="btn btn-ghost" href="/insights">See how it's going</a>
+</div>
 
 <div class="review-layout">
   <div class="review-player card">
@@ -100,6 +126,7 @@
     <summary class="btn-ghost">Discard <kbd>D</kbd></summary>
     <div class="card review-reasons" id="review-reasons"></div>
   </details>
+  <button type="button" class="btn-ghost" onclick="reviewBack()"><kbd>&larr;</kbd> Back</button>
   <button type="button" class="btn-ghost" onclick="reviewSkip()">Skip <kbd>&rarr;</kbd></button>
   <span class="review-position meta" id="review-position"></span>
 </div>

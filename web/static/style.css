@@ -2068,3 +2068,30 @@ button.topic-row.selected:hover {
 
 .service-ok { color: var(--success); font-weight: 600; font-size: 0.88rem; }
 .service-missing { color: var(--danger); font-weight: 600; font-size: 0.88rem; }
+
+/* Review queue filters: channel, and flagged vs clean. */
+.review-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.review-filter { display: flex; flex-direction: column; gap: var(--sp-1); color: var(--text-dim); }
+.review-filter select { min-width: 12rem; }
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.segmented button {
+  background: transparent;
+  color: var(--text-dim);
+  border: 0;
+  border-radius: 0;
+  padding: var(--sp-2) var(--sp-3);
+}
+.segmented button + button { border-left: 1px solid var(--border); }
+.segmented button:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.segmented button.active { background: var(--accent); color: var(--accent-contrast); }

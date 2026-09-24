@@ -1014,8 +1014,41 @@ document.addEventListener("DOMContentLoaded", () => {
 // rebuilt.
 // ---------------------------------------------------------------------
 
+// Everything waiting, and the filtered view of it the keys move through.
+let reviewAll = [];
 let reviewItems = [];
 let reviewIndex = 0;
+let reviewState = "all";
+
+// Held by the publish gate, or never given a verdict (made before the
+// automatic checks existed): either way, a person should look.
+function reviewNeedsLook(item) {
+  return !(item.gate && item.gate.passed);
+}
+
+function applyReviewFilter() {
+  const channel = document.getElementById("review-channel-filter").value;
+  reviewItems = reviewAll.filter(item =>
+    (!channel || item.channel_key === channel)
+    && (reviewState === "all"
+        || (reviewState === "flagged") === reviewNeedsLook(item)));
+  reviewIndex = 0;
+  renderReview();
+}
+
+function setReviewState(button) {
+  reviewState = button.dataset.reviewState;
+  document.querySelectorAll("[data-review-state]").forEach(b =>
+    b.classList.toggle("active", b === button));
+  applyReviewFilter();
+}
+
+function reviewCounterText() {
+  const n = reviewItems.length;
+  const filtered = n !== reviewAll.length;
+  return n ? `${n} video${n === 1 ? "" : "s"} ${filtered ? "shown" : "waiting"}, oldest first.`
+           : (reviewAll.length ? "Nothing matches this filter." : "All caught up.");
+}
 
 function reviewCurrent() {
   return reviewItems[reviewIndex] || null;
@@ -1025,15 +1058,19 @@ function initReview() {
   const root = document.getElementById("review-app");
   if (!root) return;
 
-  reviewItems = JSON.parse(root.dataset.items || "[]");
+  reviewAll = JSON.parse(root.dataset.items || "[]");
   const reasons = JSON.parse(root.dataset.reasons || "[]");
+  // ?channel=key arrives from a channel's own dashboard.
+  const wanted = root.dataset.channel;
+  const select = document.getElementById("review-channel-filter");
+  if (wanted && [...select.options].some(o => o.value === wanted)) select.value = wanted;
 
   const reasonBox = document.getElementById("review-reasons");
   reasonBox.innerHTML = reasons
     .map(([id, label]) => `<button type="button" class="btn-ghost" onclick="reviewDiscard('${id}')">${escapeHtml(label)}</button>`)
     .join("");
 
-  renderReview();
+  applyReviewFilter();
   document.addEventListener("keydown", reviewKeys);
 }
 
@@ -1052,13 +1089,18 @@ function reviewKeys(e) {
 
 function renderReview() {
   const item = reviewCurrent();
+  // Hidden rather than replaced: an empty filter has to be able to come
+  // back when the filter changes.
+  document.querySelector(".review-layout").hidden = !item;
+  document.querySelector(".review-bar").classList.toggle("hidden", !item);
+  document.getElementById("review-empty").hidden = Boolean(item);
+  document.getElementById("review-counter").textContent = reviewCounterText();
   if (!item) {
-    document.querySelector(".review-layout").innerHTML =
-      `<div class="empty-state"><p><strong>Done.</strong></p>
-       <p>Nothing left in the queue.</p>
-       <a class="btn btn-ghost" href="/insights">See how it's going</a></div>`;
-    document.querySelector(".review-bar").classList.add("hidden");
-    document.getElementById("review-counter").textContent = "All caught up.";
+    const done = !reviewAll.length;
+    document.getElementById("review-empty-title").textContent = done ? "Done." : "Nothing here.";
+    document.getElementById("review-empty-text").textContent = done
+      ? "Nothing left in the queue."
+      : "No videos match this filter. The others are still waiting.";
     return;
   }
 
@@ -1215,10 +1257,9 @@ async function reviewSaveMeta() {
 function reviewDrop() {
   // Remove the current item and stay at the same index, which is now the
   // next one — so the queue drains under the cursor instead of jumping.
-  reviewItems.splice(reviewIndex, 1);
+  const [gone] = reviewItems.splice(reviewIndex, 1);
+  reviewAll = reviewAll.filter(item => item !== gone);
   if (reviewIndex >= reviewItems.length) reviewIndex = Math.max(0, reviewItems.length - 1);
-  document.getElementById("review-counter").textContent =
-    reviewItems.length ? `${reviewItems.length} video${reviewItems.length === 1 ? "" : "s"} waiting, oldest first.` : "All caught up.";
   decrementNavCount();
   renderReview();
 }
@@ -1272,13 +1313,16 @@ async function reviewDiscard(reason) {
 }
 
 async function reviewSkip() {
+  if (!reviewItems.length) return;
   await reviewSaveMeta();
   if (reviewIndex < reviewItems.length - 1) reviewIndex += 1;
   else reviewIndex = 0;
   renderReview();
 }
 
-function reviewBack() {
+async function reviewBack() {
+  if (!reviewItems.length) return;
+  await reviewSaveMeta();
   reviewIndex = reviewIndex > 0 ? reviewIndex - 1 : reviewItems.length - 1;
   renderReview();
 }

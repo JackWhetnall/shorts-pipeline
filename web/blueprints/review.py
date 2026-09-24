@@ -81,9 +81,13 @@ def _queue() -> list:
 @bp.route("/review")
 def queue():
     items = _queue()
+    names = {}
+    for item in items:
+        names.setdefault(item["channel_key"], item["channel_name"])
     return render_template(
         "review.html",
         items=items[:QUEUE_PAGE_SIZE],
+        review_channels=sorted(names.items(), key=lambda kv: kv[1].lower()),
         total_waiting=len(items),
         discard_reasons=gallery.DISCARD_REASONS,
     )
