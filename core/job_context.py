@@ -127,12 +127,20 @@ def report_detail(section: str, item_index, patch: dict) -> None:
 
 # --- checkpoints ------------------------------------------------------
 
+CHECKPOINT_SUBDIR = "checkpoints"
+
 def checkpoint_dir(job_id):
     """None outside a job, which makes every checkpoint call below a safe
-    no-op under plain CLI use."""
+    no-op under plain CLI use.
+
+    A subdirectory of the job's own folder, not the folder itself: that
+    also holds the job record and its log, and clearing checkpoints used
+    to delete all three - so every successful job erased its own history,
+    and the ETA estimates that learn from finished jobs never kept any
+    past a restart."""
     if not job_id:
         return None
-    d = JOB_STATE_DIR / job_id
+    d = JOB_STATE_DIR / job_id / CHECKPOINT_SUBDIR
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -172,7 +180,7 @@ def clear_checkpoints(job_id: str) -> None:
     """Called once a job succeeds — nothing in a checkpoint is needed
     after the real output exists. Failed and interrupted jobs keep theirs
     so a retry has something to resume from."""
-    d = JOB_STATE_DIR / job_id if job_id else None
+    d = JOB_STATE_DIR / job_id / CHECKPOINT_SUBDIR if job_id else None
     if d and d.exists():
         shutil.rmtree(d, ignore_errors=True)
 
