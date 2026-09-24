@@ -53,7 +53,12 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   insights      Aggregate quality, spend and audience — the improvement loop.
   audience      Views and retention for published videos, read back from
                 YouTube twice a day — see decision 029.
-  scheduler     Recurring generation.
+  scheduler     The five-minute tick: publish what's due, keep each channel's
+                queue filled, refresh audience numbers.
+  publish_queue Approved videos waiting for their publishing slot; sending
+                one out (YouTube upload, TikTok/Instagram hand-off folder).
+  launch        Each channel's launch pipeline: ordered stages from idea to
+                publishing on its own, computed from real state.
   youtube       OAuth and resumable upload to YouTube.
   publish_gate  Whether a finished video could go out without a person:
                 one pure function over its render report.
@@ -104,7 +109,6 @@ web/          Flask only.
   blueprints/   backgrounds, channels, curriculum, footage, gallery, jobs
                 (incl. the Activity page), logos, review, services,
                 setup, style_setup, voice_lab, youtube.
-  checklist     The launch checklist — one definition, no Flask import.
   forms, helpers
 
 tools/        Operator CLIs (footage library, downloads, caches).
@@ -116,17 +120,22 @@ tests/        pytest. `-m "not slow"` skips the real render.
 The app is organised around what you actually do, at three different
 frequencies:
 
-- **Setting up a channel** (once each) — a name creates it, then a wizard
-  walks content → voice → logo → socials → monetization, and the launch
-  checklist tracks what is left. Channel-scoped, because that genuinely
-  is a per-channel job. A channel is deliberately creatable while
+- **Setting up a channel** (once each) — a name creates it, and its
+  dashboard shows the **launch pipeline** (`core.launch`): seven ordered
+  stages from "say what the channel makes" to "switch on automatic
+  publishing", each computed from real state, with the current one and
+  its action at the top. A channel is deliberately creatable while
   incomplete; `channel_progress` refuses to generate until `validate()`
-  passes and says why. See decision
-  [019](docs/decisions/019-channel-setup.md).
-- **Producing and publishing** (daily) — generate, then `/review`: one
-  cross-channel queue, oldest first, keyboard-driven. The unit of work
-  here is a video, not a channel, so the queue is not channel-scoped and
-  its actions address videos by path alone.
+  passes and says why. See decisions
+  [019](docs/decisions/019-channel-setup.md) and
+  [031](docs/decisions/031-launch-pipeline-and-publishing-queue.md).
+- **Producing and publishing** (daily) — `/review`: one cross-channel
+  queue, oldest first, keyboard-driven, filterable by channel and by
+  whether the checks flagged it. Approving a video queues it for its
+  channel's next publishing slot; the scheduler publishes it then, and
+  keeps each channel's queue topped up in the background. The unit of
+  work is a video, not a channel, so actions address videos by path
+  alone.
 - **Working out why the output is not good enough** (continuous) —
   `/insights` and `/footage`. How published videos are doing with
   viewers (views, % viewed), discard reasons, render quality, cost per
@@ -341,7 +350,33 @@ passes an override and always reads the already-committed file.
 
 ## Publishing
 
-A finished video can be uploaded to YouTube from the review queue: file,
+Making a video and publishing it are separate events. A video moves:
+
+    made → waiting (review) → approved → queued → out at its slot
+
+Approval is by you in `/review`, or by the publish gate under autopilot;
+both put it in the same queue (`core.publish_queue`), state kept in the
+video's publish sidecar (`queued_at`, `approved_by`, `handoff`). Each
+channel's **publishing plan** sets slot times, days and a buffer. The
+scheduler publishes one queued video per slot (a missed slot is made up
+once, within 20 hours, never in a burst) and starts a new video whenever
+fewer than `buffer` are queued, pausing if `buffer` or more are waiting
+for a look. No plan means "publish on the next check".
+
+"Out" means a YouTube upload through the channel's connection and, for
+channels that want it, a copy of the video and its caption in the
+hand-off folder (`Shorts to post` in OneDrive) for posting to TikTok and
+Instagram from a phone; `/to-post` lists those until they're marked
+posted. Neither platform lets an unreviewed app post publicly. A video
+handed off but not yet linked counts as out (`gallery.is_out`), so it
+never returns to review. A failed upload unqueues the video and puts it
+back in review with the reason.
+
+The scheduler lives in `python -m web`, which the "Shorts Pipeline" logon
+task starts windowless (`tools/start_web.pyw`, log in `cache/web.log`).
+
+A finished video can also be uploaded to YouTube straight from the review
+queue: file,
 title, description, tags and category in one request. The OAuth client is
 per installation, the tokens per channel, and a successful upload records
 the returned watch URL through `gallery.save_publish_info` — the same

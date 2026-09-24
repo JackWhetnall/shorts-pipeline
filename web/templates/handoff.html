@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}To post{% endblock %}
+{% block content %}
+
+<h1>To post</h1>
+<p class="subtitle">
+  Videos that have gone out and are waiting for you to post them to
+  TikTok or Instagram. Each one is already in
+  <code>{{ folder }}</code> with a <code>.txt</code> caption beside it.
+  On your phone, open that folder in OneDrive, share the video to the
+  app, paste the caption, and post. Then mark it here.
+</p>
+
+{% if not rows %}
+<div class="empty-state">
+  <p><strong>Nothing to post.</strong></p>
+  <p>Channels with a TikTok or Instagram hand-off put their videos here as
+    they go out (Settings &rarr; Publishing).</p>
+</div>
+{% else %}
+{% for row in rows %}
+<div class="card handoff-item" data-relpath="{{ row.relpath }}">
+  <p class="meta">{{ row.channel }}</p>
+  <h2>{{ row.title }}</h2>
+  <p class="hint">Phone copy: <code>{{ row.file }}</code></p>
+  <details>
+    <summary class="meta">Caption</summary>
+    <pre class="meta-text" id="caption-{{ loop.index }}">{{ row.title }}
+
+{{ row.description }}</pre>
+    <button type="button" class="btn-ghost"
+            onclick="navigator.clipboard.writeText(document.getElementById('caption-{{ loop.index }}').textContent)">
+      Copy caption
+    </button>
+  </details>
+  <div class="actions handoff-actions">
+    {% for platform in row.platforms %}
+    <form class="handoff-form" onsubmit="markPosted(event, this)">
+      <input type="hidden" name="platform" value="{{ platform }}">
+      <input type="url" name="url" placeholder="{{ labels[platform] }} link (optional)">
+      <button type="submit" class="btn-ghost">Posted on {{ labels[platform] }}</button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

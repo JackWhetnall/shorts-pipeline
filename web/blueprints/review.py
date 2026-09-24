@@ -16,9 +16,12 @@ force the queue to thread a key through every button for no benefit.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
-from core import audience, gallery, insights, youtube
+from core import audience, gallery, insights, publish_queue, youtube
+from core.errors import PipelineError
 from core.channels import load_channels
 from core.logging_setup import get_logger
 from web.helpers import format_date, format_iso_date, video_or_404
@@ -44,6 +47,7 @@ def _queue() -> list:
     for key, channel in load_channels(validate=False).items():
         # Once per channel, not once per video: this reads a file.
         youtube_ready = youtube.connection(key)["connected"]
+        slots = {str(Path(p).resolve()): when for p, when in publish_queue.schedule_for(channel)}
         try:
             videos = gallery.list_videos(channel.output_dir)
         except Exception as exc:  # noqa: BLE001
@@ -52,7 +56,7 @@ def _queue() -> list:
             log.warning(f"Couldn't list videos for {key}: {exc}")
             continue
         for video in videos:
-            if video["discarded"] or video["published"]:
+            if video["discarded"] or video["out"]:
                 continue
             report = video.get("report") or {}
             similarity = report.get("similarity") or {}
@@ -73,9 +77,23 @@ def _queue() -> list:
                 "gate": report.get("gate"),
                 "checks": report.get("checks") or {},
                 "autopilot": report.get("autopilot"),
+                "queued": video["queued"],
+                "approved_by": video["links"].get("approved_by"),
+                "slot_label": _slot_label(slots, video) if video["queued"] else "",
             })
     items.sort(key=lambda v: v["mtime"])
     return items
+
+
+def _slot_label(slots: dict, video: dict) -> str:
+    path = str((gallery.OUTPUT_DIR / video["relpath"]).resolve())
+    return _when_label(slots.get(path), queued=True)
+
+
+def _when_label(when, queued: bool) -> str:
+    if when is None:
+        return "Goes out on the next check" if queued else ""
+    return "Goes out " + when.strftime("%a %d %b, %H:%M")
 
 
 @bp.route("/review")
@@ -143,6 +161,53 @@ def publish(relpath):
         return jsonify({"error": "Add at least one platform link to mark this published."}), 400
     info = gallery.save_publish_info(target, links)
     return jsonify({"ok": True, "published_at": info["published_at"]})
+
+
+@bp.route("/api/videos/<path:relpath>/queue", methods=["POST"])
+def approve(relpath):
+    """Approve a video: it joins its channel's publishing queue and goes out
+    at the next free slot (core.publish_queue)."""
+    target = video_or_404(relpath)
+    key = gallery._channel_key_for(target)
+    channel = load_channels(validate=False).get(key) if key else None
+    if channel is None:
+        return jsonify({"error": "Couldn't tell which channel this video belongs to."}), 400
+    try:
+        publish_queue.enqueue(target, approved_by="you")
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 400
+    when = next((w for p, w in publish_queue.schedule_for(channel)
+                 if Path(p).resolve() == target.resolve()), None)
+    return jsonify({"ok": True, "slot_label": _when_label(when, queued=True)})
+
+
+@bp.route("/api/videos/<path:relpath>/unqueue", methods=["POST"])
+def unqueue(relpath):
+    publish_queue.unqueue(video_or_404(relpath))
+    return jsonify({"ok": True})
+
+
+@bp.route("/to-post")
+def handoff_page():
+    """Videos that went out to YouTube (or were due to) and are waiting to
+    be posted by hand to TikTok or Instagram, from the hand-off folder."""
+    rows = publish_queue.awaiting_posts(load_channels(validate=False))
+    for row in rows:
+        row["relpath"] = str(row["video_path"].relative_to(gallery.OUTPUT_DIR)).replace("\\", "/")
+    return render_template("handoff.html", rows=rows,
+                           folder=publish_queue.handoff_dir(),
+                           labels=publish_queue.PLATFORM_LABELS)
+
+
+@bp.route("/api/videos/<path:relpath>/posted", methods=["POST"])
+def mark_posted(relpath):
+    target = video_or_404(relpath)
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        publish_queue.mark_posted(target, data.get("platform", ""), data.get("url", ""))
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 400
+    return jsonify({"ok": True})
 
 
 @bp.route("/api/videos/<path:relpath>/discard", methods=["POST"])

@@ -108,20 +108,23 @@ def youtube(monkeypatch):
 
 
 class TestAfterRender:
+    """Autopilot approves a clean video into the publishing queue; it
+    doesn't upload anything itself (core.publish_queue does, at the slot)."""
+
     def test_off_does_nothing(self, channel, youtube):
         channel.autopilot.mode = "off"
         assert autopilot.after_render(channel, _video(channel)).action == autopilot.OFF
         assert not youtube.calls
 
-    def test_a_clean_video_uploads_with_its_edited_title(self, channel, youtube):
+    def test_a_clean_video_is_queued_not_uploaded(self, channel, youtube):
         from core import gallery
         path = _video(channel)
         decision = autopilot.after_render(channel, path)
-        assert decision.action == autopilot.UPLOADED
-        assert youtube.calls[0]["title"] == "Chosen title"
-        assert youtube.calls[0]["privacy"] == "public"
+        assert decision.action == autopilot.QUEUED
+        assert "queued to go out" in decision.message
         info = gallery.load_publish_info(path)
-        assert info["youtube_url"] and info["published_at"]
+        assert info["queued_at"] and info["approved_by"] == "checks"
+        assert not youtube.calls and not info["published_at"]
 
     def test_a_flagged_video_waits_and_says_why(self, channel, youtube):
         from core import gallery
@@ -129,34 +132,24 @@ class TestAfterRender:
         decision = autopilot.after_render(channel, path)
         assert decision.action == autopilot.HELD
         assert "appears twice" in decision.message
-        assert not youtube.calls
+        assert not gallery.load_publish_info(path)["queued_at"]
         assert gallery.load_report(path)["autopilot"]["message"] == decision.message
 
     def test_every_nth_clean_video_is_held_as_a_spot_check(self, channel, youtube):
         channel.autopilot.spot_check_every = 2
         first = autopilot.after_render(channel, _video(channel, "a.mp4"))
         second = autopilot.after_render(channel, _video(channel, "b.mp4"))
-        assert first.action == autopilot.UPLOADED
+        assert first.action == autopilot.QUEUED
         assert second.action == autopilot.HELD and "spot check" in second.message
 
-    def test_not_connected_waits(self, channel, youtube):
+    def test_nowhere_to_publish_waits(self, channel, youtube):
         youtube.state["connected"] = False
         assert autopilot.after_render(channel, _video(channel)).action == autopilot.HELD
-        assert not youtube.calls
 
-    def test_a_failed_upload_waits_and_is_not_marked_published(self, channel, youtube):
-        from core import gallery
-        youtube.state["fail"] = True
-        path = _video(channel)
-        decision = autopilot.after_render(channel, path)
-        assert decision.action == autopilot.HELD
-        assert "YouTube said no." in decision.message
-        assert not gallery.load_publish_info(path)["published_at"]
-
-    def test_a_private_lock_is_reported(self, channel, youtube):
-        youtube.state["locked"] = True
-        decision = autopilot.after_render(channel, _video(channel))
-        assert decision.action == autopilot.UPLOADED and "private" in decision.message
+    def test_a_hand_off_alone_is_somewhere_to_publish(self, channel, youtube):
+        youtube.state["connected"] = False
+        channel.publishing.handoff_tiktok = True
+        assert autopilot.after_render(channel, _video(channel)).action == autopilot.QUEUED
 
 
 # --- the checks themselves ---------------------------------------------

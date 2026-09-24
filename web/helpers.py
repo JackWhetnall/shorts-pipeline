@@ -1,7 +1,7 @@
 """
 Shared route helpers.
 
-`channel_or_404` and `checklist_for` exist here rather than being
+`channel_or_404` and `channel_progress` exist here rather than being
 duplicated per blueprint because the home page, the dashboard and the
 generate-eligibility checks all need the same derived numbers, and any
 two of them disagreeing is a bug that shows as "the button is missing".
@@ -13,11 +13,10 @@ from datetime import datetime
 
 from flask import abort, url_for
 
-from core import gallery, jobs
+from core import gallery, jobs, launch
 from core.errors import PipelineError
 from core.channels import load_channels
 from core.paths import OUTPUT_DIR, safe_join, PathTraversalError
-from web import checklist
 
 
 def all_channels() -> dict:
@@ -47,43 +46,52 @@ def video_or_404(relpath: str):
     return target
 
 
-def checklist_for(channel, video_count: int) -> list:
-    """Checklist items with a "fix this" URL attached."""
-    items = []
-    for item in checklist.build(channel, video_count):
-        endpoint, params = checklist.FIX_STEP[item.id]
-        blueprint = {"logo_page": "logos", "settings": "channels",
-                     "create_video": "channels"}[endpoint]
-        items.append({
-            "id": item.id, "label": item.label, "done": item.done, "manual": item.manual,
-            "link": url_for(f"{blueprint}.{endpoint}", key=channel.key, **params),
-            "toggle_link": url_for("channels.toggle_checklist", key=channel.key,
-                                   item_id=item.id),
-        })
-    return items
+# Where each launch or grow stage gets done: (endpoint, params). The
+# anchor/query parts land you on the exact card or section.
+STAGE_LINKS = {
+    "content": ("setup.setup_step", {"step": "content"}),
+    "sample": ("channels.create_video", {}),
+    "logo": ("logos.logo_page", {}),
+    "youtube": ("channels.settings", {"_anchor": "section-publishing"}),
+    "plan": ("channels.dashboard", {"_anchor": "publishing-plan"}),
+    "shadow": ("review.queue", {}),
+    "autopilot": ("channels.settings", {"_anchor": "section-publishing"}),
+    "tiktok": ("channels.dashboard", {"_anchor": "publishing-plan"}),
+    "instagram": ("channels.dashboard", {"_anchor": "publishing-plan"}),
+    "audit": ("youtube.setup", {}),
+    "patreon": ("channels.settings", {"_anchor": "section-money"}),
+    "merch_logo": ("logos.logo_page", {}),
+    "merch_store": ("channels.settings", {"_anchor": "section-money"}),
+    "affiliate": ("channels.settings", {"_anchor": "section-money"}),
+}
+
+
+def _stage_row(channel, stage) -> dict:
+    endpoint, params = STAGE_LINKS[stage.id]
+    params = dict(params)
+    if endpoint == "review.queue":
+        params["channel"] = channel.key
+    elif endpoint != "youtube.setup":
+        params["key"] = channel.key
+    return {
+        "id": stage.id, "label": stage.label, "who": stage.who, "done": stage.done,
+        "skipped": stage.skipped, "detail": stage.detail,
+        "link": url_for(endpoint, **params),
+        "toggle_link": url_for("channels.toggle_checklist", key=channel.key, item_id=stage.id),
+    }
 
 
 def channel_progress(key: str, channel) -> dict:
-    """Everything the home page and the eligibility checks need, computed
-    once.
-
-    `can_generate` is defined here and nowhere else, so the per-card
-    button, "generate all", and the scheduler can never disagree about
-    whether a channel is ready.
-    """
+    """Everything the home page, the dashboard and the generate buttons
+    need, computed once, so no two of them can disagree about where a
+    channel is (see core.launch)."""
     state = gallery.video_state_counts(channel.output_dir)
-    items = checklist_for(channel, state["active"])
-    essentials, extras = checklist.split(items)
-    # Only the essentials gate going live. The extras are a to-do list.
-    remaining = sum(1 for item in essentials if not item["done"])
-    section = checklist.section_for(channel, remaining, len(essentials), state["published"])
+    launch_stages, grow_stages = launch.stages(channel, state)
+    launch_rows = [_stage_row(channel, s) for s in launch_stages]
+    grow_rows = [_stage_row(channel, s) for s in grow_stages]
+    now = launch.current(launch_stages)
     active_job = jobs.active_job_for_channel(key)
 
-    # A channel is created from a name alone and filled in through the
-    # wizard, so "exists" and "can make a video" are different questions.
-    # This is the only thing that answers the second, and it answers it
-    # with the same check the pipeline would fail on later — so the reason
-    # shown here is the reason it would have failed.
     try:
         channel.validate()
         setup_problem = None
@@ -95,18 +103,22 @@ def channel_progress(key: str, channel) -> dict:
         "video_count": state["active"],
         "published_count": state["published"],
         "unpublished_count": state["unpublished"],
+        "waiting_count": state["waiting"],
+        "queued_count": state["queued"],
         "discarded_count": state["discarded"],
-        "checklist": items,
-        "checklist_essential": essentials,
-        "checklist_extras": extras,
-        "checklist_remaining": remaining,
-        "extras_remaining": sum(1 for item in extras if not item["done"]),
-        "section": section,
+        "launch": launch_rows,
+        "grow": grow_rows,
+        "current_stage": next((r for r in launch_rows if r["id"] == now.id), None) if now else None,
+        "launch_settled": sum(1 for s in launch_stages if s.settled),
+        "launch_total": len(launch_stages),
+        "grow_remaining": sum(1 for s in grow_stages if not s.settled),
+        "section": launch.section(channel, launch_stages, state),
         "active_job": active_job,
-        "can_generate": (setup_problem is None
-                         and section == "live"
-                         and state["unpublished"] == 0
-                         and active_job is None),
+        # Making one by hand is always allowed on the dashboard; the quick
+        # button stops at the channel's buffer of videos waiting for a look,
+        # so a click-happy afternoon can't bury the review queue.
+        "can_generate": (setup_problem is None and active_job is None
+                         and state["waiting"] < channel.publishing.buffer),
     }
 
 

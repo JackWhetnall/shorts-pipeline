@@ -282,6 +282,33 @@ class Autopilot(_MappingLike):
     spot_check_every: int = 5
 
 
+SLOT_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+@dataclass
+class Publishing(_MappingLike):
+    """When this channel's videos go out, and how many to keep ready.
+
+    Making a video and publishing it used to be one event, and the
+    scheduler wouldn't make another while one was waiting, so one video
+    held for review stopped the channel. Now approved videos wait in a
+    queue and go out at `slots` (local "HH:MM" times) on `weekdays`
+    (0 = Monday), and the generator keeps `buffer` of them ready ahead of
+    time. No slots means "publish as soon as it's approved". See
+    core.publish_queue.
+
+    `handoff_*`: when a video goes out, also put it in the hand-off folder
+    for posting to TikTok / Instagram by hand from a phone.
+    """
+
+    enabled: bool = False
+    slots: list = field(default_factory=lambda: ["18:00"])
+    weekdays: list = field(default_factory=lambda: [0, 1, 2, 3, 4, 5, 6])
+    buffer: int = 3
+    handoff_tiktok: bool = False
+    handoff_instagram: bool = False
+
+
 @dataclass
 class ChannelConfig:
     key: str
@@ -321,6 +348,7 @@ class ChannelConfig:
     end_screen: EndScreen = field(default_factory=EndScreen)
     ordering: Ordering = field(default_factory=Ordering)
     autopilot: Autopilot = field(default_factory=Autopilot)
+    publishing: Publishing = field(default_factory=Publishing)
     archived: bool = False
     # Launch-checklist items marked done by hand. Some steps (Patreon's
     # signup flow) are annoying enough that "noting I'm skipping this"
@@ -400,6 +428,16 @@ class ChannelConfig:
             raise ConfigError(
                 f"{where} has automatic publishing set to {self.autopilot.mode!r}, which "
                 f"isn't recognised. It must be one of: {', '.join(AUTOPILOT_MODES)}.")
+        bad_slots = [s for s in self.publishing.slots if not SLOT_RE.match(str(s))]
+        if bad_slots:
+            raise ConfigError(
+                f"{where} has publishing times {', '.join(map(str, bad_slots))}, which "
+                f"aren't HH:MM (24-hour, e.g. 18:00).")
+        if not 1 <= self.publishing.buffer <= 14:
+            raise ConfigError(
+                f"{where} keeps {self.publishing.buffer} videos ready. Pick 1 to 14.")
+        if any(d not in range(7) for d in self.publishing.weekdays):
+            raise ConfigError(f"{where} has a publishing day outside Monday-Sunday.")
         if self.autopilot.spot_check_every < 0:
             raise ConfigError(
                 f"{where} spot-checks every {self.autopilot.spot_check_every} videos. "
@@ -456,6 +494,7 @@ _NESTED = {
     "end_screen": EndScreen,
     "ordering": Ordering,
     "autopilot": Autopilot,
+    "publishing": Publishing,
 }
 
 

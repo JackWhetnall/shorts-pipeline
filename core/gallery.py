@@ -82,7 +82,7 @@ def load_publish_info(video_path: Path) -> dict:
     path = _sidecar(video_path, "publish.json")
     blank = {**{f: "" for f in PUBLISH_LINK_FIELDS}, "published_at": None,
              "discarded": False, "discard_reason": None, "discarded_at": None,
-             "title": "", "description": ""}
+             "title": "", "description": "", **_queue_blank()}
     if not path.exists():
         return blank
     try:
@@ -98,7 +98,35 @@ def load_publish_info(video_path: Path) -> dict:
         "discarded_at": data.get("discarded_at"),
         "title": data.get("title", ""),
         "description": data.get("description", ""),
+        "queued_at": data.get("queued_at"),
+        "approved_by": data.get("approved_by"),
+        "handoff": data.get("handoff") or {},
     }
+
+
+# Publishing-queue state (core.publish_queue), kept in the same sidecar:
+# when the video was approved to go out and by whom ("you" or "checks"),
+# and which platforms it has been handed off to for posting by hand.
+QUEUE_FIELDS = ("queued_at", "approved_by", "handoff")
+
+
+def _queue_blank() -> dict:
+    return {"queued_at": None, "approved_by": None, "handoff": {}}
+
+
+def _queue_state(info: dict) -> dict:
+    return {f: info.get(f, _queue_blank()[f]) for f in QUEUE_FIELDS}
+
+
+def is_out(info: dict) -> bool:
+    """Gone out: published with a link, or handed off for posting by hand
+    (which has no link until you add one, and mustn't return to review)."""
+    return is_published(info) or bool(info.get("handoff"))
+
+
+def is_queued(info: dict) -> bool:
+    """Approved and waiting for its publishing slot."""
+    return bool(info.get("queued_at")) and not info["discarded"] and not is_out(info)
 
 
 def is_published(info: dict) -> bool:
@@ -139,6 +167,7 @@ def save_publish_info(video_path: Path, links: dict) -> dict:
         # the title editor are separate actions on the same sidecar.
         "title": links.get("title", existing["title"]),
         "description": links.get("description", existing["description"]),
+        **_queue_state(existing),
     }
     _write_publish(video_path, data)
     if now and not was:
@@ -210,6 +239,9 @@ def set_discarded(video_path: Path, discarded: bool, reason: str = None) -> None
     was_footage_reject = info["discarded"] and info["discard_reason"] == "footage"
     info["discarded"] = bool(discarded)
     if discarded:
+        # A discarded take leaves the publishing queue.
+        info["queued_at"] = None
+        info["approved_by"] = None
         info["discard_reason"] = reason if reason in DISCARD_REASON_IDS else "other"
         info["discarded_at"] = datetime.now(timezone.utc).isoformat()
     else:
@@ -241,6 +273,17 @@ def _record_footage_rejection(video_path: Path) -> None:
         store.record_rejections(clips)
     except Exception:  # noqa: BLE001 - a ranking nudge must never fail a discard
         pass
+
+
+def save_queue_state(video_path: Path, **changes) -> dict:
+    """Update the publishing-queue fields, leaving everything else as is."""
+    info = load_publish_info(video_path)
+    for key, value in changes.items():
+        if key not in QUEUE_FIELDS:
+            raise ValueError(f"not a queue field: {key}")
+        info[key] = value
+    _write_publish(video_path, info)
+    return info
 
 
 def save_title_and_description(video_path: Path, title: str, description: str) -> dict:
@@ -351,22 +394,28 @@ def video_state_counts(output_dir: str) -> dict:
     everywhere in the UI — a discarded take was never a deliverable.
     """
     directory = resolve_output_dir(output_dir)
-    empty = {"total": 0, "active": 0, "published": 0, "unpublished": 0, "discarded": 0}
+    empty = {"total": 0, "active": 0, "published": 0, "unpublished": 0, "discarded": 0,
+             "queued": 0, "waiting": 0}
     if not directory.exists():
         return empty
 
-    total = discarded = published = 0
+    total = discarded = published = queued = 0
     for path in directory.rglob("*.mp4"):
         total += 1
         info = load_publish_info(path)
         if info["discarded"]:
             discarded += 1
-        elif is_published(info):
+        elif is_out(info):
             published += 1
+        elif is_queued(info):
+            queued += 1
 
     active = total - discarded
+    # `waiting` is unpublished and not yet approved: what the review queue
+    # shows. `queued` is approved and waiting for its publishing slot.
     return {"total": total, "active": active, "published": published,
-            "unpublished": active - published, "discarded": discarded}
+            "unpublished": active - published, "discarded": discarded,
+            "queued": queued, "waiting": active - published - queued}
 
 
 def latest_video_mtime(output_dir: str):
@@ -413,6 +462,10 @@ def list_videos(output_dir: str) -> list:
             "meta_text": read_text_tolerantly(meta_path) if meta_path.exists() else None,
             "links": links,
             "published": is_published(links),
+            # Gone out by hand-off with no link yet counts as out: it must
+            # not come back to the review queue.
+            "out": is_out(links),
+            "queued": is_queued(links),
             "discarded": links["discarded"],
             "cost": load_cost_summary(path),
             "report": load_report(path),

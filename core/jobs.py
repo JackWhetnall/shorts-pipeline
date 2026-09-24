@@ -75,7 +75,6 @@ class Job:
     # Things that went right and are worth saying, such as an automatic
     # upload - kept apart from warnings so they don't read as problems.
     notes: list = field(default_factory=list)
-    published_url: str = None
     queued_at: float = None
     started_at: float = None
     finished_at: float = None
@@ -270,8 +269,7 @@ def _autopilot(job_id: str, channel, plan) -> None:
         return
     with _lock:
         job = _jobs[job_id]
-        if decision.action == autopilot.UPLOADED:
-            job.published_url = decision.url
+        if decision.action == autopilot.QUEUED:
             job.notes.append(decision.message)
         else:
             job.warnings.append(decision.message)

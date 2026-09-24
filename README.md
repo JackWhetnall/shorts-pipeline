@@ -69,9 +69,13 @@ visible at a glance. Each video sits beside a `_meta.txt` (the script), a
 ## The daily loop
 
 **`/review`** is one cross-channel queue of everything awaiting a
-decision, oldest first. Watch it, edit the title and description, then
-Publish (`P`), Discard (`D`, with a reason) or Skip (`→`). Nothing
-navigates; the queue drains under the cursor.
+decision, oldest first, filterable by channel and by what the automatic
+checks thought (*Needs a look* / *Passed checks*). Watch it, edit the
+title and description, then **Approve** (`A`: queue it for the channel's
+next publishing slot), Discard (`D`, with a reason), Back (`←`) or Skip
+(`→`). *Queued* shows what's lined up and when it goes out; `U` takes one
+back out. **Mark published** (`P`) is for something you've already
+posted yourself.
 
 Each video arrives with a generated title (plus alternatives), a real
 description, and the two "looks mass-produced" flags — whether footage
@@ -254,15 +258,21 @@ captions. Together they cost under a cent. The review queue shows what
 they found, and whether the video "could have published itself".
 
 Settings → Publishing → **Publish automatically** turns that into action
-for one channel: a video that passes everything uploads on its own, and
-one that doesn't waits in review with the reason. One clean video in
+for one channel: a video that passes everything approves itself into the
+publishing queue, and one that doesn't waits in review with the reason. One clean video in
 every five (adjustable) still waits anyway, as a spot check on the checks
 themselves. It's off by default. Leave it off until the review queue has
 shown you a week or two of verdicts you agree with.
 
-TikTok and Instagram are not built. Both need a reviewed developer app
-rather than just credentials, which is a different order of effort and
-not worth starting before YouTube is earning.
+### TikTok and Instagram
+
+Neither lets an unreviewed app post publicly, so they're a hand-off: turn
+it on in a channel's publishing plan and, as each video goes out, it and
+a caption file land in **`OneDrive\Shorts to post\<channel>`**. On your
+phone, open that folder in OneDrive, share the video to TikTok or
+Instagram, paste the caption and post. **To post** in the top bar lists
+what's waiting; mark each one posted (a link is optional) and the phone
+copy is cleaned up. Set `SHORTS_HANDOFF_DIR` to use a different folder.
 
 ## Housekeeping
 
@@ -391,8 +401,12 @@ set installed.
 Add one through the web UI's **+ New channel**. It asks for a name, then
 walks you through what the channel makes, whose voice reads it, a logo,
 and the monetization steps — you can stop after any of them and come
-back. A channel that is not finished shows on the home page under
-"Setting up" and says on its dashboard exactly what is still missing.
+back. Its dashboard then shows the **launch pipeline**: seven steps from
+"say what the channel makes" through a sample video, logo, YouTube
+connection, publishing plan and a short trial of the automatic checks,
+to "switch on automatic publishing", with the next one and its button at
+the top. After launch, **Grow** lists cross-posting, Google's audit and
+the money links, for whenever each is worth doing.
 
 Every channel ends up with a display name, an ElevenLabs voice, a style
 prompt, and an answer to where its words come from:
@@ -434,15 +448,20 @@ never blank something you set elsewhere.
 - **Bible** — nothing to do; `bible-api.com` is queried per video.
 - **Shakespeare** — `python tools/build_shakespeare_cache.py`
 
-## Scheduling
+## Publishing plan and scheduling
 
-Each channel's dashboard has an **Automatic generation** section: a
-cadence in days plus an optional hour. A scheduled run is skipped
-whenever the channel still has an unpublished video waiting, so this
-cannot build a backlog of unreviewed takes.
+Each channel's dashboard has a **Publishing plan**: times to publish
+(e.g. `18:00`, or several), which days, and how many videos to keep
+ready. Approved videos go out one per slot; the app makes new ones in the
+background to keep that many queued, and stops if as many are waiting
+for your look, so it never buries the review queue. It also shows what
+that plan costs in ElevenLabs characters a month, and exactly what it's
+waiting for right now.
 
-The scheduler runs inside `python -m web`. Disable it with
-`--no-scheduler`.
+The scheduler runs inside `python -m web`. On this machine a logon task
+("Shorts Pipeline") starts it windowless at login, logging to
+`cache/web.log`; remove it from Task Scheduler to stop that. Disable the
+scheduler for a manual run with `--no-scheduler`.
 
 ## Voice Lab
 

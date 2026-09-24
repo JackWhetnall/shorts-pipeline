@@ -3,10 +3,11 @@ What happens to a finished video on a channel that publishes itself.
 
 Called once a render has finished and written its report. Decides, from
 the channel's autopilot setting and the gate's verdict already in that
-report (core.publish_gate), whether the video uploads now or waits in
-/review, and says why either way. An upload goes through exactly the path
-the review queue's button uses, so a published video looks the same
-however it got there.
+report (core.publish_gate), whether the video is approved into the
+publishing queue (core.publish_queue) to go out at the channel's next
+slot, or waits in /review, and says why either way. Approval by the gate
+and approval by you put a video in the same queue, so it goes out the
+same way however it got there.
 
 Nothing here raises for an ordinary failure. The video exists and is
 paid for; the worst outcome of a problem at this point is that it waits
@@ -18,20 +19,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from core import gallery, youtube
-from core.errors import PipelineError
+from core import gallery, publish_queue, youtube
 from core.logging_setup import get_logger
 
 log = get_logger(__name__)
 
-UPLOADED, HELD, OFF = "uploaded", "held", "off"
+QUEUED, HELD, OFF = "queued", "held", "off"
 
 
 @dataclass
 class Decision:
-    action: str            # uploaded | held | off
+    action: str            # queued | held | off
     message: str = ""
-    url: str = ""
 
 
 def after_render(channel, video_path: Path) -> Decision:
@@ -51,29 +50,20 @@ def after_render(channel, video_path: Path) -> Decision:
                      f"{channel.autopilot.spot_check_every}). It passed every automatic check.",
                      spot_check=True)
 
-    if not youtube.connection(channel.key)["connected"]:
+    has_handoff = channel.publishing.handoff_tiktok or channel.publishing.handoff_instagram
+    if not youtube.connection(channel.key)["connected"] and not has_handoff:
         return _hold(video_path, report,
-                     "Passed every check, but this channel isn't connected to YouTube, "
-                     "so it's waiting in review.")
+                     "Passed every check, but this channel has nowhere to publish yet "
+                     "(connect YouTube, or turn on a TikTok/Instagram hand-off), so it's "
+                     "waiting in review.")
 
-    info = gallery.load_publish_info(video_path)
-    title = info.get("title") or (report.get("title_options") or [video_path.stem])[0]
-    try:
-        result = youtube.upload(channel.key, video_path, title, info.get("description") or "",
-                                privacy="public")
-    except PipelineError as exc:
-        log.warning(f"{channel.key}: automatic upload failed: {exc}")
-        return _hold(video_path, report,
-                     f"Passed every check, but the upload failed: {exc.user_message} "
-                     f"It's waiting in review.")
-
-    gallery.save_publish_info(video_path, {"youtube_url": result["url"]})
-    message = f"Uploaded to YouTube automatically: {result['url']}"
-    if result.get("locked_private"):
-        message += (" YouTube made it private, as it does for every upload until the "
-                    "API project is audited. Make it public in Studio.")
+    publish_queue.enqueue(video_path, approved_by="checks")
+    when = next((slot for path, slot in publish_queue.schedule_for(channel)
+                 if Path(path).resolve() == video_path.resolve()), None)
+    message = ("Passed every check and is queued to go out "
+               + (when.strftime("%a %d %b at %H:%M") if when else "on the next check") + ".")
     log.info(f"{channel.key}: {message}")
-    return Decision(UPLOADED, message, result["url"])
+    return Decision(QUEUED, message)
 
 
 def _is_spot_check(channel, report: dict) -> bool:

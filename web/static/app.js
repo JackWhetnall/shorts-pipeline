@@ -1028,10 +1028,12 @@ function reviewNeedsLook(item) {
 
 function applyReviewFilter() {
   const channel = document.getElementById("review-channel-filter").value;
-  reviewItems = reviewAll.filter(item =>
-    (!channel || item.channel_key === channel)
-    && (reviewState === "all"
-        || (reviewState === "flagged") === reviewNeedsLook(item)));
+  reviewItems = reviewAll.filter(item => {
+    if (channel && item.channel_key !== channel) return false;
+    if (reviewState === "queued") return Boolean(item.queued);
+    if (item.queued) return false;
+    return reviewState === "all" || (reviewState === "flagged") === reviewNeedsLook(item);
+  });
   reviewIndex = 0;
   renderReview();
 }
@@ -1045,9 +1047,13 @@ function setReviewState(button) {
 
 function reviewCounterText() {
   const n = reviewItems.length;
-  const filtered = n !== reviewAll.length;
+  const toReview = reviewAll.filter(i => !i.queued).length;
+  if (reviewState === "queued") {
+    return n ? `${n} video${n === 1 ? "" : "s"} queued, in the order they'll go out.` : "Nothing queued.";
+  }
+  const filtered = n !== toReview;
   return n ? `${n} video${n === 1 ? "" : "s"} ${filtered ? "shown" : "waiting"}, oldest first.`
-           : (reviewAll.length ? "Nothing matches this filter." : "All caught up.");
+           : (toReview ? "Nothing matches this filter." : "All caught up.");
 }
 
 function reviewCurrent() {
@@ -1079,7 +1085,9 @@ function reviewKeys(e) {
   const tag = (e.target.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea" || e.metaKey || e.ctrlKey) return;
 
-  if (e.key === "p" || e.key === "P") { e.preventDefault(); reviewPublish(); }
+  if (e.key === "a" || e.key === "A") { e.preventDefault(); reviewApprove(); }
+  else if (e.key === "u" || e.key === "U") { e.preventDefault(); reviewUnqueue(); }
+  else if (e.key === "p" || e.key === "P") { e.preventDefault(); reviewPublish(); }
   else if (e.key === "d" || e.key === "D") {
     e.preventDefault();
     document.querySelector(".review-discard").open = true;
@@ -1096,7 +1104,7 @@ function renderReview() {
   document.getElementById("review-empty").hidden = Boolean(item);
   document.getElementById("review-counter").textContent = reviewCounterText();
   if (!item) {
-    const done = !reviewAll.length;
+    const done = !reviewAll.filter(i => !i.queued).length && reviewState !== "queued";
     document.getElementById("review-empty-title").textContent = done ? "Done." : "Nothing here.";
     document.getElementById("review-empty-text").textContent = done
       ? "Nothing left in the queue."
@@ -1147,6 +1155,10 @@ function renderReview() {
   if (item.similarity_flagged) {
     flags.push(`<p class="review-flag review-flag-warn">Wording is close to ${escapeHtml(item.similarity_closest || "an earlier video")}.</p>`);
   }
+  if (item.queued) {
+    const by = item.approved_by === "checks" ? "approved by the automatic checks" : "approved by you";
+    flags.push(`<p class="review-flag">${escapeHtml(item.slot_label || "Queued")} &mdash; ${by}.</p>`);
+  }
   // What the automatic checks found, and whether the gate would have let
   // this publish itself. Shown on every channel, autopilot or not, so the
   // gate earns trust (or doesn't) before anyone switches it on.
@@ -1184,6 +1196,8 @@ function renderReview() {
   document.getElementById("review-upload-note").textContent = "";
   document.getElementById("review-upload-btn").disabled = false;
 
+  document.getElementById("review-approve").hidden = Boolean(item.queued);
+  document.getElementById("review-unqueue").hidden = !item.queued;
   document.getElementById("review-position").textContent =
     `${reviewIndex + 1} of ${reviewItems.length}`;
   document.querySelector(".review-discard").open = false;
@@ -1298,6 +1312,36 @@ async function reviewPublish() {
   const data = await res.json();
   if (!res.ok) { alert(data.error || "Couldn't mark that published."); return; }
   reviewDrop();
+}
+
+async function reviewApprove() {
+  const item = reviewCurrent();
+  if (!item || item.queued) return;
+  await reviewSaveMeta();
+  const res = await apiFetch(`/api/videos/${item.relpath}/queue`, {method: "POST"});
+  const data = await res.json();
+  if (!res.ok) { alert(data.error || "Couldn't queue that one."); return; }
+  // Stays in the list, now under Queued, rather than vanishing.
+  item.queued = true;
+  item.approved_by = "you";
+  item.slot_label = data.slot_label;
+  reviewItems.splice(reviewIndex, 1);
+  if (reviewIndex >= reviewItems.length) reviewIndex = Math.max(0, reviewItems.length - 1);
+  decrementNavCount();
+  renderReview();
+}
+
+async function reviewUnqueue() {
+  const item = reviewCurrent();
+  if (!item || !item.queued) return;
+  const res = await apiFetch(`/api/videos/${item.relpath}/unqueue`, {method: "POST"});
+  if (!res.ok) { alert("Couldn't take that one out of the queue."); return; }
+  item.queued = false;
+  item.approved_by = null;
+  item.slot_label = "";
+  reviewItems.splice(reviewIndex, 1);
+  if (reviewIndex >= reviewItems.length) reviewIndex = Math.max(0, reviewItems.length - 1);
+  renderReview();
 }
 
 async function reviewDiscard(reason) {
@@ -2646,3 +2690,25 @@ async function writeTopicScripts(key, topicId) {
 
 document.addEventListener("DOMContentLoaded", initScriptNotebook);
 
+
+// ---------------------------------------------------------------------
+// To post: marking a hand-off done
+// ---------------------------------------------------------------------
+
+async function markPosted(event, form) {
+  event.preventDefault();
+  const card = form.closest(".handoff-item");
+  const button = form.querySelector("button");
+  await withButtonLoading(button, "Saving…", async () => {
+    const res = await apiFetch(`/api/videos/${card.dataset.relpath}/posted`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({platform: form.platform.value, url: form.url.value}),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || "Couldn't save that."); return; }
+    form.remove();
+    // Posted everywhere: the card, and the phone copy, are done with.
+    if (!card.querySelector(".handoff-form")) card.remove();
+  });
+}

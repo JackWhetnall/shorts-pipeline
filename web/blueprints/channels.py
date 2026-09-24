@@ -13,11 +13,11 @@ from flask import (
 
 from core import (
     caption_preview, card_preview, channel_admin, curriculum, fonts, gallery, jobs,
-    scheduler, voice_quota, youtube,
+    launch, publish_queue, scheduler, voice_quota, youtube,
 )
 from core.assets import has_logo
 from core.channels import (
-    ChannelConfig, Pacing, Style, channel_to_sparse_dict, read_raw, save_channel,
+    SLOT_RE, ChannelConfig, Pacing, Style, channel_to_sparse_dict, read_raw, save_channel,
 )
 from core.logging_setup import get_logger
 from core.errors import ConfigError, friendly_message
@@ -25,7 +25,6 @@ from core.footage_stats import library_stats
 from core.paths import PROJECT_ROOT, slugify
 from pipeline import quote_source
 from pipeline.run import fetch_seed
-from web import checklist
 from web.blueprints.curriculum import channels_running_low
 from web.forms import ORDERING_CHOICE_FIELDS, apply_channel_form, format_affiliate_links
 from web.helpers import (
@@ -102,17 +101,32 @@ def dashboard(key):
         published_count=info["published_count"],
         unpublished_count=info["unpublished_count"],
         last_video_at=format_date(gallery.latest_video_mtime(channel.output_dir)),
-        checklist=info["checklist_essential"],
-        checklist_extras=info["checklist_extras"],
-        checklist_remaining=info["checklist_remaining"],
-        extras_remaining=info["extras_remaining"],
-        ready_to_publish=info["checklist_remaining"] == 0 and info["section"] != "live",
+        progress=info,
         social_links=social_links, monetization_links=monetization_links,
         has_logo=has_logo(key),
-        schedule=scheduler.get_schedule(key),
+        upcoming=[{"title": gallery.load_publish_info(path)["title"] or path.stem,
+                   "when": when.strftime("%a %d %b, %H:%M") if when else "on the next check"}
+                  for path, when in publish_queue.schedule_for(channel)],
+        generation_status=scheduler.generation_block(key, channel),
+        weekday_names=("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+        handoff_folder=publish_queue.handoff_dir(),
+        plan_estimate=_plan_estimate(key, channel),
         cost=_channel_cost(key),
         rename_error=request.args.get("rename_error"),
     )
+
+
+def _plan_estimate(key: str, channel):
+    """Videos a month at this plan, and the voice characters that takes,
+    so the quota cost of a schedule is visible where it's set."""
+    plan = channel.publishing
+    if not plan.slots or not plan.weekdays:
+        return None
+    videos = round(len(plan.slots) * len(plan.weekdays) * 30 / 7)
+    quota = voice_quota.current()
+    return {"videos": videos,
+            "characters": videos * voice_quota.typical_video_characters(key),
+            "limit": quota.limit if quota else None}
 
 
 def _channel_cost(key: str) -> dict:
@@ -419,8 +433,8 @@ def unarchive(key):
 @bp.route("/channels/<key>/checklist/<item_id>/toggle-manual", methods=["POST"])
 def toggle_checklist(key, item_id):
     channel_or_404(key)
-    if item_id not in checklist.ITEM_IDS:
-        abort(404, description="That isn't a checklist item.")
+    if item_id not in launch.STAGE_IDS:
+        abort(404, description="That isn't a launch stage.")
     channel_admin.toggle_checklist_override(key, item_id)
     return redirect(url_for("channels.dashboard", key=key))
 
@@ -455,19 +469,28 @@ def reorder():
     return jsonify({"ok": True})
 
 
-# --- scheduling -------------------------------------------------------
+# --- publishing plan --------------------------------------------------
 
-@bp.route("/channels/<key>/schedule", methods=["POST"])
-def set_schedule(key):
-    channel_or_404(key)
-    hour_raw = (request.form.get("hour") or "").strip()
-    schedule = scheduler.Schedule(
-        enabled=request.form.get("schedule_enabled") == "on",
-        every_days=as_int(request.form.get("every_days"), default=1, minimum=1, maximum=90),
-        hour=as_int(hour_raw, default=None, minimum=0, maximum=23) if hour_raw else None,
-    )
-    scheduler.set_schedule(key, schedule)
-    return redirect(url_for("channels.dashboard", key=key))
+@bp.route("/channels/<key>/publishing", methods=["POST"])
+def set_publishing(key):
+    """When the channel publishes and how many videos it keeps ready
+    (core.publish_queue, core.scheduler). Times that aren't HH:MM are
+    dropped rather than saved, so a typo can't stop the channel."""
+    channel = channel_or_404(key)
+    plan = channel.publishing
+    plan.enabled = request.form.get("enabled") == "on"
+    slots = [s.strip() for s in (request.form.get("slots") or "").replace(";", ",").split(",")]
+    slots = [f"{int(h):02d}:{m}" for h, m in (s.split(":", 1) for s in slots if ":" in s)
+             if h.strip().isdigit() and m.strip().isdigit()]
+    plan.slots = sorted({s for s in slots if SLOT_RE.match(s)})
+    # Dropped, not clamped: a stray "9" must not quietly become Sunday.
+    plan.weekdays = sorted({int(d) for d in request.form.getlist("weekdays")
+                            if d.strip().isdigit() and int(d) in range(7)})
+    plan.buffer = as_int(request.form.get("buffer"), default=3, minimum=1, maximum=14)
+    plan.handoff_tiktok = request.form.get("handoff_tiktok") == "on"
+    plan.handoff_instagram = request.form.get("handoff_instagram") == "on"
+    save_channel(channel)
+    return redirect(url_for("channels.dashboard", key=key) + "#publishing-plan")
 
 
 # --- generation triggers ---------------------------------------------
@@ -668,10 +691,8 @@ def _why_not(info: dict) -> str:
         return info["setup_problem"]
     if info["active_job"]:
         return "already generating"
-    if info["section"] != "live":
-        return "not live yet"
-    if info["unpublished_count"]:
-        return f"{info['unpublished_count']} video(s) still unpublished"
+    if info["waiting_count"]:
+        return f"{info['waiting_count']} video(s) already waiting for review"
     return "not eligible"
 
 

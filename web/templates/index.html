@@ -92,7 +92,11 @@
         </h2>
         <p class="meta">{{ key }} &middot; {{ ch.content_mode }} &middot; {{ progress[key].video_count }} video{{ 's' if progress[key].video_count != 1 else '' }}</p>
         {% if status == 'live' %}
-        <p class="meta">{{ progress[key].published_count }} published{% if progress[key].last_published_label %} &middot; last published {{ progress[key].last_published_label }}{% endif %}</p>
+        <p class="meta">{{ progress[key].published_count }} published{% if progress[key].last_published_label %} &middot; last published {{ progress[key].last_published_label }}{% endif %}{% if progress[key].queued_count %} &middot; {{ progress[key].queued_count }} queued{% endif %}</p>
+        {% endif %}
+        {% if progress[key].current_stage and status != 'archived' %}
+        <p class="meta">Next: {{ progress[key].current_stage.label }}
+          ({{ progress[key].launch_settled }}/{{ progress[key].launch_total }})</p>
         {% endif %}
 
         {% if progress[key].active_job %}

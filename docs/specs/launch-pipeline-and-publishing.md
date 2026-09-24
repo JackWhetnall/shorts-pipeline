@@ -1,7 +1,11 @@
 # Spec: from a pitch to a channel that publishes itself
 
-*Draft for review, 24 Sep 2026. Nothing here is built yet except where
-marked. Decisions needed are collected at the end.*
+*24 Sep 2026. **Built:** §2's pipeline view (stages 4–10; existing
+channels placed on it), §3's publishing queue, §4 route A (phone
+hand-off), and the logon task. **Not yet built:** §2 stages 1–3
+(pitch → draft channel) and the news content mode. Decisions taken: route
+A for TikTok/Instagram; build order as §5; auto-start yes. See decision
+031.*
 
 ## 1. Where things stand today
 

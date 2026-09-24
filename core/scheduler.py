@@ -1,164 +1,112 @@
 """
-Recurring generation, so the pipeline can run without someone clicking a
-button.
+What happens without anyone clicking: three duties on a five-minute tick.
 
-This is the gap between "a tool that makes a video" and "a pipeline that
-publishes at frequency", which is what the project is actually for. Until
-now the only way to make a video was to be present.
+1. **Publish** whatever is due in each channel's queue (core.publish_queue).
+2. **Keep each channel's buffer filled**: start a video whenever fewer than
+   `publishing.buffer` are queued, so there is always one ready for the
+   next slot. Making and publishing are separate now; a render can take as
+   long as it takes, hours before its slot.
+3. **Refresh audience numbers** for published videos (core.audience).
 
-Deliberately simple: a per-channel cadence in days plus an optional
-hour-of-day, checked by a background thread. No cron expressions, no
-external scheduler, no new dependency. The thing being scheduled takes
-minutes and runs at most a couple of times a day per channel — a
-five-minute tick is more than precise enough, and everything it does goes
-through the same queue as a manual run, so nothing can start two videos
-at once.
+This replaced a per-channel "every N days at hour H" timer that made and
+published in one go, and refused to make anything while one video was
+waiting. That rule was right about not building a backlog of unreviewed
+video, and it stays in a narrower form: a channel stops generating while
+`buffer` or more videos are waiting for a look. Held videos don't stop
+the queue, but they can't pile up either.
 
-Eligibility is deliberately conservative. A channel is skipped unless it
-is live and has nothing unpublished waiting: generating a second video
-while the first is still sitting unreviewed just builds a backlog, and a
-backlog of unreviewed AI video is the exact failure mode the project's
-policy notes warn about.
+Runs inside the web app (`python -m web`, started at logon by the "Shorts
+Pipeline" task). Everything goes through the same job queue as a manual
+run, so two videos are never made at once.
 """
 
 from __future__ import annotations
 
-import json
 import threading
-import time
-from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
-from pathlib import Path
 
-from core import gallery, jobs, voice_quota
+from core import gallery, jobs, publish_queue, voice_quota
 from core.channels import load_channels
+from core.errors import PipelineError
 from core.logging_setup import get_logger
-from core.paths import SCHEDULE_PATH
 
 log = get_logger(__name__)
 
 TICK_SECONDS = 300
 
 
-@dataclass
-class Schedule:
-    """`every_days` of 0 means off. `hour` is local, or None for "any time
-    the cadence is due"."""
-
-    enabled: bool = False
-    every_days: int = 1
-    hour: int = None
-    last_run_at: float = None
-
-    def due(self, now: float = None) -> bool:
-        if not self.enabled or self.every_days <= 0:
-            return False
-        now = now or time.time()
-        if self.last_run_at and now - self.last_run_at < self.every_days * 86400:
-            return False
-        if self.hour is not None and datetime.fromtimestamp(now).hour != self.hour:
-            return False
-        return True
-
-
-def load_schedules(path: Path = None) -> dict:
-    path = Path(path or SCHEDULE_PATH)
-    if not path.exists():
-        return {}
+def generation_block(key: str, channel, state: dict = None, active: dict = None):
+    """Why this channel shouldn't start a video right now, or None if it
+    should. One place, so the dashboard can say exactly what the
+    scheduler is waiting for."""
+    plan = channel.publishing
+    if channel.archived:
+        return "The channel is archived."
+    if not plan.enabled:
+        return "The publishing plan is off."
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            raw = json.load(f)
-    except (json.JSONDecodeError, OSError):
-        log.warning("Schedule file unreadable; treating every channel as unscheduled.")
-        return {}
-    return {key: Schedule(**{k: v for k, v in value.items()
-                             if k in Schedule.__dataclass_fields__})
-            for key, value in raw.items()}
+        channel.validate()
+    except PipelineError as exc:
+        return exc.user_message
+    active = jobs.active_jobs() if active is None else active
+    if key in active:
+        return "A video for this channel is being made."
+    state = state or gallery.video_state_counts(channel.output_dir)
+    if state["queued"] >= plan.buffer:
+        return f"{state['queued']} ready and queued, the {plan.buffer} this channel keeps."
+    if state["waiting"] >= plan.buffer:
+        return (f"{state['waiting']} video{'s' if state['waiting'] != 1 else ''} waiting for "
+                f"a look in review. It makes more once those are dealt with.")
+    if not voice_quota.has_room_for(voice_quota.typical_video_characters(key)):
+        return "Not enough ElevenLabs characters left this month."
+    return None
 
 
-def save_schedules(schedules: dict, path: Path = None) -> None:
-    path = Path(path or SCHEDULE_PATH)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump({k: asdict(v) for k, v in schedules.items()}, f, indent=2)
-
-
-def get_schedule(channel_key: str, path: Path = None) -> Schedule:
-    return load_schedules(path).get(channel_key, Schedule())
-
-
-def set_schedule(channel_key: str, schedule: Schedule, path: Path = None) -> None:
-    schedules = load_schedules(path)
-    existing = schedules.get(channel_key)
-    # Preserve the last-run stamp across an edit, or changing the cadence
-    # would immediately make the channel due again.
-    if existing is not None and schedule.last_run_at is None:
-        schedule.last_run_at = existing.last_run_at
-    schedules[channel_key] = schedule
-    save_schedules(schedules, path)
-
-
-def is_eligible(channel, checklist_remaining: int, state: dict, has_active_job: bool) -> bool:
-    """Whether a channel should have a video generated for it right now.
-
-    The same rule the manual "Generate" button uses, so the scheduler can
-    never start something the button wouldn't have allowed.
-    """
-    return (not channel.archived
-            and checklist_remaining == 0
-            and state["published"] > 0
-            and state["unpublished"] == 0
-            and not has_active_job)
-
-
-def due_channels(path: Path = None) -> list:
-    """(key, channel, schedule) for everything due and eligible now."""
-    from web.checklist import remaining_count
-
-    schedules = load_schedules(path)
-    active = jobs.active_jobs()
-    out = []
-    for key, channel in load_channels(validate=False).items():
-        schedule = schedules.get(key)
-        if schedule is None or not schedule.due():
-            continue
-        state = gallery.video_state_counts(channel.output_dir)
-        if not is_eligible(channel, remaining_count(key, channel, state), state, key in active):
-            continue
-        # Starting a run the voice quota can't finish would pay for a
-        # script and then fail. Skipped without touching last_run_at, so
-        # it stays due and runs once the quota resets.
-        if not voice_quota.has_room_for(voice_quota.typical_video_characters(key)):
-            log.info(f"Scheduled run for {key} skipped: not enough ElevenLabs quota left.")
-            continue
-        out.append((key, channel, schedule))
-    return out
-
-
-def run_due(path: Path = None) -> list:
-    """Start a job for everything due. Returns the keys started."""
+def fill_buffers(channels: dict = None) -> list:
+    """Start a video for every channel that needs one. Returns the keys."""
     from pipeline.run import fetch_seed
 
+    channels = channels if channels is not None else load_channels(validate=False)
+    active = jobs.active_jobs()
     started = []
-    for key, channel, schedule in due_channels(path):
+    for key, channel in channels.items():
+        if generation_block(key, channel, active=active):
+            continue
         try:
             seed = fetch_seed(channel)
             jobs.start_job(key, seed.to_jsonable())
         except Exception as exc:  # noqa: BLE001 - one bad channel must not stop the rest
-            log.warning(f"Scheduled run for {key} couldn't start: {exc}")
+            log.warning(f"Couldn't start a video for {key}: {exc}")
             continue
-        schedule.last_run_at = time.time()
-        set_schedule(key, schedule, path)
         started.append(key)
-        log.info(f"Scheduled generation started for {key}.")
+        log.info(f"Started a video for {key} to keep its queue filled.")
     return started
+
+
+def tick() -> None:
+    """One pass of all three duties. Each is isolated from the others: a
+    failed upload must not stop generation, nor either stop the stats."""
+    channels = load_channels(validate=False)
+    for name, duty in (("publishing", lambda: publish_queue.publish_due(channels)),
+                       ("generation", lambda: fill_buffers(channels)),
+                       ("statistics", lambda: _refresh_audience(channels))):
+        try:
+            duty()
+        except Exception as exc:  # noqa: BLE001 - the ticker must never die
+            log.warning(f"Scheduler {name} step failed: {exc}")
+
+
+def _refresh_audience(channels: dict) -> None:
+    # Cheap when nothing is due: each video's numbers are refreshed at
+    # most every audience.REFRESH_HOURS.
+    from core import audience
+    audience.refresh(channels)
 
 
 _thread = None
 _stop = threading.Event()
 
 
-def start_background(path: Path = None) -> None:
+def start_background() -> None:
     """Start the ticker. Idempotent, and a daemon thread so it never
     keeps the process alive on its own."""
     global _thread
@@ -170,17 +118,7 @@ def start_background(path: Path = None) -> None:
         # due while the app was down, which is usually surprising rather
         # than helpful. Wait one interval first.
         while not _stop.wait(TICK_SECONDS):
-            try:
-                run_due(path)
-            except Exception as exc:  # noqa: BLE001 - the ticker must never die
-                log.warning(f"Scheduler tick failed: {exc}")
-            # Cheap when nothing is due: each video's numbers are refreshed
-            # at most every audience.REFRESH_HOURS.
-            try:
-                from core import audience
-                audience.refresh(load_channels(validate=False))
-            except Exception as exc:  # noqa: BLE001 - the ticker must never die
-                log.warning(f"Refreshing video statistics failed: {exc}")
+            tick()
 
     _stop.clear()
     _thread = threading.Thread(target=loop, daemon=True, name="scheduler")

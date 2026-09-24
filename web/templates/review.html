@@ -37,9 +37,10 @@
     </select>
   </label>
   <div class="segmented" role="group" aria-label="Which videos">
-    <button type="button" data-review-state="all" class="active" onclick="setReviewState(this)">All</button>
+    <button type="button" data-review-state="all" class="active" onclick="setReviewState(this)">To review</button>
     <button type="button" data-review-state="flagged" onclick="setReviewState(this)">Needs a look</button>
     <button type="button" data-review-state="clean" onclick="setReviewState(this)">Passed checks</button>
+    <button type="button" data-review-state="queued" onclick="setReviewState(this)">Queued</button>
   </div>
 </div>
 
@@ -104,7 +105,7 @@
     </div>
 
     <div class="card">
-      <p class="meta">Or mark it published by pasting wherever you actually posted it.</p>
+      <p class="meta">Already posted it yourself? Paste where, then Mark published.</p>
       <label class="review-field">YouTube
         <input type="url" id="review-youtube_url" placeholder="https://youtube.com/shorts/...">
       </label>
@@ -119,8 +120,16 @@
 </div>
 
 <div class="review-bar">
-  <button type="button" class="btn btn-primary" onclick="reviewPublish()">
-    Publish <kbd>P</kbd>
+  <button type="button" class="btn btn-primary" id="review-approve" onclick="reviewApprove()"
+          title="Queue it to go out at this channel's next publishing slot">
+    Approve <kbd>A</kbd>
+  </button>
+  <button type="button" class="btn-ghost" id="review-unqueue" onclick="reviewUnqueue()" hidden>
+    Take out of queue <kbd>U</kbd>
+  </button>
+  <button type="button" class="btn-ghost" onclick="reviewPublish()"
+          title="You've already posted it yourself: records the links below">
+    Mark published <kbd>P</kbd>
   </button>
   <details class="review-discard">
     <summary class="btn-ghost">Discard <kbd>D</kbd></summary>

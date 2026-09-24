@@ -1,36 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ channel.channel_display_name }}{% endblock %}
 {% block content %}
-{% macro launch_checklist() %}
-<details class="card launch-checklist">
-  <summary class="summary-heading">
-    Launch checklist
-    {% if checklist_remaining %}<span class="badge">{{ checklist_remaining }}</span>{% endif %}
-  </summary>
-  <ul class="todo-list">
-    {% for item in checklist %}
-    <li class="todo-item {{ 'done' if item.done else '' }} {{ 'manual' if item.manual else '' }}">
-      <span class="todo-check"></span>
-      <span class="todo-label">{{ item.label }}</span>
-      <div class="todo-actions">
-        {% if item.manual %}
-        <form method="post" action="{{ item.toggle_link }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="todo-action">Unmark</button>
-        </form>
-        {% elif not item.done %}
-        <a class="todo-action" href="{{ item.link }}">Fix &rarr;</a>
-        <form method="post" action="{{ item.toggle_link }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="todo-action">Mark done</button>
-        </form>
-        {% endif %}
-      </div>
-    </li>
-    {% endfor %}
-  </ul>
-</details>
-{% endmacro %}
 
 <a class="back-link" href="{{ url_for('channels.index') }}">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
@@ -108,39 +78,119 @@
 </p>
 {% endif %}
 
-{% if checklist_remaining %}
-{{ launch_checklist() }}
-{% elif ready_to_publish %}
-<p class="meta ready-to-publish">
-  Everything on the launch checklist is done &mdash; this channel goes
-  live automatically as soon as a video is published from its
-  <a href="{{ url_for('gallery.channel_gallery', key=key) }}">gallery</a>.
+{% set p = progress %}
+{% if p.current_stage %}
+<div class="card launch-card">
+  <div class="launch-head">
+    <h2>Launch</h2>
+    <span class="meta">{{ p.launch_settled }} of {{ p.launch_total }} done</span>
+  </div>
+  <p class="subtitle">
+    Everything between an idea and a channel that publishes on its own, in
+    order. The app does the automatic steps; each of yours is here when
+    it's needed.
+  </p>
+  <ol class="launch-steps">
+    {% for s in p.launch %}
+    {% set is_current = s.id == p.current_stage.id %}
+    <li class="launch-step {{ 'done' if s.done }} {{ 'skipped' if s.skipped }} {{ 'current' if is_current }}">
+      <span class="launch-mark" aria-hidden="true"></span>
+      <div class="launch-body">
+        <span class="launch-label">{{ s.label }}</span>
+        {% if s.who == 'app' and not s.done %}<span class="launch-who">automatic</span>{% endif %}
+        {% if is_current or s.skipped %}<p class="meta">{{ 'Skipped.' if s.skipped else s.detail }}</p>{% endif %}
+      </div>
+      <div class="launch-actions">
+        {% if is_current %}
+        <a class="btn btn-primary" href="{{ s.link }}">{{ 'Open the review queue' if s.id == 'shadow' else 'Do this' }} &rarr;</a>
+        {% endif %}
+        {% if (is_current and s.id != 'content') or s.skipped %}
+        <form method="post" action="{{ s.toggle_link }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-ghost">{{ 'Undo skip' if s.skipped else 'Skip' }}</button>
+        </form>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+</div>
+{% else %}
+<p class="meta launch-done">
+  <strong>Launched.</strong>
+  {% if channel.autopilot.mode == 'when_clean' %}Clean videos queue themselves and go out on schedule; anything flagged waits in
+  <a href="{{ url_for('review.queue', channel=key) }}">review</a>.{% else %}Videos wait for your approval in
+  <a href="{{ url_for('review.queue', channel=key) }}">review</a>, then go out on schedule.{% endif %}
 </p>
 {% endif %}
 
-<div class="card">
-  <h2>Automatic generation</h2>
+<div class="card" id="publishing-plan">
+  <h2>Publishing plan</h2>
   <p class="subtitle">
-    Generate a video on a schedule instead of clicking a button. A run is
-    skipped whenever this channel still has an unpublished video waiting,
-    so this can't build up a backlog of unreviewed takes.
+    When this channel publishes, and how many videos it keeps ready ahead
+    of time. Approved videos (by you, or by the checks under autopilot)
+    queue up and go out at these times. The app makes new ones in the
+    background to keep the queue full, and stops if too many are waiting
+    for a look.
   </p>
-  <form method="post" action="{{ url_for('channels.set_schedule', key=key) }}" class="channel-form">
+  <form method="post" action="{{ url_for('channels.set_publishing', key=key) }}" class="channel-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label class="checkbox-label">
-      <input type="checkbox" name="schedule_enabled" {% if schedule.enabled %}checked{% endif %}>
-      Generate automatically
+      <input type="checkbox" name="enabled" {% if channel.publishing.enabled %}checked{% endif %}>
+      Run this channel on its own: keep videos ready, publish on time
     </label>
-    <label>
-      Every
-      <input type="number" name="every_days" min="1" max="30" value="{{ schedule.every_days }}"> day(s)
+    <label>Publish at (24-hour; several separated by commas)
+      <input type="text" name="slots" value="{{ channel.publishing.slots|join(', ') }}" placeholder="18:00">
     </label>
-    <label>
-      At hour (0&ndash;23, blank for any time)
-      <input type="number" name="hour" min="0" max="23"
-             value="{{ schedule.hour if schedule.hour is not none else '' }}">
+    <fieldset class="weekday-picker">
+      <legend>On</legend>
+      {% for name in weekday_names %}
+      <label class="checkbox-label">
+        <input type="checkbox" name="weekdays" value="{{ loop.index0 }}" {% if loop.index0 in channel.publishing.weekdays %}checked{% endif %}>
+        {{ name }}
+      </label>
+      {% endfor %}
+    </fieldset>
+    <label>Keep this many ready
+      <input type="number" name="buffer" min="1" max="14" value="{{ channel.publishing.buffer }}">
     </label>
-    <button type="submit">Save schedule</button>
+    <label class="checkbox-label">
+      <input type="checkbox" name="handoff_tiktok" {% if channel.publishing.handoff_tiktok %}checked{% endif %}>
+      Also hand each one off for TikTok
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="handoff_instagram" {% if channel.publishing.handoff_instagram %}checked{% endif %}>
+      Also hand each one off for Instagram
+    </label>
+    <p class="hint">
+      A hand-off puts the video and its caption in <code>{{ handoff_folder }}</code>
+      as it goes out, for posting from your phone; <a href="{{ url_for('review.handoff_page') }}">To post</a>
+      lists what's waiting. TikTok and Instagram only let reviewed apps post for
+      you, so this is the one-minute manual step.
+    </p>
+    {% if plan_estimate %}
+    <p class="hint">At this plan: about {{ plan_estimate.videos }} videos a month, roughly
+      {{ '{:,}'.format(plan_estimate.characters) }} ElevenLabs characters{% if plan_estimate.limit %} of your
+      {{ '{:,}'.format(plan_estimate.limit) }}{% endif %}.</p>
+    {% endif %}
+    <button type="submit">Save plan</button>
   </form>
+
+  <h3>Right now</h3>
+  <p class="meta">
+    {% if progress.active_job %}Making a video.
+    {% elif generation_status %}Not making anything: {{ generation_status }}
+    {% else %}The next video starts on the scheduler's next check (every 5 minutes).{% endif %}
+  </p>
+  {% if upcoming %}
+  <ul class="upcoming">
+    {% for item in upcoming %}
+    <li><strong>{{ item.when }}</strong> &mdash; {{ item.title }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="meta">Nothing queued. Approve videos in <a href="{{ url_for('review.queue', channel=key) }}">review</a> to queue them.</p>
+  {% endif %}
 </div>
 
 {% if cost and cost.calls %}
@@ -178,39 +228,33 @@
 </div>
 {% endif %}
 
-{% if not checklist_remaining %}{{ launch_checklist() }}{% endif %}
-
-{% if checklist_extras %}
 <details class="card channel-section">
   <summary class="summary-heading">
-    When you're ready
-    <span class="badge">{{ extras_remaining }}</span>
+    Grow
+    {% if progress.grow_remaining %}<span class="badge">{{ progress.grow_remaining }}</span>{% endif %}
   </summary>
   <p class="subtitle">
-    Optional. None of these hold the channel back &mdash; work through them
-    whenever you feel like it.
+    After launch, whenever each is worth doing: cross-posting first, then
+    the money links once <a href="{{ url_for('review.insights_page') }}">Insights</a>
+    shows people are watching. None of these hold the channel back.
   </p>
   <ul class="checklist">
-    {% for item in checklist_extras %}
-    <li class="{{ 'done' if item.done }}">
+    {% for item in progress.grow %}
+    <li class="{{ 'done' if item.done or item.skipped }}">
       {% if item.done %}
-      <form method="post" action="{{ item.toggle_link }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="checklist-toggle" title="Mark as not done">
-          {{ '&ndash;'|safe if item.manual else '&check;'|safe }}
-        </button>
-      </form>
+      <span class="checklist-toggle" title="Done">&check;</span>
       <span>{{ item.label }}</span>
       {% else %}
       <form method="post" action="{{ item.toggle_link }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="checklist-toggle" title="Skip this one">&nbsp;</button>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="checklist-toggle"
+                title="{{ 'Undo' if item.skipped else ('Mark done' if item.id == 'audit' else 'Skip this one') }}">{{ '&ndash;'|safe if item.skipped else '&nbsp;'|safe }}</button>
       </form>
       <a href="{{ item.link }}">{{ item.label }}</a>
+      {% if item.detail and not item.skipped %}<span class="hint">{{ item.detail }}</span>{% endif %}
       {% endif %}
     </li>
     {% endfor %}
   </ul>
 </details>
-{% endif %}
 {% endblock %}

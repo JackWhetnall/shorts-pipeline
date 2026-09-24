@@ -137,21 +137,19 @@ def test_voiceover_stage_stops_before_any_synthesis(quota, monkeypatch):
         tts.run(plan)
 
 
-def test_scheduler_skips_a_channel_the_quota_cannot_cover(quota, monkeypatch, tmp_path):
+def test_the_scheduler_waits_for_quota_before_starting_a_video(quota, monkeypatch):
     from core import scheduler
+    from core.channels import ChannelConfig
 
-    channel = SimpleNamespace(archived=False, output_dir="output/chan")
-    monkeypatch.setattr(scheduler, "load_channels", lambda validate=False: {"chan": channel})
-    monkeypatch.setattr(scheduler.gallery, "video_state_counts",
-                        lambda _: {"published": 1, "unpublished": 0})
-    monkeypatch.setattr(scheduler.jobs, "active_jobs", lambda: {})
-    monkeypatch.setattr("web.checklist.remaining_count", lambda *a: 0)
-    path = tmp_path / "schedule.json"
-    scheduler.save_schedules({"chan": scheduler.Schedule(enabled=True)}, path)
+    channel = ChannelConfig(key="chan", voice="21m00Tcm4TlvDq8ikWAM", style_prompt="x",
+                            topics=["t"])
+    channel.publishing.enabled = True
+    state = {"queued": 0, "waiting": 0}
 
     quota["value"] = Quota(used=29_950, limit=30_000)
-    assert scheduler.due_channels(path) == []
+    reason = scheduler.generation_block("chan", channel, state=state, active={})
+    assert reason and "ElevenLabs" in reason
 
     quota["value"] = None
     voice_quota._cached = None
-    assert [key for key, _, _ in scheduler.due_channels(path)] == ["chan"]
+    assert scheduler.generation_block("chan", channel, state=state, active={}) is None

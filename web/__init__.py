@@ -105,11 +105,14 @@ def create_app(debug: bool = False) -> Flask:
             waiting = 0
             for channel in load_channels(validate=False).values():
                 state = gallery.video_state_counts(channel.output_dir)
-                waiting += state["unpublished"]
-            return {"review_waiting": waiting,
+                waiting += state["waiting"]
+            from core import publish_queue
+            to_post = sum(len(r["platforms"]) for r in
+                          publish_queue.awaiting_posts(load_channels(validate=False)))
+            return {"review_waiting": waiting, "to_post": to_post,
                     "active_job_count": len(jobs.active_jobs())}
         except Exception:  # noqa: BLE001 - chrome must never break a page
-            return {"review_waiting": 0, "active_job_count": 0}
+            return {"review_waiting": 0, "to_post": 0, "active_job_count": 0}
 
     @app.context_processor
     def inject_fonts():

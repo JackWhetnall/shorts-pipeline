@@ -72,6 +72,8 @@ class TestPagesRender:
         "/voice-lab",
         "/activity",
         "/apis",
+        "/to-post",
+        "/review?channel=test_channel",
     ])
     def test_renders(self, client, path):
         response = client.get(path)
@@ -743,3 +745,22 @@ class TestAudienceCard:
         html = client.get("/insights").get_data(as_text=True)
         assert "1,234" in html and "71%" in html
         assert "Reconnect to see numbers" in html
+
+
+class TestPublishingPlan:
+    def test_saving_the_plan_keeps_valid_times_and_drops_typos(self, client, config_path):
+        from core.channels import load_channels
+        response = client.post("/channels/test_channel/publishing", data={
+            "csrf_token": csrf(client), "enabled": "on", "slots": "18:00, 9:30, 25:99, noon",
+            "weekdays": ["0", "2", "4", "9"], "buffer": "5", "handoff_tiktok": "on",
+        })
+        assert response.status_code == 302
+        plan = load_channels(config_path)["test_channel"].publishing
+        assert plan.enabled and plan.slots == ["09:30", "18:00"]
+        assert plan.weekdays == [0, 2, 4] and plan.buffer == 5
+        assert plan.handoff_tiktok and not plan.handoff_instagram
+
+    def test_the_dashboard_shows_the_launch_pipeline(self, client):
+        html = client.get("/channels/test_channel").get_data(as_text=True)
+        assert "Launch" in html and "Publishing plan" in html
+        assert "Make and approve a first video" in html
