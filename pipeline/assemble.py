@@ -29,6 +29,7 @@ ImageMagick-backed TextClip, so there's no ImageMagick install to manage.
 from __future__ import annotations
 
 import math
+import os
 import random
 from dataclasses import dataclass
 from functools import lru_cache
@@ -51,6 +52,14 @@ log = get_logger(__name__)
 CAPTION_Y = int(H * 0.72)               # lower third
 CAPTION_MAX_WIDTH = int(W * 0.9)
 CAPTION_LEFT = (W - CAPTION_MAX_WIDTH) // 2
+
+# x264 settings for the final encode. Measured re-encoding a real 36s
+# render on this project's 8-core machine: "medium" on 4 threads took 49s;
+# "veryfast" on every core took 15s, with an SSIM against the source of
+# 0.986 to medium's 0.992 - no visible difference on a phone, behind
+# captions, after YouTube re-encodes it anyway - and a smaller file.
+ENCODE_PRESET = "veryfast"
+ENCODE_THREADS = os.cpu_count() or 4
 
 OUTRO_TITLE_SIZE = 84
 OUTRO_SUBTEXT_SIZE = 48
@@ -666,7 +675,8 @@ def run(plan):
     log.info(f"  [video] rendering {len(plan.shots)} shot(s) — the slowest step...")
     try:
         final.write_videofile(str(temp_video), fps=30, codec="libx264", audio=False,
-                              threads=4, preset="medium", logger=encode_logger())
+                              threads=ENCODE_THREADS, preset=ENCODE_PRESET,
+                              logger=encode_logger())
         log.info("  [video] encoding the audio track...")
         audio.write_audiofile(str(temp_audio), codec="aac", fps=fps, logger=None)
         log.info("  [video] muxing...")
