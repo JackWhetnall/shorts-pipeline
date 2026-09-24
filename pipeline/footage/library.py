@@ -516,7 +516,7 @@ def _enrich_new(clips: list) -> None:
                     f"they'll match on description alone until the next enrich run.")
 
 
-def assign_clips(segments, shot_counts, avoid_imagery=None) -> MatchOutcome:
+def assign_clips(segments, shot_counts, avoid_imagery=None, channel_key: str = "") -> MatchOutcome:
     """Pick one distinct clip per shot.
 
     `shot_counts[i]` is how many clips segment i needs. Every clip across
@@ -546,7 +546,7 @@ def assign_clips(segments, shot_counts, avoid_imagery=None) -> MatchOutcome:
         )
 
     for attempt in range(MAX_FETCH_ATTEMPTS + 1):
-        clips = retrieval.shortlist(segments, avoid_imagery)
+        clips = retrieval.shortlist(segments, avoid_imagery, channel_key=channel_key)
         if not clips:
             raise FootageLibraryError(
                 "no usable clips after filtering",
@@ -567,7 +567,8 @@ def assign_clips(segments, shot_counts, avoid_imagery=None) -> MatchOutcome:
             # weaker video, flagged as such, rather than no video.
             log.warning(f"  [footage] scoring failed ({exc}). Falling back to "
                         f"least-recently-used clips so the render can finish.")
-            return _finalize(_degraded_picks(segments, shot_counts, avoid_imagery),
+            return _finalize(_degraded_picks(segments, shot_counts, avoid_imagery,
+                                             channel_key),
                              shot_counts)
 
         available = {c.filename: c for c in clips}
@@ -581,7 +582,7 @@ def assign_clips(segments, shot_counts, avoid_imagery=None) -> MatchOutcome:
         if is_last or not sources.any_key_configured():
             return _finalize(_fill_fallbacks(picks, shortfalls, shot_counts, avoid_imagery,
                                              used, segments=segments, data=data,
-                                             available=available),
+                                             available=available, channel_key=channel_key),
                              shot_counts)
 
         job_context.report_detail("footage", None,
@@ -613,7 +614,7 @@ def assign_clips(segments, shot_counts, avoid_imagery=None) -> MatchOutcome:
     raise FootageLibraryError("footage matching ended without a result")
 
 
-def _degraded_picks(segments, shot_counts, avoid_imagery) -> MatchOutcome:
+def _degraded_picks(segments, shot_counts, avoid_imagery, channel_key: str = "") -> MatchOutcome:
     """Fill every shot from the shortlist, unscored.
 
     Used when the scoring call itself fails. Clips still come from the
@@ -628,10 +629,12 @@ def _degraded_picks(segments, shot_counts, avoid_imagery) -> MatchOutcome:
     for i, count in enumerate(shot_counts):
         while len(picks[i]) < count:
             candidates = retrieval.shortlist(
-                [segments[i]], avoid_imagery, max_clips=1, exclude=used)
+                [segments[i]], avoid_imagery, max_clips=1, exclude=used,
+                channel_key=channel_key)
             if not candidates:
                 candidates = [c for c in store.least_recently_used(len(used) + 20, exclude=used)
-                              if not retrieval.clip_violates_avoid_list(c, avoid_imagery)]
+                              if not retrieval.clip_violates_avoid_list(c, avoid_imagery)
+                              and c.available_to(channel_key)]
             if candidates:
                 picks[i].append(candidates[0].filename)
                 used.add(candidates[0].filename)
@@ -650,7 +653,8 @@ def _degraded_picks(segments, shot_counts, avoid_imagery) -> MatchOutcome:
 
 
 def _fill_fallbacks(picks, shortfalls, shot_counts, avoid_imagery, used,
-                    segments=None, data=None, available=None) -> MatchOutcome:
+                    segments=None, data=None, available=None,
+                    channel_key: str = "") -> MatchOutcome:
     """Top up whatever is still short once fetching has run out of rounds.
 
     This used to go straight to the least-recently-used clips in the
@@ -703,7 +707,8 @@ def _fill_fallbacks(picks, shortfalls, shot_counts, avoid_imagery, used,
 
         while len(picks[i]) < shot_counts[i] and segments is not None:
             candidates = retrieval.shortlist(
-                [segments[i]], avoid_imagery, max_clips=1, exclude=used | rejected)
+                [segments[i]], avoid_imagery, max_clips=1, exclude=used | rejected,
+                channel_key=channel_key)
             if not candidates:
                 break
             take(i, candidates[0].filename)
@@ -714,6 +719,7 @@ def _fill_fallbacks(picks, shortfalls, shot_counts, avoid_imagery, used,
             candidates = [
                 c for c in store.least_recently_used(len(used) + 20, exclude=used | rejected)
                 if not retrieval.clip_violates_avoid_list(c, avoid_imagery)
+                and c.available_to(channel_key)
             ]
             if candidates:
                 take(i, candidates[0].filename)
@@ -768,6 +774,6 @@ def _load_checkpoint(shot_counts):
                         unconfident=cached.get("unconfident", 0))
 
 
-def mark_used(filenames) -> None:
+def mark_used(filenames, channel_key: str = "") -> None:
     """One write for the whole video (see store.mark_used)."""
-    store.mark_used(filenames)
+    store.mark_used(filenames, channel_key)

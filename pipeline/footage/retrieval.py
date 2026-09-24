@@ -127,7 +127,7 @@ def clip_violates_avoid_list(clip, avoid_imagery) -> bool:
                for term in avoid_imagery if term.strip())
 
 
-def _search(conn, query: str, limit: int) -> list:
+def _search(conn, query: str, limit: int, channel_key: str = "") -> list:
     """Weighted BM25 over subject, setting and description.
 
     The weights are what make this precise. A clip's description mentions
@@ -140,6 +140,9 @@ def _search(conn, query: str, limit: int) -> list:
     `reject_count` nudges rankings too: a clip whose videos you keep
     discarding for their footage drifts down. A nudge, not a ban — one
     bad pairing doesn't make a clip bad.
+
+    Clips another channel owns are filtered here, before the LIMIT, so
+    they can't crowd the top of the list and leave this channel short.
     """
     if not query:
         return []
@@ -151,10 +154,12 @@ def _search(conn, query: str, limit: int) -> list:
             FROM clips_fts
             JOIN clips c ON c.filename = clips_fts.filename
             WHERE clips_fts MATCH ?
+              AND (? = '' OR c.owner = '' OR c.owner = ?)
             ORDER BY rank
             LIMIT ?
             """,
-            (*store.FTS_WEIGHTS, REJECTION_PENALTY, query, limit),
+            (*store.FTS_WEIGHTS, REJECTION_PENALTY, query,
+             channel_key or "", channel_key or "", limit),
         ).fetchall()
     except Exception as exc:  # noqa: BLE001
         # A malformed FTS expression must degrade to "no lexical hits",
@@ -169,7 +174,7 @@ def _search(conn, query: str, limit: int) -> list:
 
 def shortlist(segments, avoid_imagery=None, *, max_clips: int = MAX_SHORTLIST,
               per_segment: int = PER_SEGMENT, exclude: set = None,
-              db_path=None) -> list:
+              channel_key: str = "", db_path=None) -> list:
     """The candidate clips to show the matcher, best-scoring first.
 
     Every segment contributes its own lexical matches; the union is
@@ -177,6 +182,7 @@ def shortlist(segments, avoid_imagery=None, *, max_clips: int = MAX_SHORTLIST,
     with least-recently-used clips, and capped.
 
     `exclude` drops clips already claimed elsewhere in this video.
+    `channel_key` drops clips another channel has already used.
     """
     avoid_imagery = avoid_imagery or []
     exclude = set(exclude or ())
@@ -186,12 +192,13 @@ def shortlist(segments, avoid_imagery=None, *, max_clips: int = MAX_SHORTLIST,
 
     with store.connect(db_path) as conn:
         for segment in segments:
-            for row in _search(conn, build_query(segment), per_segment):
+            for row in _search(conn, build_query(segment), per_segment, channel_key):
                 name = row["filename"]
                 if name in exclude:
                     continue
                 clip = store._row_to_clip(row)
-                if clip_violates_avoid_list(clip, avoid_imagery):
+                if (clip_violates_avoid_list(clip, avoid_imagery)
+                        or not clip.available_to(channel_key)):
                     continue
                 rank = row["rank"]
                 if name not in ranked or rank < ranked[name]:
@@ -205,7 +212,8 @@ def shortlist(segments, avoid_imagery=None, *, max_clips: int = MAX_SHORTLIST,
         for clip in store.least_recently_used(max_clips * 2, exclude=already, db_path=db_path):
             if len(selected) >= max_clips:
                 break
-            if clip_violates_avoid_list(clip, avoid_imagery):
+            if (clip_violates_avoid_list(clip, avoid_imagery)
+                    or not clip.available_to(channel_key)):
                 continue
             selected.append(clip)
 

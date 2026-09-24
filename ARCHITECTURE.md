@@ -212,6 +212,12 @@ abstraction. Selection then skips any candidate that shares the previous
 shot's subject or looks like it perceptually, so a video never cuts
 between two shots that read as the same one.
 
+The library is shared, but each clip belongs to the first channel that
+uses it (`clips.owner`), and no other channel's search will return it.
+The same shot on two channels run by one person is the mass-production
+pattern, and viewers who follow both would notice it first. See decision
+[030](docs/decisions/030-clip-ownership.md).
+
 Discarding a video for its footage increments `reject_count` on the clips
 it used, which adds a small ranking penalty — a nudge, not a ban. Per-channel `avoid_imagery` is enforced twice — candidates are filtered
 out before the call, and the list is stated in the prompt as a hard

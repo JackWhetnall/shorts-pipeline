@@ -557,7 +557,8 @@ def run(plan):
     log.info(f"[3/5] Matching footage for {len(plan.shots)} shot(s) "
              f"across {len(segments)} segment(s)...")
 
-    outcome = library.assign_clips(segments, shot_counts, channel.avoid_imagery)
+    outcome = library.assign_clips(segments, shot_counts, channel.avoid_imagery,
+                                   channel_key=channel.key)
     plan.footage_repeated = outcome.repeated
     plan.footage_degraded = outcome.degraded
     plan.footage_unconfident = outcome.unconfident
@@ -690,6 +691,6 @@ def run(plan):
             background.close()
         final.close()
 
-    library.mark_used([shot.clip_path for shot in plan.shots if shot.clip_path])
+    library.mark_used([shot.clip_path for shot in plan.shots if shot.clip_path], channel.key)
     job_context.report_progress(None)
     return plan

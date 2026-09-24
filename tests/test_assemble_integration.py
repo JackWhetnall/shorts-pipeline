@@ -212,7 +212,7 @@ class TestFullRender:
 
         clips = [c for c in store.all_clips() if (LIBRARY_DIR / c.filename).exists()][:6]
 
-        def fake_assign(segments, shot_counts, avoid_imagery=None):
+        def fake_assign(segments, shot_counts, avoid_imagery=None, channel_key=""):
             names, i = [], 0
             for count in shot_counts:
                 names.append([clips[(i + n) % len(clips)].filename for n in range(count)])
@@ -253,7 +253,7 @@ class TestFullRender:
 
         clips = [c for c in store.all_clips() if (LIBRARY_DIR / c.filename).exists()][:6]
 
-        def fake_assign(segments, shot_counts, avoid_imagery=None):
+        def fake_assign(segments, shot_counts, avoid_imagery=None, channel_key=""):
             names, i = [], 0
             for count in shot_counts:
                 names.append([clips[(i + n) % len(clips)].filename for n in range(count)])
@@ -291,7 +291,7 @@ class TestFullRender:
 
         clips = [c for c in store.all_clips() if (LIBRARY_DIR / c.filename).exists()][:6]
 
-        def fake_assign(segments, shot_counts, avoid_imagery=None):
+        def fake_assign(segments, shot_counts, avoid_imagery=None, channel_key=""):
             names, i = [], 0
             for count in shot_counts:
                 names.append([clips[(i + n) % len(clips)].filename for n in range(count)])
@@ -328,7 +328,7 @@ class TestFullRender:
         from pipeline.footage import library, store
 
         clips = [c for c in store.all_clips() if (LIBRARY_DIR / c.filename).exists()][:6]
-        monkeypatch.setattr(library, "assign_clips", lambda s, counts, a=None:
+        monkeypatch.setattr(library, "assign_clips", lambda s, counts, a=None, channel_key="":
                             library.MatchOutcome(picks=[[clips[i].filename for i in range(c)]
                                                         for c in counts]))
         monkeypatch.setattr(library, "mark_used", lambda *a, **k: None)
@@ -425,7 +425,7 @@ class TestOutroOff:
 
         clips = [c for c in store.all_clips() if (LIBRARY_DIR / c.filename).exists()][:6]
 
-        def fake_assign(segments, shot_counts, avoid_imagery=None):
+        def fake_assign(segments, shot_counts, avoid_imagery=None, channel_key=""):
             names, i = [], 0
             for count in shot_counts:
                 names.append([clips[(i + n) % len(clips)].filename for n in range(count)])

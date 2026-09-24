@@ -551,3 +551,40 @@ def test_avoid_terms_match_whole_words_not_fragments():
     assert retrieval.clip_violates_avoid_list(clip("two mosques at dusk"), avoid)
     assert retrieval.clip_violates_avoid_list(clip("a temple of Hinduism"), avoid)
     assert retrieval.clip_violates_avoid_list(clip("a candle", "old_witch_auto1.mp4"), avoid)
+
+
+class TestClipOwnership:
+    """A clip belongs to the first channel that uses it. The same shot on
+    two channels run by one person is the mass-production pattern, and a
+    real pair of videos on two channels both used one silhouette clip."""
+
+    def test_first_use_claims_it_and_later_uses_do_not_steal_it(self, db):
+        add(db, "silhouette.mp4", description="a man sitting in a chair by a window")
+        store.mark_used(["silhouette.mp4"], "bible")
+        store.mark_used(["silhouette.mp4"], "witch")
+        clip = store.get("silhouette.mp4")
+        assert clip.owner == "bible" and clip.use_count == 2
+        assert clip.available_to("bible") and not clip.available_to("witch")
+        assert clip.available_to("")
+
+    def test_another_channels_clip_never_reaches_the_shortlist(self, db):
+        from pipeline.plan import Segment
+
+        add(db, "owned.mp4", description="a man sitting in a chair by a window", subject="man in chair")
+        add(db, "free.mp4", description="a woman sitting in a chair by a window", subject="woman in chair")
+        store.mark_used(["owned.mp4"], "bible")
+        segment = Segment("x", shot_brief="a person sitting in a chair by a window",
+                          keywords=["chair", "window"])
+
+        names = {c.filename for c in retrieval.shortlist([segment], channel_key="witch")}
+        assert "owned.mp4" not in names and "free.mp4" in names
+        names = {c.filename for c in retrieval.shortlist([segment], channel_key="bible")}
+        assert {"owned.mp4", "free.mp4"} <= names
+
+    def test_ownership_survives_a_redescribe(self, db):
+        clip = add(db, "c.mp4", description="old")
+        store.mark_used(["c.mp4"], "bible")
+        clip = store.get("c.mp4")
+        clip.description = "new"
+        store.upsert(clip)
+        assert store.get("c.mp4").owner == "bible"

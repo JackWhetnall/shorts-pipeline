@@ -42,3 +42,4 @@ reason for a change stays true forever.
 | [027](027-no-cache-on-footage-match.md) | The footage-match cache never hit | Reverses 007's caching |
 | [028](028-publishing-without-review.md) | Publishing without a person, behind a gate | Active |
 | [029](029-audience-numbers.md) | Reading back what viewers do | Active |
+| [030](030-clip-ownership.md) | A clip belongs to the first channel that uses it | Active |

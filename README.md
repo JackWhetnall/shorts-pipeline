@@ -313,7 +313,9 @@ segment is still short after that, it gets the closest thing available
 screen says how many shots were filled that way.
 
 Consecutive shots never share a subject or look alike, so a video doesn't
-cut between two clips that read as the same shot. And discarding a video
+cut between two clips that read as the same shot. A clip belongs to the
+first channel that uses it, so two of your channels never show the same
+footage. And discarding a video
 for its footage nudges the clips it used down the rankings, so the
 library learns what you keep rejecting.
 

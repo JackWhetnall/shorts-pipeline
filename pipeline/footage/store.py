@@ -69,7 +69,11 @@ CREATE TABLE IF NOT EXISTS clips (
 
     -- Times a video using this clip was thrown away specifically for its
     -- footage. Your own judgement, fed back as a ranking signal.
-    reject_count      INTEGER NOT NULL DEFAULT 0
+    reject_count      INTEGER NOT NULL DEFAULT 0,
+
+    -- The channel that used this clip first, and so the only one that may
+    -- use it again. '' until a video uses it. See `available_to`.
+    owner             TEXT NOT NULL DEFAULT ''
 );
 
 -- Subject and setting are separate columns so bm25() can weight them
@@ -118,10 +122,22 @@ class Clip:
     time_of_day: str = ""
     has_people: bool = False
     reject_count: int = 0
+    owner: str = ""
 
     @property
     def enriched(self) -> bool:
         return bool(self.subject)
+
+    def available_to(self, channel_key: str) -> bool:
+        """Whether this channel may use the clip.
+
+        The library is shared, but a clip belongs to the first channel
+        that uses it. The same shot turning up on two channels run by one
+        person is exactly the pattern YouTube's rules on mass-produced
+        content describe, and viewers who follow both would notice it
+        first. A clip nobody has used is open to everyone, and so is
+        every clip when no channel is named (tools, tests)."""
+        return not self.owner or not channel_key or self.owner == channel_key
 
     @property
     def path(self) -> Path:
@@ -164,6 +180,7 @@ def _row_to_clip(row: sqlite3.Row) -> Clip:
         time_of_day=_get(row, "time_of_day", ""),
         has_people=bool(_get(row, "has_people", 0)),
         reject_count=_get(row, "reject_count", 0),
+        owner=_get(row, "owner", "") or "",
     )
 
 
@@ -205,6 +222,7 @@ _ADDED_COLUMNS = (
     ("time_of_day", "TEXT NOT NULL DEFAULT ''"),
     ("has_people", "INTEGER NOT NULL DEFAULT 0"),
     ("reject_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("owner", "TEXT NOT NULL DEFAULT ''"),
 )
 
 
@@ -315,13 +333,16 @@ def delete(filenames, db_path: Path = None) -> int:
     return cur.rowcount
 
 
-def mark_used(filenames, db_path: Path = None) -> None:
+def mark_used(filenames, channel_key: str = "", db_path: Path = None) -> None:
     """Record usage for every clip in a finished video in ONE statement.
 
     The previous implementation rewrote the entire 320 KB manifest once
     per clip. Recency data is what keeps the same footage from reappearing
     across consecutive videos, so it has to be written — it just doesn't
     have to be written like that.
+
+    A clip with no owner yet becomes `channel_key`'s; an owned one keeps
+    its owner (see Clip.available_to).
     """
     filenames = [Path(f).name for f in filenames]
     if not filenames:
@@ -329,8 +350,9 @@ def mark_used(filenames, db_path: Path = None) -> None:
     now = datetime.now(timezone.utc).isoformat()
     with connect(db_path) as conn:
         conn.executemany(
-            "UPDATE clips SET use_count = use_count + 1, last_used = ? WHERE filename = ?",
-            [(now, name) for name in filenames],
+            "UPDATE clips SET use_count = use_count + 1, last_used = ?, "
+            "owner = CASE WHEN owner = '' THEN ? ELSE owner END WHERE filename = ?",
+            [(now, channel_key or "", name) for name in filenames],
         )
 
 
