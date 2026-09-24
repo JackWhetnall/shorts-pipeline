@@ -59,6 +59,8 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
                 one out (YouTube upload, TikTok/Instagram hand-off folder).
   launch        Each channel's launch pipeline: ordered stages from idea to
                 publishing on its own, computed from real state.
+  drafts        Draft channels from a pitch: kept as files until accepted,
+                then created with their topic plan — see decision 032.
   youtube       OAuth and resumable upload to YouTube.
   publish_gate  Whether a finished video could go out without a person:
                 one pure function over its render report.
@@ -88,6 +90,7 @@ pipeline/     The generation stages. No web dependency at all.
                 syllabus ahead of any render — see decision 023.
   style_gen     AI-suggested palette/font, and the style & tone picker's
                 candidate drafting/sampling.
+  channel_draft A pitch in, every decision a new channel needs out, for review.
   tts           Script -> narration + word timings + real segment spans.
   assemble      Footage + narration + captions -> the video file.
   description   The paste-ready description and the meta sidecar.
@@ -120,7 +123,9 @@ tests/        pytest. `-m "not slow"` skips the real render.
 The app is organised around what you actually do, at three different
 frequencies:
 
-- **Setting up a channel** (once each) — a name creates it, and its
+- **Setting up a channel** (once each) — a one-line pitch drafts the
+  whole channel for review (`core.drafts`), or a name creates an empty
+  one to fill in by hand; either way its
   dashboard shows the **launch pipeline** (`core.launch`): seven ordered
   stages from "say what the channel makes" to "switch on automatic
   publishing", each computed from real state, with the current one and

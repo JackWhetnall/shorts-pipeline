@@ -12,7 +12,7 @@ from flask import (
 )
 
 from core import (
-    caption_preview, card_preview, channel_admin, curriculum, fonts, gallery, jobs,
+    caption_preview, card_preview, channel_admin, curriculum, drafts, fonts, gallery, jobs,
     launch, publish_queue, scheduler, voice_quota, youtube,
 )
 from core.assets import has_logo
@@ -324,7 +324,7 @@ def new_channel():
 
         if error:
             return render_template("new_channel.html", display_name=display_name,
-                                   key=key, error=error), 400
+                                   key=key, error=error, drafts=drafts.all_drafts()), 400
 
         # Defaults that make the channel valid the moment it has a voice
         # and a source. Nothing here is a guess the user has to undo.
@@ -343,7 +343,8 @@ def new_channel():
         log.info(f"Created channel {key} with the {palette.key} palette")
         return redirect(url_for("setup.setup_step", key=key, step="content"))
 
-    return render_template("new_channel.html", display_name="", key="")
+    return render_template("new_channel.html", display_name="", key="",
+                           drafts=drafts.all_drafts())
 
 
 @bp.route("/channels/<key>/create")

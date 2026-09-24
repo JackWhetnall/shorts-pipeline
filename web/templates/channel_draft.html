@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Draft: {{ body.name_options[0] }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('channels.new_channel') }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  New channel
+</a>
+
+<h1>Draft channel</h1>
+<p class="subtitle">
+  From the pitch &ldquo;{{ draft.pitch }}&rdquo;{% if draft.notes %}, redrafted with:
+  {% for n in draft.notes %}&ldquo;{{ n }}&rdquo;{% if not loop.last %}; {% endif %}{% endfor %}{% endif %}.
+  Change anything below, then create it. Nothing exists until you do.
+</p>
+
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<div class="card">
+  <h2>What it is</h2>
+  <p>{{ body.summary }}</p>
+  <p class="meta">For: {{ body.audience }}</p>
+  {% if body.needs_news_source %}
+  <p class="error-banner">
+    This idea depends on recent events, and a news source isn't built yet.
+    As drafted it runs from a topic plan instead, which suits evergreen
+    explainers better than news. Say so in a redraft if that's wrong for it.
+  </p>
+  {% endif %}
+  {% if body.risks %}
+  <h3>Worth knowing</h3>
+  <ul class="draft-risks">
+    {% for risk in body.risks %}<li>{{ risk }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  <p class="meta">Visuals: <strong>{{ body.visual_approach }}</strong>, {{ body.visual_reason }}
+    {% if body.visual_approach != 'stock' %}(Generated {{ body.visual_approach }} aren't built yet;
+    it uses stock footage until they are.){% endif %}</p>
+</div>
+
+<form method="post" action="{{ url_for('pitch.accept', draft_id=draft.id) }}" class="channel-form"
+      onsubmit="const b = this.querySelector('button[type=submit]'); b.disabled = true; b.textContent = 'Creating… writing its first topic';">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <div class="card">
+    <h2>Name</h2>
+    {% for name in body.name_options %}
+    <label class="checkbox-label">
+      <input type="radio" name="name_choice" value="{{ name }}" {% if loop.first %}checked{% endif %}>
+      {{ name }}
+    </label>
+    {% endfor %}
+    <label class="checkbox-label">
+      <input type="radio" name="name_choice" value="__custom__" id="name-custom-choice">
+      Something else:
+      <input type="text" name="name_custom" placeholder="Your own name"
+             oninput="document.getElementById('name-custom-choice').checked = true">
+    </label>
+  </div>
+
+  <div class="card">
+    <h2>How it's written</h2>
+    <p class="meta">
+      {% if body.content_mode == 'topic' %}Writes each video from one topic in an ordered plan
+      (below).{% elif body.corpus_source == 'custom' %}Reads a quote from its own list, then
+      comments on it.{% else %}Reads a passage from the built-in {{ body.corpus_source|capitalize }}
+      library, then comments on it.{% endif %}
+    </p>
+    <label>Style prompt: the instruction every script is written from
+      <textarea name="style_prompt" rows="10">{{ body.style_prompt }}</textarea>
+    </label>
+    {% if body.corpus_source == 'custom' %}
+    <label>Its quotes, one per line (&ldquo;quote &mdash; author&rdquo;). Check the attributions:
+      a wrong one is read aloud as fact.
+      <textarea name="quotes" rows="8">{{ body.custom_quotes|join('\n') }}</textarea>
+    </label>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Voice</h2>
+    <p class="meta">Wanted: {{ body.voice_brief }}</p>
+    {% for voice in draft.voices %}
+    <label class="checkbox-label draft-voice">
+      <input type="radio" name="voice" value="{{ voice.voice_id }}" {% if loop.first %}checked{% endif %}>
+      <span><strong>{{ voice.name }}</strong>
+        <span class="hint">{{ (voice.description or '')[:180] }}</span></span>
+      {% if voice.preview_url %}<audio controls preload="none" src="{{ voice.preview_url }}"></audio>{% endif %}
+    </label>
+    {% endfor %}
+    <p class="hint">These are ElevenLabs' own previews, free to play. The Voice Lab
+      can test any voice reading this channel's kind of script once it exists.</p>
+  </div>
+
+  <div class="card">
+    <h2>Length and pace</h2>
+    <label>Video length in seconds
+      <input type="number" name="target_seconds" min="15" max="180" value="{{ body.target_seconds }}">
+    </label>
+    <label>Spoken segments
+      <input type="number" name="segment_count" min="1" max="8" value="{{ body.segment_count }}">
+    </label>
+    <label>Narrator speed (1.0 is normal)
+      <input type="number" name="speed" min="0.7" max="1.2" step="0.05" value="{{ body.speed }}">
+    </label>
+  </div>
+
+  <div class="card">
+    <h2>Look</h2>
+    <div class="draft-palettes">
+      {% for p in palettes %}
+      <label class="draft-palette">
+        <input type="radio" name="palette" value="{{ p.key }}" {% if p.key == body.palette_key %}checked{% endif %}>
+        <span class="draft-swatch" style="background: rgb({{ p.outro_bg_color[0] }}, {{ p.outro_bg_color[1] }}, {{ p.outro_bg_color[2] }}); color: {{ p.base_color }};">
+          Word by <span style="color: {{ p.highlight_color }};">word</span>
+        </span>
+        <span class="hint">{{ p.label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <label>Footage it must never show (comma-separated)
+      <input type="text" name="avoid_imagery" value="{{ body.avoid_imagery|join(', ') }}">
+    </label>
+  </div>
+
+  {% if draft.outline %}
+  <div class="card">
+    <h2>Topic plan</h2>
+    <p class="meta">{{ body.subject }}. {{ draft.outline|length }} topics in teaching order;
+      the first topic's videos are written when you create the channel, the rest as
+      it reaches them. Editable afterwards on its Topic plan page.</p>
+    <ol class="draft-outline">
+      {% for topic in draft.outline %}
+      <li><strong>{{ topic.title }}</strong> <span class="hint">{{ topic.level }}</span>
+        <div class="hint">{{ topic.summary }}</div></li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+
+  <div class="actions">
+    <button type="submit" class="btn btn-primary">Create this channel</button>
+  </div>
+</form>
+
+<div class="card">
+  <h2>Not right?</h2>
+  <form method="post" action="{{ url_for('pitch.redraft', draft_id=draft.id) }}" class="channel-form"
+        onsubmit="const b = this.querySelector('button'); b.disabled = true; b.textContent = 'Redrafting… a minute or two';">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Say what to change and the whole draft is redone with it
+      <input type="text" name="note" placeholder="e.g. older audience; more playful; UK spelling; narrower: only space news">
+    </label>
+    <button type="submit" class="btn-ghost">Redraft</button>
+  </form>
+  <form method="post" action="{{ url_for('pitch.discard', draft_id=draft.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-ghost danger-text">Throw this draft away</button>
+  </form>
+</div>
+{% endblock %}

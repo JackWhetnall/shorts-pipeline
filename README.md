@@ -398,10 +398,23 @@ set installed.
 
 ## Channels
 
-Add one through the web UI's **+ New channel**. It asks for a name, then
-walks you through what the channel makes, whose voice reads it, a logo,
-and the monetization steps — you can stop after any of them and come
-back. Its dashboard then shows the **launch pipeline**: seven steps from
+Add one through the web UI's **+ New channel**.
+
+**Pitch an idea** is the quick way: type the idea in a line ("science for
+curious teenagers") and in a minute or two you get a complete draft to
+review. It includes name options, who it's for, the style prompt, three
+narrator voices from your ElevenLabs list with previews, length and pace,
+a colour palette, footage to avoid, a 25-topic plan, and the risks worth
+knowing (including when an idea needs something the app can't do yet,
+like live news). Edit anything, or **Redraft** with a note ("older
+audience; UK spelling"), then **Create this channel**: it's made with its
+topic plan and first topic's videos written, ready for a first video.
+About ten cents a draft. Unused drafts wait under the pitch box until you
+throw them away.
+
+**Or start from just a name**, and a wizard walks you through what the
+channel makes, whose voice reads it, a logo, and the monetization steps.
+You can stop after any of them and come back. Its dashboard then shows the **launch pipeline**: seven steps from
 "say what the channel makes" through a sample video, logo, YouTube
 connection, publishing plan and a short trial of the automatic checks,
 to "switch on automatic publishing", with the next one and its button at

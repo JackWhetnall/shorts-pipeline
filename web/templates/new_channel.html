@@ -6,9 +6,47 @@
   Channels
 </a>
 <h1>New channel</h1>
+
+<div class="card pitch-card">
+  <h2>Pitch an idea</h2>
+  <p class="subtitle">
+    Describe the channel in a line. The app drafts the whole thing for you
+    to review: names, who it's for, how it's written, a narrator voice, a
+    look, a topic plan, and the risks worth knowing. Nothing is created
+    until you accept it. Takes a minute or two; costs about ten cents.
+  </p>
+  {% if pitch_error %}<p class="error">{{ pitch_error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('pitch.pitch') }}" class="channel-form"
+        onsubmit="const b = this.querySelector('button'); b.disabled = true; b.textContent = 'Drafting… a minute or two';">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>The idea
+      <textarea name="pitch" rows="3" required autofocus
+                placeholder="science news for curious teenagers">{{ pitch_text or '' }}</textarea>
+    </label>
+    <label>Anything else it should know (optional)
+      <input type="text" name="note" placeholder="e.g. British English; no politics; aimed at beginners">
+    </label>
+    <div class="actions">
+      <button type="submit" class="btn btn-primary">Draft a channel</button>
+    </div>
+  </form>
+
+  {% if drafts %}
+  <h3>Drafts waiting for review</h3>
+  <ul class="draft-list">
+    {% for d in drafts %}
+    <li><a href="{{ url_for('pitch.review', draft_id=d.id) }}">{{ d.channel.name_options[0] }}</a>
+      <span class="hint">&ldquo;{{ d.pitch }}&rdquo;</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+
+<details class="card" {% if error %}open{% endif %}>
+<summary class="summary-heading">Or start from just a name</summary>
 <p class="subtitle">
-  Just a name for now. The next few steps ask what it makes and whose
-  voice reads it &mdash; you can stop after any of them and come back.
+  The step-by-step setup instead: a name now, then what it makes and whose
+  voice reads it. You can stop after any step and come back.
 </p>
 
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
@@ -41,6 +79,7 @@
     <a class="btn-ghost" href="{{ url_for('channels.index') }}">Cancel</a>
   </div>
 </form>
+</details>
 
 <script>
   // Mirrors core.paths.slugify closely enough to preview the folder name.

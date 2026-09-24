@@ -44,3 +44,4 @@ reason for a change stays true forever.
 | [029](029-audience-numbers.md) | Reading back what viewers do | Active |
 | [030](030-clip-ownership.md) | A clip belongs to the first channel that uses it | Active |
 | [031](031-launch-pipeline-and-publishing-queue.md) | A launch pipeline, and a queue between making and publishing | Supersedes the launch checklist and the day/hour schedule |
+| [032](032-pitch-to-channel.md) | A pitch becomes a whole draft channel | Active |

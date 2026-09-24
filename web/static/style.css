@@ -2134,3 +2134,19 @@ button.topic-row.selected:hover {
   .launch-step { grid-template-columns: 1.5rem 1fr; }
   .launch-actions { grid-column: 2; justify-content: flex-start; }
 }
+
+/* Pitch -> draft channel. */
+.draft-list { margin: var(--sp-2) 0 0; padding-left: 1.2rem; }
+.draft-risks { margin: var(--sp-2) 0; padding-left: 1.2rem; }
+.draft-voice { align-items: flex-start; flex-wrap: wrap; gap: var(--sp-2); }
+.draft-voice audio { height: 2rem; max-width: 100%; }
+.draft-palettes { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.draft-palette { display: flex; flex-direction: column; gap: var(--sp-1); cursor: pointer; }
+.draft-palette input { align-self: flex-start; }
+.draft-swatch {
+  display: block; padding: var(--sp-3); border-radius: var(--radius-sm);
+  font-weight: 700; text-shadow: 0 0 3px #000, 0 0 3px #000;
+  border: 1px solid var(--border);
+}
+.draft-palette input:checked + .draft-swatch { outline: 2px solid var(--accent); outline-offset: 2px; }
+.draft-outline { padding-left: 1.4rem; margin: var(--sp-2) 0 0; display: flex; flex-direction: column; gap: var(--sp-2); }
