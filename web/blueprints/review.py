@@ -20,7 +20,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
-from core import audience, gallery, insights, publish_queue, youtube
+from core import audience, gallery, insights, posting, publish_queue, youtube
 from core.errors import PipelineError
 from core.channels import load_channels
 from core.logging_setup import get_logger
@@ -189,14 +189,36 @@ def unqueue(relpath):
 
 @bp.route("/to-post")
 def handoff_page():
-    """Videos that went out to YouTube (or were due to) and are waiting to
-    be posted by hand to TikTok or Instagram, from the hand-off folder."""
-    rows = publish_queue.awaiting_posts(load_channels(validate=False))
+    """Videos that have gone out and are waiting to be posted to TikTok or
+    Instagram from this PC (core.posting)."""
+    channels = load_channels(validate=False)
+    rows = publish_queue.awaiting_posts(channels)
     for row in rows:
         row["relpath"] = str(row["video_path"].relative_to(gallery.OUTPUT_DIR)).replace("\\", "/")
-    return render_template("handoff.html", rows=rows,
-                           folder=publish_queue.handoff_dir(),
-                           labels=publish_queue.PLATFORM_LABELS)
+        plan = channels[row["channel_key"]].publishing
+        row["has_profile"] = bool(plan.posting_browser and plan.posting_profile)
+    return render_template("handoff.html", rows=rows, labels=posting.LABELS)
+
+
+@bp.route("/api/videos/<path:relpath>/start-post", methods=["POST"])
+def start_post(relpath):
+    """Open the channel's browser profile at the platform's upload page and
+    the video in Explorer. The page that called this has already put the
+    caption on the clipboard; it's returned too, in case that failed."""
+    target = video_or_404(relpath)
+    key = gallery._channel_key_for(target)
+    channel = load_channels(validate=False).get(key) if key else None
+    if channel is None:
+        return jsonify({"error": "Couldn't tell which channel this video belongs to."}), 400
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        result = posting.start_post(channel, target, data.get("platform", ""))
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 400
+    except OSError as exc:
+        log.warning(f"Couldn't open the browser or Explorer: {exc}")
+        return jsonify({"error": "Couldn't open the browser or Explorer on this PC."}), 500
+    return jsonify({"ok": True, **result})
 
 
 @bp.route("/api/videos/<path:relpath>/posted", methods=["POST"])

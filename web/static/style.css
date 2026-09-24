@@ -2098,6 +2098,7 @@ button.topic-row.selected:hover {
 
 /* To post: one row per platform still to post. */
 .handoff-actions { flex-direction: column; align-items: stretch; }
+.handoff-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; }
 .handoff-form { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .handoff-form input[type="url"] { flex: 1; min-width: 12rem; }
 

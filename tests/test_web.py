@@ -752,13 +752,13 @@ class TestPublishingPlan:
         from core.channels import load_channels
         response = client.post("/channels/test_channel/publishing", data={
             "csrf_token": csrf(client), "enabled": "on", "slots": "18:00, 9:30, 25:99, noon",
-            "weekdays": ["0", "2", "4", "9"], "buffer": "5", "handoff_tiktok": "on",
+            "weekdays": ["0", "2", "4", "9"], "buffer": "5", "post_tiktok": "on",
         })
         assert response.status_code == 302
         plan = load_channels(config_path)["test_channel"].publishing
         assert plan.enabled and plan.slots == ["09:30", "18:00"]
         assert plan.weekdays == [0, 2, 4] and plan.buffer == 5
-        assert plan.handoff_tiktok and not plan.handoff_instagram
+        assert plan.post_tiktok and not plan.post_instagram
 
     def test_the_dashboard_shows_the_launch_pipeline(self, client):
         html = client.get("/channels/test_channel").get_data(as_text=True)

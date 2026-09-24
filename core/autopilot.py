@@ -50,11 +50,11 @@ def after_render(channel, video_path: Path) -> Decision:
                      f"{channel.autopilot.spot_check_every}). It passed every automatic check.",
                      spot_check=True)
 
-    has_handoff = channel.publishing.handoff_tiktok or channel.publishing.handoff_instagram
-    if not youtube.connection(channel.key)["connected"] and not has_handoff:
+    posts_by_hand = channel.publishing.post_tiktok or channel.publishing.post_instagram
+    if not youtube.connection(channel.key)["connected"] and not posts_by_hand:
         return _hold(video_path, report,
                      "Passed every check, but this channel has nowhere to publish yet "
-                     "(connect YouTube, or turn on a TikTok/Instagram hand-off), so it's "
+                     "(connect YouTube, or turn on posting to TikTok/Instagram), so it's "
                      "waiting in review.")
 
     publish_queue.enqueue(video_path, approved_by="checks")

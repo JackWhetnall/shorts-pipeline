@@ -1,8 +1,9 @@
 # Spec: from a pitch to a channel that publishes itself
 
 *24 Sep 2026. **Built:** §2's pipeline view (stages 4–10; existing
-channels placed on it), §3's publishing queue, §4 route A (phone
-hand-off), the logon task, and §2 stages 1–3 (pitch → draft channel,
+channels placed on it), §3's publishing queue, §4 route A (reworked as
+posting from this PC with a browser profile per channel, decision 033;
+the phone hand-off was dropped), the logon task, and §2 stages 1–3 (pitch → draft channel,
 decision 032; a redraft with a note stands in for per-part regenerate).
 **Not yet built:** the news content mode. Decisions taken: route
 A for TikTok/Instagram; build order as §5; auto-start yes. See decision

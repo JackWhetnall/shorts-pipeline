@@ -56,7 +56,9 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   scheduler     The five-minute tick: publish what's due, keep each channel's
                 queue filled, refresh audience numbers.
   publish_queue Approved videos waiting for their publishing slot; sending
-                one out (YouTube upload, TikTok/Instagram hand-off folder).
+                one out (YouTube upload; TikTok/Instagram listed To post).
+  posting       Posting to TikTok/Instagram from this PC: the channel's own
+                browser profile at the upload page, the video in Explorer.
   launch        Each channel's launch pipeline: ordered stages from idea to
                 publishing on its own, computed from real state.
   drafts        Draft channels from a pitch: kept as files until accepted,
@@ -369,10 +371,13 @@ fewer than `buffer` are queued, pausing if `buffer` or more are waiting
 for a look. No plan means "publish on the next check".
 
 "Out" means a YouTube upload through the channel's connection and, for
-channels that want it, a copy of the video and its caption in the
-hand-off folder (`Shorts to post` in OneDrive) for posting to TikTok and
-Instagram from a phone; `/to-post` lists those until they're marked
-posted. Neither platform lets an unreviewed app post publicly. A video
+channels that want it, a place on `/to-post` for TikTok and Instagram.
+There, one click (`core.posting`) opens the channel's own browser
+profile, where its accounts stay signed in, at the upload page, shows the
+video selected in Explorer and puts the caption on the clipboard.
+Neither platform lets an unreviewed app post publicly, and scripting
+their upload forms breaks their terms; see decision
+[033](docs/decisions/033-posting-from-this-pc.md). A video
 handed off but not yet linked counts as out (`gallery.is_out`), so it
 never returns to review. A failed upload unqueues the video and puts it
 back in review with the reason.

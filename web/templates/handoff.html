@@ -4,44 +4,46 @@
 
 <h1>To post</h1>
 <p class="subtitle">
-  Videos that have gone out and are waiting for you to post them to
-  TikTok or Instagram. Each one is already in
-  <code>{{ folder }}</code> with a <code>.txt</code> caption beside it.
-  On your phone, open that folder in OneDrive, share the video to the
-  app, paste the caption, and post. Then mark it here.
+  Videos that have gone out and still need posting to TikTok or Instagram.
+  <strong>Post to&hellip;</strong> opens the channel's browser profile at the
+  upload page, shows the video in Explorer ready to drag in, and puts the
+  caption on your clipboard. Drag, paste, Post, then mark it done here.
 </p>
 
 {% if not rows %}
 <div class="empty-state">
   <p><strong>Nothing to post.</strong></p>
-  <p>Channels with a TikTok or Instagram hand-off put their videos here as
-    they go out (Settings &rarr; Publishing).</p>
+  <p>Channels set to post to TikTok or Instagram (dashboard &rarr; Publishing
+    plan) list their videos here as they go out.</p>
 </div>
 {% else %}
 {% for row in rows %}
 <div class="card handoff-item" data-relpath="{{ row.relpath }}">
   <p class="meta">{{ row.channel }}</p>
   <h2>{{ row.title }}</h2>
-  <p class="hint">Phone copy: <code>{{ row.file }}</code></p>
-  <details>
-    <summary class="meta">Caption</summary>
-    <pre class="meta-text" id="caption-{{ loop.index }}">{{ row.title }}
+  {% if not row.has_profile %}
+  <p class="hint">This channel posts from your default browser. Give it its own
+    profile (dashboard &rarr; Publishing plan) so the right accounts are always the
+    ones signed in.</p>
+  {% endif %}
+  <textarea class="handoff-caption" rows="4" readonly hidden>{{ row.title }}
 
-{{ row.description }}</pre>
-    <button type="button" class="btn-ghost"
-            onclick="navigator.clipboard.writeText(document.getElementById('caption-{{ loop.index }}').textContent)">
-      Copy caption
-    </button>
-  </details>
+{{ row.description }}</textarea>
   <div class="actions handoff-actions">
     {% for platform in row.platforms %}
-    <form class="handoff-form" onsubmit="markPosted(event, this)">
-      <input type="hidden" name="platform" value="{{ platform }}">
-      <input type="url" name="url" placeholder="{{ labels[platform] }} link (optional)">
-      <button type="submit" class="btn-ghost">Posted on {{ labels[platform] }}</button>
-    </form>
+    <div class="handoff-row">
+      <button type="button" class="btn btn-primary" onclick="startPost(this, '{{ platform }}')">
+        Post to {{ labels[platform] }}
+      </button>
+      <form class="handoff-form" onsubmit="markPosted(event, this)">
+        <input type="hidden" name="platform" value="{{ platform }}">
+        <input type="url" name="url" placeholder="{{ labels[platform] }} link (optional)">
+        <button type="submit" class="btn-ghost">Done</button>
+      </form>
+    </div>
     {% endfor %}
   </div>
+  <p class="hint handoff-status"></p>
 </div>
 {% endfor %}
 {% endif %}

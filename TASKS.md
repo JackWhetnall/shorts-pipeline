@@ -38,23 +38,30 @@ The copy you started by hand is running old code.
    - Tick **Run this channel on its own**.
    - **Publish at**: a time your audience scrolls, e.g. `18:00`.
    - **Keep this many ready**: `3`.
-   - Tick the **TikTok** and/or **Instagram** hand-off if you'll post there.
+   - Tick **Also post each one to TikTok / Instagram from this PC** if
+     you'll post there.
 3. **Save plan**. Under *Right now* it should say it will start a video
    on the next check (within five minutes).
 
 Cost check: the card shows the plan's monthly ElevenLabs characters.
 Daily is about 16,400 of your 30,000.
 
-### 4. Check the phone hand-off works (if you ticked it)
-1. On your phone, install **OneDrive** and sign in with the same account
-   as the PC.
-2. Wait for the first video to go out at its slot. Then, in OneDrive on
-   the phone, open **Shorts to post → Minute Pastor**. You should see the
-   video and a `.txt` caption.
-3. Share the video to TikTok or Instagram, paste the caption, and post.
-4. On the PC, open **To post** in the top bar and click **Posted on
-   TikTok** / **Instagram** (pasting the link is optional but lets the app
-   count it). The phone copy is then deleted.
+### 4. Give Minute Pastor its own browser profile (for TikTok/Instagram)
+So posting always opens the right accounts, already signed in.
+1. Minute Pastor's dashboard → **Publishing plan** → **Make a profile for
+   this channel and sign in**.
+2. A new Chrome window opens (profile folder "Shorts minute_pastor") on
+   TikTok's and Instagram's login pages. Sign in to **Minute Pastor's**
+   accounts in that window. Nothing else to do; it remembers them.
+3. Optional: in that Chrome window, click the profile icon (top right) →
+   rename it "Minute Pastor" so you can tell it apart.
+4. Back on the dashboard, check **Post from** now shows that profile,
+   and **Save plan**.
+
+To test: in **Review**, press **Post to TikTok** on a video. Chrome should
+open on TikTok's upload page as Minute Pastor, and an Explorer window with
+the video selected. Drag it in, press Ctrl+V for the caption. (Don't post
+the test unless you mean to.)
 
 ### 5. Do the shadow run: review five videos with the checks' verdicts
 The app wants to see that its automatic checks agree with you before it

@@ -13,14 +13,14 @@ from flask import (
 
 from core import (
     caption_preview, card_preview, channel_admin, curriculum, drafts, fonts, gallery, jobs,
-    launch, publish_queue, scheduler, voice_quota, youtube,
+    launch, posting, publish_queue, scheduler, voice_quota, youtube,
 )
 from core.assets import has_logo
 from core.channels import (
     SLOT_RE, ChannelConfig, Pacing, Style, channel_to_sparse_dict, read_raw, save_channel,
 )
 from core.logging_setup import get_logger
-from core.errors import ConfigError, friendly_message
+from core.errors import ConfigError, PipelineError, friendly_message
 from core.footage_stats import library_stats
 from core.paths import PROJECT_ROOT, slugify
 from pipeline import quote_source
@@ -109,7 +109,9 @@ def dashboard(key):
                   for path, when in publish_queue.schedule_for(channel)],
         generation_status=scheduler.generation_block(key, channel),
         weekday_names=("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
-        handoff_folder=publish_queue.handoff_dir(),
+        posting_choices=posting.profile_choices(),
+        posting_error=request.args.get("posting_error"),
+        posting_ready=request.args.get("posting_ready"),
         plan_estimate=_plan_estimate(key, channel),
         cost=_channel_cost(key),
         rename_error=request.args.get("rename_error"),
@@ -488,10 +490,34 @@ def set_publishing(key):
     plan.weekdays = sorted({int(d) for d in request.form.getlist("weekdays")
                             if d.strip().isdigit() and int(d) in range(7)})
     plan.buffer = as_int(request.form.get("buffer"), default=3, minimum=1, maximum=14)
-    plan.handoff_tiktok = request.form.get("handoff_tiktok") == "on"
-    plan.handoff_instagram = request.form.get("handoff_instagram") == "on"
+    plan.post_tiktok = request.form.get("post_tiktok") == "on"
+    plan.post_instagram = request.form.get("post_instagram") == "on"
+    # "browser|profile folder", or "" for the default browser. Only values
+    # the page offered are kept: a profile that doesn't exist yet is made
+    # by the setup button, not typed.
+    choice = request.form.get("posting_profile", "")
+    offered = {c["value"] for c in posting.profile_choices()}
+    if choice in offered:
+        plan.posting_browser, plan.posting_profile = choice.split("|", 1)
+    elif choice == "":
+        plan.posting_browser = plan.posting_profile = ""
     save_channel(channel)
     return redirect(url_for("channels.dashboard", key=key) + "#publishing-plan")
+
+
+@bp.route("/channels/<key>/posting-profile", methods=["POST"])
+def set_up_posting_profile(key):
+    """Give this channel its own browser profile and open TikTok's and
+    Instagram's login pages in it, to sign in once."""
+    channel = channel_or_404(key)
+    try:
+        posting.set_up_profile(channel)
+    except PipelineError as exc:
+        return redirect(url_for("channels.dashboard", key=key, posting_error=exc.user_message,
+                                _anchor="publishing-plan"))
+    save_channel(channel)
+    return redirect(url_for("channels.dashboard", key=key, posting_ready=1,
+                            _anchor="publishing-plan"))
 
 
 # --- generation triggers ---------------------------------------------

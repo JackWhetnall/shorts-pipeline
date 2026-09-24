@@ -3,8 +3,8 @@ The publishing queue and the scheduler that feeds it.
 
 What matters: a video goes out once per slot and never twice; a missed
 slot is made up once, not in a burst; a failed upload goes back to review
-rather than vanishing or being marked published; a hand-off lands in the
-phone folder with its caption and leaves the review queue; and the
+rather than vanishing or being marked published; a video due on TikTok or
+Instagram is listed to post and leaves the review queue; and the
 generator keeps a buffer without burying the review queue.
 """
 
@@ -30,7 +30,6 @@ def world(tmp_path, monkeypatch):
     monkeypatch.setattr("core.gallery.OUTPUT_DIR", tmp_path / "out")
     monkeypatch.setattr("core.gallery._sync_curriculum", lambda *a: None)
     monkeypatch.setattr(publish_queue, "STATE_PATH", tmp_path / "state.json")
-    monkeypatch.setenv("SHORTS_HANDOFF_DIR", str(tmp_path / "phone"))
     channel = ChannelConfig(key="c", channel_display_name="Chan", voice="21m00Tcm4TlvDq8ikWAM",
                             style_prompt="x", topics=["t"])
     channel.output_dir = str(tmp_path / "out" / "c")
@@ -112,26 +111,22 @@ class TestPublishing:
         # And nothing was handed off for TikTok on the strength of it.
         assert not info["handoff"]
 
-    def test_hand_off_copies_the_video_and_caption_and_leaves_review(self, world):
+    def test_posting_by_hand_lists_it_to_post_and_leaves_review(self, world):
         world.state["connected"] = False
-        world.channel.publishing.handoff_tiktok = True
-        world.channel.publishing.handoff_instagram = True
+        world.channel.publishing.post_tiktok = True
+        world.channel.publishing.post_instagram = True
         path = world.video("a")
         publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 24, 18, 1))
 
         info = gallery.load_publish_info(path)
         assert gallery.is_out(info) and not gallery.is_queued(info)
-        phone = world.tmp / "phone" / "Chan" / "2026-09-24 a.mp4"
-        assert phone.exists()
-        assert phone.with_suffix(".txt").read_text(encoding="utf-8").startswith("Title a")
         waiting = publish_queue.awaiting_posts({"c": world.channel})
         assert waiting[0]["platforms"] == ["tiktok", "instagram"]
 
         publish_queue.mark_posted(path, "tiktok", "https://www.tiktok.com/@x/video/1")
         assert gallery.load_publish_info(path)["tiktok_url"]
-        assert phone.exists(), "still needed for Instagram"
+        assert publish_queue.awaiting_posts({"c": world.channel})[0]["platforms"] == ["instagram"]
         publish_queue.mark_posted(path, "instagram")
-        assert not phone.exists() and not phone.with_suffix(".txt").exists()
         assert publish_queue.awaiting_posts({"c": world.channel}) == []
 
     def test_discarding_takes_a_video_out_of_the_queue(self, world):

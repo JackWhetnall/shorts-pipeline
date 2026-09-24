@@ -155,18 +155,27 @@
       <input type="number" name="buffer" min="1" max="14" value="{{ channel.publishing.buffer }}">
     </label>
     <label class="checkbox-label">
-      <input type="checkbox" name="handoff_tiktok" {% if channel.publishing.handoff_tiktok %}checked{% endif %}>
-      Also hand each one off for TikTok
+      <input type="checkbox" name="post_tiktok" {% if channel.publishing.post_tiktok %}checked{% endif %}>
+      Also post each one to TikTok from this PC
     </label>
     <label class="checkbox-label">
-      <input type="checkbox" name="handoff_instagram" {% if channel.publishing.handoff_instagram %}checked{% endif %}>
-      Also hand each one off for Instagram
+      <input type="checkbox" name="post_instagram" {% if channel.publishing.post_instagram %}checked{% endif %}>
+      Also post each one to Instagram from this PC
+    </label>
+    <label>Post from
+      <select name="posting_profile">
+        <option value="" {% if not channel.publishing.posting_profile %}selected{% endif %}>Your default browser, as it is</option>
+        {% for choice in posting_choices %}
+        <option value="{{ choice.value }}" {% if choice.value == channel.publishing.posting_browser ~ '|' ~ channel.publishing.posting_profile %}selected{% endif %}>{{ choice.label }}</option>
+        {% endfor %}
+      </select>
     </label>
     <p class="hint">
-      A hand-off puts the video and its caption in <code>{{ handoff_folder }}</code>
-      as it goes out, for posting from your phone; <a href="{{ url_for('review.handoff_page') }}">To post</a>
-      lists what's waiting. TikTok and Instagram only let reviewed apps post for
-      you, so this is the one-minute manual step.
+      As each video goes out it's added to <a href="{{ url_for('review.handoff_page') }}">To post</a>,
+      where one click opens this browser profile at the upload page, shows the
+      video in Explorer ready to drag in, and puts the caption on your
+      clipboard. TikTok and Instagram only let reviewed apps post for you, so
+      the drag, paste and Post are yours.
     </p>
     {% if plan_estimate %}
     <p class="hint">At this plan: about {{ plan_estimate.videos }} videos a month, roughly
@@ -174,6 +183,26 @@
       {{ '{:,}'.format(plan_estimate.limit) }}{% endif %}.</p>
     {% endif %}
     <button type="submit">Save plan</button>
+  </form>
+
+  <h3>This channel's own browser profile</h3>
+  {% if posting_error %}<p class="error">{{ posting_error }}</p>{% endif %}
+  {% if posting_ready %}
+  <p class="meta info-banner">A new {{ channel.publishing.posting_browser|capitalize }} window opened
+    on TikTok's and Instagram's login pages. Sign in to <strong>this channel's</strong> accounts
+    there; the profile remembers them from now on.</p>
+  {% endif %}
+  <p class="hint">
+    A profile keeps its own logins, so this channel's TikTok and Instagram
+    stay signed in there and never mix with your personal accounts or
+    another channel's. {% if channel.publishing.posting_profile %}This channel posts from
+    <strong>{{ channel.publishing.posting_browser|capitalize }}: {{ channel.publishing.posting_profile }}</strong>.{% endif %}
+  </p>
+  <form method="post" action="{{ url_for('channels.set_up_posting_profile', key=key) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-ghost">
+      {{ 'Open its login pages again' if channel.publishing.posting_profile else 'Make a profile for this channel and sign in' }}
+    </button>
   </form>
 
   <h3>Right now</h3>

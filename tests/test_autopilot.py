@@ -148,7 +148,7 @@ class TestAfterRender:
 
     def test_a_hand_off_alone_is_somewhere_to_publish(self, channel, youtube):
         youtube.state["connected"] = False
-        channel.publishing.handoff_tiktok = True
+        channel.publishing.post_tiktok = True
         assert autopilot.after_render(channel, _video(channel)).action == autopilot.QUEUED
 
 

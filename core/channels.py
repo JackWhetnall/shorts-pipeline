@@ -297,16 +297,20 @@ class Publishing(_MappingLike):
     time. No slots means "publish as soon as it's approved". See
     core.publish_queue.
 
-    `handoff_*`: when a video goes out, also put it in the hand-off folder
-    for posting to TikTok / Instagram by hand from a phone.
+    `post_tiktok` / `post_instagram`: when a video goes out, it's also
+    listed under "To post" for posting to that platform from this PC
+    (core.posting), in `posting_browser`'s profile `posting_profile`,
+    where the channel's accounts stay logged in.
     """
 
     enabled: bool = False
     slots: list = field(default_factory=lambda: ["18:00"])
     weekdays: list = field(default_factory=lambda: [0, 1, 2, 3, 4, 5, 6])
     buffer: int = 3
-    handoff_tiktok: bool = False
-    handoff_instagram: bool = False
+    post_tiktok: bool = False
+    post_instagram: bool = False
+    posting_browser: str = ""      # "chrome" | "edge" | "" for the default browser
+    posting_profile: str = ""      # the browser's profile folder, e.g. "Shorts minute_pastor"
 
 
 @dataclass

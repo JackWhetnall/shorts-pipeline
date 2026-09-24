@@ -15,10 +15,10 @@ publishing.md.
 
 "Going out" means, per channel:
 - YouTube: uploaded through the channel's connection, if it has one.
-- TikTok / Instagram: copied, with its caption, to the hand-off folder
-  (a synced folder, OneDrive by default) for posting by hand from a
-  phone. Neither platform gives an ordinary account an upload API it can
-  use without an app review; see the spec, section 4.
+- TikTok / Instagram: added to "To post", where one click opens the
+  channel's logged-in browser profile at the upload page with the video
+  ready to drag in and the caption on the clipboard (core.posting).
+  Neither platform lets an unreviewed app post for you; see decision 033.
 
 Queue state lives in the video's publish sidecar (core.gallery), so a
 video carries its own state and nothing can drift out of step with it.
@@ -28,8 +28,6 @@ Only "which slot did we last fill" is kept separately, per channel.
 from __future__ import annotations
 
 import json
-import os
-import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -49,20 +47,6 @@ PLATFORM_LABELS = {"tiktok": "TikTok", "instagram": "Instagram"}
 # the 18:00 video goes out when it comes back on, but one missed slot is
 # made up, not a week's worth in a burst.
 MISSED_SLOT_GRACE = timedelta(hours=20)
-
-
-def handoff_dir() -> Path:
-    """Where videos for TikTok and Instagram are put for posting by hand.
-
-    SHORTS_HANDOFF_DIR if set; otherwise "Shorts to post" in OneDrive, so
-    the files are on the phone's OneDrive app a minute later with nothing
-    exposed to the network; otherwise a folder in the project."""
-    explicit = os.environ.get("SHORTS_HANDOFF_DIR", "").strip()
-    if explicit:
-        return Path(explicit)
-    onedrive = os.environ.get("OneDrive", "").strip()
-    base = Path(onedrive) if onedrive and Path(onedrive).exists() else PROJECT_ROOT
-    return base / "Shorts to post"
 
 
 # --- queue state -----------------------------------------------------
@@ -201,7 +185,7 @@ def send(channel, video_path: Path) -> str:
     title = info["title"] or video_path.stem.replace("_", " ")
     description = info["description"]
     messages = []
-    platforms = [p for p in HANDOFF_PLATFORMS if getattr(channel.publishing, f"handoff_{p}")]
+    platforms = [p for p in HANDOFF_PLATFORMS if getattr(channel.publishing, f"post_{p}")]
 
     # YouTube first: if the upload fails the video goes back to review, and
     # it mustn't already be sitting in the phone folder for TikTok.
@@ -231,11 +215,10 @@ def send(channel, video_path: Path) -> str:
     handoff = dict(info["handoff"])
     for platform in platforms:
         if platform not in handoff:
-            _copy_to_handoff(channel, video_path, title, description, platform)
             handoff[platform] = {"at": _now().isoformat(), "posted_at": None}
     if handoff != info["handoff"]:
         gallery.save_queue_state(video_path, handoff=handoff)
-        messages.append("ready to post on " + " and ".join(
+        messages.append("waiting in To post for " + " and ".join(
             PLATFORM_LABELS[p] for p in handoff if not handoff[p].get("posted_at")))
 
     summary = f"{channel.channel_display_name}: \"{title}\" " + "; ".join(messages)
@@ -258,8 +241,6 @@ def mark_posted(video_path: Path, platform: str, url: str = "") -> dict:
         links = {f: info[f] for f in gallery.PUBLISH_LINK_FIELDS}
         links[f"{platform}_url"] = url.strip()
         gallery.save_publish_info(video_path, links)
-    if all(h.get("posted_at") for h in handoff.values()):
-        _remove_handoff_copies(video_path)
     return gallery.load_publish_info(video_path)
 
 
@@ -280,41 +261,8 @@ def awaiting_posts(channels: dict) -> list:
                     "video_path": path, "title": info["title"] or path.stem,
                     "description": info["description"],
                     "platforms": pending, "since": min(info["handoff"][p]["at"] or "" for p in pending),
-                    "file": _handoff_file(channel, path),
                 })
     return sorted(rows, key=lambda r: r["since"])
-
-
-# --- hand-off files --------------------------------------------------
-
-def _handoff_file(channel, video_path: Path) -> Path:
-    folder = handoff_dir() / channel.channel_display_name
-    return folder / f"{video_path.parent.name} {video_path.stem}.mp4"
-
-
-def _copy_to_handoff(channel, video_path: Path, title: str, description: str,
-                     platform: str) -> None:
-    """One copy per video, shared by both platforms, plus its caption.
-    Caption first line is the title, then the description, which is what
-    both apps want pasted."""
-    target = _handoff_file(channel, video_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if not target.exists():
-        shutil.copyfile(video_path, target)
-    target.with_suffix(".txt").write_text(f"{title}\n\n{description}".strip() + "\n",
-                                          encoding="utf-8")
-
-
-def _remove_handoff_copies(video_path: Path) -> None:
-    """Once posted everywhere, the phone copy has done its job."""
-    from core.channels import load_channels
-    key = gallery._channel_key_for(video_path)
-    channel = load_channels(validate=False).get(key) if key else None
-    if channel is None:
-        return
-    target = _handoff_file(channel, video_path)
-    for path in (target, target.with_suffix(".txt")):
-        path.unlink(missing_ok=True)
 
 
 def _note_on_report(video_path: Path, message: str) -> None:

@@ -63,8 +63,8 @@ LAUNCH = (
 )
 
 GROW = (
-    ("tiktok", "Post to TikTok (hand-off to your phone)", "you"),
-    ("instagram", "Post to Instagram (hand-off to your phone)", "you"),
+    ("tiktok", "Post to TikTok from this PC", "you"),
+    ("instagram", "Post to Instagram from this PC", "you"),
     ("audit", "Pass Google's API audit, so uploads go out public", "you"),
     ("patreon", "Add a Patreon link", "you"),
     ("merch_logo", "Make merch-ready logo versions", "you"),
@@ -141,8 +141,8 @@ def stages(channel, state: dict = None) -> tuple:
     }
     socials, money = channel.socials, channel.monetization
     grow_facts = {
-        "tiktok": (plan.handoff_tiktok or bool(socials.tiktok_url), ""),
-        "instagram": (plan.handoff_instagram or bool(socials.instagram_url), ""),
+        "tiktok": (plan.post_tiktok or bool(socials.tiktok_url), ""),
+        "instagram": (plan.post_instagram or bool(socials.instagram_url), ""),
         "audit": (False, "Mark it done once Google has approved the audit."),
         "patreon": (bool(money.patreon_url), ""),
         "merch_logo": (logos.has_merch_variants(channel.key), ""),

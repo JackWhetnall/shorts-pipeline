@@ -2692,8 +2692,43 @@ document.addEventListener("DOMContentLoaded", initScriptNotebook);
 
 
 // ---------------------------------------------------------------------
-// To post: marking a hand-off done
+// Posting to TikTok / Instagram from this PC (core.posting)
 // ---------------------------------------------------------------------
+
+// The caption goes on the clipboard here, in the click itself: that's
+// where the browser allows it. Then the server opens the channel's
+// browser profile at the upload page and the video in Explorer.
+async function openPost(relpath, platform, captionText, statusEl, button) {
+  let copied = false;
+  try { await navigator.clipboard.writeText(captionText); copied = true; } catch (e) { /* said below */ }
+  await withButtonLoading(button, "Opening…", async () => {
+    const res = await apiFetch(`/api/videos/${relpath}/start-post`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({platform}),
+    });
+    const data = await res.json();
+    if (!res.ok) { statusEl.textContent = data.error || "Couldn't open it."; return; }
+    statusEl.textContent = `${data.platform} upload opened in ${data.where}. The video is selected in the Explorer window: drag it in, `
+      + (copied ? "paste the caption (Ctrl+V), and post." : "copy the caption from the page, and post.");
+  });
+}
+
+function startPost(button, platform) {
+  const card = button.closest(".handoff-item");
+  openPost(card.dataset.relpath, platform, card.querySelector(".handoff-caption").value,
+           card.querySelector(".handoff-status"), button);
+}
+
+async function reviewStartPost(button, platform) {
+  const item = reviewCurrent();
+  if (!item) return;
+  await reviewSaveMeta();
+  const title = document.getElementById("review-title").value;
+  const description = document.getElementById("review-description").value;
+  const caption = [title, description].filter(Boolean).join("\n\n");
+  openPost(item.relpath, platform, caption, document.getElementById("review-post-status"), button);
+}
 
 async function markPosted(event, form) {
   event.preventDefault();
@@ -2707,8 +2742,7 @@ async function markPosted(event, form) {
     });
     const data = await res.json();
     if (!res.ok) { alert(data.error || "Couldn't save that."); return; }
-    form.remove();
-    // Posted everywhere: the card, and the phone copy, are done with.
+    form.closest(".handoff-row").remove();
     if (!card.querySelector(".handoff-form")) card.remove();
   });
 }

@@ -107,7 +107,7 @@ def test_videos_the_checks_approved_themselves_are_not_a_second_opinion(channel)
 
 def test_grow_items_include_the_hand_offs(channel):
     ch = channel.config
-    ch.publishing.handoff_tiktok = True
+    ch.publishing.post_tiktok = True
     _, grow = launch.stages(ch)
     assert next(s for s in grow if s.id == "tiktok").done
     assert not next(s for s in grow if s.id == "instagram").done

@@ -78,10 +78,12 @@
         <a class="btn-ghost" id="review-download" href="#">Download video</a>
       </div>
       <div class="actions">
-        <a class="btn-ghost" href="https://www.tiktok.com/upload" target="_blank" rel="noopener">Open TikTok upload</a>
-        <a class="btn-ghost" href="https://www.instagram.com/" target="_blank" rel="noopener"
-           title="Instagram has no direct web uploader for Reels — this opens the site to post from there.">Open Instagram</a>
+        <button type="button" class="btn-ghost" onclick="reviewStartPost(this, 'tiktok')"
+                title="Opens this channel's browser profile at TikTok's upload page, the video in Explorer, and copies the caption">Post to TikTok</button>
+        <button type="button" class="btn-ghost" onclick="reviewStartPost(this, 'instagram')"
+                title="Opens this channel's browser profile on Instagram, the video in Explorer, and copies the caption">Post to Instagram</button>
       </div>
+      <p class="hint" id="review-post-status"></p>
     </div>
 
     <details class="card">

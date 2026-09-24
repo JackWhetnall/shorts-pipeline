@@ -266,13 +266,22 @@ shown you a week or two of verdicts you agree with.
 
 ### TikTok and Instagram
 
-Neither lets an unreviewed app post publicly, so they're a hand-off: turn
-it on in a channel's publishing plan and, as each video goes out, it and
-a caption file land in **`OneDrive\Shorts to post\<channel>`**. On your
-phone, open that folder in OneDrive, share the video to TikTok or
-Instagram, paste the caption and post. **To post** in the top bar lists
-what's waiting; mark each one posted (a link is optional) and the phone
-copy is cleaned up. Set `SHORTS_HANDOFF_DIR` to use a different folder.
+Posted from this PC, in as few moves as the platforms allow. Neither lets
+an unreviewed app post for you, and scripting their upload pages breaks
+their terms.
+
+1. Once per channel: dashboard → Publishing plan → **Make a profile for
+   this channel and sign in**. A Chrome window opens in the channel's own
+   profile, on TikTok's and Instagram's login pages. Sign in to that
+   channel's accounts; the profile remembers them.
+2. Tick **Also post each one to TikTok / Instagram from this PC**.
+3. As videos go out they appear under **To post** in the top bar.
+   **Post to TikTok** opens that profile at the upload page, shows the
+   video selected in Explorer and puts the caption on your clipboard:
+   drag it in, paste, Post, then **Done** (a link is optional).
+
+The same **Post to…** buttons are in the review queue for posting a video
+before it's queued.
 
 ## Housekeeping
 
