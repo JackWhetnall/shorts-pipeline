@@ -29,6 +29,22 @@ The copy you started by hand is running old code.
    seconds, open `cache\web.log` in the project folder and send me the
    last few lines.
 
+### 2b. Watch the two animated-scene samples
+The first animated explanations, in the *Clean flat* style. They're in
+`cache\scene_samples\`: `pentagram_clean_flat.mp4` and
+`compound_interest_clean_flat.mp4`. The empty bottom third is on purpose,
+because captions go there.
+
+Tell me:
+1. Is this the right direction? Say what feels off: too plain, too busy,
+   too slow, the wrong fonts or colours.
+2. Which art style should come next? For example: parchment and ink for
+   Wren's, a chalkboard, neon on dark, paper cut-out, or a
+   gentle watercolour for Minute Pastor.
+
+Once the look is settled I'll build the part where the script writer
+makes these scenes itself.
+
 ## When you have time to focus (testing the automation)
 
 ### 3. Set Minute Pastor's publishing plan
@@ -136,9 +152,9 @@ you can show it working.
   proves itself? Its Launch card shows its next step.
 - **ElevenLabs plan**: Starter covers about one channel posting daily.
   Upgrade only when a second channel needs it.
-- **Generated footage pilot** (diagrams): next on the build list. Worth
-  deciding first which maths/science channel it's for; pitching one (step
-  7) is a good way to find out. See `docs/specs/generated-footage.md`.
+- **Which channel gets animated scenes first**: Wren's (the pentagram
+  kind of scene) or a maths/money pitch (step 7). See
+  `docs/specs/animated-scenes.md`.
 
 ---
 

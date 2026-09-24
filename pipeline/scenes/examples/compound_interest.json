@@ -1,0 +1,153 @@
+{
+  "title": "Compound interest (a maths channel)",
+  "narration": "Put a thousand pounds away at five percent. Every year the interest is added in, and next year you earn interest on that too. After thirty years it's more than four times what you put in, and the curve keeps bending upward.",
+  "duration": 10.0,
+  "props": {
+    "piggy_bank": "piggy bank",
+    "coin": "gold coin"
+  },
+  "elements": [
+    {
+      "id": "title",
+      "type": "label",
+      "text": "Compound interest",
+      "style": "title",
+      "pill": false,
+      "size": 88,
+      "x": 540,
+      "y": 170
+    },
+    {
+      "id": "rate",
+      "type": "label",
+      "text": "5% a year",
+      "dot": "accent2",
+      "size": 54,
+      "x": 800,
+      "y": 330
+    },
+    {
+      "id": "counter",
+      "type": "counter",
+      "prefix": "£",
+      "from": 1000,
+      "size": 120,
+      "x": 300,
+      "y": 330
+    },
+    {
+      "id": "piggy",
+      "type": "prop",
+      "asset": "piggy_bank",
+      "w": 420,
+      "x": 540,
+      "y": 640
+    },
+    {
+      "id": "coin",
+      "type": "prop",
+      "asset": "coin",
+      "w": 110,
+      "x": 540,
+      "y": 300,
+      "template": true
+    },
+    {
+      "id": "chart",
+      "type": "chart",
+      "kind": "line",
+      "x": 540,
+      "y": 1060,
+      "w": 760,
+      "h": 230,
+      "values": [
+        1000,
+        1158,
+        1340,
+        1551,
+        1796,
+        2079,
+        2407,
+        2786,
+        3225,
+        3733,
+        4322
+      ],
+      "axis_labels": [
+        {
+          "text": "Year 0",
+          "at": "start",
+          "align": "start"
+        },
+        {
+          "text": "Year 30",
+          "at": "end",
+          "align": "end"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "target": "title",
+      "do": "write",
+      "at": 0.1,
+      "dur": 0.8
+    },
+    {
+      "target": "piggy",
+      "do": "appear",
+      "style": "pop",
+      "at": 0.3,
+      "dur": 0.6
+    },
+    {
+      "target": "counter",
+      "do": "appear",
+      "style": "slide",
+      "at": 0.7,
+      "dur": 0.5
+    },
+    {
+      "target": "rate",
+      "do": "appear",
+      "style": "pop",
+      "at": 1.6,
+      "dur": 0.5
+    },
+    {
+      "target": "coin",
+      "do": "stack",
+      "into": "piggy",
+      "count": 7,
+      "at": 2.2,
+      "dur": 5.0,
+      "spread": 40
+    },
+    {
+      "target": "counter",
+      "do": "count",
+      "to": 4322,
+      "at": 2.4,
+      "dur": 5.6
+    },
+    {
+      "target": "chart",
+      "do": "draw",
+      "at": 2.4,
+      "dur": 5.6
+    },
+    {
+      "target": "counter",
+      "do": "highlight",
+      "at": 8.3,
+      "dur": 0.8
+    },
+    {
+      "target": "piggy",
+      "do": "wiggle",
+      "at": 8.3,
+      "dur": 0.9
+    }
+  ]
+}

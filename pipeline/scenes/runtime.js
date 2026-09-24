@@ -1,0 +1,383 @@
+/*
+ * The scene timeline engine: SCENE + STYLE -> SVG, and __seek(t) sets every
+ * element to exactly how it looks at time t.
+ *
+ * Deterministic by construction: nothing animates by itself (no CSS
+ * animations, no requestAnimationFrame). Each frame is a pure function of
+ * t, so the renderer can capture any frame, in any order, and get the same
+ * picture every time. See docs/specs/animated-scenes.md.
+ *
+ * The scene is data the pipeline wrote (never code): elements (shape,
+ * label, prop, counter, chart) and actions anchored to times (appear,
+ * draw, write, count, move, highlight, stack, exit). Times arrive here in
+ * seconds; mapping spoken words to seconds happens in Python.
+ */
+// Built once fonts are ready: labels measure their own text to size the
+// pill behind it, and a measurement taken in a fallback font is wrong.
+window.__start = function () {
+  "use strict";
+  const NS = "http://www.w3.org/2000/svg";
+  const SCENE = window.SCENE, STYLE = window.STYLE, ASSETS = window.ASSETS || {};
+  const W = SCENE.width || 1080, H = SCENE.height || 1920;
+  const stage = document.getElementById("stage");
+
+  // --- helpers --------------------------------------------------------
+  const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+  const lerp = (a, b, p) => a + (b - a) * p;
+  const EASE = {
+    linear: t => t,
+    out: t => 1 - Math.pow(1 - t, 3),
+    inout: t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+    back: t => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+    bounce: t => {
+      const n = 7.5625, d = 2.75;
+      if (t < 1 / d) return n * t * t;
+      if (t < 2 / d) return n * (t -= 1.5 / d) * t + 0.75;
+      if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + 0.9375;
+      return n * (t -= 2.625 / d) * t + 0.984375;
+    },
+  };
+  const motion = STYLE.motion || {};
+  const easeFor = kind => EASE[motion[kind] || "inout"] || EASE.inout;
+
+  function node(tag, attrs, parent) {
+    const n = document.createElementNS(NS, tag);
+    for (const k in attrs || {}) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  const color = c => (c && STYLE.colors && STYLE.colors[c]) || c || STYLE.ink;
+  const progress = (t, a) => clamp((t - a.at) / Math.max(0.001, a.dur || 0.001));
+
+  // --- backdrop -------------------------------------------------------
+  const defs = node("defs", {}, stage);
+  const bg = STYLE.background || {};
+  node("rect", {x: 0, y: 0, width: W, height: H, fill: bg.color || "#fff"}, stage);
+  if (bg.pattern === "dots") {
+    const pat = node("pattern", {id: "dots", width: 48, height: 48, patternUnits: "userSpaceOnUse"}, defs);
+    node("circle", {cx: 24, cy: 24, r: 3.2, fill: bg.pattern_color || "#0001"}, pat);
+    node("rect", {x: 0, y: 0, width: W, height: H, fill: "url(#dots)"}, stage);
+  }
+  if (bg.vignette) {
+    const g = node("radialGradient", {id: "vig", cx: "50%", cy: "42%", r: "75%"}, defs);
+    node("stop", {offset: "60%", "stop-color": "#000", "stop-opacity": 0}, g);
+    node("stop", {offset: "100%", "stop-color": "#000", "stop-opacity": bg.vignette}, g);
+    node("rect", {x: 0, y: 0, width: W, height: H, fill: "url(#vig)"}, stage);
+  }
+  // Soft drop shadow, the "sticker" depth of flat styles.
+  const sh = STYLE.shadow;
+  if (sh) {
+    const f = node("filter", {id: "shadow", x: "-30%", y: "-30%", width: "160%", height: "160%"}, defs);
+    node("feDropShadow", {dx: sh.dx || 0, dy: sh.dy || 8, stdDeviation: sh.blur || 0,
+                          "flood-color": sh.color || "#000", "flood-opacity": sh.opacity == null ? 0.2 : sh.opacity}, f);
+  }
+  const layer = node("g", {}, stage);
+
+  // --- geometry for anchors ------------------------------------------
+  function starVertices(e) {
+    const n = e.points || 5, pts = [];
+    const rot = ((e.rotation || 0) - 90) * Math.PI / 180;
+    for (let i = 0; i < n; i++) {
+      const a = rot + i * 2 * Math.PI / n;
+      pts.push([e.x + e.r * Math.cos(a), e.y + e.r * Math.sin(a)]);
+    }
+    return pts;
+  }
+  const byId = {};
+  // Where an element sits: its own x/y, or an anchor on another element
+  // (a star's vertex pushed outward, a prop's top/bottom/centre).
+  function resolveXY(e) {
+    const a = e.anchor;
+    if (!a) return [e.x, e.y];
+    const t = byId[a.of];
+    if (!t) return [e.x || W / 2, e.y || H / 2];
+    let x = t.spec.x, y = t.spec.y;
+    if (a.vertex != null && (t.spec.kind === "star" || t.spec.kind === "polygon")) {
+      const v = starVertices(t.spec)[a.vertex % (t.spec.points || 5)];
+      const dx = v[0] - t.spec.x, dy = v[1] - t.spec.y, d = Math.hypot(dx, dy) || 1;
+      const push = a.offset || 0;
+      x = v[0] + dx / d * push; y = v[1] + dy / d * push;
+    } else if (a.side) {
+      const h = (t.spec.h || t.spec.w || 0) / 2;
+      if (a.side === "top") y -= h;
+      if (a.side === "bottom") y += h;
+    }
+    return [x + (a.dx || 0), y + (a.dy || 0)];
+  }
+
+  // --- builders -------------------------------------------------------
+  // Each returns {g, spec, draw(p), extra(t)}; g carries the element's
+  // transform and opacity, set by __seek.
+  function strokeAttrs(e) {
+    return {
+      stroke: color(e.stroke || "ink"),
+      "stroke-width": e.width || STYLE.stroke_width || 10,
+      "stroke-linecap": "round", "stroke-linejoin": "round",
+      fill: e.fill ? color(e.fill) : "none",
+    };
+  }
+
+  function drawable(path, e) {
+    const len = path.getTotalLength ? path.getTotalLength() : 1000;
+    path.setAttribute("stroke-dasharray", `${len} ${len}`);
+    return p => {
+      path.setAttribute("stroke-dashoffset", String(len * (1 - p)));
+      if (e.fill) path.setAttribute("fill-opacity", String(clamp((p - 0.85) / 0.15)));
+    };
+  }
+
+  function buildShape(e, g) {
+    let d;
+    if (e.kind === "circle") {
+      d = `M ${e.x} ${e.y - e.r} A ${e.r} ${e.r} 0 1 1 ${e.x - 0.01} ${e.y - e.r} Z`;
+    } else if (e.kind === "star" || e.kind === "polygon") {
+      const v = starVertices(e);
+      // A star is drawn as one continuous line through every second
+      // point, the way a pentagram is drawn by hand.
+      const order = e.kind === "star"
+        ? Array.from({length: v.length}, (_, i) => (i * 2) % v.length) : v.map((_, i) => i);
+      d = order.map((i, k) => `${k ? "L" : "M"} ${v[i][0]} ${v[i][1]}`).join(" ") + " Z";
+    } else if (e.kind === "line" || e.kind === "arrow") {
+      d = `M ${e.x} ${e.y} L ${e.x2} ${e.y2}`;
+    } else if (e.kind === "rect") {
+      const r = e.radius || 24, x = e.x - e.w / 2, y = e.y - e.h / 2;
+      d = `M ${x + r} ${y} H ${x + e.w - r} Q ${x + e.w} ${y} ${x + e.w} ${y + r} V ${y + e.h - r} `
+        + `Q ${x + e.w} ${y + e.h} ${x + e.w - r} ${y + e.h} H ${x + r} Q ${x} ${y + e.h} ${x} ${y + e.h - r} `
+        + `V ${y + r} Q ${x} ${y} ${x + r} ${y} Z`;
+    } else {
+      d = e.d || "M 0 0";
+    }
+    const path = node("path", {d, ...strokeAttrs(e)}, g);
+    const setDraw = drawable(path, e);
+    let head = null;
+    if (e.kind === "arrow") {
+      const ang = Math.atan2(e.y2 - e.y, e.x2 - e.x), s = (e.width || STYLE.stroke_width || 10) * 3;
+      const p1 = [e.x2 - s * Math.cos(ang - 0.5), e.y2 - s * Math.sin(ang - 0.5)];
+      const p2 = [e.x2 - s * Math.cos(ang + 0.5), e.y2 - s * Math.sin(ang + 0.5)];
+      head = node("path", {d: `M ${p1} L ${e.x2} ${e.y2} L ${p2}`, ...strokeAttrs({...e, fill: null})}, g);
+    }
+    return {draw: p => { setDraw(p); if (head) head.setAttribute("opacity", p > 0.97 ? 1 : 0); }};
+  }
+
+  function buildLabel(e, g) {
+    const size = e.size || STYLE.label_size || 64;
+    const font = e.font === "text" ? STYLE.font_text : STYLE.font_display;
+    const weight = e.font === "text" ? (STYLE.font_text_weight || 600) : (STYLE.font_display_weight || 800);
+    const pill = e.pill !== false && e.style !== "title";
+    const inner = node("g", {}, g);
+    const bgRect = pill ? node("rect", {rx: STYLE.label_radius || 18, fill: color(e.fill || "label_fill"),
+                                         stroke: color(e.stroke || "ink"), "stroke-width": STYLE.label_stroke || 5}, inner) : null;
+    const txt = node("text", {"font-family": font, "font-weight": weight, "font-size": size,
+                              fill: color(e.color || "ink"), "text-anchor": "middle",
+                              "dominant-baseline": "central"}, inner);
+    txt.textContent = e.text;
+    let dot = null;
+    if (e.dot) dot = node("circle", {r: size * 0.2, fill: color(e.dot), stroke: color("ink"), "stroke-width": 4}, inner);
+    const box = txt.getBBox();
+    const padX = size * 0.45, padY = size * 0.22, dotW = dot ? size * 0.55 : 0;
+    const w = box.width + padX * 2 + dotW, h = box.height + padY * 2;
+    if (bgRect) { bgRect.setAttribute("x", -w / 2); bgRect.setAttribute("y", -h / 2);
+                  bgRect.setAttribute("width", w); bgRect.setAttribute("height", h); }
+    if (dot) { dot.setAttribute("cx", -w / 2 + padX * 0.7 + dotW * 0.25); dot.setAttribute("cy", 0);
+               txt.setAttribute("x", dotW / 2); }
+    // "write": the text appears as it's spoken, word by word.
+    const words = String(e.text).split(" ");
+    return {
+      h, w,
+      write: p => {
+        const shown = Math.ceil(words.length * p);
+        txt.textContent = p >= 1 ? e.text : words.slice(0, shown).join(" ");
+      },
+    };
+  }
+
+  function buildProp(e, g) {
+    const src = ASSETS[e.asset];
+    const w = e.w || 300, h = e.h || w;
+    if (src) {
+      node("image", {href: src, x: -w / 2, y: -h / 2, width: w, height: h}, g);
+    } else {
+      // A missing prop is visible, not silent: the layout checker should
+      // never let this through, and if it does, it shows.
+      node("rect", {x: -w / 2, y: -h / 2, width: w, height: h, fill: "#f0f", opacity: 0.4}, g);
+    }
+    return {h, w};
+  }
+
+  function formatNumber(v, e) {
+    const d = e.decimals || 0;
+    const s = Number(v).toLocaleString("en-GB", {minimumFractionDigits: d, maximumFractionDigits: d});
+    return `${e.prefix || ""}${s}${e.suffix || ""}`;
+  }
+
+  function buildCounter(e, g) {
+    const size = e.size || 110;
+    const txt = node("text", {"font-family": STYLE.font_display, "font-weight": STYLE.font_display_weight || 800,
+                              "font-size": size, fill: color(e.color || "ink"), "text-anchor": "middle",
+                              "dominant-baseline": "central", "font-variant-numeric": "tabular-nums"}, g);
+    txt.textContent = formatNumber(e.from || 0, e);
+    return {value: e.from || 0, set: v => { txt.textContent = formatNumber(v, e); }};
+  }
+
+  function buildChart(e, g) {
+    const x0 = -e.w / 2, y0 = e.h / 2, sw = STYLE.stroke_width || 10;
+    const axes = node("path", {d: `M ${x0} ${-e.h / 2} V ${y0} H ${e.w / 2}`, fill: "none",
+                               stroke: color("ink"), "stroke-width": sw * 0.6, "stroke-linecap": "round"}, g);
+    const vals = e.values || [0, 1], lo = Math.min(...vals, 0), hi = Math.max(...vals);
+    const pts = vals.map((v, i) => [x0 + e.w * i / (vals.length - 1), y0 - e.h * (v - lo) / (hi - lo || 1)]);
+    let setDraw;
+    if (e.kind === "bar") {
+      const bw = e.w / vals.length * 0.62, bars = [];
+      vals.forEach((v, i) => {
+        const bx = x0 + e.w * (i + 0.5) / vals.length - bw / 2;
+        const fullH = e.h * (v - lo) / (hi - lo || 1);
+        bars.push([node("rect", {x: bx, width: bw, rx: 10, fill: color(e.fill || "accent2"),
+                                 stroke: color("ink"), "stroke-width": sw * 0.5}, g), fullH]);
+      });
+      setDraw = p => bars.forEach(([r, fullH], i) => {
+        const q = EASE.out(clamp(p * bars.length - i * 0.6));
+        r.setAttribute("height", fullH * q); r.setAttribute("y", y0 - fullH * q);
+      });
+    } else {
+      const d = pts.map((p, i) => `${i ? "L" : "M"} ${p[0]} ${p[1]}`).join(" ");
+      const line = node("path", {d, fill: "none", stroke: color(e.stroke || "accent1"), "stroke-width": sw,
+                                 "stroke-linecap": "round", "stroke-linejoin": "round"}, g);
+      const drawLine = drawable(line, {});
+      const tip = node("circle", {r: sw * 1.1, fill: color(e.stroke || "accent1"), stroke: color("ink"), "stroke-width": 4}, g);
+      setDraw = p => {
+        drawLine(p);
+        const at = line.getPointAtLength(line.getTotalLength() * p);
+        tip.setAttribute("cx", at.x); tip.setAttribute("cy", at.y); tip.setAttribute("opacity", p > 0.01 ? 1 : 0);
+      };
+    }
+    (e.axis_labels || []).forEach(lab => {
+      const t = node("text", {"font-family": STYLE.font_text, "font-weight": STYLE.font_text_weight || 600,
+                              "font-size": 38, fill: color("ink_soft"), "text-anchor": lab.align || "middle"}, g);
+      t.setAttribute("x", lab.at === "end" ? e.w / 2 : x0); t.setAttribute("y", y0 + 56);
+      t.textContent = lab.text;
+    });
+    void axes;
+    return {draw: setDraw};
+  }
+
+  const BUILDERS = {shape: buildShape, label: buildLabel, prop: buildProp, counter: buildCounter, chart: buildChart};
+
+  // --- build everything ----------------------------------------------
+  const items = [];
+  for (const spec of SCENE.elements) {
+    const outer = node("g", {"data-id": spec.id}, layer);   // data-id: for tests and the layout check
+    const g = node("g", {}, outer);            // animated transform lives on g
+    if (sh && spec.shadow !== false && spec.type !== "counter") g.setAttribute("filter", "url(#shadow)");
+    const item = {spec, outer, g, actions: SCENE.actions.filter(a => a.target === spec.id)};
+    byId[spec.id] = item;
+    item.api = BUILDERS[spec.type](spec, g) || {};
+    items.push(item);
+  }
+  // Positions after every element exists, so anchors can refer forward.
+  for (const it of items) {
+    const [x, y] = it.spec.type === "shape" || it.spec.type === "chart" ? [0, 0] : resolveXY(it.spec);
+    it.base = [x, y];
+    if (it.spec.type === "chart") it.base = [it.spec.x, it.spec.y];
+    // A label with a pointer draws a leader line to what it names.
+    if (it.spec.pointer) {
+      const [px, py] = it.spec.pointer;
+      it.leader = node("path", {d: `M ${x} ${y} L ${px} ${py}`, fill: "none", stroke: color("ink"),
+                                "stroke-width": 5, "stroke-dasharray": "2 14", "stroke-linecap": "round"}, layer);
+      layer.insertBefore(it.leader, it.outer);
+    }
+  }
+
+  // "stack": copies of a prop drop one after another into a target.
+  const stacks = [];
+  for (const a of SCENE.actions.filter(a => a.do === "stack")) {
+    const src = byId[a.target], into = byId[a.into];
+    for (let i = 0; i < (a.count || 5); i++) {
+      const outer = node("g", {}, layer), g = node("g", {}, outer);
+      if (sh) g.setAttribute("filter", "url(#shadow)");
+      BUILDERS[src.spec.type]({...src.spec, id: `${src.spec.id}_${i}`}, g);
+      stacks.push({g, a, i, into});
+    }
+    layer.appendChild(into.outer);             // the target sits in front of what falls in
+  }
+
+  // --- __seek(t) -------------------------------------------------------
+  function stateAt(it, t) {
+    const s = {opacity: it.spec.start_visible ? 1 : 0, scale: 1, dx: 0, dy: 0, rot: 0, draw: it.spec.start_visible ? 1 : 0, write: 1};
+    let hasEntry = false;
+    for (const a of it.actions) {
+      const p = progress(t, a);
+      if (t < a.at && (a.do === "appear" || a.do === "draw" || a.do === "write")) { hasEntry = true; continue; }
+      switch (a.do) {
+        case "appear": {
+          hasEntry = true;
+          const how = a.style || "pop";
+          if (how === "pop") { s.opacity = clamp(p * 4); s.scale = lerp(0.3, 1, easeFor("appear")(p)); }
+          else if (how === "slide") { s.opacity = clamp(p * 2); s.dy = lerp(a.from_dy == null ? 120 : a.from_dy, 0, EASE.out(p)); }
+          else if (how === "drop") { s.opacity = clamp(p * 5); s.dy = lerp(-500, 0, EASE.bounce(p)); }
+          else { s.opacity = EASE.out(p); }
+          break;
+        }
+        case "draw": hasEntry = true; s.opacity = 1; s.draw = easeFor("draw")(p); break;
+        case "write": hasEntry = true; s.opacity = 1; s.write = p; break;
+        case "move": {
+          const e = easeFor("move")(p);
+          s.dx = lerp(s.dx, a.to[0] - it.base[0], e); s.dy = lerp(s.dy, a.to[1] - it.base[1], e); break;
+        }
+        case "highlight": {
+          if (t >= a.at && t <= a.at + (a.dur || 0.8)) s.scale *= 1 + 0.16 * Math.sin(Math.PI * p);
+          break;
+        }
+        case "wiggle": {
+          if (t >= a.at && t <= a.at + (a.dur || 0.8)) s.rot = 8 * Math.sin(p * Math.PI * 6) * (1 - p);
+          break;
+        }
+        case "exit": if (t >= a.at) s.opacity *= 1 - EASE.out(p); break;
+      }
+    }
+    if (!hasEntry) { s.opacity = 1; s.draw = 1; }
+    return s;
+  }
+
+  window.__seek = function (t) {
+    for (const it of items) {
+      // A template is only ever drawn through its copies (a stack's coins).
+      if (it.spec.template) { it.outer.setAttribute("opacity", 0); continue; }
+      const s = stateAt(it, t);
+      const [x, y] = it.base;
+      it.outer.setAttribute("opacity", s.opacity);
+      if (it.spec.type === "shape") {
+        it.g.setAttribute("transform", `translate(${s.dx} ${s.dy})`);
+      } else {
+        it.g.setAttribute("transform", `translate(${x + s.dx} ${y + s.dy}) rotate(${s.rot}) scale(${s.scale})`);
+      }
+      if (it.api.draw) it.api.draw(s.draw);
+      if (it.api.write) it.api.write(s.write);
+      if (it.leader) it.leader.setAttribute("opacity", s.opacity);
+      if (it.api.set) {                          // counters
+        let v = it.spec.from || 0;
+        for (const a of it.actions.filter(a => a.do === "count")) {
+          if (t >= a.at) v = lerp(v, a.to, easeFor("count")(progress(t, a)));
+        }
+        it.api.set(v);
+      }
+    }
+    for (const c of stacks) {
+      const span = c.a.dur || 2, n = c.a.count || 5;
+      const start = c.a.at + c.i * span / n, fall = Math.min(0.7, span / n * 1.4);
+      const p = clamp((t - start) / fall);
+      const [tx, ty] = c.into.base;
+      const top = ty - (c.into.spec.h || c.into.spec.w || 300) * 0.42;
+      const y = lerp(top - (c.a.height || 380), top, EASE.inout(p) * EASE.inout(p));
+      // Fades in as it starts to fall; gone once it's "in".
+      c.g.parentNode.setAttribute("opacity", t < start || p >= 1 ? 0 : clamp(p * 5));
+      c.g.setAttribute("transform", `translate(${tx + (c.a.spread || 0) * ((c.i % 3) - 1)} ${y}) rotate(${p * 200 + c.i * 40}) scale(0.9)`);
+      // The target jolts slightly as each one lands.
+      if (p >= 1 && t < start + fall + 0.18) c.into.g.setAttribute("transform",
+        `translate(${tx} ${ty + 10 * Math.sin((t - start - fall) / 0.18 * Math.PI)}) scale(1)`);
+    }
+  };
+
+  window.__seek(0);
+  window.__ready = true;
+};
+document.fonts.ready.then(() => window.__start());

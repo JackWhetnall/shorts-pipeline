@@ -108,6 +108,16 @@ pipeline/     The generation stages. No web dependency at all.
     intake        Normalize, perceptual-dedupe, describe, record.
     sources       Pexels / Pixabay search and download.
     library       The semantic matcher and the fetch-and-recheck loop.
+  scenes/       Animated explanations in a channel's art style (decision 034;
+                not yet called by the pipeline).
+    runtime.js    The SVG timeline engine: scene JSON in, `__seek(t)` sets
+                  every element for time t. Pure, so frames are deterministic.
+    render        Scene + art direction -> one self-contained page, captured
+                  frame by frame in the installed Chrome, piped to ffmpeg.
+    props         The per-channel prop library: illustrated once, cleaned,
+                  reused.
+    styles/       Art directions (colours, type, stroke, motion, prop prompt).
+    examples/     Hand-written scenes: the pentagram, compound interest.
 
 web/          Flask only.
   __init__      App factory: CSRF, error handling, blueprint registration.

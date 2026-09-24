@@ -1,0 +1,35 @@
+{
+  "title": "The five pillars (Wren's Guide)",
+  "narration": "There are five pillars in this practice. Earth grounds you. Air carries your intention. Fire gives it energy. Water lets it flow. And at the top, spirit, which ties the other four together.",
+  "duration": 9.0,
+  "elements": [
+    {"id": "title", "type": "label", "text": "The five pillars", "style": "title", "pill": false,
+     "size": 92, "x": 540, "y": 190},
+    {"id": "ring", "type": "shape", "kind": "circle", "x": 540, "y": 790, "r": 330,
+     "stroke": "ink_soft", "width": 8, "shadow": false},
+    {"id": "star", "type": "shape", "kind": "star", "points": 5, "x": 540, "y": 790, "r": 330,
+     "stroke": "accent1", "width": 14},
+    {"id": "earth", "type": "label", "text": "Earth", "dot": "accent3", "size": 56,
+     "anchor": {"of": "star", "vertex": 3, "offset": 70}},
+    {"id": "air", "type": "label", "text": "Air", "dot": "accent5", "size": 56,
+     "anchor": {"of": "star", "vertex": 4, "offset": 70}},
+    {"id": "fire", "type": "label", "text": "Fire", "dot": "accent1", "size": 56,
+     "anchor": {"of": "star", "vertex": 2, "offset": 70}},
+    {"id": "water", "type": "label", "text": "Water", "dot": "accent2", "size": 56,
+     "anchor": {"of": "star", "vertex": 1, "offset": 70}},
+    {"id": "spirit", "type": "label", "text": "Spirit", "dot": "accent4", "size": 62,
+     "anchor": {"of": "star", "vertex": 0, "offset": 78}}
+  ],
+  "actions": [
+    {"target": "title", "do": "write", "at": 0.1, "dur": 0.9},
+    {"target": "ring", "do": "draw", "at": 0.3, "dur": 1.2},
+    {"target": "star", "do": "draw", "at": 1.0, "dur": 2.2},
+    {"target": "earth", "do": "appear", "style": "pop", "at": 3.2, "dur": 0.5},
+    {"target": "air", "do": "appear", "style": "pop", "at": 4.1, "dur": 0.5},
+    {"target": "fire", "do": "appear", "style": "pop", "at": 5.0, "dur": 0.5},
+    {"target": "water", "do": "appear", "style": "pop", "at": 5.9, "dur": 0.5},
+    {"target": "spirit", "do": "appear", "style": "pop", "at": 6.9, "dur": 0.6},
+    {"target": "spirit", "do": "highlight", "at": 7.8, "dur": 0.8},
+    {"target": "star", "do": "wiggle", "at": 7.8, "dur": 0.8}
+  ]
+}

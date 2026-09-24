@@ -1,0 +1,28 @@
+{
+  "key": "clean_flat",
+  "label": "Clean flat",
+  "description": "Bold flat shapes with thick dark outlines on a warm off-white page, bright accent colours, soft sticker shadows, bouncy arrivals. The explainer-channel look: clear first, friendly second.",
+  "background": {"color": "#FFF7EA", "pattern": "dots", "pattern_color": "#F2E3C9", "vignette": 0.06},
+  "ink": "#1F2233",
+  "colors": {
+    "ink": "#1F2233",
+    "ink_soft": "#5A5E73",
+    "label_fill": "#FFFFFF",
+    "accent1": "#FF6B4A",
+    "accent2": "#2EC4B6",
+    "accent3": "#FFB627",
+    "accent4": "#6C63FF",
+    "accent5": "#F25F9C"
+  },
+  "stroke_width": 12,
+  "label_size": 60,
+  "label_radius": 22,
+  "label_stroke": 5,
+  "font_display": "Bahnschrift, 'Segoe UI', sans-serif",
+  "font_display_weight": 700,
+  "font_text": "'Segoe UI', sans-serif",
+  "font_text_weight": 600,
+  "shadow": {"dx": 0, "dy": 10, "blur": 0, "color": "#1F2233", "opacity": 0.16},
+  "motion": {"appear": "back", "draw": "inout", "move": "inout", "count": "out"},
+  "prop_style": "flat vector illustration, thick dark navy (#1F2233) outlines of even weight, bold flat fills in coral (#FF6B4A), teal (#2EC4B6), warm yellow (#FFB627) and white, a single simple highlight shape, no gradients, no texture, no text, friendly and clean, like a modern explainer video"
+}
