@@ -83,7 +83,8 @@ def _raw(kind: str, fps: int) -> np.ndarray:
 
 # Which effect each scene action makes, and how loud relative to the others.
 ACTION_SOUNDS = {"appear": ("pop", 0.9), "draw": ("whoosh", 0.55), "highlight": ("chime", 0.45),
-                 "wiggle": ("tick", 0.6), "exit": ("whoosh", 0.35)}
+                 "wiggle": ("tick", 0.6), "exit": ("whoosh", 0.35), "focus": ("whoosh", 0.3),
+                 "reset": ("whoosh", 0.25)}
 MIN_GAP = 0.12                 # two effects closer than this: keep the first
 
 

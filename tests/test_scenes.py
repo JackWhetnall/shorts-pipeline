@@ -215,7 +215,7 @@ def test_constructions_are_exact_and_side_labels_sit_outside_their_side(tmp_path
     ], "actions": []}
     page = _open(scene, {})
     try:
-        page.frame(1.0)
+        page.page.evaluate("window.__seek(1.0, false)")     # the drawing itself, no camera drift
         hyp = _box(page, "hyp")
         # Rotated square of side 500 on a 3-4-5 hypotenuse: its box is 700 x 700.
         assert hyp[2] - hyp[0] == pytest.approx(700, abs=16)
@@ -253,5 +253,34 @@ def test_a_beam_lies_exactly_between_its_two_points(tmp_path):
         assert box[0] == pytest.approx(300 - 20, abs=30) and box[2] == pytest.approx(700 + 20, abs=30)
         assert box[1] == pytest.approx(500 - 20, abs=30) and box[3] == pytest.approx(1000 + 20, abs=30)
         assert page.page.evaluate("document.querySelectorAll('pattern[id^=tex]').length") == 1
+    finally:
+        page.__exit__(None, None, None)
+
+
+@pytest.mark.slow
+def test_the_camera_closes_in_on_what_it_focuses_on(tmp_path):
+    scene = {"duration": 4.0, "elements": [
+        {"id": "a", "type": "label", "text": "a squared", "x": 300, "y": 400, "size": 60},
+        {"id": "b", "type": "label", "text": "b squared", "x": 800, "y": 1000, "size": 60},
+    ], "actions": [
+        {"target": "b", "do": "focus", "zoom": 1.6, "at": 1.0, "dur": 0.5},
+        {"target": "b", "do": "reset", "at": 3.0, "dur": 0.5},
+    ]}
+    page = _open(scene, {})
+    try:
+        page.frame(0.5)
+        before = _box(page, "b")
+        page.frame(2.0)
+        close = _box(page, "b")
+        centre = ((close[0] + close[2]) / 2, (close[1] + close[3]) / 2)
+        assert centre == (pytest.approx(540, abs=15), pytest.approx(700, abs=15))
+        assert (close[2] - close[0]) > (before[2] - before[0]) * 1.5
+        # The layout check measures the picture as drawn, not the close-up.
+        laid = page.page.evaluate("t => window.__layout(t)", 2.0)
+        b = next(it["box"] for it in laid if it["id"] == "b")
+        assert (b[0] + b[2]) / 2 == pytest.approx(800, abs=15)
+        page.frame(3.9)
+        after = _box(page, "b")
+        assert (after[0] + after[2]) / 2 == pytest.approx(800, abs=40)   # back out (drift aside)
     finally:
         page.__exit__(None, None, None)

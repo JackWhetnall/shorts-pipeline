@@ -507,7 +507,45 @@ window.__start = function () {
     return s;
   }
 
-  window.__seek = function (t) {
+  // --- camera ------------------------------------------------------------
+  // The drawing layer is filmed by a camera: a slow push-in across the
+  // whole scene (so a finished picture never sits frozen), and "focus"
+  // actions that glide in on an element, "reset" back out. The camera
+  // looks at point F and puts it at screen point A, zoomed by Z.
+  const A = [W / 2, 700];
+  const DRIFT = STYLE.camera_drift == null ? 0.035 : STYLE.camera_drift;
+  const camActions = SCENE.actions.filter(a => a.do === "focus" || a.do === "reset")
+    .sort((a, b) => a.at - b.at);
+  let centres = null;                  // each element's centre, measured once
+  function centreOf(id) {
+    if (!centres) {
+      centres = {};
+      window.__seek(SCENE.duration || 1, false);
+      for (const it of items) {
+        try {
+          const b = it.outer.getBBox();
+          centres[it.spec.id] = [b.x + b.width / 2, b.y + b.height / 2];
+        } catch (err) { centres[it.spec.id] = A; }
+      }
+    }
+    return centres[id] || A;
+  }
+  function cameraAt(t) {
+    let f = A, z = 1;
+    for (const a of camActions) {
+      if (t < a.at) break;
+      const p = easeFor("move")(progress(t, a));
+      const target = a.do === "reset" ? A : centreOf(a.target);
+      const zoom = a.do === "reset" ? 1 : (a.zoom || 1.35);
+      f = [lerp(f[0], target[0], p), lerp(f[1], target[1], p)];
+      z = lerp(z, zoom, p);
+    }
+    z *= 1 + DRIFT * clamp(t / (SCENE.duration || 1));
+    return `translate(${A[0]} ${A[1]}) scale(${z}) translate(${-f[0]} ${-f[1]})`;
+  }
+
+  window.__seek = function (t, camera = true) {
+    layer.setAttribute("transform", camera ? cameraAt(t) : "");
     for (const it of items) {
       // A template is only ever drawn through its copies (a stack's coins);
       // a hidden element only exists for others to anchor to.
@@ -551,8 +589,9 @@ window.__start = function () {
 
   // What the layout check needs: every element visible at time t, with
   // its on-screen box. Text boxes are measured on the text itself.
+  // Measured without the camera: a close-up is on purpose, not "off screen".
   window.__layout = function (t) {
-    window.__seek(t);
+    window.__seek(t, false);
     const out = [];
     for (const it of items) {
       if (it.spec.template || it.spec.hidden || Number(it.outer.getAttribute("opacity")) < 0.05) continue;

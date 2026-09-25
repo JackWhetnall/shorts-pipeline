@@ -48,7 +48,8 @@ MAX_NEW_PROPS = 2             # per scene
 ELEMENT_TYPES = ("shape", "label", "prop", "counter", "chart")
 SHAPE_KINDS = ("circle", "star", "polygon", "poly", "square", "angle", "line", "arrow", "rect",
                "beam")
-ACTIONS = ("appear", "draw", "write", "count", "move", "highlight", "wiggle", "stack", "exit")
+ACTIONS = ("appear", "draw", "write", "count", "move", "highlight", "wiggle", "stack", "exit",
+           "focus", "reset")
 AREA_KINDS = ("circle", "polygon", "poly", "square", "rect")
 COLOR_TOKENS = ("ink", "ink_soft", "label_fill", "accent1", "accent2", "accent3", "accent4", "accent5")
 
@@ -149,6 +150,15 @@ word it starts on, from the numbered word list), optional delay
   into (target id), count (2-9), spread (px). Good for accumulating.
 - exit: fades the element out. Use it to clear the stage when the
   narration moves to a new idea.
+- focus: the camera glides in on the element (zoom, default 1.35, up to
+  2) while it's being talked about: a close-up on the one term, corner
+  or number that matters right now. dur is the glide (0.5-1 s).
+- reset: the camera glides back out to the whole picture (target: any
+  element id).
+
+The camera already drifts in slowly across every scene. Use focus for the
+one or two moments that deserve a close-up, not constantly, and reset
+before the picture needs to be seen whole again.
 
 Every visible element needs an entry action (appear, draw or write) on
 the word that names it; one without is on screen from the first frame.
@@ -445,6 +455,8 @@ def validate(raw: dict, words: list, duration: float) -> tuple:
         start = (words[word][1] if words else 0.0) + max(0.0, float(a.pop("delay", 0) or 0))
         a["at"] = round(min(max(0.0, start), max(0.0, duration - 0.15)), 3)
         a["dur"] = round(max(0.1, min(float(a.get("dur") or 0.6), duration - a["at"])), 3)
+        if a["do"] == "focus":
+            a["zoom"] = round(min(2.0, max(1.05, float(a.get("zoom") or 1.35))), 2)
         if a["do"] == "count" and a.get("to") is None:
             problems.append(f"{where} has no `to` value.")
         if a["do"] == "move":
