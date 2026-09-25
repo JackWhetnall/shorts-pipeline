@@ -149,6 +149,10 @@ class Script:
     # and the script check can hold the video to it.
     hook_promise: str = ""
     payoff: str = ""
+    # The hook's punch as big on-screen text in the first seconds, and the
+    # few words that pop in the captions as they're spoken.
+    screen_hook: str = ""
+    emphasis: list = field(default_factory=list)
 
     def __post_init__(self):
         if self.source_index is None and self.citation:
@@ -163,6 +167,8 @@ class Script:
                 "source_index": self.source_index,
                 "hook_promise": self.hook_promise,
                 "payoff": self.payoff,
+                "screen_hook": self.screen_hook,
+                "emphasis": list(self.emphasis),
                 "segments": [s.to_jsonable() for s in self.segments],
                 "title_options": list(self.title_options),
                 "description_body": self.description_body}
@@ -173,6 +179,8 @@ class Script:
                    source_index=data.get("source_index"),
                    hook_promise=data.get("hook_promise", ""),
                    payoff=data.get("payoff", ""),
+                   screen_hook=data.get("screen_hook", ""),
+                   emphasis=list(data.get("emphasis") or []),
                    segments=[Segment.from_jsonable(s) for s in data["segments"]],
                    title_options=list(data.get("title_options") or []),
                    description_body=data.get("description_body", ""))

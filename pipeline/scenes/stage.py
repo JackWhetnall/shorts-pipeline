@@ -61,6 +61,7 @@ def run(plan):
     # has been revealed by its turn. Written alone, the Pythagoras demo's
     # third scene put the 6 on the wall and gave the answer away early.
     narration = "\n".join(f"[{i}] {s.text}" for i, s in enumerate(segments))
+    reserve = _opening_reserve(plan)
     new_props = [0]
     for i, stretch in enumerate(stretches):
         first, last = stretch["first"], stretch["last"]
@@ -68,7 +69,8 @@ def run(plan):
         words = writer.words_for(plan.voiceover.word_timings, start, end)
         context = {"before": stretches[i - 1]["idea"] if i else "",
                    "after": stretches[i + 1]["idea"] if i + 1 < len(stretches) else "",
-                   "narration": narration}
+                   "narration": narration,
+                   "reserve": reserve if first == 0 else ""}
         log.info(f"  [scene] {i + 1}/{len(stretches)}: segments {first}-{last}, "
                  f"{end - start:.1f}s: {stretch['idea'][:80]}")
         try:
@@ -143,6 +145,21 @@ def _check(raw, words, duration, style, library, new_props, look: bool = False):
 def _still_times(duration: float) -> tuple:
     """Halfway through, and once everything has arrived."""
     return (round(duration * 0.5, 2), round(max(0.0, duration - 0.1), 2))
+
+
+def _opening_reserve(plan) -> str:
+    """The on-screen hook covers the top of the frame for the video's first
+    seconds; a scene there must leave that band clear until it has gone."""
+    from pipeline import assemble
+
+    if not (getattr(plan.channel.style, "screen_hook_enabled", True)
+            and getattr(plan.script, "screen_hook", "")):
+        return ""
+    _, end = assemble.screen_hook_window(plan.voiceover.word_timings)
+    top = assemble.SCREEN_HOOK_Y - 240
+    return (f"The video's opening text covers y {top}-{assemble.SCREEN_HOOK_Y + 240} "
+            f"until {end:.1f}s. Put nothing in that band before then: start the picture "
+            f"lower, or bring things in there after {end:.1f}s.")
 
 
 def _icons(style: dict) -> dict:

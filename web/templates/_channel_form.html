@@ -570,6 +570,20 @@
     </fieldset>
 
     <fieldset>
+      <legend>Hook text and key words</legend>
+      <label class="checkbox-label">
+        <input type="checkbox" name="style_screen_hook_enabled"
+               {% if channel.style.screen_hook_enabled %}checked{% endif %}>
+        Show the hook's punch as big text over the first seconds
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="style_emphasis_enabled"
+               {% if channel.style.emphasis_enabled %}checked{% endif %}>
+        Pop the key words in the captions as they're said
+      </label>
+    </fieldset>
+
+    <fieldset>
       <legend>Title card
         <button type="button" class="info-dot" data-tooltip="Names the channel and the video. Off by default: it spends watch time before the content starts.">?</button>
       </legend>

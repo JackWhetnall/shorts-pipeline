@@ -158,6 +158,10 @@ class Style(_MappingLike):
     # curriculum — a no-op everywhere else, same as every setting here
     # that only applies to some channels.
     title_card_show_topic: bool = False
+    # The hook's punch as big text over the first seconds, and key words
+    # that pop in the captions (decision 038).
+    screen_hook_enabled: bool = True
+    emphasis_enabled: bool = True
 
     # Whether the channel's background picture sits behind the title and
     # outro cards. Only does anything when a picture has been chosen.

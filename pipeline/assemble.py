@@ -193,7 +193,14 @@ def render_word_overlay(word: str, box, style) -> np.ndarray:
     return np.array(image)
 
 
-def build_caption_clips(word_timings: list, style, pacing) -> list:
+EMPHASIS_POP = (1.32, 1.1, 0.16)   # starting scale, resting scale, seconds to settle
+
+
+def _norm(word: str) -> str:
+    return "".join(ch for ch in word.lower() if ch.isalnum())
+
+
+def build_caption_clips(word_timings: list, style, pacing, emphasis=()) -> list:
     """One long-lived base clip per group, plus one small overlay per
     word.
 
@@ -206,6 +213,7 @@ def build_caption_clips(word_timings: list, style, pacing) -> list:
     """
     from moviepy.editor import ImageClip
 
+    emphasised = {_norm(w) for phrase in emphasis for w in phrase.split()} - {""}
     clips = []
     for group in group_words(word_timings, pacing):
         layout = layout_caption([w.word for w in group], style)
@@ -226,12 +234,91 @@ def build_caption_clips(word_timings: list, style, pacing) -> list:
             overlay = render_word_overlay(word.word, box, style)
             x = CAPTION_LEFT + int(box[0]) - style.stroke_width - 2
             y = CAPTION_Y + int(box[1]) - style.stroke_width
-            clips.append(
-                ImageClip(overlay)
-                .set_start(word.start).set_end(end)
-                .set_position((x, y))
-            )
+            clip = ImageClip(overlay).set_start(word.start).set_end(end)
+            if _norm(word.word) in emphasised:
+                # A key word pops: it lands big and settles a little larger
+                # than the rest, centred on where it sits in the line.
+                clip = _popped(clip, overlay, x, y)
+            else:
+                clip = clip.set_position((x, y))
+            clips.append(clip)
     return clips
+
+
+def _popped(clip, image: np.ndarray, x: float, y: float):
+    start_scale, rest, settle = EMPHASIS_POP
+    h, w = image.shape[:2]
+    cx, cy = x + w / 2, y + h / 2
+
+    def scale(t):
+        p = min(1.0, t / settle)
+        return start_scale + (rest - start_scale) * (1 - (1 - p) ** 3)
+
+    return (clip.resize(scale)
+            .set_position(lambda t: (cx - w * scale(t) / 2, cy - h * scale(t) / 2)))
+
+
+SCREEN_HOOK_SIZE = 128
+SCREEN_HOOK_Y = int(H * 0.30)          # well above the captions
+SCREEN_HOOK_MAX_SECONDS = 3.6
+
+
+def screen_hook_window(word_timings: list) -> tuple:
+    """(start, end) for the on-screen hook: while the opening sentence is
+    spoken, capped so it never outstays the hook."""
+    if not word_timings:
+        return 0.0, 0.0
+    end = word_timings[-1].end
+    for w in word_timings:
+        if w.word.rstrip().endswith((".", "!", "?")):
+            end = w.end
+            break
+    return 0.05, min(end + 0.35, SCREEN_HOOK_MAX_SECONDS)
+
+
+def render_screen_hook(text: str, style) -> np.ndarray:
+    """The hook's punch, big, in the captions' own font and colours."""
+    font = load_font(SCREEN_HOOK_SIZE, style.font_face)
+    stroke = max(6, style.stroke_width * 2)
+    words = text.upper().split()
+    lines = wrap_words(words, font, int(W * 0.86))
+    line_height = int(SCREEN_HOOK_SIZE * 1.12)
+    draw_measure = _measurer()
+    widths = [draw_measure.textlength(" ".join(line), font=font) for line in lines]
+    image = Image.new("RGBA", (int(max(widths)) + stroke * 2 + 24,
+                               line_height * len(lines) + stroke * 2 + 16), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    for i, (line, width) in enumerate(zip(lines, widths)):
+        x = (image.width - width) / 2
+        # The last line in the highlight colour: the words that land.
+        fill = style.highlight_color if i == len(lines) - 1 and len(lines) > 1 else style.base_color
+        draw.text((x, stroke + 4 + i * line_height), " ".join(line), font=font, fill=fill,
+                  stroke_width=stroke, stroke_fill=style.stroke_color)
+    return np.array(image)
+
+
+def build_screen_hook(text: str, word_timings: list, style) -> list:
+    """The on-screen hook: it pops in, holds while the hook is spoken, and
+    fades. Empty when there's no hook text."""
+    from moviepy.editor import ImageClip
+    from moviepy.video.fx.fadeout import fadeout
+
+    text = (text or "").strip()
+    start, end = screen_hook_window(word_timings)
+    if not text or end - start < 0.6:
+        return []
+    image = render_screen_hook(text, style)
+    h, w = image.shape[:2]
+
+    def scale(t):
+        p = min(1.0, t / 0.28)                  # an overshooting pop, settled by 0.28 s
+        c1, c3 = 1.7, 2.7
+        return 0.55 + 0.45 * (1 + c3 * (p - 1) ** 3 + c1 * (p - 1) ** 2)
+
+    clip = (ImageClip(image).set_start(start).set_duration(end - start)
+            .resize(scale)
+            .set_position(lambda t: (W / 2 - w * scale(t) / 2, SCREEN_HOOK_Y - h * scale(t) / 2)))
+    return [fadeout(clip, 0.25)]
 
 
 # --- cards ------------------------------------------------------------
@@ -675,7 +762,12 @@ def run(plan):
     backgrounds = [background]
 
     log.info("  [video] rendering captions...")
-    captions = build_caption_clips(plan.voiceover.word_timings, style, pacing)
+    script = plan.script
+    emphasis = getattr(script, "emphasis", ()) if getattr(style, "emphasis_enabled", True) else ()
+    captions = build_caption_clips(plan.voiceover.word_timings, style, pacing, emphasis)
+    if getattr(style, "screen_hook_enabled", True):
+        captions = build_screen_hook(getattr(script, "screen_hook", ""),
+                                     plan.voiceover.word_timings, style) + captions
 
     # The track is the base frame, never blended: only the captions are.
     narration_video = CompositeVideoClip([background.set_duration(narration_duration), *captions],

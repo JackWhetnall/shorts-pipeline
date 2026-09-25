@@ -29,7 +29,7 @@ STYLE_TEXT_FIELDS = ("base_color", "highlight_color", "stroke_color",
                      "outro_title_color", "outro_subtext_color",
                      "title_card_title_color", "title_card_channel_color")
 STYLE_BOOL_FIELDS = ("title_card_enabled", "outro_enabled", "use_background_image",
-                     "title_card_show_topic")
+                     "title_card_show_topic", "screen_hook_enabled", "emphasis_enabled")
 TITLE_CARD_PLACEMENTS = ("start", "after_intro")
 
 ORDERING_CHOICE_FIELDS = {

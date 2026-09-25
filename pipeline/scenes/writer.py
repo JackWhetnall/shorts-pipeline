@@ -323,7 +323,7 @@ def words_for(word_timings: list, start: float, end: float) -> list:
 
 
 def write(idea: str, words: list, duration: float, style: dict, library: list,
-          before: str = "", after: str = "", narration: str = "",
+          before: str = "", after: str = "", narration: str = "", reserve: str = "",
           previous: dict = None, problems: list = None) -> dict:
     """One scene's data (with word anchors), for `words` spoken over
     `duration` seconds. `previous` and `problems` ask for a repair."""
@@ -336,6 +336,8 @@ def write(idea: str, words: list, duration: float, style: dict, library: list,
         user.append(f"The previous scene showed: {before}")
     if after:
         user.append(f"The next scene will show: {after}")
+    if reserve:
+        user.append(reserve)
     user.append("Props already in this channel's library: "
                 + (", ".join(library) if library else "(none yet)"))
     if previous is not None:

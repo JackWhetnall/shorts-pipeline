@@ -268,11 +268,21 @@ sentences that say what this video is actually about, then a blank line,
 then 3-5 relevant hashtags on one line. Do not include the reference, any
 links, or a call to action — those are added afterwards from the
 channel's own settings.
+
+"screen_hook" is the hook's punch as big on-screen text for the first
+seconds: 2-6 words that make someone stop, not a copy of the whole line
+(the captions already show that). It should add bite, not repeat.
+
+"emphasis" is up to 6 single words from the spoken lines that carry the
+meaning (the key numbers and nouns), exactly as they are written in the
+lines. They pop in the captions as they're said.
 """.strip()
 
 PACKAGING_SCHEMA = {
     "title_options": {"type": "array", "items": {"type": "string"}},
     "description_body": {"type": "string"},
+    "screen_hook": {"type": "string"},
+    "emphasis": {"type": "array", "items": {"type": "string"}},
 }
 
 # First in the schema, so the loop is planned before any line is written.
@@ -579,7 +589,9 @@ def generate_script(seed: Seed, channel, avoid: str = "") -> Script:
     titles = [_clean(t) for t in (data.get("title_options") or []) if t and t.strip()]
     description_body = (data.get("description_body") or "").strip()
     loop = {"hook_promise": (data.get("hook_promise") or "").strip(),
-            "payoff": (data.get("payoff") or "").strip()}
+            "payoff": (data.get("payoff") or "").strip(),
+            "screen_hook": _clean(data.get("screen_hook") or ""),
+            "emphasis": [w.strip() for w in data.get("emphasis") or [] if w and w.strip()][:6]}
 
     if seed.type == "quote":
         # Segment 0 is the source text verbatim — never regenerated,
@@ -779,8 +791,7 @@ def _batch_schema() -> dict:
                         },
                         **PACKAGING_SCHEMA,
                     },
-                    "required": ["index", *PLAN_SCHEMA, "segments", "title_options",
-                                "description_body"],
+                    "required": ["index", *PLAN_SCHEMA, "segments", *PACKAGING_SCHEMA],
                     "additionalProperties": False,
                 },
             },
@@ -894,6 +905,8 @@ def write_scripts(channel, topic: dict, subtopics: list) -> list:
                 "description_body": (item.get("description_body") or "").strip(),
                 "hook_promise": (item.get("hook_promise") or "").strip(),
                 "payoff": (item.get("payoff") or "").strip(),
+                "screen_hook": _clean(item.get("screen_hook") or ""),
+                "emphasis": [w.strip() for w in item.get("emphasis") or [] if w and w.strip()][:6],
             },
         })
 
