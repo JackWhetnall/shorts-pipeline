@@ -63,3 +63,19 @@ def test_restart_relaunches_the_original_command_then_exits(monkeypatch):
     code_freshness.restart()
     assert launched[0][-2:] == ["pythonw", "tools/start_web.pyw"]
     assert "time.sleep" in launched[0][2] and exited == [0]
+
+
+def test_a_second_copy_of_the_app_refuses_to_start():
+    # Regression: a stale logon-task copy and a fresh one both served port
+    # 5000; the stale one answered, and every settings page failed.
+    import socket
+    from web.__main__ import already_running
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen()
+    port = server.getsockname()[1]
+    try:
+        assert already_running("127.0.0.1", port)
+    finally:
+        server.close()
+    assert not already_running("127.0.0.1", port)

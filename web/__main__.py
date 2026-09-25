@@ -19,6 +19,23 @@ from web import create_app
 log = get_logger(__name__)
 
 
+def already_running(host: str, port: int) -> bool:
+    """Whether something already answers on this port.
+
+    Windows lets two processes listen on the same port at once, silently.
+    A logon-task copy left running from before an update went on serving
+    requests with old code in memory, alongside a freshly started copy,
+    and every settings page and render failed in ways that looked like the
+    update was broken.
+    """
+    import socket
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return True
+    except OSError:
+        return False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Shorts Pipeline web app.")
     parser.add_argument("--host", default="127.0.0.1")
@@ -28,6 +45,12 @@ def main() -> None:
     parser.add_argument("--no-scheduler", action="store_true",
                         help="Don't run scheduled generations in this process.")
     args = parser.parse_args()
+
+    if already_running(args.host, args.port):
+        log.error(f"Another copy of the app is already running at "
+                  f"http://{args.host}:{args.port}/ - not starting a second one. Stop "
+                  f"the other copy first (Task Manager: python/pythonw).")
+        raise SystemExit(1)
 
     app = create_app(debug=args.debug)
 
