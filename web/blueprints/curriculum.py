@@ -163,6 +163,8 @@ def write_scripts(key, topic_id):
     if not todo:
         return jsonify({"error": "Every pending subtopic in this topic "
                                  "already has a script."}), 400
+    if channel.format == "quiz":
+        return _write_quiz_ladders(channel, todo)
 
     scripted = []
     for start in range(0, len(todo), MAX_SCRIPTS_PER_CALL):
@@ -178,6 +180,28 @@ def write_scripts(key, topic_id):
             curriculum.set_script(key, row["subtopic_id"], row["script"])
             scripted.append(row["subtopic_id"])
 
+    return jsonify({"ok": True, "scripted": scripted})
+
+
+def _write_quiz_ladders(channel, todo: list):
+    """A quiz category's rounds, one at a time, easiest first within each
+    round, so every rung is written knowing the ones below it."""
+    from pipeline import quiz
+
+    order = {str(d).lower(): i for i, d in enumerate(channel.quiz.difficulties)}
+    todo = sorted(todo, key=lambda s: (quiz._round_number(s["title"]),
+                                       order.get((s.get("angle") or "").lower(), len(order))))
+    scripted = []
+    for row in todo:
+        try:
+            script = quiz.write_round(channel, curriculum.find(channel.key, row["id"]))
+        except PipelineError as exc:
+            log.warning(f"{channel.key}/{row['id']}: quiz round failed: {exc}")
+            if scripted:
+                break
+            return jsonify({"error": exc.user_message}), 502
+        curriculum.set_script(channel.key, row["id"], script.to_jsonable())
+        scripted.append(row["id"])
     return jsonify({"ok": True, "scripted": scripted})
 
 
@@ -199,6 +223,17 @@ def regenerate_script(key, subtopic_id):
                if s["id"] != subtopic_id and s.get("script")]
 
     from pipeline.script_gen import regenerate_script as regenerate
+
+    if channel.format == "quiz":
+        from pipeline import quiz
+
+        def regenerate(channel, topic, subtopic, siblings, instruction):
+            # The rung is rewritten against the rest of its ladder; its own
+            # old questions are its old script, so that is cleared first.
+            curriculum.set_script(key, subtopic_id, None)
+            note = f"The owner asks: {instruction}" if instruction else ""
+            return quiz.write_round(channel, curriculum.find(key, subtopic_id),
+                                    note).to_jsonable()
 
     try:
         script = regenerate(channel, topic, subtopic, siblings, instruction)

@@ -630,8 +630,6 @@ def _stored_script(plan) -> Script:
     """
     if plan.channel.content_mode != "topic" or not plan.seed.topic_id:
         return None
-    if getattr(plan.channel, "format", "narrated") == "quiz":
-        return None             # a quiz is written and fact-checked fresh
     from core import curriculum
     if not curriculum.exists(plan.channel.key):
         return None

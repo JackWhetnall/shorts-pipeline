@@ -307,3 +307,73 @@ def test_settings_for_a_quiz_show_only_the_board_look(tmp_path, monkeypatch):
     assert "Board look" in page and "quiz-preview.jpg" in page
     assert 'type="range" name="scene_share"' not in page and 'name="scene_share"' in page
     assert "Paintings and engravings" not in page and "Hook text and key words" not in page
+
+
+class TestLadder:
+    """A category's rounds are written easiest first, each seeing the
+    others, then made in any order."""
+
+    @pytest.fixture
+    def plan(self, tmp_path, monkeypatch):
+        from core import curriculum
+        monkeypatch.setattr("core.curriculum.CURRICULA_DIR", tmp_path / "curricula")
+        channel = _channel()
+        channel.quiz.difficulties = ["Easy", "Medium", "Hard"]
+        data = curriculum.start("pub_quiz", "quiz", [{"title": "Science"}, {"title": "Maths"}])
+        for topic in data["topics"]:
+            curriculum.add_subtopics("pub_quiz", topic["id"],
+                                     quiz.subtopic_rows(topic["title"], channel.quiz.difficulties))
+        prompts = []
+
+        def call_json(system, user, schema, *, operation, **kwargs):
+            if operation == "quiz_verify":
+                return {"results": [{"number": i + 1, "working": "", "correct_answers": ["x"],
+                                     "verdict": "ok", "note": ""} for i in range(3)]}
+            prompts.append(user)
+            difficulty = user.split("Difficulty: ")[1].split("\n")[0]
+            return _round(prefix=difficulty)
+
+        monkeypatch.setattr(quiz, "call_json", call_json)
+        return SimpleNamespace(channel=channel, prompts=prompts,
+                               find=lambda title: next(s for s in curriculum.subtopics("pub_quiz")
+                                                       if s["title"] == title))
+
+    def test_a_hard_round_writes_the_easier_ones_first_and_builds_on_them(self, plan):
+        hard = plan.find("Science: Hard")
+        script = quiz.write_script(Seed(type="topic", topic=hard["title"], topic_id=hard["id"]),
+                                   plan.channel)
+        assert [p.split("Difficulty: ")[1].split("\n")[0] for p in plan.prompts] == [
+            "Easy", "Medium", "Hard"]
+        assert "The Easy round (must be easier" in plan.prompts[1]
+        assert "Easy question number 1?" in plan.prompts[2] and "Medium question number 1?" in plan.prompts[2]
+        assert script.quiz["difficulty"] == "Hard"
+        # The easier rounds are stored for their own videos; the other
+        # category is untouched.
+        assert plan.find("Science: Easy")["script"]["quiz"]["difficulty"] == "Easy"
+        assert plan.find("Maths: Easy").get("script") is None
+
+    def test_a_stored_round_is_used_when_its_video_comes_up(self, plan):
+        from pipeline import script_gen
+        medium = plan.find("Science: Medium")
+        quiz.write_script(Seed(type="topic", topic=medium["title"], topic_id=medium["id"]),
+                          plan.channel)
+        easy = plan.find("Science: Easy")
+        stored = script_gen._stored_script(SimpleNamespace(
+            channel=plan.channel, seed=Seed(type="topic", topic=easy["title"], topic_id=easy["id"])))
+        assert stored.quiz["difficulty"] == "Easy"
+        # And counts as asked, so no other round repeats it.
+        assert "Easy question number 1?" in quiz.asked_before("pub_quiz", "Maths")
+
+    def test_a_round_already_made_counts_as_a_rung(self, plan):
+        """The owner made Medium first: Easy must be pitched below it."""
+        from core import curriculum
+        from pipeline import similarity
+        medium = plan.find("Science: Medium")
+        curriculum.attach_video("pub_quiz", medium["id"], "science_medium")
+        curriculum.claim("pub_quiz", medium["id"])
+        similarity.record("pub_quiz", "science_medium",
+                          quiz.to_script(_round(prefix="Made"), plan.channel, "Science", "Medium"))
+        easy = plan.find("Science: Easy")
+        quiz.write_script(Seed(type="topic", topic=easy["title"], topic_id=easy["id"]), plan.channel)
+        assert "The Medium round (must be harder" in plan.prompts[0]
+        assert "Made question number 1? (Made1)" in plan.prompts[0]

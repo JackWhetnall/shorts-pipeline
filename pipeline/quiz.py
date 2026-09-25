@@ -27,6 +27,7 @@ import html
 import json
 import math
 from pathlib import Path
+from types import SimpleNamespace
 
 from core import curriculum
 from core.errors import PipelineError
@@ -249,19 +250,109 @@ def top_up(channel) -> int:
     return added
 
 
-def asked_before(channel_key: str, category: str) -> list:
-    """Questions this channel has already asked, this category's first.
-    From the originality history, which records every video's script."""
+def _made(channel_key: str) -> list:
+    """[(video stem, {category, questions})] for every quiz this channel
+    has made, newest first, from the originality history."""
     from pipeline import similarity
 
     history = similarity._load().get(channel_key) or []
+    return [(e.get("title", ""), e["quiz"]) for e in reversed(history) if e.get("quiz")]
+
+
+def _written(channel_key: str) -> list:
+    """[(subtopic, its stored round's quiz dict)] for rounds written ahead
+    of their video (the ladder writes easier rungs first)."""
+    if not curriculum.exists(channel_key):
+        return []
+    return [(s, s["script"]["quiz"]) for s in curriculum.subtopics(channel_key)
+            if (s.get("script") or {}).get("quiz") and s["status"] == curriculum.PENDING]
+
+
+def asked_before(channel_key: str, category: str) -> list:
+    """Questions this channel has already asked or written, this
+    category's first: every video it has made (the originality history)
+    and every round written ahead of its video."""
     same, other = [], []
-    for entry in reversed(history):
-        text = entry.get("quiz") or {}
+    rounds = [q for _, q in _made(channel_key)] + [q for _, q in _written(channel_key)]
+    for text in rounds:
         for q in text.get("questions") or []:
             (same if text.get("category", "").lower() == category.lower() else other).append(
                 q.get("question", ""))
-    return [q for q in same + other if q][:HISTORY_QUESTIONS]
+    return list(dict.fromkeys(q for q in same + other if q))[:HISTORY_QUESTIONS]
+
+
+# --- the difficulty ladder -------------------------------------------------------
+#
+# A category's rounds (Easy up to Impossible) are written easiest first,
+# each seeing the others' questions, so the steps between them are real:
+# written independently, "Hard" and "Medium" came out much the same. The
+# videos are still made in whatever order the channel's ordering picks.
+
+def _round_number(title: str) -> int:
+    import re
+    match = re.search(r"\(round (\d+)\)", title or "")
+    return int(match.group(1)) if match else 1
+
+
+def ladder(channel, entry: dict) -> list:
+    """This round's category at every difficulty, in the same round,
+    easiest first."""
+    order = {str(d).lower(): i for i, d in enumerate(channel.quiz.difficulties)}
+    rungs = [s for s in curriculum.subtopics(channel.key, topic_id=entry["topic"])
+             if _round_number(s["title"]) == _round_number(entry["title"])]
+    return sorted(rungs, key=lambda s: order.get((s.get("angle") or "").lower(), len(order)))
+
+
+def _questions_of(channel_key: str, entry: dict) -> list:
+    """[{question, answer}] for one rung, whether it was written ahead or
+    already made."""
+    stored = (entry.get("script") or {}).get("quiz")
+    if stored:
+        return stored.get("questions") or []
+    if entry.get("video_stem"):
+        for stem, quiz in _made(channel_key):
+            if stem == entry["video_stem"]:
+                return quiz.get("questions") or []
+    return []
+
+
+def ladder_note(channel, entry: dict) -> str:
+    """The same category's other rungs, so this round's difficulty sits
+    between them."""
+    rungs = ladder(channel, entry)
+    here = next((i for i, s in enumerate(rungs) if s["id"] == entry["id"]), 0)
+    parts = []
+    for i, rung in enumerate(rungs):
+        questions = _questions_of(channel.key, rung) if i != here else []
+        if not questions:
+            continue
+        side = "easier" if i < here else "harder"
+        listed = "\n".join(f"- {q.get('question')}" + (f" ({q['answer']})" if q.get("answer") else "")
+                           for q in questions)
+        parts.append(f"The {rung.get('angle')} round (must be {side} than this one):\n{listed}")
+    if not parts:
+        return ""
+    return ("This category's other difficulty levels. Pitch this round clearly between them: "
+            "a step harder than every easier round, a step easier than every harder one. "
+            "Don't repeat their questions.\n\n" + "\n\n".join(parts))
+
+
+def write_ladder_below(channel, entry: dict) -> int:
+    """Write and store every easier rung of this round's ladder that has
+    neither a script nor a video yet, easiest first. Returns how many."""
+    written = 0
+    for rung in ladder(channel, entry):
+        if rung["id"] == entry["id"]:
+            break
+        rung = curriculum.find(channel.key, rung["id"])
+        if rung["status"] != curriculum.PENDING or _questions_of(channel.key, rung):
+            continue
+        log.info(f"  [quiz] writing the {rung.get('angle')} round of this category first, "
+                 f"so this one builds on it")
+        script = write_round(channel, rung)
+        curriculum.set_script(channel.key, rung["id"], script.to_jsonable())
+        written += 1
+    return written
 
 
 # --- writing ---------------------------------------------------------------
@@ -355,10 +446,33 @@ def _mentions(text: str, answer: str) -> bool:
 
 def write_script(seed, channel, avoid: str = "") -> Script:
     """The round as a Script, fact-checked. `avoid` is the originality
-    gate's note when a first attempt read too much like an earlier one."""
-    category, difficulty = round_of(seed, channel)
+    gate's note when a first attempt read too much like an earlier one.
+
+    On a topic plan, the category's easier rounds are written first
+    (write_ladder_below) and this one is pitched above them."""
+    entry = (curriculum.find(channel.key, seed.topic_id)
+             if seed.topic_id and curriculum.exists(channel.key) else None)
+    if entry is None:
+        category, difficulty = round_of(seed, channel)
+        return _write_checked(channel, category, difficulty, avoid)
+    write_ladder_below(channel, entry)
+    return write_round(channel, curriculum.find(channel.key, entry["id"]), avoid)
+
+
+def write_round(channel, entry: dict, avoid: str = "") -> Script:
+    """One rung of a category's ladder, written knowing the others."""
+    topic = curriculum.find_topic(channel.key, entry["topic"]) or {}
+    category = topic.get("title") or entry["title"].split(":")[0]
+    difficulty = entry.get("angle") or round_of(SimpleNamespace(
+        topic_id="", topic=entry["title"], title=entry["title"]), channel)[1]
+    extra = "\n\n".join(p for p in (ladder_note(channel, entry), avoid) if p)
+    return _write_checked(channel, category, difficulty, extra)
+
+
+def _write_checked(channel, category: str, difficulty: str, extra: str = "") -> Script:
+    """Write a round and fact-check it (see the module docstring)."""
     asked = asked_before(channel.key, category)
-    data = _write(category, difficulty, channel, asked, avoid)
+    data = _write(category, difficulty, channel, asked, extra)
     questions = data["questions"]
     verdicts = verify(category, difficulty, questions)
 
@@ -368,10 +482,11 @@ def write_script(seed, channel, avoid: str = "") -> Script:
         kept = [q for i, q in enumerate(questions) if i not in bad]
         keep = [q["question"] for q in kept]
         staying = "\n".join(f"- {q['question']} ({q['answer']})" for q in kept)
+        instead = (f"Only the questions are needed this time; the intro and sign-off "
+                   f"will be discarded. These stay in the round, so no question may "
+                   f"share an answer or a subject with them:\n{staying}")
         replacement = _write(category, difficulty, channel, asked + keep,
-                             f"Only the questions are needed this time; the intro and sign-off "
-                             f"will be discarded. These stay in the round, so no question may "
-                             f"share an answer or a subject with them:\n{staying}")["questions"]
+                             "\n\n".join(p for p in (extra, instead) if p))["questions"]
         # Nothing that repeats or gives away an answer already in the round
         # (a replacement "capital of Italy" beside "which country is shaped
         # like a boot").

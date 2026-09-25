@@ -287,7 +287,8 @@ def record(channel_key: str, title: str, script, path: Path = None,
     quiz = getattr(script, "quiz", None)
     if quiz:
         entries[-1]["quiz"] = {"category": quiz.get("category", ""),
-                               "questions": [{"question": q.get("question", "")}
+                               "questions": [{"question": q.get("question", ""),
+                                              "answer": q.get("answer", "")}
                                              for q in quiz.get("questions") or []]}
     history[channel_key] = entries[-HISTORY_LIMIT:]
     _save(history, path)
