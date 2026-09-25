@@ -103,6 +103,12 @@ pipeline/     The generation stages. No web dependency at all.
                 the hook text and cards over it.
   sound         Music bed ducked under speech, synthesised scene effects.
   artwork       Public-domain paintings under the passage (AIC, the Met).
+  director      Per segment: footage, illustration, template or diagram, with
+                the channel's slider as the bar (decision 040).
+  visuals       Carries out the director's plan; failures fall back to footage.
+  illustrate    One image in the channel's style, pushed in.
+  templates/    Designed motion-graphics templates (HTML/CSS, a seekable
+                engine, per-channel theme), filled by one small model call.
   description   The paste-ready description and the meta sidecar.
   editor_check  The automatic script and picture checks run on every video.
   similarity    Originality checking against the channel's own history.
@@ -195,9 +201,9 @@ tts.run(plan)                -> plan.voiceover, and each Segment's real start/en
                                  (refused up front if the voice quota
                                  can't cover it)
 artwork.run(plan)            -> a painting under the passage, when switched on
-scenes.stage.run(plan)       -> plan.scene_clips: animated scenes for the
-                                 stretches of segments the channel's
-                                 `scenes.share` asks for (none at 0)
+visuals.run(plan)            -> plan.scene_clips: templates, illustrations
+                                 and diagrams where the director's score
+                                 clears the channel's bar (none at 0)
 assemble.run(plan)           -> plan.shots (one per scene; stock footage
                                  matched for the rest), the video file
 _finish(plan)                -> meta, description, script history, cost, render

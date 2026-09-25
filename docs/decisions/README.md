@@ -52,3 +52,4 @@ reason for a change stays true forever.
 | [037](037-hooks-that-grab-and-a-threshold-slider.md) | Hooks that grab, scripts that sound human, the animation slider as a threshold | Active; revises 036's hook and 035's slider |
 | [038](038-production-polish.md) | Faster renders, sound, the visual hook, camera, maths, libraries, paintings | Active |
 | [039](039-music-library-and-fresh-code.md) | Music fetched per channel; restart onto new code; scenes wait for the hook | Active; revises 038's music |
+| [040](040-visual-rethink.md) | A visual director, designed templates and illustrations | Active; supersedes 035's planner |

@@ -205,9 +205,18 @@ so moving one back actually undoes rather than compounding — and Apply
 saves that as the picture itself. Its licence is recorded the same way a
 footage clip's is.
 
-### Animated scenes
+### Graphics and illustrations
 
-Under the captions, a segment shows either stock footage or an animated
+Under the captions, each segment shows real footage, an **illustration**
+in the channel's look, or a designed **motion graphic** (a big number, a
+comparison, a list, steps, a timeline, a chart, myth vs fact, a
+definition, a quote, an equation, a proportion, sizes). A director picks
+per segment; the channel's slider is how much a segment must need a
+graphic before it gets one. The dashboard's **See the motion graphics in
+this look** shows all of them in the channel's style.
+
+The older free-form scenes remain for geometry and plots only (below).
+Under the captions, a segment could show stock footage or an animated
 **scene**. Shapes draw themselves and labels, equations, counters, charts
 and illustrated objects arrive on the word that names them, all in the
 channel's own look. The **Animated scenes** card on a channel's dashboard
