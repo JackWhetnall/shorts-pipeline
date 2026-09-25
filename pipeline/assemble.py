@@ -492,32 +492,88 @@ def plan_shots(segments: list, scene_clips: list, max_seconds: float) -> list:
     return shots
 
 
-def _background_layer(clip_path, target_duration: float, start_time: float,
-                      is_first: bool, crossfade: float, from_start: bool = False):
-    """Prepare one shot's footage: fill the frame, take a random window
-    (or, for an animated scene, play it from the start), position at its
-    exact real timestamp."""
-    from moviepy.editor import VideoFileClip
-    from moviepy.video.fx.loop import loop as loop_fx
+VIDEO_FPS = 30
 
-    raw = VideoFileClip(str(clip_path))
-    background = raw.resize(height=H)
-    if background.w < W:
-        background = background.resize(width=W)
-    background = background.crop(x_center=background.w / 2, y_center=background.h / 2,
-                                 width=W, height=H)
 
-    if background.duration < target_duration:
-        background = loop_fx(background, duration=target_duration)
-    else:
-        latest_start = background.duration - target_duration
-        start = random.uniform(0, latest_start) if latest_start > 0 and not from_start else 0.0
-        background = background.subclip(start, start + target_duration)
+def _clip_seconds(path) -> float:
+    import imageio_ffmpeg
+    return imageio_ffmpeg.count_frames_and_secs(str(path))[1]
 
-    background = background.without_audio().set_start(start_time)
-    if not is_first:
-        background = background.crossfadein(crossfade)
-    return background
+
+def _prepare_shot(shot, target: float, out_path: Path) -> Path:
+    """One shot's footage as its own file: filled to 1080x1920, a random
+    window of the source (or, for an animated scene, from its start),
+    looped if the source is shorter than the shot, at the video's fps.
+    Encoded fast and near-lossless: it's an intermediate, and the final
+    encode is the one that sets the quality."""
+    import subprocess
+
+    import imageio_ffmpeg
+
+    length = _clip_seconds(shot.clip_path)
+    loop = length < target
+    start = 0.0 if (shot.scene or loop) else random.uniform(0, max(0.0, length - target))
+    cmd = [imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-y"]
+    if loop:
+        cmd += ["-stream_loop", "-1"]
+    cmd += ["-ss", f"{start:.3f}", "-t", f"{target:.3f}", "-i", str(shot.clip_path), "-an",
+            "-vf", f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+                   f"fps={VIDEO_FPS},setsar=1,format=yuv420p,"
+                   # Half a second of held tail: frame rounding otherwise left
+                   # the joined track a frame short of the narration.
+                   f"tpad=stop_mode=clone:stop_duration=0.5",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "14", str(out_path)]
+    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return out_path
+
+
+def build_background_track(shots: list, crossfade: float, out_path: Path) -> Path:
+    """Every shot, cut, cropped and crossfaded, as one video, by ffmpeg.
+
+    This used to be one moviepy layer per shot composited frame by frame
+    in Python: each crossfade gives a layer a mask, and blending
+    full-screen masked layers was about three quarters of a render's
+    time (280 of 373 seconds, profiled). ffmpeg does the same work
+    natively; moviepy is left with only the small caption images to lay
+    over it. Same timing as before: shot i appears at its start and fades
+    in over the previous shot, which runs `crossfade` seconds long.
+    """
+    import subprocess
+
+    import imageio_ffmpeg
+
+    out_path = Path(out_path)
+    work = out_path.with_suffix("")
+    work.mkdir(parents=True, exist_ok=True)
+    try:
+        last = len(shots) - 1
+        items = [(i, shot, shot.duration if i == last else shot.duration + crossfade)
+                 for i, shot in enumerate(shots)]
+        parts = job_context.parallel_map(
+            lambda item: _prepare_shot(item[1], item[2], work / f"shot_{item[0]:03d}.mp4"),
+            items, max_workers=4)
+        if len(parts) == 1:
+            parts[0].replace(out_path)
+            return out_path
+        origin = shots[0].start
+        chain, label = [], "0:v"
+        for i in range(1, len(parts)):
+            out = f"v{i}"
+            chain.append(f"[{label}][{i}:v]xfade=transition=fade:duration={crossfade:.3f}:"
+                         f"offset={shots[i].start - origin:.3f}[{out}]")
+            label = out
+        cmd = [imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-y"]
+        for part in parts:
+            cmd += ["-i", str(part)]
+        cmd += ["-filter_complex", ";".join(chain), "-map", f"[{label}]",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "14",
+                "-pix_fmt", "yuv420p", str(out_path)]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return out_path
+    finally:
+        for f in work.glob("*.mp4"):
+            f.unlink(missing_ok=True)
+        work.rmdir()
 
 
 # --- the stage --------------------------------------------------------
@@ -609,17 +665,21 @@ def run(plan):
     narration_duration = len(narration) / fps
     crossfade = pacing.crossfade
 
-    backgrounds = []
-    for i, shot in enumerate(plan.shots):
-        is_last = i == len(plan.shots) - 1
-        target = shot.duration if is_last else shot.duration + crossfade
-        backgrounds.append(_background_layer(shot.clip_path, target, shot.start,
-                                             i == 0, crossfade, from_start=shot.scene))
+    from moviepy.editor import VideoFileClip
+
+    out = Path(plan.video_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    track_path = build_background_track(plan.shots, crossfade,
+                                        out.with_name(f"{out.stem}_TEMP_background.mp4"))
+    background = VideoFileClip(str(track_path), audio=False)
+    backgrounds = [background]
 
     log.info("  [video] rendering captions...")
     captions = build_caption_clips(plan.voiceover.word_timings, style, pacing)
 
-    narration_video = CompositeVideoClip([*backgrounds, *captions], size=(W, H))
+    # The track is the base frame, never blended: only the captions are.
+    narration_video = CompositeVideoClip([background.set_duration(narration_duration), *captions],
+                                         size=(W, H), use_bgclip=True)
     narration_video = narration_video.set_duration(narration_duration)
 
     # The seed's own title rather than the generated one: it is what the
@@ -692,14 +752,12 @@ def run(plan):
     # render of the same samples, which matched everywhere except that
     # final stretch, where it was different non-silent content rather
     # than a decode artifact.
-    out = Path(plan.video_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
     temp_video = out.with_name(f"{out.stem}_TEMP_video.mp4")
     temp_audio = out.with_name(f"{out.stem}_TEMP_audio.m4a")
 
     log.info(f"  [video] rendering {len(plan.shots)} shot(s) — the slowest step...")
     try:
-        final.write_videofile(str(temp_video), fps=30, codec="libx264", audio=False,
+        final.write_videofile(str(temp_video), fps=VIDEO_FPS, codec="libx264", audio=False,
                               threads=ENCODE_THREADS, preset=ENCODE_PRESET,
                               logger=encode_logger())
         log.info("  [video] encoding the audio track...")
@@ -714,6 +772,7 @@ def run(plan):
         for background in backgrounds:
             background.close()
         final.close()
+        track_path.unlink(missing_ok=True)
 
     library.mark_used([shot.clip_path for shot in plan.shots if shot.clip_path], channel.key)
     job_context.report_progress(None)
