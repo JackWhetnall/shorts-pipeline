@@ -18,9 +18,15 @@ git push
 ```
 Run it in the project folder (`C:\Users\JackW\Documents\YT`).
 
-### 2. Switch to the new version of the app
+### 2. Switch to the new version of the app (last time by hand)
 The copy you started by hand is running old code.
-1. Close the terminal window running `python -m web` (or press Ctrl+C in it).
+From now on the app restarts itself onto new code whenever it's idle,
+so this is the last manual restart. It's needed once because the copy
+running now predates that feature, which is why Curiosity Leak's video
+failed. After restarting, retry that video from the Activity page: its
+script and voiceover are reused, so it doesn't pay for them again.
+1. Close the terminal window running `python -m web` (or press Ctrl+C in
+   it), or end the `pythonw` process in Task Manager.
 2. Start the new one the way it will start at every login from now on:
    ```
    schtasks /Run /TN "Shorts Pipeline"
@@ -46,17 +52,14 @@ On a channel's settings page, **Preview a script** (about 2 cents; no
 voice, no video) shows the new hooks. Tell me which ones would and
 wouldn't stop you scrolling; that's the fastest way to tune them.
 
-### 2b-iii. Add music for each channel (15 minutes)
-Videos now have a music bed that ducks under the voice, but the app
-never downloads or generates music: it needs tracks from you.
-1. Pick 3-6 tracks per channel that suit its mood (calm and warm for
-   Minute Pastor; soft and mysterious for Wren's). Good sources: the
-   **YouTube Audio Library** (Studio → Audio Library; choose "no
-   attribution required") and **Pixabay Music**. Avoid anything that
-   might carry a Content ID claim: a claim can take a video's revenue.
-2. Put them in `channels\minute_pastor\music\` (and so on per channel),
-   or `music\` in the project folder to share them across channels.
-3. Levels are under Settings → Voice & timing if the music feels too loud.
+### 2b-iii. Choose music for each channel (5 minutes each)
+Each channel's dashboard now has a **Music** card: press **Suggest
+tracks**, listen, and **Add** the ones that suit it (3-6 is plenty). If
+you skip this, the app fetches the best three itself at the channel's
+next video. Tracks are openly licensed and credited automatically where
+needed, and no two channels share one. Listen before adding: titles can
+mislead, and a track that turns out to carry a Content ID claim should
+be removed.
 
 ### 2b-iv. Try Paintings on Minute Pastor
 Settings → Look → **Paintings**: tick "Show a public-domain painting of

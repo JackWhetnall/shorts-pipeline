@@ -242,12 +242,17 @@ render in the Chrome installed on this PC, so Chrome must stay installed.
 Under the voice: a music bed that ducks whenever anyone speaks and rises
 in the pauses, and small sound effects (pops, whooshes, chimes, clinks)
 on animated scenes' moves. Effects are made by the app itself, so there
-is nothing to download or license. Music is never generated: put tracks
-in `channels/<key>/music/` for one channel, or `music/` for all of them;
-with none there, there's no music. Levels and on/off are under Settings
-→ Voice & timing. Use tracks you're licensed to use on YouTube *and*
-TikTok/Instagram; a track that gets a Content ID claim can take a
-video's revenue.
+is nothing to download or license.
+
+Music is found for each channel: the **Music** card on its dashboard
+(and the draft page, for a new channel) suggests openly licensed tracks
+that suit it, with players, to add or remove. A channel with none gets
+the best few automatically at its next video. Tracks are CC0, public
+domain, or CC BY (credited in the description automatically), and no
+two channels ever share one. Your own files in `channels/<key>/music/`
+work too. Levels and on/off are under Settings → Voice & timing. Listen
+before adding, and watch early videos for Content ID claims: a claim
+can take a video's revenue.
 
 ## Paintings
 

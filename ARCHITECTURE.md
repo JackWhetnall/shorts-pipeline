@@ -57,6 +57,10 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
                 queue filled, refresh audience numbers.
   publish_queue Approved videos waiting for their publishing slot; sending
                 one out (YouTube upload; TikTok/Instagram listed To post).
+  music_library Each channel's music: openly licensed tracks found on Openverse,
+                judged for fit, never shared between channels (decision 039).
+  code_freshness Notices the code changed on disk; refuses new jobs and
+                restarts the app once idle (decision 039).
   posting       Posting to TikTok/Instagram from this PC: the channel's own
                 browser profile at the upload page, the video in Explorer.
   launch        Each channel's launch pipeline: ordered stages from idea to
