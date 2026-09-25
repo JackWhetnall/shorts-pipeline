@@ -96,6 +96,9 @@ class Segment:
     keywords: list = field(default_factory=list)
     start: float = 0.0
     end: float = 0.0
+    # Silence after this segment, overriding the channel's pacing: a
+    # quiz's countdown after each question. None means the usual pause.
+    pause_after: float = None
 
     @property
     def visual_text(self) -> str:
@@ -110,7 +113,7 @@ class Segment:
     def to_jsonable(self) -> dict:
         return {"text": self.text, "shot_brief": self.shot_brief,
                 "keywords": list(self.keywords),
-                "start": self.start, "end": self.end}
+                "start": self.start, "end": self.end, "pause_after": self.pause_after}
 
     @classmethod
     def from_jsonable(cls, data: dict) -> "Segment":
@@ -118,7 +121,8 @@ class Segment:
         # existed must still resume rather than crash a retry.
         return cls(text=data["text"], shot_brief=data.get("shot_brief", ""),
                    keywords=list(data.get("keywords") or []),
-                   start=data.get("start", 0.0), end=data.get("end", 0.0))
+                   start=data.get("start", 0.0), end=data.get("end", 0.0),
+                   pause_after=data.get("pause_after"))
 
 
 @dataclass
@@ -155,6 +159,10 @@ class Script:
     emphasis: list = field(default_factory=list)
     # A short museum search for a painting of this passage (pipeline.artwork).
     art_query: str = ""
+    # A quiz's structure (pipeline.quiz): category, difficulty, and each
+    # question with its answer and which segments ask and answer it.
+    # None for every other format.
+    quiz: dict = None
 
     def __post_init__(self):
         if self.source_index is None and self.citation:
@@ -172,6 +180,7 @@ class Script:
                 "screen_hook": self.screen_hook,
                 "emphasis": list(self.emphasis),
                 "art_query": self.art_query,
+                "quiz": self.quiz,
                 "segments": [s.to_jsonable() for s in self.segments],
                 "title_options": list(self.title_options),
                 "description_body": self.description_body}
@@ -185,6 +194,7 @@ class Script:
                    screen_hook=data.get("screen_hook", ""),
                    emphasis=list(data.get("emphasis") or []),
                    art_query=data.get("art_query", ""),
+                   quiz=data.get("quiz"),
                    segments=[Segment.from_jsonable(s) for s in data["segments"]],
                    title_options=list(data.get("title_options") or []),
                    description_body=data.get("description_body", ""))

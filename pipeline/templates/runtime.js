@@ -76,6 +76,19 @@ window.__start = function () {
       }
     }
   };
+  // What a frame at t would look like, without drawing it: every
+  // element's progress. A page whose background doesn't drift
+  // (STATIC_BACKGROUND) looks the same whenever this is the same, so the
+  // encoder can reuse the last frame instead of taking a screenshot. A
+  // quiz board is still for most of its two minutes.
+  window.__signature = window.STATIC_BACKGROUND ? function (t) {
+    return items.map(it => {
+      const p = clamp((t - it.at) / it.dur);
+      const q = it.out == null ? 0 : clamp((t - it.out) / 0.35);
+      const c = it.count ? clamp((t - it.at) / it.count.dur) : 0;
+      return p.toFixed(3) + q.toFixed(3) + c.toFixed(3);
+    }).join("|");
+  } : null;
   window.__seek(0);
   window.__ready = true;
 };

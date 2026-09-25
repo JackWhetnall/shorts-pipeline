@@ -70,6 +70,11 @@ def _raw(kind: str, fps: int) -> np.ndarray:
     if kind == "tick":
         n = int(0.03 * fps)
         return rng.standard_normal(n) * _envelope(n, fps, 0.0005, 0.006)
+    if kind == "tock":
+        # A clock's tick: a short woody knock, lower and rounder than "tick".
+        n = int(0.09 * fps); t = np.arange(n) / fps
+        wave = np.sin(2 * np.pi * 950 * t) + 0.5 * np.sin(2 * np.pi * 1900 * t)
+        return (wave + 0.3 * rng.standard_normal(n)) * _envelope(n, fps, 0.001, 0.018)
     if kind == "chime":
         n = int(0.9 * fps); t = np.arange(n) / fps
         wave = sum(a * np.sin(2 * np.pi * f * t) for f, a in ((1320, 1.0), (1980, 0.4), (2640, 0.2)))
@@ -91,13 +96,16 @@ MAX_CUES = 8                   # per video, whatever the scenes ask for
 
 def scene_cues(plan) -> list:
     """[(narration seconds, effect, gain)] for every scene in the video."""
-    cues = []
+    cues, clock = [], []
     for clip in getattr(plan, "scene_clips", None) or []:
         spec = Path(clip["clip"]).with_suffix(".json")
         if not spec.exists():
             continue
         scene = json.loads(spec.read_text(encoding="utf-8"))
         start = plan.script.segments[clip["first"]].start
+        # A quiz's clock ticks every second by design, so it is exempt
+        # from the gap and the cap below.
+        clock += [(start + float(at), kind, float(gain)) for at, kind, gain in scene.get("timer_cues") or []]
         # A template says which of its moments deserve a sound.
         cues += [(start + float(at), kind, float(gain)) for at, kind, gain in scene.get("cues") or []]
         for action in scene.get("actions") or []:
@@ -115,7 +123,7 @@ def scene_cues(plan) -> list:
     for cue in cues:
         if not kept or cue[0] - kept[-1][0] >= MIN_GAP:
             kept.append(cue)
-    return kept[:MAX_CUES]
+    return sorted(kept[:MAX_CUES] + clock)
 
 
 def add_effects(track: np.ndarray, fps: int, cues: list, level: float) -> np.ndarray:

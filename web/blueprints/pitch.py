@@ -91,6 +91,10 @@ def accept(draft_id):
     }
     if "quotes" in form:
         choices["quotes"] = form.get("quotes", "")
+    for field in ("quiz_categories", "quiz_difficulties", "quiz_questions",
+                  "quiz_countdown_seconds"):
+        if field in form:
+            choices[field] = form.get(field)
     try:
         channel = drafts.accept(draft_id, choices)
     except PipelineError as exc:

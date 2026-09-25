@@ -57,7 +57,9 @@
   <div class="card">
     <h2>How it's written</h2>
     <p class="meta">
-      {% if body.content_mode == 'topic' %}Writes each video from one topic in an ordered plan
+      {% if body.format == 'quiz' %}A quiz: each video is one category at one difficulty,
+      its questions shown and read, a countdown, then the answer on a numbered board.
+      {% elif body.content_mode == 'topic' %}Writes each video from one topic in an ordered plan
       (below).{% elif body.corpus_source == 'custom' %}Reads a quote from its own list, then
       comments on it.{% else %}Reads a passage from the built-in {{ body.corpus_source|capitalize }}
       library, then comments on it.{% endif %}
@@ -75,6 +77,30 @@
     </label>
     {% endif %}
   </div>
+
+  {% if body.format == 'quiz' %}
+  <div class="card">
+    <h2>The quiz</h2>
+    <label>Categories, one per line: each is a topic on its plan
+      <textarea name="quiz_categories" rows="8">{{ body.quiz_categories|join('\n') }}</textarea>
+    </label>
+    <label>Difficulty levels, easiest first, one per line
+      <textarea name="quiz_difficulties" rows="5">{{ body.quiz_difficulties|join('\n') }}</textarea>
+    </label>
+    <label>Questions a quiz
+      <input type="number" name="quiz_questions" min="3" max="15" value="{{ body.quiz_questions }}">
+    </label>
+    <label>Countdown after each question, in seconds
+      <input type="number" name="quiz_countdown_seconds" min="1" max="10" step="0.5"
+             value="{{ body.quiz_countdown_seconds }}">
+    </label>
+    <p class="hint">Every category at every difficulty is one quiz, so
+      {{ body.quiz_categories|length }} categories &times; {{ body.quiz_difficulties|length }} levels
+      is {{ body.quiz_categories|length * body.quiz_difficulties|length }} quizzes to start; another
+      round of each is added automatically when they run low. Every answer is fact-checked before
+      it's voiced, and a video with one that doesn't pass waits for you.</p>
+  </div>
+  {% endif %}
 
   <div class="card">
     <h2>Voice</h2>
@@ -96,9 +122,11 @@
     <label>Video length in seconds
       <input type="number" name="target_seconds" min="15" max="180" value="{{ body.target_seconds }}">
     </label>
+    {% if body.format != 'quiz' %}
     <label>Spoken segments
       <input type="number" name="segment_count" min="1" max="8" value="{{ body.segment_count }}">
     </label>
+    {% endif %}
     <label>Narrator speed (1.0 is normal)
       <input type="number" name="speed" min="0.7" max="1.2" step="0.05" value="{{ body.speed }}">
     </label>
@@ -130,12 +158,14 @@
   </div>
 
   <div class="card">
-    <h2>Graphics and illustrations</h2>
+    <h2>{{ 'The board\'s look' if body.format == 'quiz' else 'Graphics and illustrations' }}</h2>
+    {% if body.format == 'quiz' %}<p class="meta">The quiz board uses these colours and fonts.
+      The slider doesn't apply: a quiz has no footage.</p>{% endif %}
     {% if body.art and body.art.reason %}<p class="meta">{{ body.art.reason }}</p>{% endif %}
     {% include "_scene_settings.html" %}
   </div>
 
-  {% if draft.outline %}
+  {% if draft.outline and body.format != 'quiz' %}
   <div class="card">
     <h2>Topic plan</h2>
     <p class="meta">{{ body.subject }}. {{ draft.outline|length }} topics in teaching order;

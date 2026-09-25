@@ -71,6 +71,19 @@ statistic or a comparison; 40-60 suits science, history and ideas; 80+
 only subjects explained visually throughout, like maths. Never set 100
 for a channel whose subject can be filmed.
 
+Two formats. `narrated` is everything above: a script read over footage
+and graphics. `quiz` is a pub-quiz round instead: a host asks a set
+number of questions, each question's full text on screen while it's
+read, a clock counting down for a few seconds, then the answer, which
+fills a numbered board; no footage, no captions, no illustrations. Its
+topic plan is categories (the topics) crossed with difficulty levels
+(each quiz is one category at one difficulty), so give the categories and
+the difficulty ladder, easiest first. A quiz round of ten runs about two
+to two and a half minutes (Shorts may be up to three), so set its length
+accordingly. Choose `quiz` only when the pitch is a quiz; for a quiz, the
+style prompt briefs the host's personality and register, and the hook
+style describes how the round is introduced.
+
 Where the words come from: either `topic` mode, where every script is
 written from one topic in an ordered syllabus that runs from what anyone
 could follow to what only an enthusiast would search for; or
@@ -155,6 +168,18 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
             "summary": {"type": "string",
                         "description": "One sentence: what this channel is and who it's for."},
             "audience": {"type": "string"},
+            "format": {"type": "string", "enum": ["narrated", "quiz"]},
+            "quiz_categories": {"type": "array", "items": {"type": "string"},
+                                "description": "quiz only: 8-15 categories, each a quiz topic "
+                                               "(Science, Geography...). Empty otherwise."},
+            "quiz_difficulties": {"type": "array", "items": {"type": "string"},
+                                  "description": "quiz only: the difficulty ladder, easiest "
+                                                 "first, 3-6 short labels. Empty otherwise."},
+            "quiz_questions": {"type": "integer",
+                               "description": "quiz only: questions per round, 5-15. 0 otherwise."},
+            "quiz_countdown_seconds": {"type": "number",
+                                       "description": "quiz only: seconds of clock after each "
+                                                      "question, 2-8. 0 otherwise."},
             "content_mode": {"type": "string", "enum": ["topic", "static_corpus"]},
             "corpus_source": {"type": "string", "enum": ["", *BUILT_IN_SOURCES, "custom"],
                               "description": "static_corpus only. '' for topic mode."},
@@ -173,7 +198,8 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
                                           "at what intensity, in its own register. Guidance, "
                                           "never an example line."},
             "target_seconds": {"type": "integer",
-                               "description": "Finished video length, 30-90."},
+                               "description": "Finished video length: 30-90 narrated, "
+                                              "up to 180 for a quiz."},
             "segment_count": {"type": "integer", "description": "Spoken segments, 2-6."},
             "speed": {"type": "number", "description": "Narrator speed, 0.8-1.15; 1.0 is normal."},
             "avoid_imagery": {"type": "array", "items": {"type": "string"},
@@ -199,7 +225,9 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
                                      "accuracy, audience, sameness. Each with what "
                                      "the draft does about it."},
         },
-        "required": ["name_options", "summary", "audience", "content_mode",
+        "required": ["name_options", "summary", "audience", "format", "quiz_categories",
+                     "quiz_difficulties", "quiz_questions", "quiz_countdown_seconds",
+                     "content_mode",
                      "corpus_source", "custom_quotes", "subject", "style_prompt", "hook_style",
                      "target_seconds", "segment_count", "speed", "avoid_imagery",
                      "voice_brief", "voice_ids", "palette_key", "art", "music_moods",
@@ -270,7 +298,24 @@ def clean(data: dict, voice_ids: list) -> dict:
     if mode == "topic" and not (data.get("subject") or "").strip():
         out["subject"] = out.get("summary") or out["name_options"][0]
 
-    out["target_seconds"] = int(_clamp(data.get("target_seconds"), 45, 30, 90))
+    # A quiz is a topic plan of categories x difficulties, always.
+    out["format"] = "quiz" if data.get("format") == "quiz" else "narrated"
+    if out["format"] == "quiz":
+        from core.channels import Quiz
+        mode, source = "topic", ""
+        out["content_mode"], out["corpus_source"], out["custom_quotes"] = mode, source, []
+        categories = [c.strip() for c in data.get("quiz_categories") or [] if c and c.strip()]
+        out["quiz_categories"] = list(dict.fromkeys(categories))[:20] or ["General knowledge"]
+        levels = [d.strip() for d in data.get("quiz_difficulties") or [] if d and d.strip()]
+        out["quiz_difficulties"] = levels[:8] if len(levels) >= 2 else Quiz().difficulties
+        out["quiz_questions"] = int(_clamp(data.get("quiz_questions"), 10, 3, 15))
+        out["quiz_countdown_seconds"] = round(_clamp(data.get("quiz_countdown_seconds"), 4, 1, 10), 1)
+        if not (out.get("subject") or "").strip():
+            out["subject"] = out.get("summary") or out["name_options"][0]
+    else:
+        out["quiz_categories"], out["quiz_difficulties"] = [], []
+    longest = 180 if out["format"] == "quiz" else 90
+    out["target_seconds"] = int(_clamp(data.get("target_seconds"), 45, 30, longest))
     out["segment_count"] = int(_clamp(data.get("segment_count"), 3, 2, 6))
     out["speed"] = round(_clamp(data.get("speed"), 1.0, 0.8, 1.15), 2)
 

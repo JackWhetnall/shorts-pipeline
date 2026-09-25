@@ -29,7 +29,8 @@ STYLE_TEXT_FIELDS = ("base_color", "highlight_color", "stroke_color",
                      "outro_title_color", "outro_subtext_color",
                      "title_card_title_color", "title_card_channel_color")
 STYLE_BOOL_FIELDS = ("title_card_enabled", "outro_enabled", "use_background_image",
-                     "title_card_show_topic", "screen_hook_enabled", "emphasis_enabled")
+                     "title_card_show_topic", "screen_hook_enabled", "emphasis_enabled",
+                     "captions_enabled")
 TITLE_CARD_PLACEMENTS = ("start", "after_intro")
 
 ORDERING_CHOICE_FIELDS = {
@@ -138,6 +139,20 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
         from web.blueprints.scenes import art_from
         channel.scenes.share = min(100, max(0, _maybe_int(form, "scene_share", channel.scenes.share)))
         channel.scenes.art = art_from(form)
+
+    if "quiz_present" in form:
+        from core.channels import FORMATS
+        if form.get("format") in FORMATS:
+            channel.format = form.get("format")
+        quiz = channel.quiz
+        quiz.questions = min(15, max(3, _maybe_int(form, "quiz_questions", quiz.questions)))
+        quiz.countdown_seconds = min(10.0, max(1.0, _maybe_float(
+            form, "quiz_countdown_seconds", quiz.countdown_seconds)))
+        quiz.answer_pause = min(5.0, max(0.0, _maybe_float(form, "quiz_answer_pause", quiz.answer_pause)))
+        levels = [line.strip() for line in (form.get("quiz_difficulties") or "").splitlines()
+                  if line.strip()]
+        if levels:
+            quiz.difficulties = list(dict.fromkeys(levels))
 
     if "artwork_present" in form:
         channel.artwork.mode = "passage" if form.get("artwork_passage") else "off"

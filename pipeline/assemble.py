@@ -764,7 +764,8 @@ def run(plan):
     log.info("  [video] rendering captions...")
     script = plan.script
     emphasis = getattr(script, "emphasis", ()) if getattr(style, "emphasis_enabled", True) else ()
-    captions = build_caption_clips(plan.voiceover.word_timings, style, pacing, emphasis)
+    captions = (build_caption_clips(plan.voiceover.word_timings, style, pacing, emphasis)
+                if getattr(style, "captions_enabled", True) else [])
     if getattr(style, "screen_hook_enabled", True):
         captions = build_screen_hook(getattr(script, "screen_hook", ""),
                                      plan.voiceover.word_timings, style) + captions

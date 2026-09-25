@@ -102,6 +102,12 @@ class _Page:
         self.page.evaluate(f"window.__seek({t:.4f})")
         return self.page.screenshot(type="jpeg", quality=JPEG_QUALITY)
 
+    def signature(self, t: float):
+        """The page's own summary of how it looks at `t`, or None when it
+        can't say (it moves continuously). Equal signatures, equal frames."""
+        return self.page.evaluate(
+            f"window.__signature ? window.__signature({t:.4f}) : null")
+
     def __exit__(self, *exc):
         try:
             self._browser.close()
@@ -180,15 +186,21 @@ def encode(page_maker, duration: float, out_path: Path, fps: int = FPS) -> Path:
            "-f", "image2pipe", "-framerate", str(fps), "-c:v", "mjpeg", "-i", "-",
            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
            str(out_path)]
+    drawn = 0
     with page_maker as page:
         encoder = subprocess.Popen(cmd, stdin=subprocess.PIPE)
         try:
+            last_signature, last = None, None
             for i in range(frames):
-                encoder.stdin.write(page.frame(i / fps))
+                signature = page.signature(i / fps)
+                if signature is None or signature != last_signature or last is None:
+                    last, drawn = page.frame(i / fps), drawn + 1
+                last_signature = signature
+                encoder.stdin.write(last)
         finally:
             encoder.stdin.close()
             code = encoder.wait()
     if code != 0:
         raise PipelineError(f"ffmpeg exited {code}", user_message="An animated scene couldn't be encoded.")
-    log.info(f"  [scene] rendered {frames} frames to {out_path.name}")
+    log.info(f"  [scene] rendered {frames} frames ({drawn} drawn) to {out_path.name}")
     return out_path

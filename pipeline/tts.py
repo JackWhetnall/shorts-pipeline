@@ -464,8 +464,11 @@ def build_plan(segments: list, citation: str, pacing, source_index: int = 0) -> 
             plan.append((expand_citation_for_speech(citation), pacing.pause_after_citation, None))
         else:
             # The last line gets a held beat of silence after it, so the
-            # video ends rather than stops (Pacing.end_hold).
+            # video ends rather than stops (Pacing.end_hold). A segment can
+            # ask for its own (a quiz question's countdown).
             pause = pacing.pause_between_segments if i < last else getattr(pacing, "end_hold", 0.0)
+            if getattr(segment, "pause_after", None) is not None:
+                pause = float(segment.pause_after)
             plan.append((segment.text, pause, i))
     return plan
 

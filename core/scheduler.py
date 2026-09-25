@@ -8,6 +8,12 @@ What happens without anyone clicking: three duties on a five-minute tick.
    long as it takes, hours before its slot.
 3. **Refresh audience numbers** for published videos (core.audience).
 
+Before generating, each running channel's topic plan is kept ahead of it:
+a plan only ever had its first topic's videos written, so a channel left
+to itself stopped dead when that topic ran out. Now the next topic is
+written when fewer than curriculum.LOW_WATER_MARK remain (a quiz channel
+gets another round of every category, free).
+
 This replaced a per-channel "every N days at hour H" timer that made and
 published in one go, and refused to make anything while one video was
 waiting. That rule was right about not building a backlog of unreviewed
@@ -24,7 +30,7 @@ from __future__ import annotations
 
 import threading
 
-from core import gallery, jobs, publish_queue, voice_quota
+from core import curriculum, gallery, jobs, publish_queue, voice_quota
 from core.channels import load_channels
 from core.errors import PipelineError
 from core.logging_setup import get_logger
@@ -82,11 +88,42 @@ def fill_buffers(channels: dict = None) -> list:
     return started
 
 
+def top_up_plans(channels: dict = None) -> list:
+    """Write more of each running channel's topic plan when it's low.
+    At most one topic per channel per tick. Returns the keys topped up."""
+    from pipeline import curriculum_gen, quiz
+
+    channels = channels if channels is not None else load_channels(validate=False)
+    done = []
+    for key, channel in channels.items():
+        if (channel.archived or not channel.publishing.enabled
+                or channel.content_mode != "topic" or not curriculum.exists(key)):
+            continue
+        try:
+            if channel.format == "quiz":
+                if quiz.top_up(channel):
+                    done.append(key)
+                continue
+            if not curriculum.progress(key)["running_low"]:
+                continue
+            topic = curriculum.next_unfilled_topic(key)
+            if topic is None:
+                continue
+            subtopics = curriculum_gen.write_subtopics(channel, curriculum.load(key), topic)
+            curriculum.add_subtopics(key, topic["id"], subtopics)
+            log.info(f"{key}: its topic plan was running low; wrote topic {topic['title']!r}")
+            done.append(key)
+        except Exception as exc:  # noqa: BLE001 - one channel's plan must not stop the rest
+            log.warning(f"Couldn't top up {key}'s topic plan: {exc}")
+    return done
+
+
 def tick() -> None:
     """One pass of all three duties. Each is isolated from the others: a
     failed upload must not stop generation, nor either stop the stats."""
     channels = load_channels(validate=False)
     for name, duty in (("publishing", lambda: publish_queue.publish_due(channels)),
+                       ("topic plans", lambda: top_up_plans(channels)),
                        ("generation", lambda: fill_buffers(channels)),
                        ("statistics", lambda: _refresh_audience(channels))):
         try:

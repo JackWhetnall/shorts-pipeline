@@ -26,6 +26,9 @@ log = get_logger(__name__)
 
 def run(plan):
     channel = plan.channel
+    if getattr(channel, "format", "narrated") == "quiz":
+        from pipeline import quiz
+        return quiz.board(plan)
     existing = list(getattr(plan, "scene_clips", None) or [])
     covered = {i for c in existing for i in range(c["first"], c["last"] + 1)}
     plan.scene_clips, plan.scenes_fell_back, plan.scene_notes = existing, 0, []

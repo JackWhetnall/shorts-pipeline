@@ -276,15 +276,21 @@ def test_the_frame_check_judges_a_scene_frame_by_the_words_spoken_then(monkeypat
                            script=SimpleNamespace(segments=segments),
                            channel=SimpleNamespace(avoid_imagery=[]),
                            title_card_seconds=0, title_card_at=0)
-    monkeypatch.setattr(editor_check, "_frames_at", lambda path, times: ["img"])
+    seen_times = []
+    monkeypatch.setattr(editor_check, "_frames_at",
+                        lambda path, times: seen_times.extend(times) or ["img"] * len(times))
     sent = {}
     monkeypatch.setattr(editor_check, "_run", lambda system, content, op: sent.setdefault("c", content) and editor_check.CheckResult(ran=True))
     editor_check.check_frames(Path("v.mp4"), plan)
-    assert "second words" in sent["c"][0]["text"]            # the middle of the shot is at 5s
+    labels = [part["text"] for part in sent["c"] if part["type"] == "text"]
+    # A scene spanning two segments is judged near the end of each, each
+    # frame against the words spoken then (a quiz board spans a whole video).
+    assert seen_times == [3.6, 9.4]
+    assert "first words" in labels[0] and "second words" in labels[1]
     # Regression: judged against the stock-footage brief ("tape measure on
     # grass"), the Pythagoras demo's diagrams were blocked for not being
     # footage. A scene is judged against the words.
-    assert "b2" not in sent["c"][0]["text"] and "animated explanation" in sent["c"][0]["text"]
+    assert "b2" not in labels[1] and "animated explanation" in labels[1]
 
 
 class TestThreshold:

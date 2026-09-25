@@ -28,6 +28,11 @@ def evaluate(report: dict) -> dict:
     if unconfident:
         reasons.append(f"{unconfident} shot{'s' if unconfident != 1 else ''} had no footage "
                        f"that scored as a good match.")
+    unverified = report.get("quiz_unverified") or []
+    if unverified:
+        reasons.append(f"The fact check couldn't confirm the answer to question"
+                       f"{'s' if len(unverified) != 1 else ''} "
+                       f"{', '.join(str(n) for n in unverified)}.")
     if report.get("script_suspect"):
         reasons.append("A line reads like a note about a line rather than the line itself.")
     similarity = report.get("similarity") or {}

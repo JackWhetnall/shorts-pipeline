@@ -162,6 +162,11 @@ def check_script(script, channel) -> CheckResult:
     if getattr(script, "hook_promise", ""):
         lines.append(f"[THE WRITER'S PLAN] Opening loop: {script.hook_promise}. "
                      f"Closed by: {script.payoff}")
+    if getattr(script, "quiz", None):
+        lines.append("[FORMAT] This is a quiz round read by a host. After each question, "
+                     "the next line gives its answer. Check every answer: a wrong or "
+                     "doubtful one is a block. The host's patter (the intro, 'question "
+                     "two') is the format; don't report the opening for not hooking.")
     avoid = ", ".join(channel.avoid_imagery) or "(none)"
     user = (f"The channel's writing rules:\n{channel.style_prompt}\n\n"
             f"Subjects this channel avoids: {avoid}\n\n"
@@ -175,18 +180,35 @@ def check_frames(video_path: Path, plan) -> CheckResult:
     shots = [s for s in plan.shots if s.duration > 0]
     if not shots:
         return CheckResult(ran=False, error="no shots to check")
-    picked = _spread(shots, MAX_FRAMES)
+    segments = plan.script.segments
     # An animated scene builds up while it's spoken; mid-way it is only
-    # ever "incomplete". Judge it near its end, once it's all there.
-    moments = [s.start + (s.end - s.start) * (0.9 if s.scene else 0.5) for s in picked]
+    # ever "incomplete". Judge it near its end, once it's all there. One
+    # that spans several segments (a quiz board spans them all) is judged
+    # near the end of each, or the whole video got a single frame.
+    candidates = []
+    for s in shots:
+        spanned = [seg for seg in segments if s.start <= seg.start < s.end] if s.scene else []
+        if spanned:
+            candidates += [(s, seg.start + (min(seg.end, s.end) - seg.start) * 0.9) for seg in spanned]
+        else:
+            candidates.append((s, s.start + (s.end - s.start) * (0.9 if s.scene else 0.5)))
+    chosen = _spread(candidates, MAX_FRAMES)
+    picked = [shot for shot, _ in chosen]
+    moments = [moment for _, moment in chosen]
     try:
         images = _frames_at(video_path, [video_time(plan, t) for t in moments])
     except Exception as exc:  # noqa: BLE001 - a check that can't run says so
         log.warning(f"  [check] couldn't read frames for the visual check ({exc}).")
         return CheckResult(ran=False, error="couldn't read frames")
 
-    segments = plan.script.segments
     content = []
+    if getattr(plan.script, "quiz", None):
+        content.append({"type": "text", "text": (
+            "This video is a quiz board, not footage: the question being read is shown in "
+            "full at the top, a clock counts down after it, and the answers fill a numbered "
+            "list as they're given. Empty numbered rows are answers still to come, by "
+            "design. Check that the question on screen is the one being read, that a spoken "
+            "answer appears on its row, and that everything is readable.")})
     for n, (shot, data, moment) in enumerate(zip(picked, images, moments), 1):
         # An animated scene's shot spans several segments: judge the frame
         # against the words actually being spoken at that moment.

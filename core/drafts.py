@@ -46,7 +46,11 @@ def create(pitch: str, note: str = "", previous: dict = None) -> dict:
     body = channel_draft.draft(pitch, voices, note=note,
                                previous=(previous or {}).get("channel"))
     topics = []
-    if body["content_mode"] == "topic":
+    if body.get("format") == "quiz":
+        # The categories are the plan; no outline call needed.
+        topics = [{"title": c, "summary": "", "level": "foundation"}
+                  for c in body["quiz_categories"]]
+    elif body["content_mode"] == "topic":
         topics = channel_draft.outline(body["style_prompt"], body["subject"],
                                        body["name_options"][0])
     record = {
@@ -137,13 +141,19 @@ def accept(draft_id: str, choices: dict) -> ChannelConfig:
     channel.scenes.share = int(_number(choices.get("scene_share"),
                                        drafted_art.get("scene_share", 0), 0, 100))
 
+    if body.get("format") == "quiz":
+        _set_up_quiz(channel, body, choices)
+
     # Written before the channel exists, because validation looks for them:
     # a quote channel needs its list, a topic channel its plan.
     if channel.source == "custom":
         quotes = choices.get("quotes")
         text = quotes if quotes is not None else "\n".join(body["custom_quotes"])
         corpus.save(key, text)
-    if channel.content_mode == "topic":
+    if body.get("format") == "quiz":
+        categories = _lines(choices.get("quiz_categories")) or body["quiz_categories"]
+        _start_quiz_plan(channel, body["subject"], categories)
+    elif channel.content_mode == "topic":
         _start_topic_plan(channel, body["subject"], record["outline"])
 
     channel.sound.music_moods = list(body.get("music_moods") or [])
@@ -152,6 +162,50 @@ def accept(draft_id: str, choices: dict) -> ChannelConfig:
     discard(draft_id)
     log.info(f"Created channel {key} from a pitch ({record['pitch']!r}).")
     return channel
+
+
+def _lines(text) -> list:
+    if text is None:
+        return []
+    items = text if isinstance(text, list) else str(text).replace(",", "\n").splitlines()
+    return list(dict.fromkeys(i.strip() for i in items if i and i.strip()))
+
+
+def _set_up_quiz(channel, body: dict, choices: dict) -> None:
+    """A quiz channel's settings (decision 041): the board is the whole
+    picture, so no captions, hook text, cards or footage; the clock's
+    ticks are the one sound effect, loud enough to hear; categories take
+    turns rather than running one to exhaustion."""
+    channel.format = "quiz"
+    quiz = channel.quiz
+    quiz.difficulties = (_lines(choices.get("quiz_difficulties"))
+                         or body.get("quiz_difficulties") or quiz.difficulties)
+    quiz.questions = int(_number(choices.get("quiz_questions"), body.get("quiz_questions", 10), 3, 15))
+    quiz.countdown_seconds = _number(choices.get("quiz_countdown_seconds"),
+                                     body.get("quiz_countdown_seconds", 4), 1, 10)
+    style = channel.style
+    style.captions_enabled = False
+    style.screen_hook_enabled = False
+    style.emphasis_enabled = False
+    style.title_card_enabled = False
+    style.outro_enabled = False
+    channel.scenes.share = 0
+    channel.sound.effects_level = 0.35
+    channel.ordering.grouping = "round_robin"
+    channel.ordering.topic_order = "random"
+    channel.ordering.subtopic_order = "random"
+
+
+def _start_quiz_plan(channel, subject: str, categories: list) -> None:
+    """Every category at every difficulty, written by rule (free): the
+    channel can rotate categories from its first video."""
+    from pipeline import quiz
+
+    data = curriculum.start(channel.key, subject,
+                            [{"title": c, "summary": "", "level": "foundation"} for c in categories])
+    for topic in data["topics"]:
+        curriculum.add_subtopics(channel.key, topic["id"],
+                                 quiz.subtopic_rows(topic["title"], channel.quiz.difficulties))
 
 
 def _add_music(channel_key: str, track_ids: list) -> None:

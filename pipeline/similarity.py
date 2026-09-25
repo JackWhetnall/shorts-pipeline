@@ -131,6 +131,14 @@ def script_text(script) -> str:
     self-plagiarism while hiding real drift in the analysis. (The hook
     before it is ours, so it stays in.)
     """
+    # A quiz's own words are its questions and answers. Its scaffolding
+    # ("question four...") is the same in every quiz and would make each
+    # one look like a copy of the last; a question asked again is exactly
+    # what this should catch.
+    quiz = getattr(script, "quiz", None)
+    if quiz:
+        return " ".join(f"{q.get('question', '')} {q.get('answer', '')}"
+                        for q in quiz.get("questions") or [])
     segments = list(script.segments)
     source = getattr(script, "source_index", 0 if script.citation else None)
     if script.citation and segments and source is not None and source < len(segments):
@@ -274,6 +282,13 @@ def record(channel_key: str, title: str, script, path: Path = None,
         "text": script_text(script),
         "video": video_id(video_path) if video_path else "",
     })
+    # A quiz's questions, so the next round of this category can be told
+    # what has been asked (pipeline.quiz.asked_before).
+    quiz = getattr(script, "quiz", None)
+    if quiz:
+        entries[-1]["quiz"] = {"category": quiz.get("category", ""),
+                               "questions": [{"question": q.get("question", "")}
+                                             for q in quiz.get("questions") or []]}
     history[channel_key] = entries[-HISTORY_LIMIT:]
     _save(history, path)
 

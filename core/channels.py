@@ -43,6 +43,9 @@ SCHEMA_VERSION = 2
 VOICE_ID_RE = re.compile(r"^[A-Za-z0-9]{20}$")
 
 CONTENT_MODES = ("static_corpus", "topic")
+# What a video is: narration over footage and graphics, or a quiz board
+# (pipeline.quiz, decision 041).
+FORMATS = ("narrated", "quiz")
 CTA_KEYS = ("patreon", "merch", "affiliate")
 
 
@@ -159,6 +162,9 @@ class Style(_MappingLike):
     # curriculum — a no-op everywhere else, same as every setting here
     # that only applies to some channels.
     title_card_show_topic: bool = False
+    # Word-by-word captions. Off for a format whose words are already on
+    # screen (a quiz board shows each question in full).
+    captions_enabled: bool = True
     # The hook's punch as big text over the first seconds, and key words
     # that pop in the captions (decision 038).
     screen_hook_enabled: bool = True
@@ -342,6 +348,24 @@ class Scenes(_MappingLike):
 
 
 @dataclass
+class Quiz(_MappingLike):
+    """A quiz channel's shape (pipeline.quiz, decision 041). Read only when
+    the channel's format is "quiz".
+
+    Each video is one quiz: a category (the topic plan's topic) at one
+    difficulty (its subtopic), `questions` long. Every question is read
+    with its text on screen, then `countdown_seconds` of clock, then the
+    answer, then `answer_pause` before the next.
+    """
+
+    questions: int = 10
+    countdown_seconds: float = 4.0
+    answer_pause: float = 1.2
+    difficulties: list = field(default_factory=lambda: [
+        "Easy", "Medium", "Hard", "Very hard", "Impossible"])
+
+
+@dataclass
 class Publishing(_MappingLike):
     """When this channel's videos go out, and how many to keep ready.
 
@@ -374,6 +398,7 @@ class ChannelConfig:
     key: str
     channel_display_name: str = ""
     content_mode: str = "topic"
+    format: str = "narrated"
     voice: str = ""
     style_prompt: str = ""
     # How this channel opens a video, in its own register. Every channel
@@ -416,6 +441,7 @@ class ChannelConfig:
     scenes: Scenes = field(default_factory=Scenes)
     sound: Sound = field(default_factory=Sound)
     artwork: Artwork = field(default_factory=Artwork)
+    quiz: Quiz = field(default_factory=Quiz)
     archived: bool = False
     # Launch-checklist items marked done by hand. Some steps (Patreon's
     # signup flow) are annoying enough that "noting I'm skipping this"
@@ -455,6 +481,18 @@ class ChannelConfig:
                 f"{where} has content_mode {self.content_mode!r}, which isn't recognised. "
                 f"It must be one of: {', '.join(CONTENT_MODES)}."
             )
+        if self.format not in FORMATS:
+            raise ConfigError(
+                f"{where} has format {self.format!r}, which isn't recognised. "
+                f"It must be one of: {', '.join(FORMATS)}.")
+        if self.format == "quiz":
+            if not 3 <= self.quiz.questions <= 15:
+                raise ConfigError(f"{where} asks {self.quiz.questions} questions a quiz. Pick 3 to 15.")
+            if not 1 <= self.quiz.countdown_seconds <= 10:
+                raise ConfigError(f"{where} counts down {self.quiz.countdown_seconds} seconds. "
+                                  f"Pick 1 to 10.")
+            if not [d for d in self.quiz.difficulties if str(d).strip()]:
+                raise ConfigError(f"{where} is a quiz with no difficulty levels.")
         if not self.voice.strip():
             raise ConfigError(f"{where} has no voice set. Add an ElevenLabs voice ID in its settings.")
         # ElevenLabs voice ids are 20 alphanumeric characters. Checking the
@@ -568,6 +606,7 @@ _NESTED = {
     "scenes": Scenes,
     "sound": Sound,
     "artwork": Artwork,
+    "quiz": Quiz,
 }
 
 

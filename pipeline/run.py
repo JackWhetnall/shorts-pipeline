@@ -212,6 +212,8 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
         "footage_degraded": plan.footage_degraded,
         "footage_unconfident": plan.footage_unconfident,
         "script_suspect": plan.script_suspect,
+        # Quiz questions the fact check still didn't pass (pipeline.quiz).
+        "quiz_unverified": list((plan.script.quiz or {}).get("unverified") or []),
         "shot_count": len(plan.shots),
         "clips": sorted({s.clip_path.name for s in plan.shots if s.clip_path and not s.scene}),
         "scenes": len([c for c in plan.scene_clips if c.get("kind") != "artwork"]),

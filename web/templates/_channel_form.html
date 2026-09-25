@@ -107,6 +107,38 @@
     <div id="script-preview" class="hidden"></div>
 
     <fieldset>
+      <legend>What each video is</legend>
+      <input type="hidden" name="quiz_present" value="1">
+      <label>Format
+        <select name="format">
+          <option value="narrated" {{ 'selected' if channel.format == 'narrated' }}>Narrated: a script read over footage and graphics</option>
+          <option value="quiz" {{ 'selected' if channel.format == 'quiz' }}>Quiz: questions on a board, a countdown, then the answer</option>
+        </select>
+      </label>
+      <div data-show-when="format=quiz" class="field-group">
+        <p class="hint">Each video is one category (a topic on the topic plan) at one
+          difficulty (its subtopic). Every answer is fact-checked before it's voiced.</p>
+        <label class="field-row"><span class="field-label">Questions a quiz</span>
+          <input type="number" name="quiz_questions" min="3" max="15" value="{{ channel.quiz.questions }}">
+        </label>
+        <label class="field-row"><span class="field-label">Countdown after each question (seconds)</span>
+          <input type="number" name="quiz_countdown_seconds" min="1" max="10" step="0.5"
+                 value="{{ channel.quiz.countdown_seconds }}">
+        </label>
+        <label class="field-row"><span class="field-label">Pause after each answer (seconds)</span>
+          <input type="number" name="quiz_answer_pause" min="0" max="5" step="0.1"
+                 value="{{ channel.quiz.answer_pause }}">
+        </label>
+        <label>Difficulty levels, easiest first, one per line
+          <textarea name="quiz_difficulties" rows="5">{{ channel.quiz.difficulties|join('
+') }}</textarea>
+        </label>
+        <p class="hint">A new difficulty level reaches the topic plan with its next round of
+          quizzes. Categories are edited on the <a href="{{ url_for('curriculum.page', key=channel.key) }}">topic plan</a>.</p>
+      </div>
+    </fieldset>
+
+    <fieldset>
       <legend>Where the words come from</legend>
 
       <label class="choice">
@@ -428,6 +460,11 @@
     <div class="look-controls">
     <fieldset>
       <legend>Captions</legend>
+      <label class="checkbox-label">
+        <input type="checkbox" name="style_captions_enabled"
+               {% if channel.style.captions_enabled %}checked{% endif %}>
+        Show word-by-word captions (off for a quiz, whose words are on the board)
+      </label>
       <label class="field-row">
         <span class="field-label">Font</span>
         <select name="style_font_face" data-preview-field="font_face" data-font-select>
