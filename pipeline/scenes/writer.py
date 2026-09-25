@@ -45,11 +45,11 @@ MAX_ELEMENTS = 18
 MAX_LABEL_CHARS = 40
 MAX_NEW_PROPS = 2             # per scene
 
-ELEMENT_TYPES = ("shape", "label", "prop", "counter", "chart")
+ELEMENT_TYPES = ("shape", "label", "prop", "counter", "chart", "math", "plot", "numberline")
 SHAPE_KINDS = ("circle", "star", "polygon", "poly", "square", "angle", "line", "arrow", "rect",
                "beam")
 ACTIONS = ("appear", "draw", "write", "count", "move", "highlight", "wiggle", "stack", "exit",
-           "focus", "reset")
+           "focus", "reset", "rotate")
 AREA_KINDS = ("circle", "polygon", "poly", "square", "rect")
 COLOR_TOKENS = ("ink", "ink_soft", "label_fill", "accent1", "accent2", "accent3", "accent4", "accent5")
 
@@ -118,6 +118,23 @@ chart: kind "line" or "bar"; x, y (centre), w, h, values [numbers],
 optional axis_labels [{text, at: "start"|"end", align: "start"|"end"}],
 stroke or fill colour.
 
+math: a typeset expression in the channel's font. tex (a LaTeX-like
+subset): rac{a}{b}, \sqrt{x}, x^{2}, x_{1}, \color{accent1}{a^2} to colour
+a term, and 	imes \div \pm \cdot \pi 	heta \le \ge 
+e pprox \infty
+\Delta 	o. size (60-120), color, x/y or anchor. "write" wipes it in left
+to right. Use it for any real equation, fraction or root; use a label
+for plain words.
+
+plot: axes with a grid: x, y (centre), w, h, x_range [lo, hi], y_range
+[lo, hi], optional x_step/y_step, x_label, y_label, grid (true), curves
+[{points [[x, y], ...] in the plot's own units, color}] (work the points
+out; 12-40 per curve is smooth), dots [{at [x, y], color, label}]. "draw"
+traces the curves, then the dots appear.
+
+numberline: x, y (centre), w, from, to, step, marks [{at, color, label}].
+"draw" draws the line and ticks, then the marks.
+
 Positions: x/y, or an `anchor` that ties an element to another one and
 is always exact: anchor {of: id} is the other element's centre;
 {of, vertex: i, offset: px} is just outside that corner; {of, edge: i,
@@ -155,6 +172,8 @@ word it starts on, from the numbered word list), optional delay
   or number that matters right now. dur is the glide (0.5-1 s).
 - reset: the camera glides back out to the whole picture (target: any
   element id).
+- rotate: turns the element about its centre to `angle` degrees and holds
+  it there (rearrangement proofs: turning a triangle into place).
 
 The camera already drifts in slowly across every scene. Use focus for the
 one or two moments that deserve a close-up, not constantly, and reset
@@ -424,10 +443,22 @@ def validate(raw: dict, words: list, duration: float) -> tuple:
         elif e.get("type") == "prop":
             if e.get("asset") not in props:
                 problems.append(f"{where} uses prop {e.get('asset')!r}, which isn't declared in props.")
+        elif e.get("type") == "math":
+            if not str(e.get("tex") or "").strip():
+                problems.append(f"{where} is a math element with no tex.")
+            elif str(e["tex"]).count("{") != str(e["tex"]).count("}"):
+                problems.append(f"{where} has unbalanced braces in its tex: {e['tex']}")
+        elif e.get("type") == "plot":
+            ranges = [e.get("x_range"), e.get("y_range")]
+            if not all(isinstance(r, list) and len(r) == 2 and r[0] < r[1] for r in ranges):
+                problems.append(f"{where} is a plot that needs x_range and y_range as [low, high].")
+        elif e.get("type") == "numberline":
+            if e.get("from") is None or e.get("to") is None or e["from"] >= e["to"]:
+                problems.append(f"{where} is a number line that needs from < to.")
         elif e.get("type") == "chart":
             if len(e.get("values") or []) < 2 or not all(e.get(k) for k in ("w", "h")):
                 problems.append(f"{where} is a chart that needs w, h and at least two values.")
-        if e.get("type") in ("label", "prop", "counter"):
+        if e.get("type") in ("label", "prop", "counter", "math"):
             if not e.get("anchor") and (e.get("x") is None or e.get("y") is None):
                 problems.append(f"{where} needs x and y, or an anchor.")
         anchor = e.get("anchor")
@@ -455,6 +486,8 @@ def validate(raw: dict, words: list, duration: float) -> tuple:
         start = (words[word][1] if words else 0.0) + max(0.0, float(a.pop("delay", 0) or 0))
         a["at"] = round(min(max(0.0, start), max(0.0, duration - 0.15)), 3)
         a["dur"] = round(max(0.1, min(float(a.get("dur") or 0.6), duration - a["at"])), 3)
+        if a["do"] == "rotate" and a.get("angle") is None:
+            problems.append(f"{where} has no angle.")
         if a["do"] == "focus":
             a["zoom"] = round(min(2.0, max(1.05, float(a.get("zoom") or 1.35))), 2)
         if a["do"] == "count" and a.get("to") is None:

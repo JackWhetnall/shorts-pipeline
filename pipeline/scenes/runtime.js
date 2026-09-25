@@ -422,7 +422,221 @@ window.__start = function () {
     return {draw: setDraw};
   }
 
-  const BUILDERS = {shape: buildShape, label: buildLabel, prop: buildProp, counter: buildCounter, chart: buildChart};
+
+  // --- maths: typeset expressions, plots, number lines ------------------
+  // A small typesetter for a LaTeX-like subset, drawn in the channel's own
+  // font and colours: \frac{a}{b}, \sqrt{x}, x^{2}, x_{1}, \color{accent1}{...}
+  // and the usual symbols. Enough for school and popular maths, and it
+  // always looks like the rest of the scene.
+  const SYMBOLS = {times: " × ", div: " ÷ ", pm: " ± ", cdot: " · ", pi: "π", theta: "θ", le: " ≤ ",
+                   ge: " ≥ ", ne: " ≠ ", approx: " ≈ ", infty: "∞", alpha: "α", beta: "β",
+                   gamma: "γ", Delta: "Δ", sum: "Σ", to: "→", degree: "°", sqrt: null, frac: null,
+                   color: null, percent: "%", lt: "<", gt: ">", quad: " ",
+                   qquad: "  ", ",": " "};
+  function parseTex(src) {
+    let i = 0;
+    function group() {                       // {...} or a single token
+      if (src[i] === "{") {
+        i++;
+        const r = row("}");
+        i++;
+        return r;
+      }
+      return atom();
+    }
+    function atom() {
+      if (src[i] === "\\") {
+        let j = i + 1;
+        while (j < src.length && /[A-Za-z]/.test(src[j])) j++;
+        if (j === i + 1 && j < src.length) j++;      // a one-character command: \,
+        const name = src.slice(i + 1, j);
+        i = j;
+        if (name === "frac") return {t: "frac", num: group(), den: group()};
+        if (name === "sqrt") return {t: "sqrt", body: group()};
+        if (name === "color") {
+          const c = group();
+          return {t: "color", c: flat(c), body: group()};
+        }
+        return {t: "text", s: SYMBOLS[name] || name};
+      }
+      const ch = src[i++];
+      return {t: "text", s: "+-=×÷<>≤≥≈≠±".includes(ch) ? ` ${ch} ` : ch};
+    }
+    function flat(n) { return n.t === "text" ? n.s : (n.items || []).map(flat).join(""); }
+    function row(end) {
+      const items = [];
+      while (i < src.length && src[i] !== end) {
+        if (src[i] === " ") { i++; continue; }
+        if (src[i] === "^" || src[i] === "_") {
+          const kind = src[i++] === "^" ? "sup" : "sub";
+          items.push({t: kind, base: items.pop() || {t: "text", s: ""}, script: group()});
+          continue;
+        }
+        // A sign at the start of a group is unary: "-b", not "- b".
+        const unary = !items.length && "+-".includes(src[i]);
+        const next = atom();
+        if (unary) next.s = next.s.trim();
+        items.push(next);
+      }
+      return {t: "row", items};
+    }
+    return row(undefined);
+  }
+  // white-space: pre keeps the spaces round operators, in the measure and
+  // in the drawing alike.
+  const measurer = node("text", {"font-family": family(STYLE.font_display), opacity: 0,
+                                 style: "white-space: pre"}, defs);
+  function textWidth(str, size) {
+    measurer.setAttribute("font-size", size);
+    measurer.setAttribute("font-weight", STYLE.font_display_weight || 700);
+    measurer.textContent = str;
+    return measurer.getComputedTextLength();
+  }
+  function layoutTex(n, size, col) {
+    if (n.t === "text") {
+      const w = textWidth(n.s, size);
+      return {w, asc: size * 0.74, desc: size * 0.22, draw: (g, x, y) => {
+        const t = node("text", {x, y, "font-family": family(STYLE.font_display), "font-size": size,
+                                "font-weight": STYLE.font_display_weight || 700, fill: color(col),
+                                style: "white-space: pre"}, g);
+        t.textContent = n.s;
+      }};
+    }
+    if (n.t === "row") {
+      const kids = n.items.map(k => layoutTex(k, size, col));
+      return {w: kids.reduce((a, k) => a + k.w, 0), asc: Math.max(size * 0.74, ...kids.map(k => k.asc)),
+              desc: Math.max(size * 0.22, ...kids.map(k => k.desc)),
+              draw: (g, x, y) => { let cx = x; for (const k of kids) { k.draw(g, cx, y); cx += k.w; } }};
+    }
+    if (n.t === "color") return layoutTex(n.body, size, n.c);
+    if (n.t === "sup" || n.t === "sub") {
+      const base = layoutTex(n.base, size, col), sc = layoutTex(n.script, size * 0.62, col);
+      const shift = n.t === "sup" ? -size * 0.42 : size * 0.18;
+      return {w: base.w + sc.w + size * 0.04,
+              asc: Math.max(base.asc, sc.asc - shift), desc: Math.max(base.desc, sc.desc + shift),
+              draw: (g, x, y) => { base.draw(g, x, y); sc.draw(g, x + base.w + size * 0.04, y + shift); }};
+    }
+    if (n.t === "frac") {
+      const num = layoutTex(n.num, size * 0.82, col), den = layoutTex(n.den, size * 0.82, col);
+      const w = Math.max(num.w, den.w) + size * 0.3, axis = size * 0.3, gap = size * 0.12;
+      return {w, asc: axis + gap + num.desc + num.asc, desc: -axis + gap + den.asc + den.desc,
+              draw: (g, x, y) => {
+                num.draw(g, x + (w - num.w) / 2, y - axis - gap - num.desc);
+                den.draw(g, x + (w - den.w) / 2, y - axis + gap + den.asc);
+                node("path", {d: `M ${x + size * 0.05} ${y - axis} H ${x + w - size * 0.05}`,
+                              stroke: color(col), "stroke-width": Math.max(3, size * 0.06),
+                              "stroke-linecap": "round"}, g);
+              }};
+    }
+    if (n.t === "sqrt") {
+      const body = layoutTex(n.body, size, col), lead = size * 0.55, over = size * 0.14;
+      return {w: lead + body.w + size * 0.1, asc: body.asc + over, desc: body.desc,
+              draw: (g, x, y) => {
+                const top = y - body.asc - over * 0.5, sw = Math.max(3, size * 0.06);
+                node("path", {d: `M ${x} ${y - size * 0.3} L ${x + lead * 0.3} ${y - size * 0.38} `
+                                 + `L ${x + lead * 0.6} ${y + body.desc * 0.6} L ${x + lead} ${top} `
+                                 + `H ${x + lead + body.w + size * 0.08}`,
+                              fill: "none", stroke: color(col), "stroke-width": sw,
+                              "stroke-linejoin": "round", "stroke-linecap": "round"}, g);
+                body.draw(g, x + lead + size * 0.04, y);
+              }};
+    }
+    return {w: 0, asc: 0, desc: 0, draw: () => {}};
+  }
+  function buildMath(e, g) {
+    const size = e.size || 90;
+    const box = layoutTex(parseTex(String(e.tex || "")), size, e.color || "ink");
+    const inner = node("g", {}, g);
+    box.draw(inner, -box.w / 2, (box.asc - box.desc) / 2);
+    // "write" wipes it in left to right, as if written as it's said.
+    const clipId = `mclip${e.id}`;
+    const clip = node("clipPath", {id: clipId}, defs);
+    const r = node("rect", {x: -box.w / 2 - 10, y: -box.asc - size, width: box.w + 20,
+                            height: box.asc + box.desc + size * 2}, clip);
+    inner.setAttribute("clip-path", `url(#${clipId})`);
+    return {w: box.w, h: box.asc + box.desc, write: p => r.setAttribute("width", (box.w + 20) * p)};
+  }
+
+  function axisText(g, str, x, y, anchor) {
+    const t = node("text", {x, y, "font-family": family(STYLE.font_text), "font-size": 34,
+                            "font-weight": STYLE.font_text_weight || 600, fill: color("ink_soft"),
+                            "text-anchor": anchor || "middle"}, g);
+    t.textContent = str;
+  }
+  function niceStep(span) {
+    const raw = span / 5, mag = Math.pow(10, Math.floor(Math.log10(raw || 1)));
+    return [1, 2, 5, 10].map(m => m * mag).find(v => v >= raw) || raw;
+  }
+  function buildPlot(e, g) {
+    const w = e.w || 760, h = e.h || 560, sw = STYLE.stroke_width || 10;
+    const [x0, x1] = e.x_range || [0, 10], [y0, y1] = e.y_range || [0, 10];
+    const X = v => -w / 2 + w * (v - x0) / ((x1 - x0) || 1);
+    const Y = v => h / 2 - h * (v - y0) / ((y1 - y0) || 1);
+    const xs = e.x_step || niceStep(x1 - x0), ys = e.y_step || niceStep(y1 - y0);
+    if (e.grid !== false) {
+      for (let v = Math.ceil(x0 / xs) * xs; v <= x1 + 1e-9; v += xs)
+        node("path", {d: `M ${X(v)} ${-h / 2} V ${h / 2}`, stroke: color("ink_soft"), "stroke-width": 2, opacity: 0.25}, g);
+      for (let v = Math.ceil(y0 / ys) * ys; v <= y1 + 1e-9; v += ys)
+        node("path", {d: `M ${-w / 2} ${Y(v)} H ${w / 2}`, stroke: color("ink_soft"), "stroke-width": 2, opacity: 0.25}, g);
+    }
+    const ax = Math.min(Math.max(0, x0), x1), ay = Math.min(Math.max(0, y0), y1);
+    node("path", {d: `M ${-w / 2} ${Y(ay)} H ${w / 2} M ${X(ax)} ${h / 2} V ${-h / 2}`, fill: "none",
+                  stroke: color("ink"), "stroke-width": sw * 0.5, "stroke-linecap": "round"}, g);
+    const fmt = v => Number(v.toFixed(6)).toLocaleString("en-GB");
+    for (let v = Math.ceil(x0 / xs) * xs; v <= x1 + 1e-9; v += xs)
+      if (Math.abs(v - ax) > 1e-9) axisText(g, fmt(v), X(v), Y(ay) + 44);
+    for (let v = Math.ceil(y0 / ys) * ys; v <= y1 + 1e-9; v += ys)
+      if (Math.abs(v - ay) > 1e-9) axisText(g, fmt(v), X(ax) - 16, Y(v) + 12, "end");
+    if (e.x_label) axisText(g, e.x_label, w / 2, Y(ay) + 92, "end");
+    if (e.y_label) axisText(g, e.y_label, X(ax), -h / 2 - 24, "middle");
+    const draws = (e.curves || []).map(c => {
+      const pts = (c.points || []).map(q => [X(q[0]), Y(q[1])]);
+      if (pts.length < 2) return () => {};
+      const path = node("path", {d: pts.map((q, i) => `${i ? "L" : "M"} ${q[0]} ${q[1]}`).join(" "),
+                                 fill: "none", stroke: color(c.color || "accent1"), "stroke-width": sw * 0.8,
+                                 "stroke-linecap": "round", "stroke-linejoin": "round"}, g);
+      return drawable(path, {});
+    });
+    const dots = (e.dots || []).map(d => {
+      const dg = node("g", {opacity: 0}, g);
+      node("circle", {cx: X(d.at[0]), cy: Y(d.at[1]), r: sw * 1.1, fill: color(d.color || "accent2"),
+                      stroke: color("ink"), "stroke-width": 4}, dg);
+      if (d.label) axisText(dg, d.label, X(d.at[0]) + 22, Y(d.at[1]) - 22, "start");
+      return dg;
+    });
+    return {w, h, draw: p => {
+      draws.forEach(f => f(p));
+      dots.forEach(d => d.setAttribute("opacity", p >= 0.98 ? 1 : 0));
+    }};
+  }
+  function buildNumberLine(e, g) {
+    const w = e.w || 860, from = e.from == null ? 0 : e.from, to = e.to == null ? 10 : e.to;
+    const step = e.step || niceStep(to - from), sw = STYLE.stroke_width || 10;
+    const X = v => -w / 2 + w * (v - from) / ((to - from) || 1);
+    const line = node("path", {d: `M ${-w / 2 - 20} 0 H ${w / 2 + 20}`, stroke: color("ink"),
+                               "stroke-width": sw * 0.6, "stroke-linecap": "round", fill: "none"}, g);
+    const drawLine = drawable(line, {});
+    const ticks = node("g", {opacity: 0}, g);
+    for (let v = from; v <= to + 1e-9; v += step) {
+      node("path", {d: `M ${X(v)} -16 V 16`, stroke: color("ink"), "stroke-width": sw * 0.4}, ticks);
+      axisText(ticks, Number(v.toFixed(6)).toLocaleString("en-GB"), X(v), 62);
+    }
+    const marks = (e.marks || []).map(m => {
+      const mg = node("g", {opacity: 0}, g);
+      node("circle", {cx: X(m.at), cy: 0, r: sw * 1.3, fill: color(m.color || "accent1"),
+                      stroke: color("ink"), "stroke-width": 4}, mg);
+      if (m.label) axisText(mg, m.label, X(m.at), -40);
+      return mg;
+    });
+    return {w, h: 120, draw: p => {
+      drawLine(p);
+      ticks.setAttribute("opacity", clamp((p - 0.4) / 0.4));
+      marks.forEach(m => m.setAttribute("opacity", p >= 0.98 ? 1 : 0));
+    }};
+  }
+
+  const BUILDERS = {shape: buildShape, label: buildLabel, prop: buildProp, counter: buildCounter,
+                    chart: buildChart, math: buildMath, plot: buildPlot, numberline: buildNumberLine};
 
   // --- build everything ----------------------------------------------
   const items = [];
@@ -446,7 +660,7 @@ window.__start = function () {
       it.api.span([p1[0] - x, p1[1] - y], [p2[0] - x, p2[1] - y]);
     }
     it.base = [x, y];
-    if (it.spec.type === "chart") it.base = [it.spec.x, it.spec.y];
+    if (["chart", "plot", "numberline"].includes(it.spec.type)) it.base = [it.spec.x, it.spec.y];
     // A label with a pointer draws a leader line to what it names.
     if (it.spec.pointer) {
       const [px, py] = it.spec.pointer;
@@ -501,6 +715,9 @@ window.__start = function () {
           break;
         }
         case "exit": if (t >= a.at) s.opacity *= 1 - EASE.out(p); break;
+        // Turn about its own centre to `angle` degrees, and stay there:
+        // how a rearrangement proof moves its pieces.
+        case "rotate": if (t >= a.at) s.rot = lerp(s.rot, a.angle || 0, easeFor("move")(p)); break;
       }
     }
     if (!hasEntry) { s.opacity = 1; s.draw = 1; }

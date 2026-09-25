@@ -526,3 +526,16 @@ def test_the_frame_check_judges_a_scene_once_it_is_built(monkeypatch):
     monkeypatch.setattr(editor_check, "_run", lambda *a: None)
     editor_check.check_frames(Path("v.mp4"), plan)
     assert asked["t"] == [pytest.approx(9.0), pytest.approx(12.0)]
+
+
+def test_maths_elements_are_checked_like_the_rest():
+    raw = {"props": [], "elements": [
+        {"id": "m", "type": "math", "tex": r"\frac{a}{b", "x": 1, "y": 1},
+        {"id": "p", "type": "plot", "x": 1, "y": 1, "x_range": [5, 1], "y_range": [0, 1]},
+        {"id": "n", "type": "numberline", "x": 1, "y": 1, "from": 3, "to": 3},
+    ], "actions": [{"target": t, "do": "draw", "word": 0, "dur": 1} for t in "mpn"] +
+                  [{"target": "m", "do": "rotate", "word": 0, "dur": 1}]}
+    _, problems = writer.validate(raw, WORDS, 5.0)
+    text = " ".join(problems)
+    assert "unbalanced braces" in text and "x_range" in text and "from < to" in text
+    assert "has no angle" in text

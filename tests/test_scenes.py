@@ -284,3 +284,28 @@ def test_the_camera_closes_in_on_what_it_focuses_on(tmp_path):
         assert (after[0] + after[2]) / 2 == pytest.approx(800, abs=40)   # back out (drift aside)
     finally:
         page.__exit__(None, None, None)
+
+
+@pytest.mark.slow
+def test_maths_elements_build_and_typeset(tmp_path):
+    scene = {"duration": 1.0, "elements": [
+        {"id": "q", "type": "math", "tex": r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}", "size": 80,
+         "x": 540, "y": 300},
+        {"id": "p", "type": "plot", "x": 540, "y": 800, "w": 700, "h": 400, "x_range": [0, 10],
+         "y_range": [0, 100], "curves": [{"points": [[0, 0], [5, 25], [10, 100]]}],
+         "dots": [{"at": [10, 100], "label": "top"}]},
+        {"id": "n", "type": "numberline", "x": 540, "y": 1150, "w": 800, "from": -2, "to": 2,
+         "marks": [{"at": 1}]},
+    ], "actions": [{"target": "q", "do": "write", "at": 0, "dur": 0.5},
+                   {"target": "p", "do": "draw", "at": 0, "dur": 0.5},
+                   {"target": "n", "do": "draw", "at": 0, "dur": 0.5}]}
+    page = _open(scene, {})
+    try:
+        page.page.evaluate("window.__seek(1.0, false)")
+        q, p, n = _box(page, "q"), _box(page, "p"), _box(page, "n")
+        assert 300 < q[2] - q[0] < 1000 and q[3] - q[1] > 80      # a fraction stands tall
+        assert p[2] - p[0] > 650 and n[2] - n[0] > 780
+        texts = page.page.evaluate("[...document.querySelectorAll(\"[data-id='q'] text\")].map(t => t.textContent).join('')")
+        assert "±" in texts and "\\" not in texts               # commands became symbols
+    finally:
+        page.__exit__(None, None, None)
