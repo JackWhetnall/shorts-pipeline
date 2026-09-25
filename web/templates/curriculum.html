@@ -135,14 +135,20 @@
         {% if sub.angle %}<span class="hint">{{ sub.angle }}</span>{% endif %}
         {% if sub.script %}<span class="hint">Script ready</span>{% endif %}
         {% if sub.status == 'skipped' %}<span class="hint">Skipped{% if sub.note %} &mdash; {{ sub.note }}{% endif %}</span>{% endif %}
+        {% if sub.id == up_next and sub.status == 'pending' %}<span class="hint up-next-chip">Up next</span>{% endif %}
       </span>
       <span class="todo-actions">
         <span class="meta">{{ sub.status }}</span>
         {% if sub.status == 'pending' %}
+          <a class="todo-action" href="{{ url_for('channels.create_video', key=key, subtopic_id=sub.id) }}"
+             title="Open Create video with this one chosen">Make now</a>
+          {% if sub.id != up_next %}
           <form method="post" action="{{ url_for('curriculum.make_next', key=key, subtopic_id=sub.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="todo-action">Make next</button>
+            <button type="submit" class="todo-action"
+                    title="The next video made, by you or the scheduler, is this one">Up next</button>
           </form>
+          {% endif %}
           <form method="post" action="{{ url_for('curriculum.skip', key=key, subtopic_id=sub.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="todo-action">Skip</button>

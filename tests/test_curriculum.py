@@ -849,9 +849,12 @@ class TestWebRoutes:
 
 
 class TestCreateVideoTable:
-    """web.blueprints.channels.create_video: the topic table replaces the
-    old three-dropdown picker for a curriculum channel, and must not
-    appear at all for one with nothing to show a table of."""
+    """web.blueprints.channels.create_video: one chosen video with the
+    button that makes it, and the whole plan to change it from.
+
+    Regression: it was a table of eight topics beside a separate random
+    pick, clicking a topic re-rolled the pick rather than following the
+    click, and "Make next" did nothing visible on a random-order channel."""
 
     @pytest.fixture
     def client(self, isolated, tmp_path, monkeypatch):
@@ -877,16 +880,43 @@ class TestCreateVideoTable:
         start = html.index(marker) + len(marker)
         return html[start:html.index('"', start)]
 
-    def test_a_flat_topic_list_channel_has_no_table(self, client):
+    def test_a_flat_topic_list_channel_has_no_plan_picker(self, client):
         html = client.get("/channels/c/create").get_data(as_text=True)
-        assert 'id="topic-table"' not in html
+        assert 'id="chosen-video"' not in html and "getSeed(" in html
 
-    def test_a_curriculum_channel_gets_a_table_with_the_policy_pick_marked(
-            self, client, planned):
+    def test_every_topic_and_waiting_video_is_offered(self, client, planned):
         html = client.get("/channels/c/create").get_data(as_text=True)
-        assert 'id="topic-table"' in html
-        assert 'data-selected-topic="u01"' in html
-        assert "First thing" in html  # the real subtopic title, JSON-embedded
+        assert 'id="chosen-video"' in html
+        for title in ("Basics", "Middle", "Deep", "First thing", "Fifth thing"):
+            assert title in html
+        assert "Random from this topic" in html and "Write its videos" in html  # Deep is unwritten
+
+    def test_make_now_arrives_with_that_video_chosen(self, client, planned):
+        sub = curriculum.subtopics("c", topic_id="u02")[1]
+        html = client.get(f"/channels/c/create?subtopic_id={sub['id']}").get_data(as_text=True)
+        assert f'data-initial-subtopic="{sub["id"]}"' in html
+
+    def test_a_pick_is_followed(self, client, planned):
+        token = self._csrf(client)
+        sub = curriculum.subtopics("c", topic_id="u02")[1]
+        exact = client.post("/api/channels/c/seed", json={"subtopic_id": sub["id"]},
+                            headers={"X-CSRF-Token": token}).get_json()
+        assert exact["seed"]["topic_id"] == sub["id"] and exact["topic_title"] == "Middle"
+        for _ in range(5):
+            within = client.post("/api/channels/c/seed", json={"topic_id": "u02", "mode": "random"},
+                                 headers={"X-CSRF-Token": token}).get_json()
+            assert curriculum.find("c", within["seed"]["topic_id"])["topic"] == "u02"
+
+    def test_up_next_wins_even_on_a_random_channel(self, client, planned):
+        from core import ordering
+        from core.channels import load_channels
+        channel = load_channels()["c"]
+        channel.ordering.topic_order = channel.ordering.subtopic_order = "random"
+        sub = curriculum.subtopics("c", topic_id="u02")[1]
+        curriculum.move_to_front("c", sub["id"])
+        assert all(ordering.choose_next_subtopic(channel)["id"] == sub["id"] for _ in range(5))
+        curriculum.claim("c", sub["id"])
+        assert curriculum.load("c").get("up_next") is None
 
     def test_ordering_preview_returns_the_requested_number_of_steps(self, client):
         response = client.post(

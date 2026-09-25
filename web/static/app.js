@@ -25,10 +25,9 @@ let currentJobId = null;
 // all three can never drift out of sync on what "starting fresh" resets.
 function showJobProgressView() {
   document.getElementById("seed-idle").classList.add("hidden");
-  // #seed-preview only exists for a channel with no topic table (a quote
-  // channel, or a topic channel with no plan) - a curriculum channel's
-  // preview lives in #topic-preview, inside #seed-idle, already hidden
-  // by the line above.
+  // #seed-preview only exists for a channel with no topic plan (a quote
+  // channel, or a flat topic list) - a planned channel's chosen video
+  // lives inside #seed-idle, already hidden by the line above.
   document.getElementById("seed-preview")?.classList.add("hidden");
   document.getElementById("job-progress").classList.remove("hidden");
   seenLogLength = 0;
@@ -57,22 +56,8 @@ function withButtonLoading(button, loadingLabel, action) {
   });
 }
 
-// What the create-video table is currently asking for. Absent table (a
-// quote channel, or a topic channel with no plan) means "next", which is
-// what fetch_seed does with no pick at all. The default selection IS the
-// ordering policy's own pick, so sticking with it sends no pick at all
-// too — letting fetch_seed re-resolve it itself, which matters when
-// subtopic order is random: a topic-scoped next_pending isn't the same
-// thing as what the policy actually chose.
-function currentPick() {
-  const table = document.getElementById("topic-table");
-  if (!table || !table.dataset.selectedTopic) return {};
-  if (table.dataset.selectedTopic === table.dataset.defaultTopic) return {};
-  return {topic_id: table.dataset.selectedTopic};
-}
-
 async function getSeed(channelKey) {
-  const pick = currentPick();
+  const pick = {};
   await withButtonLoading(event.target.closest("button"), "Fetching…", async () => {
     const res = await apiFetch(`/api/channels/${channelKey}/seed`, {
       method: "POST",
@@ -2047,74 +2032,99 @@ function renderTopicTable(container, rows, selectedTopicId, onSelect) {
   }
 }
 
-async function selectTopicRow(channelKey, row) {
-  const table = document.getElementById("topic-table");
-  const status = document.getElementById("topic-table-status");
-  status.textContent = "";
+// --- Create video: one chosen video, and ways to change it -------------------
+//
+// The chosen video is always on screen with the one button that makes it.
+// Every other control only changes which video that is: the next one by
+// the channel's ordering, one at random, one at random from a topic, or a
+// specific one. (It used to be a table of eight topics beside a separate
+// random pick, and clicking a topic re-rolled the pick instead of
+// following the click.)
 
-  if (row.total === 0) {
-    status.textContent = "Writing this topic's subtopics…";
-    const res = await apiFetch(`/api/channels/${channelKey}/curriculum/fill`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({count: 1, topic_id: row.topic_id}),
-    });
-    const data = await res.json();
-    if (!res.ok) { status.textContent = data.error || "Couldn't write those."; return; }
-    // The table's whole data is now stale (this topic went from empty to
-    // having subtopics) - simplest correct thing is to get the fresh
-    // page rather than reconstruct what the template already computed.
-    window.location.reload();
-    return;
-  }
-  if (row.pending === 0) {
-    status.textContent = "Every subtopic in this topic has been made already.";
-    return;
-  }
-
-  table.dataset.selectedTopic = row.topic_id;
-  const rows = JSON.parse(table.dataset.rows);
-  renderTopicTable(table, rows, row.topic_id, (r) => selectTopicRow(channelKey, r));
-  previewTopicPick(channelKey);
-}
-
-// Separate from getSeed()/#seed-preview (used by the quote and flat-
-// topic-list flow below): the table has to stay on screen while its
-// preview updates, where getSeed's flow hides the whole picker the
-// moment a candidate is fetched. Simpler to keep the two flows apart
-// than to make one function serve two different panel layouts.
-async function previewTopicPick(channelKey) {
-  const status = document.getElementById("topic-table-status");
-  status.textContent = "";
+async function chooseVideo(pick, why) {
+  const card = document.getElementById("chosen-video");
+  if (!card) return;
+  const channelKey = card.dataset.channelKey;
+  const makeBtn = document.getElementById("chosen-make-btn");
+  const title = document.getElementById("chosen-title");
+  const meta = document.getElementById("chosen-meta");
+  makeBtn.disabled = true;
+  title.textContent = "…";
+  meta.textContent = "";
   const res = await apiFetch(`/api/channels/${channelKey}/seed`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(currentPick()),
+    body: JSON.stringify(pick),
   });
   const data = await res.json();
-  if (!res.ok) { status.textContent = data.error || "Failed to fetch a candidate."; return; }
+  if (!res.ok) {
+    title.textContent = "Nothing to make";
+    meta.textContent = data.error || "Couldn't choose a video.";
+    return;
+  }
   currentSeed = data.seed;
-
+  document.getElementById("chosen-why").textContent =
+    data.up_next && why === "Next up" ? "Up next (you queued it)" : why;
+  title.textContent = currentSeed.topic || currentSeed.reference || "";
+  const bits = [];
+  if (data.topic_title) bits.push(`Topic: ${data.topic_title}`);
+  bits.push(data.script_ready ? "Script already written" : "Script written when you make it");
+  const first = data.ladder_first || [];
+  if (first.length) {
+    bits.push(`writes this category's ${first.join(", ")} round${first.length === 1 ? "" : "s"} ` +
+              `first, so this one is pitched above ${first.length === 1 ? "it" : "them"}`);
+  }
   const history = data.history || {};
-  const repeat = history.count
-    ? `<p class="meta seed-repeat">Already used ${history.count} time${history.count === 1 ? "" : "s"}` +
-      `${history.last ? ", most recently " + escapeHtml(history.last) : ""}.</p>`
-    : "";
-  document.getElementById("topic-preview-text").innerHTML =
-    `<p><strong>${escapeHtml(currentSeed.topic)}</strong></p>${repeat}`;
-  document.getElementById("topic-preview").classList.remove("hidden");
+  if (history.count) {
+    bits.push(`already made ${history.count} time${history.count === 1 ? "" : "s"}` +
+              (history.last ? `, most recently ${history.last}` : ""));
+  }
+  meta.textContent = bits.join(" · ");
+  for (const b of document.querySelectorAll(".plan-subtopic")) {
+    b.classList.toggle("selected", b.dataset.subtopic === currentSeed.topic_id);
+  }
+  makeBtn.disabled = false;
+  if (why !== "Next up") card.scrollIntoView({behavior: "smooth", block: "nearest"});
+}
+
+function filterPlan(text) {
+  const wanted = text.trim().toLowerCase();
+  for (const topic of document.querySelectorAll(".plan-topic")) {
+    const hit = !wanted || topic.dataset.filterText.includes(wanted);
+    topic.hidden = !hit;
+    topic.open = Boolean(wanted) && hit;
+    for (const li of topic.querySelectorAll(".plan-subtopics li")) {
+      li.hidden = Boolean(wanted) && !topic.querySelector("summary").textContent.toLowerCase().includes(wanted)
+        && !li.textContent.toLowerCase().includes(wanted);
+    }
+  }
+}
+
+async function writeTopic(channelKey, topicId, button) {
+  const status = document.getElementById("plan-picker-status");
+  button.disabled = true;
+  button.textContent = "Writing…";
+  const res = await apiFetch(`/api/channels/${channelKey}/curriculum/fill`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({count: 1, topic_id: topicId}),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    status.textContent = data.error || "Couldn't write those.";
+    button.disabled = false;
+    button.textContent = "Write its videos";
+    return;
+  }
+  window.location.reload();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const table = document.getElementById("topic-table");
-  if (!table) return;
-  const rows = JSON.parse(table.dataset.rows || "[]");
-  const channelKey = table.dataset.channelKey;
-  renderTopicTable(table, rows, table.dataset.selectedTopic,
-    (row) => selectTopicRow(channelKey, row));
-  // The preview starts in step with whichever row is selected, the same
-  // way clicking a different row immediately re-previews it.
-  if (table.dataset.selectedTopic) previewTopicPick(channelKey);
+  const card = document.getElementById("chosen-video");
+  if (!card) return;
+  const initial = card.dataset.initialSubtopic;
+  if (initial) chooseVideo({subtopic_id: initial}, "Your pick");
+  else chooseVideo({}, "Next up");
 });
 
 // --- Ordering settings: "watch it happen" -------------------------------

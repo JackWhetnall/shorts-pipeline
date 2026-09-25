@@ -2177,3 +2177,28 @@ button.topic-row.selected:hover {
 @media (max-width: 700px) { .music-row { grid-template-columns: 1fr; } }
 
 .template-sheet { width: 100%; max-width: 720px; border-radius: 10px; border: 1px solid var(--border); margin-top: var(--sp-2, .5rem); }
+
+/* --- Create video: the chosen video, and the plan to choose from --------- */
+.chosen-video { border-color: var(--accent); }
+.kicker-label { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent); margin: 0 0 var(--sp-1, 0.25rem); }
+.plan-filter { width: 100%; margin: var(--sp-2, 0.5rem) 0; }
+.plan-picker { display: flex; flex-direction: column; gap: 2px; }
+.plan-topic { border-radius: var(--radius-sm); }
+.plan-topic > summary { display: flex; align-items: center; gap: var(--sp-2, 0.5rem);
+  padding: var(--sp-2, 0.5rem) var(--sp-3, 0.85rem); cursor: pointer;
+  border-radius: var(--radius-sm); }
+.plan-topic > summary:hover { background: var(--surface); }
+.plan-topic-title { font-weight: 600; flex: 1; }
+.btn-small { padding: 0.2rem 0.6rem; font-size: 0.8rem; }
+.plan-subtopics { list-style: none; margin: 0 0 var(--sp-2, 0.5rem); padding: 0 0 0 var(--sp-4, 1.2rem);
+  display: flex; flex-direction: column; gap: 2px; }
+.plan-subtopic { width: 100%; text-align: left; background: none; border: 1px solid transparent;
+  color: inherit; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); cursor: pointer;
+  display: flex; gap: var(--sp-2, 0.5rem); align-items: baseline; justify-content: space-between; }
+.plan-subtopic:hover { background: var(--surface); }
+.plan-subtopic.selected { border-color: var(--accent); }
+@media (max-width: 600px) {
+  .plan-topic > summary { flex-wrap: wrap; }
+}
+.up-next-chip { color: var(--accent); font-weight: 600; }

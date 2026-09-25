@@ -374,22 +374,18 @@ def create_video(key):
     """
     channel = channel_or_404(key)
     plan = None
-    table = None
-    current_topic_id = ""
+    up_next = ""
     if channel.content_mode == "topic" and curriculum.exists(key):
-        from core import ordering
-
         plan = {
             "progress": curriculum.progress(key),
             "topics": curriculum.topics_with_subtopics(key),
         }
-        current = ordering.choose_next_subtopic(channel)
-        current_topic_id = current["topic"] if current else ""
-        table = curriculum.table_rows(channel, current_subtopic=current)
+        up_next = curriculum.load(key).get("up_next") or ""
     from pipeline.curriculum_gen import estimate_cost
 
-    return render_template("create_video.html", key=key, channel=channel,
-                           plan=plan, table=table, current_topic_id=current_topic_id,
+    # ?subtopic_id= arrives from the plan page's "Make now".
+    return render_template("create_video.html", key=key, channel=channel, plan=plan,
+                           up_next=up_next, initial_subtopic=request.args.get("subtopic_id", ""),
                            cost=estimate_cost())
 
 
@@ -546,10 +542,25 @@ def api_seed(key):
         "subtopic_id": data.get("subtopic_id", ""),
         "mode": data.get("mode", ""),
     })
+    about = {}
+    if seed.topic_id and curriculum.exists(key):
+        entry = curriculum.find(key, seed.topic_id) or {}
+        topic = curriculum.find_topic(key, entry.get("topic", "")) or {}
+        about = {"topic_title": topic.get("title", ""),
+                 "script_ready": bool(entry.get("script")),
+                 "up_next": curriculum.load(key).get("up_next") == seed.topic_id}
+        if channel.format == "quiz" and entry:
+            from pipeline import quiz
+            rungs = quiz.ladder(channel, entry)
+            below = rungs[:next((i for i, r in enumerate(rungs) if r["id"] == entry["id"]), 0)]
+            about["ladder_first"] = [r.get("angle") for r in below
+                                     if r["status"] == curriculum.PENDING
+                                     and not quiz._questions_of(key, r)]
     return jsonify({
         "seed": seed.to_jsonable(),
         "description": seed.describe(),
         "history": _times_used(channel, seed),
+        **about,
     })
 
 

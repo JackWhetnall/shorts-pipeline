@@ -543,6 +543,8 @@ def claim(channel_key: str, subtopic_id: str = None) -> dict:
 
     chosen["status"] = USED
     chosen["used_at"] = _now()
+    if data.get("up_next") == chosen["id"]:
+        data.pop("up_next")
     save(data)
     return chosen
 
@@ -635,6 +637,10 @@ def move_to_front(channel_key: str, subtopic_id: str) -> dict:
     the subtopic is given a position ahead of every other pending one and
     the list is re-sorted — the arc is preserved for everything else, and
     "make this one next" stays a one-click decision.
+
+    It is also marked `up_next`, which the ordering honours before its own
+    rules: on a channel that picks at random, position means nothing, and
+    "Make next" used to do nothing visible at all.
     """
     data = load(channel_key)
     pending = [t for t in data["subtopics"] if t["status"] == PENDING]
@@ -647,6 +653,7 @@ def move_to_front(channel_key: str, subtopic_id: str) -> dict:
             row["position"] = lowest - 1
             row["status"] = PENDING
             data["subtopics"].sort(key=lambda t: t["position"])
+            data["up_next"] = subtopic_id
             save(data)
             return row
     raise CurriculumError(f"no subtopic {subtopic_id} in {channel_key}",

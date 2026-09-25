@@ -9,42 +9,73 @@
 
 <div id="create-video-page" data-channel-key="{{ key }}"></div>
 
-<div id="seed-idle" class="card">
+<div id="seed-idle">
 {% if plan %}
-  <p class="meta">
-    {{ plan.progress.pending }} subtopics waiting, about
-    {{ plan.progress.runway_days }} days' worth.
-    <button type="button" class="info-dot" data-tooltip="Highlighted is what the ordering setting picks next. Click another row to use that topic instead.">?</button>
-  </p>
-
-  {% if table.rows %}
-  <div id="topic-table" class="topic-table"
-       data-channel-key="{{ key }}"
-       data-rows="{{ table.rows|tojson|forceescape }}"
-       data-selected-topic="{{ current_topic_id }}"
-       data-default-topic="{{ current_topic_id }}"></div>
-  {% else %}
-  <p class="meta">Every topic is either empty or fully made &mdash;
-    <a href="{{ url_for('curriculum.page', key=key) }}">open the plan</a> to write more.</p>
-  {% endif %}
-  {% if table.hidden_topics %}
-  <p class="hint">+ {{ table.hidden_topics }} more topic{{ 's' if table.hidden_topics != 1 }}
-    &mdash; <a href="{{ url_for('curriculum.page', key=key) }}">open the full plan</a></p>
-  {% endif %}
-  <p class="hint" id="topic-table-status"></p>
-
-  <div id="topic-preview" class="card hidden">
-    <div id="topic-preview-text"></div>
+  {# One video is always chosen, shown here with the button that makes it.
+     Everything below changes which one; nothing below starts anything.
+     (The page used to show a table of eight topics beside a second,
+     different random pick, and clicking a topic re-rolled that pick
+     rather than following the click.) #}
+  <div class="card chosen-video" id="chosen-video" data-channel-key="{{ key }}"
+       data-initial-subtopic="{{ initial_subtopic }}">
+    <p class="kicker-label" id="chosen-why">Next up</p>
+    <h2 id="chosen-title">&hellip;</h2>
+    <p class="meta" id="chosen-meta"></p>
     <div class="actions">
-      <button id="topic-confirm-btn" onclick="startGenerate('{{ key }}')">Continue</button>
-      <a class="btn-ghost" href="{{ url_for('curriculum.page', key=key) }}">Open the plan</a>
+      <button type="button" id="chosen-make-btn" onclick="startGenerate('{{ key }}')" disabled>Make this video</button>
+      <button type="button" class="btn-ghost" onclick="chooseVideo({mode: 'random'}, 'Picked at random')">Pick another at random</button>
+      <button type="button" class="btn-ghost" onclick="chooseVideo({}, 'Next up')">Back to next up</button>
     </div>
   </div>
+
+  <div class="card">
+    <h2>Or choose one</h2>
+    <p class="meta">
+      {{ plan.progress.pending }} waiting across {{ plan.topics|length }} topic{{ 's' if plan.topics|length != 1 }},
+      about {{ plan.progress.runway_days }} days' worth.
+      <a href="{{ url_for('curriculum.page', key=key) }}">Edit the plan</a>
+    </p>
+    <input type="search" id="plan-filter" placeholder="Filter topics and videos" class="plan-filter"
+           oninput="filterPlan(this.value)">
+    <div class="plan-picker" id="plan-picker">
+      {% for topic in plan.topics %}
+      {% set waiting = topic.subtopics|selectattr('status', 'equalto', 'pending')|list %}
+      <details class="plan-topic" data-filter-text="{{ (topic.title ~ ' ' ~ waiting|map(attribute='title')|join(' '))|lower }}">
+        <summary>
+          <span class="plan-topic-title">{{ topic.title }}</span>
+          <span class="hint">{% if not topic.subtopics %}not written yet{% else %}{{ waiting|length }} of {{ topic.subtopics|length }} waiting{% endif %}</span>
+          {% if waiting %}
+          <button type="button" class="btn-ghost btn-small"
+                  onclick="event.preventDefault(); chooseVideo({topic_id: '{{ topic.id }}', mode: 'random'}, 'At random from {{ topic.title|e }}')">Random from this topic</button>
+          {% elif not topic.subtopics %}
+          <button type="button" class="btn-ghost btn-small"
+                  onclick="event.preventDefault(); writeTopic('{{ key }}', '{{ topic.id }}', this)">Write its videos</button>
+          {% endif %}
+        </summary>
+        <ul class="plan-subtopics">
+          {% for sub in waiting %}
+          <li><button type="button" class="plan-subtopic" data-subtopic="{{ sub.id }}"
+                      onclick="chooseVideo({subtopic_id: '{{ sub.id }}'}, 'Your pick')">
+            {{ sub.title }}
+            {% if sub.script %}<span class="hint">script ready</span>{% endif %}
+            {% if sub.id == up_next %}<span class="hint">up next</span>{% endif %}
+          </button></li>
+          {% else %}
+          <li class="hint">Nothing waiting in this topic.</li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endfor %}
+    </div>
+    <p class="hint" id="plan-picker-status"></p>
+  </div>
 {% else %}
+  <div class="card">
   <p class="meta">Fetch a candidate {{ 'quote' if channel.content_mode == 'static_corpus' else 'topic' }} to review before generating.</p>
   <button onclick="getSeed('{{ key }}')">
     Get a candidate {{ 'quote' if channel.content_mode == 'static_corpus' else 'topic' }}
   </button>
+  </div>
 {% endif %}
 </div>
 

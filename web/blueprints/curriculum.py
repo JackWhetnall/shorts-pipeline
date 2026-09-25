@@ -40,6 +40,7 @@ def page(key):
         progress=curriculum.progress(key),
         topics=curriculum.topics_with_subtopics(key),
         next_topic=curriculum.next_unfilled_topic(key),
+        up_next=(curriculum.load(key).get("up_next") or "") if curriculum.exists(key) else "",
         cost=estimate_cost(DEFAULT_TOPIC_COUNT),
         default_topics=DEFAULT_TOPIC_COUNT,
         default_subtopics=DEFAULT_TOTAL_SUBTOPICS,
@@ -305,13 +306,13 @@ def unskip(key, subtopic_id):
 
 @bp.route("/channels/<key>/curriculum/<subtopic_id>/next", methods=["POST"])
 def make_next(key, subtopic_id):
-    """Jump one subtopic to the front of the queue."""
+    """Queue one subtopic as the next video made, whatever the ordering."""
     channel_or_404(key)
     try:
         curriculum.move_to_front(key, subtopic_id)
     except PipelineError as exc:
         abort(400, description=exc.user_message)
-    return redirect(url_for("curriculum.page", key=key))
+    return redirect(url_for("curriculum.page", key=key, _anchor=subtopic_id))
 
 
 @bp.route("/channels/<key>/curriculum/delete", methods=["POST"])

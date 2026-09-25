@@ -46,6 +46,12 @@ def choose_next_subtopic(channel, curriculum_data: dict = None, rng=None) -> dic
     for row in subtopics:
         by_topic.setdefault(row["topic"], []).append(row)
 
+    # One the owner queued with "Make next" comes first, whatever the rules.
+    queued = next((row for row in subtopics if row["id"] == data.get("up_next")
+                   and row["status"] == curriculum.PENDING), None)
+    if queued is not None:
+        return queued
+
     pending_topics = [t for t in topics if _pending(by_topic, t["id"])]
     if not pending_topics:
         return None
