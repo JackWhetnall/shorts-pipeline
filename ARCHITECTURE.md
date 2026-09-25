@@ -200,10 +200,10 @@ script_gen.run(plan)         -> plan.script   (segments, shot briefs, title, des
 tts.run(plan)                -> plan.voiceover, and each Segment's real start/end
                                  (refused up front if the voice quota
                                  can't cover it)
-artwork.run(plan)            -> a painting under the passage, when switched on
 visuals.run(plan)            -> plan.scene_clips: templates, illustrations
                                  and diagrams where the director's score
-                                 clears the channel's bar (none at 0);
+                                 clears the channel's bar (none at 0), and
+                                 museum paintings where allowed and fitting;
                                  for a quiz, one board for the whole video
 assemble.run(plan)           -> plan.shots (one per scene; stock footage
                                  matched for the rest), the video file
@@ -383,8 +383,12 @@ only:
 
 Captions are off (`style.captions_enabled`), and the clock's ticks are
 exempt from the effects limits. Its topic plan is categories ×
-difficulties, written by rule, and topped up a round at a time. See
-decision [041](docs/decisions/041-quiz-format.md).
+difficulties, written by rule, and topped up a round at a time. A
+category's rounds are written easiest first, each seeing the others
+(`quiz.write_ladder_below`), and stored until their videos are made in
+whatever order the ordering picks. See decisions
+[041](docs/decisions/041-quiz-format.md) and
+[042](docs/decisions/042-settings-that-apply-and-the-quiz-ladder.md).
 
 ## How long a video runs
 

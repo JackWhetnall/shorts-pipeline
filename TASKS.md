@@ -61,11 +61,13 @@ needed, and no two channels share one. Listen before adding: titles can
 mislead, and a track that turns out to carry a Content ID claim should
 be removed.
 
-### 2b-iv. Try Paintings on Minute Pastor
-Settings → Look → **Paintings**: tick "Show a public-domain painting of
-the passage". Each verse is then read over a classic painting or
-engraving of it (from the Art Institute of Chicago and the Met),
-credited in the description. Off until you switch it on.
+### 2b-iv. Allow paintings on Minute Pastor (and Wren's, maybe)
+Settings → Pictures → **Paintings and engravings**: tick it. The director
+can then use a classic public-domain painting or engraving (from the Art
+Institute of Chicago and the Met) for any segment one shows well: a Bible
+scene, a myth, a historical moment. Credited in the description. It's no
+longer tied to the verse, and the slider doesn't limit it. Off until you
+switch it on.
 
 ### 2b-v. Curiosity Leak: lower its graphics slider
 It's set to "Always animated", which the new rules say is wrong for a
@@ -102,13 +104,14 @@ difficulties = 75 quizzes) are all live.
 2. **Settings → Music & sound → Suggest tracks**: the suggestions I saw
    were cinematic and moody, not pub-quiz. Pick something light, or
    untick *Music* and let the clock carry it.
-3. **Make one video** (Create video on its dashboard) when you're happy
-   to spend about 1,150 ElevenLabs characters (about 4% of the month) and
-   about 10 cents. I've tested every part without the voice, but not a
-   real voiced render. Watch for: the countdown's timing, whether the
-   ticks are loud enough, and whether any answer is wrong. Every answer
-   is fact-checked first, and a video with a doubtful one waits for you.
-4. Its difficulty levels are Easy, Medium, Hard, Fiendish, Impossible
+3. Done: you rendered one. From now on each category's rounds are
+   written easiest first, so the first Hard quiz of a category also
+   writes its Easy round (Create video says so before you start); those
+   rounds are stored and used when their videos come up.
+4. Optional: on its **Topic plan**, each category's **Write scripts**
+   writes its whole ladder in order (about 6 cents a round), so you can
+   read a category's five rounds side by side before any are voiced.
+5. Its difficulty levels are Easy, Medium, Hard, Fiendish, Impossible
    (the draft's choice). Change them in **Settings → Channel** if you'd
    rather say "Very hard".
 
