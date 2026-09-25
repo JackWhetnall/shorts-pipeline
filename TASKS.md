@@ -4,7 +4,7 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 24 Sep 2026 (evening).*
+*Last updated: 25 Sep 2026 (afternoon).*
 
 ---
 
@@ -53,7 +53,7 @@ voice, no video) shows the new hooks. Tell me which ones would and
 wouldn't stop you scrolling; that's the fastest way to tune them.
 
 ### 2b-iii. Choose music for each channel (5 minutes each)
-Each channel's dashboard now has a **Music** card: press **Suggest
+Each channel's **Settings → Music & sound** has the tracks: press **Suggest
 tracks**, listen, and **Add** the ones that suit it (3-6 is plenty). If
 you skip this, the app fetches the best three itself at the channel's
 next video. Tracks are openly licensed and credited automatically where
@@ -70,14 +70,14 @@ credited in the description. Off until you switch it on.
 ### 2b-v. Curiosity Leak: lower its graphics slider
 It's set to "Always animated", which the new rules say is wrong for a
 subject that can be filmed (people, animals, everyday life): real
-footage of a dog yawning beats any graphic. On its dashboard, under
-**Graphics and illustrations**, drag the slider to about 40 ("When it
-clearly helps") and **Save the look**. Press **See the motion graphics
+footage of a dog yawning beats any graphic. In its **Settings →
+Graphics**, drag the slider to about 40 ("When it clearly helps") and
+**Save changes**. Press **See the motion graphics
 in this look** to see what its graphics will look like.
 
 ### 2c. Decide scenes for your existing channels
-Every existing channel is **stock only** until you change it. On each
-channel's dashboard there's now an **Animated scenes** card: a slider
+Every existing channel is **stock only** until you change it. Each
+channel's **Settings → Graphics** has a slider
 for when a segment gets an animation instead of stock footage (a
 threshold on how much it needs one), and the look (four starting presets, then
 your own colours, fonts and drawing style), with a preview.
@@ -91,33 +91,54 @@ Scenes cost about 5-6 cents each, plus about 4 cents the first time a
 channel needs an illustrated object (reused after that). The voice
 quota is unaffected.
 
+### 2d. Look over The Pub Quiz Round (new: made from your pitch)
+I set it up through the pitch page, as you would, so it's worth browsing
+as if it were yours. Its dashboard, **Settings** (the Channel section has
+the quiz's own settings) and **Topic plan** (15 categories × 5
+difficulties = 75 quizzes) are all live.
+1. **Settings → Voice & timing**: it's on *Roger (laid-back, casual)*. Press the
+   Voice Lab's **Listen** if you want to compare Will or Chris, the
+   draft's other two picks.
+2. **Settings → Music & sound → Suggest tracks**: the suggestions I saw
+   were cinematic and moody, not pub-quiz. Pick something light, or
+   untick *Music* and let the clock carry it.
+3. **Make one video** (Create video on its dashboard) when you're happy
+   to spend about 1,150 ElevenLabs characters (about 4% of the month) and
+   about 10 cents. I've tested every part without the voice, but not a
+   real voiced render. Watch for: the countdown's timing, whether the
+   ticks are loud enough, and whether any answer is wrong. Every answer
+   is fact-checked first, and a video with a doubtful one waits for you.
+4. Its difficulty levels are Easy, Medium, Hard, Fiendish, Impossible
+   (the draft's choice). Change them in **Settings → Channel** if you'd
+   rather say "Very hard".
+
 ## When you have time to focus (testing the automation)
 
 ### 3. Set Minute Pastor's publishing plan
 1. Open **Channels → Minute Pastor**. The **Launch** card should say you're
    on *Set when it publishes*. Click **Do this →**.
-2. In **Publishing plan**:
+2. In **Settings → Publishing → When it publishes**:
    - Tick **Run this channel on its own**.
    - **Publish at**: a time your audience scrolls, e.g. `18:00`.
    - **Keep this many ready**: `3`.
    - Tick **Also post each one to TikTok / Instagram from this PC** if
      you'll post there.
-3. **Save plan**. Under *Right now* it should say it will start a video
-   on the next check (within five minutes).
+3. **Save changes**. On the dashboard, under *Right now*, it should say it
+   will start a video on the next check (within five minutes).
 
-Cost check: the card shows the plan's monthly ElevenLabs characters.
+Cost check: the section shows the plan's monthly ElevenLabs characters.
 Daily is about 16,400 of your 30,000.
 
 ### 4. Give Minute Pastor its own browser profile (for TikTok/Instagram)
 So posting always opens the right accounts, already signed in.
-1. Minute Pastor's dashboard → **Publishing plan** → **Make a profile for
-   this channel and sign in**.
+1. Minute Pastor's **Settings → Publishing → TikTok and Instagram** →
+   **Make a profile for this channel and sign in**.
 2. A new Chrome window opens (profile folder "Shorts minute_pastor") on
    TikTok's and Instagram's login pages. Sign in to **Minute Pastor's**
    accounts in that window. Nothing else to do; it remembers them.
 3. Optional: in that Chrome window, click the profile icon (top right) →
    rename it "Minute Pastor" so you can tell it apart.
-4. Back on the dashboard, check **Post from** now shows that profile,
+4. Back in Settings, check **Post from** now shows that profile,
    and **Save plan**.
 
 To test: in **Review**, press **Post to TikTok** on a video. Chrome should

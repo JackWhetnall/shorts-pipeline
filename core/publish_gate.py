@@ -15,6 +15,9 @@ and any check that didn't run. "Couldn't check" is never "fine". Decision
 from __future__ import annotations
 
 
+SHORTS_MAX_SECONDS = 180
+
+
 def evaluate(report: dict) -> dict:
     """{"passed": bool, "reasons": [str, ...]} for one render report."""
     report = report or {}
@@ -28,6 +31,11 @@ def evaluate(report: dict) -> dict:
     if unconfident:
         reasons.append(f"{unconfident} shot{'s' if unconfident != 1 else ''} had no footage "
                        f"that scored as a good match.")
+    # YouTube counts a vertical video as a Short only up to three minutes.
+    seconds = float(report.get("video_seconds") or 0)
+    if seconds > SHORTS_MAX_SECONDS:
+        reasons.append(f"It runs {int(seconds // 60)}:{int(seconds % 60):02d}; YouTube only "
+                       f"treats videos up to 3:00 as Shorts.")
     unverified = report.get("quiz_unverified") or []
     if unverified:
         reasons.append(f"The fact check couldn't confirm the answer to question"

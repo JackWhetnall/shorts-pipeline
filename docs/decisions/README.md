@@ -53,3 +53,4 @@ reason for a change stays true forever.
 | [038](038-production-polish.md) | Faster renders, sound, the visual hook, camera, maths, libraries, paintings | Active |
 | [039](039-music-library-and-fresh-code.md) | Music fetched per channel; restart onto new code; scenes wait for the hook | Active; revises 038's music |
 | [040](040-visual-rethink.md) | A visual director, designed templates and illustrations | Active; supersedes 035's planner |
+| [041](041-quiz-format.md) | A quiz format, fact-checked; settings in one place; plans that top themselves up | Active |

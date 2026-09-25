@@ -215,6 +215,7 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
         # Quiz questions the fact check still didn't pass (pipeline.quiz).
         "quiz_unverified": list((plan.script.quiz or {}).get("unverified") or []),
         "shot_count": len(plan.shots),
+        "video_seconds": round(getattr(plan, "video_seconds", 0.0) or 0.0, 1),
         "clips": sorted({s.clip_path.name for s in plan.shots if s.clip_path and not s.scene}),
         "scenes": len([c for c in plan.scene_clips if c.get("kind") != "artwork"]),
         "visuals": [{k: d.get(k) for k in ("index", "medium", "template", "reason")}

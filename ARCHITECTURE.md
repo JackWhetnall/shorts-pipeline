@@ -203,7 +203,8 @@ tts.run(plan)                -> plan.voiceover, and each Segment's real start/en
 artwork.run(plan)            -> a painting under the passage, when switched on
 visuals.run(plan)            -> plan.scene_clips: templates, illustrations
                                  and diagrams where the director's score
-                                 clears the channel's bar (none at 0)
+                                 clears the channel's bar (none at 0);
+                                 for a quiz, one board for the whole video
 assemble.run(plan)           -> plan.shots (one per scene; stock footage
                                  matched for the rest), the video file
 _finish(plan)                -> meta, description, script history, cost, render
@@ -362,15 +363,37 @@ covered. The claim happens at the top of `run.generate`, not in
 `fetch_seed`, which must stay free of side effects so a seed can be
 rerolled.
 
+A running channel's plan tops itself up: when fewer than 30 are
+pending, the scheduler writes the next topic (core.scheduler.top_up_plans).
+
 A channel without a syllabus keeps drawing from its flat `topics` list.
 See decision [018](docs/decisions/018-topic-curriculum.md).
+
+## Formats
+
+`format` is `narrated` (a script over footage and graphics, everything
+above) or `quiz` (`pipeline/quiz.py`). A quiz branches at two stages
+only:
+
+- `script_gen` writes a round: intro, then question and answer
+  segments, then a sign-off. Each question segment carries
+  `pause_after`, the countdown. The round is fact-checked by an
+  independent call that must list every correct answer before judging.
+- `visuals` films one board for the whole video.
+
+Captions are off (`style.captions_enabled`), and the clock's ticks are
+exempt from the effects limits. Its topic plan is categories ×
+difficulties, written by rule, and topped up a round at a time. See
+decision [041](docs/decisions/041-quiz-format.md).
 
 ## How long a video runs
 
 `pacing.target_seconds` is the setting; the script's word budget is
 derived from it at 2.5 words per second of finished video, measured
 across this project's own output. For a quote channel the quote's own
-words come out of the budget first, since they are not ours to write.
+words come out of the budget first, since they are not ours to write; for
+a quiz, the fixed clock time does. Anything over 3:00 is held at the
+publish gate: YouTube treats only videos up to three minutes as Shorts.
 
 ## Cards
 

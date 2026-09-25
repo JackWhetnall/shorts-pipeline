@@ -290,6 +290,8 @@ class RenderPlan:
     # after it.
     title_card_at: float = 0.0
     title_card_seconds: float = 0.0
+    # The finished video's length, set by assembly.
+    video_seconds: float = 0.0
     # Animated scenes (pipeline.scenes.stage): [{first, last, clip}] for
     # the stretches of segments they cover. Stock footage fills the rest.
     scene_clips: list = field(default_factory=list)

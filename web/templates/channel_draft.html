@@ -91,7 +91,7 @@
       <input type="number" name="quiz_questions" min="3" max="15" value="{{ body.quiz_questions }}">
     </label>
     <label>Countdown after each question, in seconds
-      <input type="number" name="quiz_countdown_seconds" min="1" max="10" step="0.5"
+      <input type="number" name="quiz_countdown_seconds" min="1" max="10" step="0.1"
              value="{{ body.quiz_countdown_seconds }}">
     </label>
     <p class="hint">Every category at every difficulty is one quiz, so
@@ -128,7 +128,7 @@
     </label>
     {% endif %}
     <label>Narrator speed (1.0 is normal)
-      <input type="number" name="speed" min="0.7" max="1.2" step="0.05" value="{{ body.speed }}">
+      <input type="number" name="speed" min="0.7" max="1.2" step="0.01" value="{{ body.speed }}">
     </label>
   </div>
 

@@ -215,3 +215,38 @@ class TestPages:
         # The look as reviewed, keeping only what differs from its preset.
         assert saved.scenes.share == 70
         assert saved.scenes.art == {"preset": "neon", "accent1": "#FF0000", "font_display": "Georgia"}
+
+
+def _numbers_the_browser_refuses(page: str) -> list:
+    """Number inputs whose value their own min/max/step would refuse. A
+    browser won't submit the form then, and says so only in a bubble by
+    the field, which is easy to never see."""
+    import re
+    from decimal import Decimal
+    bad = []
+    for tag in re.findall(r"<input[^>]*type=\"(?:number|range)\"[^>]*>", page, re.S):
+        attrs = dict(re.findall(r'(\w[\w-]*)="([^"]*)"', tag))
+        try:
+            value = Decimal(attrs["value"])
+        except Exception:  # noqa: BLE001 - no literal value to check
+            continue
+        low = Decimal(attrs.get("min", "0"))
+        step = attrs.get("step", "1")
+        if value < low or ("max" in attrs and value > Decimal(attrs["max"])) or (
+                step != "any" and (value - low) % Decimal(step) != 0):
+            bad.append(f"{attrs.get('name')}={value}")
+    return bad
+
+
+def test_every_drafted_number_is_one_its_field_accepts(world):
+    """Regression: the pub quiz draft chose a speed of 1.02, the field
+    stepped in 0.05, and "Create this channel" silently did nothing."""
+    from web import create_app
+    world["body"] = model_answer(speed=1.02, format="quiz", quiz_categories=["Science"],
+                                 quiz_difficulties=["Easy", "Hard"], quiz_questions=10,
+                                 quiz_countdown_seconds=4.3, target_seconds=150)
+    record = drafts.create("a pub quiz")
+    client = create_app().test_client()
+    page = client.get(f"/channels/drafts/{record['id']}").get_data(as_text=True)
+    assert 'name="quiz_countdown_seconds"' in page
+    assert _numbers_the_browser_refuses(page) == []

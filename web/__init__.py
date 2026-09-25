@@ -74,6 +74,11 @@ def create_app(debug: bool = False) -> Flask:
     jobs.install()
 
     app = Flask(__name__, template_folder="templates", static_folder="static")
+    # Outside debug mode Flask caches each template for the life of the
+    # process, and the restart-on-new-code watcher only fingerprints
+    # Python, so a template-only change never showed. A stat per render
+    # is nothing for a one-person app.
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
     app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024      # merch photo uploads
     # Jinja only auto-reloads templates when debug is on, so with debug
     # off a template edit silently did nothing until the server was

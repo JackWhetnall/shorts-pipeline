@@ -122,7 +122,7 @@
           <input type="number" name="quiz_questions" min="3" max="15" value="{{ channel.quiz.questions }}">
         </label>
         <label class="field-row"><span class="field-label">Countdown after each question (seconds)</span>
-          <input type="number" name="quiz_countdown_seconds" min="1" max="10" step="0.5"
+          <input type="number" name="quiz_countdown_seconds" min="1" max="10" step="0.1"
                  value="{{ channel.quiz.countdown_seconds }}">
         </label>
         <label class="field-row"><span class="field-label">Pause after each answer (seconds)</span>
@@ -153,7 +153,7 @@
         </span>
       </label>
 
-      <label class="choice">
+      <label class="choice" data-show-when="format=narrated">
         <input type="radio" name="words_from" value="own_quotes"
                {% if words_from == 'own_quotes' %}checked{% endif %}
                onchange="showWordsFrom(this.value)">
@@ -164,7 +164,7 @@
         </span>
       </label>
 
-      <label class="choice">
+      <label class="choice" data-show-when="format=narrated">
         <input type="radio" name="words_from" value="built_in"
                {% if words_from == 'built_in' %}checked{% endif %}
                onchange="showWordsFrom(this.value)">
@@ -191,7 +191,7 @@
         </p>
         {% endif %}
         <input type="hidden" name="continuity_present" value="1">
-        <label class="checkbox-label">
+        <label class="checkbox-label" data-show-when="format=narrated">
           <input type="checkbox" name="build_on_previous"
                  {% if channel.build_on_previous %}checked{% endif %}>
           Videos build on each other
@@ -329,7 +329,7 @@
       </div>
     </fieldset>
 
-    <label>Imagery to avoid &mdash; one word or phrase per line
+    <label data-show-when="format=narrated">Imagery to avoid &mdash; one word or phrase per line
       <button type="button" class="info-dot" data-tooltip="The footage library is shared between channels.">?</button>
       <textarea name="avoid_imagery" rows="3">{{ (channel.avoid_imagery or [])|join('\n') }}</textarea>
     </label>
@@ -403,7 +403,7 @@
           <button type="button" class="info-dot" data-tooltip="1.0 is the voice's own pace.">?</button>
         </span>
         <span class="slider-row">
-          <input type="range" name="speed" min="0.7" max="1.2" step="0.05"
+          <input type="range" name="speed" min="0.7" max="1.2" step="0.01"
                  value="{{ channel.speed if channel.speed is not none else 1.0 }}"
                  oninput="this.nextElementSibling.value = this.value">
           <output class="slider-value">{{ channel.speed if channel.speed is not none else 1.0 }}</output>
@@ -792,6 +792,9 @@
       Each segment gets real footage, an illustration in this channel's look, or a
       designed motion graphic, timed to the words.
     </p>
+    <p class="hint info-banner" data-show-when="format=quiz">A quiz's board takes this look's
+      colours and fonts. Nothing else here applies to it: a quiz has no footage,
+      illustrations or paintings.</p>
     <fieldset>
       <legend>Footage or graphics</legend>
       {% include "_scene_settings.html" %}

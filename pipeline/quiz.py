@@ -38,8 +38,8 @@ log = get_logger(__name__)
 
 WRITE_MAX_TOKENS = 10000
 WRITE_EFFORT = "medium"
-VERIFY_MAX_TOKENS = 8000
-VERIFY_EFFORT = "medium"
+VERIFY_MAX_TOKENS = 16000
+VERIFY_EFFORT = "high"         # a wrong answer is the one unrecoverable mistake
 # Earlier questions shown to the writer so it doesn't ask them again:
 # this category's first, then the channel's others.
 HISTORY_QUESTIONS = 250
@@ -74,11 +74,18 @@ Each question:
   disagree, don't ask it.
 - `answer`: the answer as it appears on the board: a name, a number, a
   word or a very short phrase, 1-4 words.
-- `spoken_answer`: how the host gives it, under 20 words. When the
+- `spoken_answer`: how the host gives it, under 14 words. When the
   answer is short, the host usually says it twice, sometimes with the
   question's context the second time ("Beijing. Beijing is the capital
-  of China."), sometimes with a quick interesting fact, sometimes just
-  plainly. Mix these across the round; not the same shape every time.
+  of China."), now and then with a quick fact, often just plainly. Mix
+  these across the round; not the same shape every time. Any fact the
+  host adds must be as certain as the answer.
+- Read each question back as a sentence: it must be grammatical and say
+  exactly one thing ("What is the boundary between the crust and the
+  mantle called?", never "What is the name of ... called?").
+- Superlatives and "only", "first", "never" questions are where quiz
+  answers go wrong: ask one only when you are sure there is no second
+  case, today.
 - `lead_in`: for every question after the first, the host's short move
   to it, which says its number: "Question two.", "Number three." and so
   on, with the odd bit of colour ("halfway there", "last one"). Under 7
@@ -134,21 +141,36 @@ def _schema() -> dict:
 
 
 VERIFY_SYSTEM = """
-You are the fact checker for a quiz video before it is published. For
-each question, first work out the answer yourself, then compare it with
-the proposed answer. Judge each one:
+You are the fact checker for a quiz video before it is published. Quiz
+writers repeat popular trivia "facts" that are wrong or no longer true,
+and a checker who reads the proposed answer first tends to agree with
+it. So for each question, in this order:
 
-- "ok": the proposed answer is right, and it is the only reasonable
-  answer to the question as worded.
+1. `working`: check it systematically, as if you'd never seen the
+   proposed answer. For a superlative or an "only", "first", "never",
+   "no other" question, go through the whole set it ranges over (every
+   planet, every element symbol, every country...) rather than recalling
+   the famous answer. Consider changes over time (renamed elements,
+   redrawn borders, reclassified species).
+2. `correct_answers`: every answer a knowledgeable player could give and
+   be right, however many that is.
+3. `verdict`, comparing with the proposed answer:
+
+- "ok": the proposed answer is right, and your correct answers hold
+  nothing else (spellings and forms of the same answer are one answer).
 - "wrong": the proposed answer is incorrect.
 - "ambiguous": more than one answer is defensible, or the wording is
   unclear enough that a fair player could answer differently and be
   right.
 - "dated": the answer depends on when it's asked (a current holder,
   record, population or price) and could be out of date.
+- "unclear": the question is ungrammatical or muddled as a sentence.
 
-Be strict about "wrong" and "ambiguous": a published wrong answer is
-what ruins a quiz channel. Don't flag a question for being easy or hard.
+Also check any extra fact in the host's line: if it's wrong, the
+question is "wrong".
+
+Be strict: a published wrong answer is what ruins a quiz channel. Don't
+flag a question for being easy or hard.
 """.strip()
 
 VERIFY_SCHEMA = {
@@ -160,11 +182,13 @@ VERIFY_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "number": {"type": "integer"},
-                    "your_answer": {"type": "string"},
-                    "verdict": {"type": "string", "enum": ["ok", "wrong", "ambiguous", "dated"]},
+                    "working": {"type": "string"},
+                    "correct_answers": {"type": "array", "items": {"type": "string"}},
+                    "verdict": {"type": "string",
+                                "enum": ["ok", "wrong", "ambiguous", "dated", "unclear"]},
                     "note": {"type": "string"},
                 },
-                "required": ["number", "your_answer", "verdict", "note"],
+                "required": ["number", "working", "correct_answers", "verdict", "note"],
                 "additionalProperties": False,
             },
         }
@@ -261,9 +285,26 @@ def _clean_round(data: dict, count: int) -> dict:
     return data
 
 
+WORDS_PER_SECOND = 2.5          # as pipeline.script_gen
+
+
+def word_budget(channel) -> int:
+    """Spoken words the round can have and still fit the channel's length:
+    the countdowns and pauses are fixed, the talk is what's left."""
+    quiz = channel.quiz
+    silent = quiz.questions * (quiz.countdown_seconds + quiz.answer_pause) + 2.5
+    talk = max(30.0, channel.pacing.target_seconds - silent)
+    return int(talk * WORDS_PER_SECOND * (channel.speed or 1.0))
+
+
 def _user(category: str, difficulty: str, count: int, channel, avoid: list, extra: str) -> str:
     listed = "\n".join(f"- {q}" for q in avoid)
-    return (f"Category: {category}\nDifficulty: {difficulty}\nQuestions: exactly {count}\n\n"
+    words = word_budget(channel)
+    return (f"Category: {category}\nDifficulty: {difficulty}\nQuestions: exactly {count}\n"
+            f"Length: the whole round as spoken (intro, lead-ins, questions, answers, "
+            f"sign-off) is at most {words} words, about {max(12, (words - 60) // count)} per "
+            f"question with its answer. The clock time is extra and fixed, so this is what "
+            f"keeps the video under three minutes; count as you write.\n\n"
             + (f"Already asked on this channel; don't ask these again or anything that "
                f"gives the same answer to the same fact:\n{listed}\n\n" if listed else "")
             + extra)
@@ -283,7 +324,8 @@ def verify(category: str, difficulty: str, questions: list) -> list:
     """[verdict per question] from an independent check: "ok", "wrong",
     "ambiguous" or "dated". A check that can't run returns "unchecked"
     for every question, which holds the video rather than passing it."""
-    listed = "\n".join(f"{i + 1}. Q: {q['question']}\n   Proposed answer: {q['answer']}"
+    listed = "\n".join(f"{i + 1}. Q: {q['question']}\n   Proposed answer: {q['answer']}\n"
+                       f"   The host says: {q['spoken_answer']}"
                        for i, q in enumerate(questions))
     try:
         data = call_json(VERIFY_SYSTEM, f"Category: {category}. Difficulty: {difficulty}.\n\n{listed}",
@@ -299,8 +341,16 @@ def verify(category: str, difficulty: str, questions: list) -> list:
             verdicts[n - 1] = row.get("verdict") or "unchecked"
             if verdicts[n - 1] != "ok":
                 log.info(f"  [quiz] Q{n} {verdicts[n - 1]}: {row.get('note', '')} "
-                         f"(checker says {row.get('your_answer', '')!r})")
+                         f"(correct: {', '.join(row.get('correct_answers') or [])})")
     return verdicts
+
+
+def _mentions(text: str, answer: str) -> bool:
+    """Whether `answer` appears in `text` as whole words ("Au" is not in
+    "Australia"), ignoring case and a leading "the"."""
+    import re
+    answer = re.sub(r"^the\s+", "", (answer or "").strip(), flags=re.I)
+    return bool(answer) and re.search(rf"\b{re.escape(answer)}\b", text or "", re.I) is not None
 
 
 def write_script(seed, channel, avoid: str = "") -> Script:
@@ -315,11 +365,21 @@ def write_script(seed, channel, avoid: str = "") -> Script:
     bad = [i for i, v in enumerate(verdicts) if v != "ok"]
     if bad:
         log.info(f"  [quiz] replacing {len(bad)} question(s) the fact check didn't pass")
-        keep = [q["question"] for i, q in enumerate(questions) if i not in bad]
+        kept = [q for i, q in enumerate(questions) if i not in bad]
+        keep = [q["question"] for q in kept]
+        staying = "\n".join(f"- {q['question']} ({q['answer']})" for q in kept)
         replacement = _write(category, difficulty, channel, asked + keep,
-                             "Only the questions are needed this time; the intro and sign-off "
-                             "will be discarded.")["questions"]
-        fresh = [q for q in replacement if q["question"] not in keep][:len(bad)]
+                             f"Only the questions are needed this time; the intro and sign-off "
+                             f"will be discarded. These stay in the round, so no question may "
+                             f"share an answer or a subject with them:\n{staying}")["questions"]
+        # Nothing that repeats or gives away an answer already in the round
+        # (a replacement "capital of Italy" beside "which country is shaped
+        # like a boot").
+        taken = " ".join(f"{q['question']} {q['answer']}" for q in kept)
+        fresh = [q for q in replacement
+                 if q["question"] not in keep and not _mentions(taken, q["answer"])
+                 and not any(_mentions(f"{q['question']} {q['answer']}", q2["answer"])
+                             for q2 in kept)][:len(bad)]
         fresh_verdicts = verify(category, difficulty, fresh) if fresh else []
         for slot, q, v in zip(bad, fresh, fresh_verdicts):
             questions[slot] = {**q, "lead_in": questions[slot]["lead_in"]}

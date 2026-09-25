@@ -771,8 +771,13 @@ def run(plan):
                                      plan.voiceover.word_timings, style) + captions
 
     # The track is the base frame, never blended: only the captions are.
-    narration_video = CompositeVideoClip([background.set_duration(narration_duration), *captions],
-                                         size=(W, H), use_bgclip=True)
+    # With nothing over it (a quiz has no captions) it is the video: a
+    # composite of a background alone has no end and fails.
+    if captions:
+        narration_video = CompositeVideoClip([background.set_duration(narration_duration), *captions],
+                                             size=(W, H), use_bgclip=True)
+    else:
+        narration_video = background
     narration_video = narration_video.set_duration(narration_duration)
 
     # The seed's own title rather than the generated one: it is what the
@@ -823,6 +828,7 @@ def run(plan):
 
     final = concatenate_videoclips(parts, method="compose")
     final = final.set_duration(lead_seconds + narration_duration + tail_seconds)
+    plan.video_seconds = lead_seconds + narration_duration + tail_seconds
 
     narration = apply_fade(narration, fps, fade_out=0.05)
     # Silence for the card goes wherever the card itself landed — in

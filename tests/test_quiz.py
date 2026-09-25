@@ -22,11 +22,13 @@ from pipeline.plan import Seed, WordTiming
 
 
 def _round(n=3, prefix="Q"):
+    def answer_for(i):
+        return f"A{i + 1}" if prefix == "Q" else f"{prefix}{i + 1}"
     return {"intro": "Today's quiz is all about science, and it's easy. Starting with question one...",
             "questions": [{"lead_in": f"Question {i + 1}." if i else "",
                            "question": f"{prefix} question number {i + 1}?",
-                           "answer": f"A{i + 1}", "spoken_answer": f"A{i + 1}. A{i + 1}."}
-                          for i in range(n)],
+                           "answer": answer, "spoken_answer": f"{answer}. {answer}."}
+                          for i, answer in ((i, answer_for(i)) for i in range(n))],
             "outro": "How many did you get?", "title_options": ["Science quiz: easy"],
             "description_body": "Three easy science questions."}
 
@@ -80,7 +82,7 @@ class TestFactCheck:
             if operation == "quiz_write":
                 calls["write"] += 1
                 return _round(prefix="Fresh" if calls["write"] > 1 else "Q")
-            return {"results": [{"number": i + 1, "your_answer": "?", "verdict": v, "note": ""}
+            return {"results": [{"number": i + 1, "working": "", "correct_answers": ["?"], "verdict": v, "note": ""}
                                 for i, v in enumerate(verdicts.pop(0))]}
 
         monkeypatch.setattr(quiz, "call_json", call_json)
@@ -249,3 +251,35 @@ def test_the_scheduler_writes_the_next_topic_when_a_plan_runs_low(tmp_path, monk
     assert "Forces one" in [s["title"] for s in curriculum.subtopics("narrated")]
     channel.publishing.enabled = False              # not running itself: left alone
     assert scheduler.top_up_plans({"narrated": channel}) == []
+
+
+def test_the_checker_works_the_answer_out_before_judging():
+    """Regression: shown "J" as the only letter in no element symbol, a
+    checker that judged first agreed; made to list every correct answer
+    first, it found Q too. The schema's order is what enforces that."""
+    fields = list(quiz.VERIFY_SCHEMA["properties"]["results"]["items"]["properties"])
+    assert fields.index("working") < fields.index("correct_answers") < fields.index("verdict")
+    assert quiz.VERIFY_EFFORT == "high"
+
+
+def test_the_round_is_written_to_fit_a_short():
+    """Regression: the first real round was 370 words, which with ten
+    five-second silences made a 3:37 video, past the Shorts limit."""
+    channel = _channel(10)
+    channel.pacing.target_seconds = 150
+    assert 220 <= quiz.word_budget(channel) <= 260
+    assert "at most" in quiz._user("Science", "Hard", 10, channel, [], "")
+
+
+def test_a_video_past_three_minutes_is_held():
+    from core import publish_gate
+    ok = {"checks": {"script": {"ran": True}, "frames": {"ran": True}}}
+    assert publish_gate.evaluate({**ok, "video_seconds": 179})["passed"]
+    held = publish_gate.evaluate({**ok, "video_seconds": 217})
+    assert not held["passed"] and "3:37" in held["reasons"][0]
+
+
+def test_a_replacement_never_repeats_an_answer_already_in_the_round():
+    assert quiz._mentions("Which country is shaped like a boot? Italy", "Italy")
+    assert not quiz._mentions("Which country contains Australia's capital?", "Au")
+    assert quiz._mentions("the Pacific Ocean", "The Pacific")
