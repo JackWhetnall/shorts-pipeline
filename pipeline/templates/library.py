@@ -42,6 +42,17 @@ def _in(t, anim="rise", dur=0.5) -> str:
     return f"data-in='{t:.3f}' data-anim='{anim}' data-dur='{dur}'"
 
 
+# Structure first: a template's cards and rows arrive with its title in a
+# quick cascade, and their contents fill in on the spoken words. Waiting
+# for the words to bring the cards too left the first re-cut showing a
+# lone title on an empty stage for a second or more.
+CASCADE = 0.12
+
+
+def _shell(t0, i=0) -> float:
+    return t0 + 0.15 + CASCADE * i
+
+
 # --- the templates -------------------------------------------------------------
 
 def big_number(s, t, icons):
@@ -66,20 +77,23 @@ def big_number(s, t, icons):
 
 
 def versus(s, t, icons):
-    def side(key, accent, at, anim):
+    def side(key, accent, at, anim, n):
         d = s[key]
         return f"""
-        <div class="card vs-side" {_in(at, anim)}>
-          <div class="chip filled {accent} vs-label" data-fit="28">{esc(d.get('label'))}</div>
-          <div class="vs-icon">{_icon(icons, d.get('icon'), 230)}</div>
-          <div class="hero vs-value {accent} accent-text" data-fit="30">{esc(d.get('value'))}</div>
+        <div class="card vs-side" {_in(_shell(t['title'], n), anim)}>
+          <div class="vs-fill" {_in(at, 'pop')}>
+            <div class="chip filled {accent} vs-label" data-fit="28">{esc(d.get('label'))}</div>
+            <div class="vs-icon">{_icon(icons, d.get('icon'), 230)}</div>
+            <div class="hero vs-value {accent} accent-text" data-fit="30">{esc(d.get('value'))}</div>
+          </div>
         </div>"""
     verdict = s.get("verdict")
     return f"""
     <style>
       .vs-row {{ display: flex; gap: 40px; position: relative; }}
-      .vs-side {{ flex: 1; height: 700px; display: flex; flex-direction: column; align-items: center;
-                 justify-content: space-between; padding: 40px 24px; }}
+      .vs-side {{ flex: 1; height: 700px; padding: 40px 24px; }}
+      .vs-fill {{ height: 100%; display: flex; flex-direction: column; align-items: center;
+                 justify-content: space-between; }}
       .vs-label {{ font-size: 50px; padding: 14px 34px; max-width: 420px; height: 90px; white-space: nowrap; overflow: hidden; }}
       .vs-icon {{ height: 260px; display: flex; align-items: center; }}
       .vs-value {{ font-size: 78px; width: 420px; height: 200px; display: flex; align-items: center; justify-content: center; }}
@@ -91,9 +105,9 @@ def versus(s, t, icons):
     </style>
     <div class="title" style="height:170px" data-fit="40" {_in(t['title'])}>{esc(s.get('title'))}</div>
     <div class="vs-row">
-      {side('left', 'a1', t['left'], 'slide-left')}
-      {side('right', 'a2', t['right'], 'slide-right')}
-      <div class="chip filled a3 vs-badge" {_in(t['right'] + 0.25, 'pop')}>VS</div>
+      {side('left', 'a1', t['left'], 'slide-left', 0)}
+      {side('right', 'a2', t['right'], 'slide-right', 1)}
+      <div class="chip filled a3 vs-badge" {_in(_shell(t['title'], 2), 'pop')}>VS</div>
     </div>
     {f'<div class="card filled a4 vs-verdict" {_in(t["verdict"], "pop")}><div class="body" data-fit="30">{esc(verdict)}</div></div>' if verdict else ''}
     """
@@ -106,9 +120,9 @@ def items_list(s, t, icons):
     for i, item in enumerate(items):
         filled = "filled a1" if hi is not None and int(hi) == i else ""
         rows.append(f"""
-        <div class="card li-row {filled}" {_in(t[f'item{i}'], 'slide-left')}>
-          <div class="li-icon">{_icon(icons, item.get('icon'), 120)}</div>
-          <div class="body li-text" data-fit="30">{esc(item.get('text'))}</div>
+        <div class="card li-row {filled}" {_in(_shell(t['title'], i), 'rise')}>
+          <div class="li-icon" {_in(t[f'item{i}'], 'pop')}>{_icon(icons, item.get('icon'), 120)}</div>
+          <div class="body li-text" data-fit="30" {_in(t[f'item{i}'], 'wipe', 0.6)}>{esc(item.get('text'))}</div>
         </div>""")
     n = len(items)
     row_h = min(200, (900 - 30 * (n - 1)) // n)
@@ -129,11 +143,13 @@ def steps(s, t, icons):
     n = len(items)
     step_h = min(190, (900 - 36 * (n - 1)) // n)
     rows = "".join(f"""
-      <div class="st-row" {_in(t[f'step{i}'], 'rise')}>
+      <div class="st-row" {_in(_shell(t['title'], i), 'rise')}>
         <div class="chip filled {ACCENTS[i % 5]} st-num">{i + 1}</div>
         <div class="card st-card">
-          {_icon(icons, item.get('icon'), 96) if item.get('icon') else ''}
-          <div class="body st-text" data-fit="30">{esc(item.get('text'))}</div>
+          <div class="st-fill" {_in(t[f'step{i}'], 'wipe', 0.6)}>
+            {_icon(icons, item.get('icon'), 96) if item.get('icon') else ''}
+            <div class="body st-text" data-fit="30">{esc(item.get('text'))}</div>
+          </div>
         </div>
       </div>""" for i, item in enumerate(items))
     return f"""
@@ -142,6 +158,7 @@ def steps(s, t, icons):
       .st-row {{ display: flex; align-items: center; gap: 30px; height: {step_h}px; position: relative; z-index: 1; }}
       .st-num {{ width: 120px; height: 120px; font-size: 64px; flex: none; }}
       .st-card {{ flex: 1; height: 100%; display: flex; align-items: center; gap: 26px; padding: 0 36px; }}
+      .st-fill {{ flex: 1; display: flex; align-items: center; gap: 26px; height: 100%; }}
       .st-text {{ flex: 1; height: {step_h - 30}px; display: flex; align-items: center; color: var(--on-card); font-size: 54px; }}
       .st-line {{ position: absolute; left: 60px; top: 60px; width: 10px; height: calc(100% - 120px); }}
     </style>
@@ -160,10 +177,10 @@ def timeline(s, t, icons):
     n = len(events)
     row_h = min(190, (900 - 30 * (n - 1)) // n)
     rows = "".join(f"""
-      <div class="tl-row" {_in(t[f'event{i}'], 'slide-right')}>
-        <div class="chip filled {ACCENTS[i % 5]} tl-when" data-fit="26">{esc(e.get('when'))}</div>
+      <div class="tl-row" {_in(_shell(t['title'], i), 'rise')}>
+        <div class="chip filled {ACCENTS[i % 5]} tl-when" data-fit="26" {_in(t[f'event{i}'], 'pop')}>{esc(e.get('when'))}</div>
         <div class="tl-dot" style="background: var(--{ACCENTS[i % 5]})"></div>
-        <div class="card tl-card"><div class="body tl-text" data-fit="28">{esc(e.get('text'))}</div></div>
+        <div class="card tl-card"><div class="body tl-text" data-fit="28" {_in(t[f'event{i}'], 'wipe', 0.6)}>{esc(e.get('text'))}</div></div>
       </div>""" for i, e in enumerate(events))
     return f"""
     <style>
@@ -238,9 +255,10 @@ def myth_fact(s, t, icons):
       <div class="body mf-text" data-fit="30">{esc(s.get('myth'))}</div>
       <div class="mf-strike" {_in(t['strike'], 'strike', 0.5)}></div>
     </div>
-    <div class="card mf-card" {_in(t['fact'], 'pop')}>
+    <div class="card mf-card" {_in(_shell(t['myth'], 1), 'rise')}>
       <div class="chip filled a4 mf-tag">{esc(s.get('fact_label') or 'FACT')}</div>
-      <div class="body mf-text" data-fit="30" style="font-family: var(--display); font-weight: var(--dw)">{esc(s.get('fact'))}</div>
+      <div class="body mf-text" data-fit="30" style="font-family: var(--display); font-weight: var(--dw)"
+           {_in(t['fact'], 'pop')}>{esc(s.get('fact'))}</div>
     </div>
     """
 
@@ -258,7 +276,7 @@ def definition(s, t, icons):
     </style>
     <div class="hero df-term glow" data-fit="70" {_in(t['term'], 'pop')}>{esc(s.get('term'))}</div>
     {f'<div class="chip filled a2 df-kind" {_in(t["term"] + 0.3, "fade")}>{esc(s.get("kind"))}</div>' if s.get('kind') else ''}
-    <div class="card df-def" {_in(t['definition'], 'rise')}><div class="body" data-fit="30">{esc(s.get('definition'))}</div></div>
+    <div class="card df-def" {_in(_shell(t['term'], 1), 'rise')}><div class="body" data-fit="30" {_in(t['definition'], 'wipe', 0.9)}>{esc(s.get('definition'))}</div></div>
     {f'<div class="card filled a3 df-ex" {_in(t["example"], "rise")}><div class="body" data-fit="28">{esc(example)}</div></div>' if example else ''}
     """
 
