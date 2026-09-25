@@ -61,11 +61,12 @@ the look from the audience's relationship to the subject, not from the
 subject's stereotype: adults who were put off maths at school should not
 be shown a school chalkboard, and a calm devotional audience should not
 get neon. Clean and uncluttered beats textured unless texture is the
-point. Distinct, not generic. Then choose
-how much of each video is animated: 0 for pure mood and atmosphere, about
-30 to animate only the moments that explain something, 60-80 for
-teaching channels, 100 for subjects that are explained visually all the
-way through (maths, most science).
+point. Distinct, not generic. Then set when a segment is animated rather
+than stock footage, 0-100. It is a threshold on how much each segment
+needs a picture: 0 never animates (pure mood and atmosphere); 10-20
+animates only segments that can't be followed without a picture; about 50
+animates whatever a picture helps; 100 animates every segment (subjects
+explained visually all the way through, like maths).
 
 Where the words come from: either `topic` mode, where every script is
 written from one topic in an ordered syllabus that runs from what anyone
@@ -121,8 +122,8 @@ def _art_schema() -> dict:
             "prop_style": {"type": "string",
                            "description": "How illustrated props are drawn, in one sentence: "
                                           "medium, linework, palette, mood. No subject."},
-            "scene_share": {"type": "integer", "description": "0-100: how much of each video "
-                                                             "is animated scenes."},
+            "scene_share": {"type": "integer", "description": "0-100: the threshold for "
+                                                             "animating a segment, as above."},
             "reason": {"type": "string", "description": "Why this look and this amount, "
                                                         "in a sentence."},
         },

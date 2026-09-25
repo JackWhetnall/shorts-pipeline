@@ -49,3 +49,4 @@ reason for a change stays true forever.
 | [034](034-animated-scenes-renderer.md) | Animated scenes: a timeline engine in headless Chrome | Active; extended by 035 |
 | [035](035-scenes-in-the-pipeline.md) | Animated scenes in the pipeline, per channel | Active |
 | [036](036-hooks-landings-and-real-props.md) | Every video hooks and lands; props that touch really touch | Active |
+| [037](037-hooks-that-grab-and-a-threshold-slider.md) | Hooks that grab, scripts that sound human, the animation slider as a threshold | Active; revises 036's hook and 035's slider |

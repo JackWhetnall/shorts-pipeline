@@ -478,7 +478,8 @@ class TestHookAndLanding:
         assert texts[1] == "Fear not." and script.source_index == 1
         assert script.hook_promise == "why a threat reads as a promise"
         # Planned before written: the loop comes first in the schema.
-        assert list(seen["schema"]["properties"])[:3] == ["hook_promise", "payoff", "hook"]
+        assert list(seen["schema"]["properties"])[:4] == ["hook_candidates", "hook_promise",
+                                                          "payoff", "hook"]
         assert "Open on a quiet question." in seen["user"]
         assert "THE LANDING" in seen["user"]
 
@@ -512,3 +513,46 @@ def test_a_hook_is_always_a_finished_sentence():
     assert script_gen._sentence("why does he keep answering her") == "Why does he keep answering her?"
     assert script_gen._sentence("this verse sounds like a threat") == "This verse sounds like a threat."
     assert script_gen._sentence("It isn't what it seems!") == "It isn't what it seems!"
+
+
+class TestSoundingHuman:
+    def test_ai_tells_and_setup_openings_are_caught(self):
+        # Regression: the Pythagoras demo ended "That's the whole trick, three
+        # sides, one equation", which reads as machine-written.
+        from pipeline.plan import Segment
+        notes = script_gen.ai_tells([Segment("Picture a ladder against a wall."),
+                                     Segment("It's not luck, it's geometry."),
+                                     Segment("That's the whole trick, three sides, one equation.")])
+        assert len(notes) == 3 and "setup, not a hook" in notes[-1]
+
+    def test_ordinary_narration_is_left_alone(self):
+        from pipeline.plan import Segment
+        assert script_gen.ai_tells([Segment("Builders square every corner with three numbers."),
+                                    Segment("It isn't a rule anyone invented; it just keeps working."),
+                                    Segment("So the ladder's foot sits six feet out.")]) == []
+
+    def test_a_script_with_tells_is_rewritten_once_with_the_notes(self, monkeypatch):
+        calls = []
+
+        def fake(system, user, schema, **kwargs):
+            calls.append(user)
+            last = "That's the whole trick." if len(calls) == 1 else "So it's six feet out."
+            return {"hook_candidates": [], "hook_promise": "p", "payoff": "q",
+                    "segments": [_seg("Builders check corners with three numbers."),
+                                 _seg("Three, four, five."), _seg(last)],
+                    "title_options": ["T"], "description_body": "d"}
+
+        monkeypatch.setattr(llm, "call_json", fake)
+        script = script_gen.generate_script(Seed(type="topic", topic="Pythagoras"), _channel())
+        assert len(calls) == 2 and "That's the whole trick" in calls[1]
+        assert script.segments[-1].text == "So it's six feet out."
+
+
+def test_the_tells_that_slipped_through_the_first_detector_are_caught():
+    # From the second round of previews: all read as machine-written.
+    from pipeline.plan import Segment
+    for line in ("That's the whole rule builders have leaned on since the pyramids.",
+                 "That's the whole snowball.",
+                 "That's not a trick, it's just what compounding does.",
+                 "Paul isn't describing a feeling here, he's describing being cornered."):
+        assert script_gen.ai_tells([Segment("A hook."), Segment(line)]), line

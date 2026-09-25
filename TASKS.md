@@ -40,22 +40,21 @@ Minute Pastor's videos now begin with one spoken line **before** the
 verse. Try **Preview a script** on its settings page (about a penny) to
 see a few.
 
-### 2b-ii. Watch the new Pythagoras video
-`cache\scene_samples\maths_demo_v2\pythagoras_v3.mp4`: the new hook
-and landing, the held ending, the Clean flat look, the ladder drawn
-against a brick wall. Tell me what's still off. The maths draft is still
-in your drafts (**Channels → New channel**) if you want the channel; it
-suggested Chalkboard, which you can change on its **Animated scenes**
-card.
+### 2b-ii. Try a few script previews
+The hook rules were rewritten after the Pythagoras video (decision 037).
+On a channel's settings page, **Preview a script** (about 2 cents; no
+voice, no video) shows the new hooks. Tell me which ones would and
+wouldn't stop you scrolling; that's the fastest way to tune them.
 
 ### 2c. Decide scenes for your existing channels
 Every existing channel is **stock only** until you change it. On each
 channel's dashboard there's now an **Animated scenes** card: a slider
-for how much is animated, and the look (four starting presets, then
+for when a segment gets an animation instead of stock footage (a
+threshold on how much it needs one), and the look (four starting presets, then
 your own colours, fonts and drawing style), with a preview.
-- **Wren's Guide**: try about 30% (explanations only), with the Parchment
-  look to start from.
-- **Minute Pastor**: probably 0-20%. It's reflective, and stock footage
+- **Wren's Guide**: try the slider a little off the left ("Only when
+  essential" or "When it clearly helps"), with the Parchment look.
+- **Minute Pastor**: always stock, or just off the left. It's reflective, and stock footage
   suits it; a scene now and then for a structure (a list, a timeline)
   could help.
 

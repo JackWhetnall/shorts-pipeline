@@ -10,13 +10,15 @@
   </div>
   <div class="scene-controls">
     <label class="field-row">
-      <span class="field-label">How much of each video is animated</span>
+      <span class="field-label">When to animate instead of stock footage</span>
       <span class="slider-row">
         <input type="range" name="scene_share" min="0" max="100" step="5" value="{{ scene_share }}"
                data-scene-share>
         <output class="slider-value scene-share-value" data-scene-share-label></output>
       </span>
-      <span class="hint">The rest is stock footage. Scenes go where a picture explains best.</span>
+      <span class="hint">Each segment is judged on how much it needs a picture. Towards
+        the left only segments that can't be followed without one are animated; all the way
+        left is always stock, all the way right always animated.</span>
     </label>
 
     <label class="field-row">

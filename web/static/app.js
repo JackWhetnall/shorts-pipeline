@@ -2760,13 +2760,16 @@ async function markPosted(event, form) {
 // --- Animated scenes settings (_scene_settings.html) -------------------
 // The share slider's wording, the preset filling in its own colours and
 // fonts, and the preview re-rendering (debounced) as anything changes.
+// The slider is a bar each segment's need for a picture must clear
+// (pipeline.scenes.writer.need_threshold), not a share of the video.
 function sceneShareLabel(value) {
   const v = Number(value);
-  if (v === 0) return "Stock only";
-  if (v <= 20) return `${v}%: now and then`;
-  if (v <= 45) return `${v}%: explanations`;
-  if (v <= 80) return `${v}%: most of it`;
-  return `${v}%: throughout`;
+  if (v === 0) return "Always stock";
+  if (v === 100) return "Always animated";
+  if (v <= 20) return "Only when essential";
+  if (v <= 45) return "When it clearly helps";
+  if (v <= 75) return "When it helps at all";
+  return "Almost always";
 }
 
 function initSceneSettings(root) {

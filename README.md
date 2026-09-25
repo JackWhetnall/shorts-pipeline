@@ -213,9 +213,11 @@ and illustrated objects arrive on the word that names them, all in the
 channel's own look. The **Animated scenes** card on a channel's dashboard
 sets:
 
-- **How much of each video is animated**, from 0 (stock only, the
-  default) through "explanations" (about 30%) to 100 (every segment; a
-  maths channel).
+- **When to animate instead of stock footage.** Each segment is judged
+  on how much it needs a picture, and the slider sets the bar: all the
+  way left is always stock (the default), all the way right always
+  animated, and just off the left only segments that can't be followed
+  without a picture are animated.
 - **The look**: a starting preset (Clean flat, Chalkboard, Neon,
   Parchment), then its colours, fonts, background pattern, line weight,
   and how its illustrated objects are drawn. The preview still redraws
@@ -238,10 +240,13 @@ render in the Chrome installed on this PC, so Chrome must stay installed.
 ## Hooks and endings
 
 Every video opens with a hook and ends with a landing; that's built into
-how scripts are written, for every channel. The hook is the first
-sentence: a specific question or tension that this video, and only this
-one, then answers, honestly and in full. The landing closes it and ends
-on a line that sounds like an ending. A held beat of silence (Settings →
+how scripts are written, for every channel. The hook is the first line:
+the most surprising concrete thing in the video, short enough to read at
+a glance, understood instantly, and honestly paid off. The writer drafts
+five by different routes and opens with the strongest. The landing
+delivers the payoff concretely and stops. Lines that sound
+machine-written ("that's the whole trick", "it's not X, it's Y") are
+caught and rewritten once. A held beat of silence (Settings →
 Voice & timing, "Held beat after the last word") separates it from the
 outro card.
 

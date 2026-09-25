@@ -314,29 +314,57 @@ def test_the_frame_check_judges_a_scene_frame_by_the_words_spoken_then(monkeypat
 
 
 class TestPlan:
+    """The slider is a threshold on each segment's need for a picture, not a
+    quota of the video (decision 037)."""
     SEGMENTS = [Segment(text=f"line {i}", shot_brief=f"brief {i}", start=i * 5.0, end=(i + 1) * 5.0)
                 for i in range(4)]
+    RATED = [{"index": 0, "need": 2, "idea": "a hook", "builds_on_previous": False},
+             {"index": 1, "need": 10, "idea": "the triangle", "builds_on_previous": False},
+             {"index": 2, "need": 7, "idea": "its squares", "builds_on_previous": True},
+             {"index": 3, "need": 5, "idea": "the answer", "builds_on_previous": False}]
 
-    def _plan(self, monkeypatch, scenes, share):
-        monkeypatch.setattr(writer, "call_json", lambda *a, **k: {"scenes": scenes})
-        return writer.plan(self.SEGMENTS, share, "Pythagoras")
+    def _plan(self, monkeypatch, share, rated=None):
+        calls = []
+        monkeypatch.setattr(writer, "call_json",
+                            lambda *a, **k: calls.append(a) or {"segments": rated or self.RATED})
+        return writer.plan(self.SEGMENTS, share, "Pythagoras"), calls
 
-    def test_overlapping_ranges_are_trimmed_not_dropped(self, monkeypatch):
-        out = self._plan(monkeypatch, [{"first": 0, "last": 1, "idea": "a"},
-                                       {"first": 1, "last": 2, "idea": "b"},
-                                       {"first": 2, "last": 9, "idea": "c"}], share=50)
-        assert [(s["first"], s["last"]) for s in out] == [(0, 1), (2, 2), (3, 3)]
+    def _spans(self, scenes):
+        return [(s["first"], s["last"]) for s in scenes]
 
-    def test_at_100_percent_every_segment_gets_a_scene(self, monkeypatch):
-        # Regression: the Pythagoras demo's plan covered one segment of
-        # four, so a channel set to animate throughout got mostly stock.
-        out = self._plan(monkeypatch, [{"first": 1, "last": 1, "idea": "ladder"}], share=100)
-        assert [(s["first"], s["last"]) for s in out] == [(0, 0), (1, 1), (2, 2), (3, 3)]
-        assert out[0]["idea"] == "brief 0" and out[1]["idea"] == "ladder"
+    def test_fully_stock_never_asks(self, monkeypatch):
+        scenes, calls = self._plan(monkeypatch, 0)
+        assert scenes == [] and calls == []
 
-    def test_below_100_percent_gaps_stay_stock(self, monkeypatch):
-        out = self._plan(monkeypatch, [{"first": 1, "last": 1, "idea": "ladder"}], share=40)
-        assert [(s["first"], s["last"]) for s in out] == [(1, 1)]
+    def test_fully_animated_animates_every_segment_whatever_its_score(self, monkeypatch):
+        scenes, _ = self._plan(monkeypatch, 100)
+        assert self._spans(scenes) == [(0, 0), (1, 2), (3, 3)]
+
+    def test_near_the_stock_end_only_essential_segments_are_animated(self, monkeypatch):
+        scenes, _ = self._plan(monkeypatch, 10)                   # bar: 9
+        assert self._spans(scenes) == [(1, 1)]
+        assert scenes[0]["idea"] == "the triangle"
+
+    def test_in_the_middle_anything_a_picture_helps_is_animated(self, monkeypatch):
+        scenes, _ = self._plan(monkeypatch, 50)                   # bar: 5
+        assert self._spans(scenes) == [(1, 2), (3, 3)]
+        assert scenes[0]["idea"] == "the triangle Then: its squares"
+
+    def test_the_bar_moves_the_same_way_as_the_slider(self):
+        bars = [writer.need_threshold(s) for s in (5, 30, 50, 80, 95)]
+        assert bars == sorted(bars, reverse=True)
+        assert writer.need_threshold(0) is None and writer.need_threshold(100) == 0
+
+    def test_the_model_is_never_told_the_slider(self, monkeypatch):
+        # The score must be the segment's own, so the same script scores
+        # the same whatever the channel's setting.
+        _, calls = self._plan(monkeypatch, 30)
+        assert "30" not in calls[0][1] and "%" not in calls[0][1]
+
+    def test_a_segment_left_unscored_counts_as_no_need(self, monkeypatch):
+        scenes, _ = self._plan(monkeypatch, 60, rated=[self.RATED[1]])
+        assert self._spans(scenes) == [(1, 1)]
+
 
 
 def test_every_scene_is_written_with_the_whole_narration(plan, monkeypatch):

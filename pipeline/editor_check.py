@@ -94,6 +94,9 @@ rules and the video's spoken script. Report only real problems:
   Block it.
 - The ending doesn't land: it trails off, leads into more, or never
   closes the question the opening opened. A note.
+- A line that sounds machine-written rather than spoken by a person
+  (stock phrases like "here's the thing", "that's the whole trick",
+  "it's not X, it's Y", slogan-shaped closing lines). A note.
 
 Text marked SOURCE is someone else's words, quoted verbatim. Never report
 it as a problem; judge only whether the lines around it describe it

@@ -293,9 +293,12 @@ SLOT_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 class Scenes(_MappingLike):
     """Animated explanations in this channel's own art direction.
 
-    `share`: roughly how much of each video is animated rather than stock
-    footage, 0-100. 0 is stock only; around 30 animates the explaining
-    moments; 100 animates every segment (a maths channel).
+    `share`: the slider for when a segment is animated rather than stock
+    footage, 0-100. It is a threshold, not a quota: each segment is scored
+    for how much it needs a picture, and animated when the score clears
+    the bar this sets (pipeline.scenes.writer.need_threshold). 0 is always
+    stock; 100 is always animated; just above 0, only segments that can't
+    be followed without a picture. See decision 037.
 
     `art`: `{"preset": ..., ...overrides}`; pipeline.scenes.art resolves
     it to a full art direction and checks every value. See decision 035.

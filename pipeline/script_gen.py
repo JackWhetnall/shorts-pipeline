@@ -135,52 +135,103 @@ def placeholder_text(segments: list) -> str:
 
 
 HOOK_AND_LANDING_GUIDANCE = """
-THE OPENING. The first five seconds decide whether anyone watches the
-rest, so the first sentence is the hook. Its job: make this viewer need
-what this video, and only this video, is about to give them, and trust
-that it will be worth it.
+THE HOOK. People decide in about a second and a half whether to keep
+watching. The first line has to stop someone mid-scroll: a jolt of
+surprise, stakes or intrigue so specific that they need the rest.
 
-- It opens a loop: a specific question, tension, or gap between what the
-  viewer assumes and what is true, which the rest of the video closes.
-- It is specific to THIS video: its passage, its idea, its numbers. A
-  hook that would fit any other video on this channel is not a hook.
-- It is honest. The video pays it off completely, and the payoff should
-  feel bigger than the promise: someone who stays should feel their
-  curiosity rewarded, never baited. No "you won't believe", no
-  "everything you know is wrong", no promise the script doesn't keep.
-- It points at the payoff without spending it. Never give the answer away
-  in the opening.
-- It starts in the middle of the idea: no greeting, no channel name, no
-  "in this video", "today", "let's talk about", "have you ever wondered".
-- One sentence, about 8-16 words, easy to say in one breath.
-- It speaks in the channel's own register. A quiet, reverent channel
-  hooks quietly: a question someone is carrying, a surprising turn in a
-  familiar line. An energetic channel hooks with pace. The intensity is
-  the channel's; the open loop is universal.
+A hook that works:
+- Leads with the most surprising, concrete thing in the video, or its
+  sharpest consequence. Start at the interesting part, never at the setup.
+- Says something the viewer didn't expect about something they
+  recognise. A statement usually beats a question; a question only works
+  when the viewer is suddenly desperate for its answer.
+- Is concrete: a real object, number, person, place or moment. Abstract
+  intrigue slides straight past.
+- Is short: under 12 words, ideally under 9, readable as a caption at a
+  glance.
+- Promises a payoff the video genuinely delivers, and bigger than the hook
+  suggests. Honest, never bait.
+- Sounds like this channel (its hook style, below). A reverent channel is
+  quietly arresting, but still arresting.
 
-Ways in (pick what suits THIS content, and vary it from video to video):
-a surprising truth about something familiar; the question the viewer
-didn't know they had; the stake, meaning what changes for them once they
-see this; a contradiction or paradox; a concrete moment dropped straight
-into; one precise, striking detail or number; a common belief that is
-quietly wrong.
+Never open with: a scene or a hypothetical ("picture...", "imagine...",
+"say you...", "you're standing..."), a textbook question ("how do you
+find..."), "have you ever", "did you know", "ever wondered", "let's talk
+about", "in this video", "today", a greeting, vague mystery with nothing
+concrete in it ("this changes everything"), or the answer itself.
 
-THE MIDDLE keeps the loop open. Each segment moves toward the payoff and
-gives a reason to hear the next. Don't resolve the hook early.
+Method: write five different hooks in "hook_candidates" first, each by a
+different route: the counter-intuitive claim; the surprising real-world
+consequence (the everyday thing that only works because of this); one
+startling specific number or detail; the stakes (what not knowing this
+costs someone); the belief most people hold that is wrong; the real
+mystery with a real answer; the vivid mid-action line. Then choose the one
+that would stop the most people: a stranger understands it instantly, on
+first hearing, and wants it explained. Usually the most specific and
+surprising, not the cleverest; if a line needs a second read to make
+sense, it's not the one. Open the video with it word for word.
 
-THE LANDING. The last segment is the end of the video and must sound like
-it. It closes the loop the opening opened, plainly enough that the
-viewer feels it click, ideally echoing the opening's words or image. It
-lands one final thought and ends on a short, complete sentence that
-falls to a close: the last line of a piece, not a line that leads into
-more. No new idea, no trailing "and" or "so", no "thanks for watching"
-or "follow for more" (the outro card does that). A channel that closes on
-a reflective question still delivers it as a final line, not a lead-in.
+THE MIDDLE keeps the promise open and moving: each segment earns the next.
+Don't resolve the hook early.
 
-Plan it before writing: "hook_promise" is the loop the opening opens (the
-question or tension, in a phrase) and "payoff" is how and where the
-ending closes it. Then write the lines to that plan.
+THE LANDING. The last segment delivers the payoff concretely: the answer,
+the number, the moment it clicks, or what the viewer can now see or do,
+ideally calling back to the hook. Then it stops, on the natural last
+thing a person would say. Never a summary, a moral, or a slogan-shaped
+closing line; no "thanks for watching" or "follow for more" (the outro
+card does that). A channel that closes on a reflective question still
+delivers it as a last line, not a lead-in.
+
+"hook_promise" names what the hook makes the viewer want (in a phrase) and
+"payoff" says how the ending delivers it. Plan both before the lines.
 """.strip()
+
+HUMAN_VOICE_GUIDANCE = """
+SOUND LIKE A PERSON. This is read aloud as a short-form video, so it has
+to sound like someone talking to camera, not like writing. Talk the way
+a sharp friend explains something: contractions, "you", plain verbs,
+specific examples, sentences of uneven length; a fragment now and then is
+fine.
+
+These phrases mark a script as AI-written, and viewers scroll past them.
+Never use them or anything shaped like them: "that's the (whole) trick",
+"here's the thing", "here's the kicker/catch/twist", "it's not X, it's
+Y", "not just X, but Y", "let that sink in", "the magic/beauty of",
+"simply put", "in short", "the key takeaway", "turns out", "picture
+this", "ever wondered", "delve", "unlock", "game-changer", "journey",
+"tapestry", "a testament to", rhetorical triplets ("three sides, one
+rule, zero guesswork"), and any neat, symmetrical closing line.
+""".strip()
+
+# The same tells, caught after the fact (one rewrite, like placeholder
+# text). Narrow on purpose: each is a phrase real narration almost never
+# needs, so a hit is worth a penny to rewrite.
+_AI_TELLS = re.compile(
+    r"\bthat'?s (?:the (?:whole|real|entire) \w+|all (?:it is|there is to it)|the (?:trick|secret|magic|point))\b"
+    r"|\bhere'?s the (?:thing|kicker|catch|twist|deal)\b"
+    r"|\blet that sink in\b|\bthe (?:magic|beauty) of\b|\bsimply put\b|\bkey takeaway\b"
+    r"|\bpicture this\b|\bever wondered\b|\bdelv(?:e|es|ing)\b|\bgame[- ]changer\b"
+    r"|\ba testament to\b|\btapestry\b"
+    # "It's not X, it's Y" and its cousins ("that's not a trick, it's...",
+    # "he isn't describing X, he's describing Y").
+    r"|\b\w+(?:'s|'re| is| are)? ?(?:not|isn't|aren't|wasn't) "
+    r"[^.?!]{1,50}?[,;—–-] ?(?:it|that|this|he|she|they|you)(?:'s|'re| is| are)\b",
+    re.I)
+_WEAK_OPENING = re.compile(
+    r"^(?:picture|imagine|say you|have you ever|did you know|ever wondered|let'?s talk"
+    r"|in this video|today|hey|hi)\b", re.I)
+
+
+def ai_tells(segments: list) -> list:
+    """Lines that read as AI-written, and a weak opening, as fix notes."""
+    notes = []
+    for segment in segments:
+        match = _AI_TELLS.search(segment.text)
+        if match:
+            notes.append(f'"{match.group(0)}" in: {segment.text}')
+    if segments and _WEAK_OPENING.match(segments[0].text):
+        notes.append(f"The opening is a setup, not a hook: {segments[0].text}")
+    return notes
 
 
 def _channel_hook(channel) -> str:
@@ -226,6 +277,8 @@ PACKAGING_SCHEMA = {
 
 # First in the schema, so the loop is planned before any line is written.
 PLAN_SCHEMA = {
+    "hook_candidates": {"type": "array", "items": {"type": "string"},
+                        "description": "Five different hooks, each by a different route."},
     "hook_promise": {"type": "string",
                      "description": "The question or tension the opening line opens, in a phrase."},
     "payoff": {"type": "string",
@@ -273,13 +326,16 @@ QUOTE_SCHEMA_EXTRA = {
 
 # The hook line spoken before the passage, with its own footage.
 QUOTE_SCHEMA_LEAD = {
-    "hook": {"type": "string", "description": "The spoken opening line, said before the passage: "
-                                              "one full sentence with its capital and its "
-                                              "final punctuation."},
+    "hook": {"type": "string", "description": "The chosen hook, word for word, said before the "
+                                              "passage: one full sentence with its capital and "
+                                              "its final punctuation."},
     "hook_shot_brief": {"type": "string"},
     "hook_keywords": {"type": "array", "items": {"type": "string"}},
 }
-HOOK_WORDS = 14          # what the hook takes out of a quote video's budget
+HOOK_WORDS = 10          # what the hook takes out of a quote video's budget
+# Thinking is billed from this too: room to reason, draft five hooks and
+# write the script.
+SCRIPT_MAX_TOKENS = 4000
 
 
 # Measured across this project's own finished videos: 158 words in 63.8s,
@@ -331,7 +387,7 @@ def _quote_instructions(count: int, budget: dict) -> str:
         '"quote_shot_brief" and "quote_keywords" describe the footage for the quote '
         "itself, \"hook_shot_brief\" and \"hook_keywords\" the footage for the hook; "
         "each segment's own fields describe the footage for that segment.\n\n"
-        f"{HOOK_AND_LANDING_GUIDANCE}\n\n{QUOTE_HOOK_GUIDANCE}\n\n"
+        f"{HOOK_AND_LANDING_GUIDANCE}\n\n{HUMAN_VOICE_GUIDANCE}\n\n{QUOTE_HOOK_GUIDANCE}\n\n"
         f"{SPOKEN_TEXT_GUIDANCE}\n\n{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}"
     )
 
@@ -348,7 +404,7 @@ def _topic_instructions(count: int, budget: dict) -> str:
         "Each segment is spoken on its own, so it must read naturally as a standalone "
         "chunk rather than as a fragment of a longer sentence. The first segment opens "
         "with the hook; the last is the landing.\n\n"
-        f"{HOOK_AND_LANDING_GUIDANCE}\n\n"
+        f"{HOOK_AND_LANDING_GUIDANCE}\n\n{HUMAN_VOICE_GUIDANCE}\n\n"
         f"{SPOKEN_TEXT_GUIDANCE}\n\n{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}"
     )
 
@@ -485,25 +541,30 @@ def generate_script(seed: Seed, channel, avoid: str = "") -> Script:
 
     data = llm.call_json(
         channel.style_prompt, user_msg, schema,
-        operation="script", max_tokens=2500,
+        operation="script", max_tokens=SCRIPT_MAX_TOKENS,
     )
     generated = [_to_segment(s) for s in data["segments"]]
 
     # One retry, and only one, when a segment reads like a note about a
-    # line rather than the line itself. A second script call is about a
+    # line rather than the line itself, or when the script has AI tells or
+    # opens on a setup instead of a hook. A second script call is about a
     # penny; a video whose opening line is `A catchy line with a "quoted
-    # phrase" in it` is unpublishable, so the trade is not close. Retrying
-    # further would be chasing a prompt problem with money.
+    # phrase" in it` is unpublishable, and one that sounds machine-written
+    # gets scrolled past, so the trade is not close. Retrying further would
+    # be chasing a prompt problem with money.
+    notes = []
     offender = placeholder_text(generated)
     if offender:
-        log.warning(f"  [script] a segment described a line instead of writing one "
-                    f"({offender[:80]!r}). Rewriting it once.")
+        notes.append(f"{offender!r} is a description of a line, not a line. Write the actual words.")
+    spoken = ([Segment(text=_clean(data.get("hook") or ""))] if seed.type == "quote" else []) + generated
+    notes += [f"Rewrite this, it reads as AI-written or weak: {n}" for n in ai_tells(spoken)]
+    if notes:
+        log.warning(f"  [script] rewriting once: {'; '.join(notes)[:200]}")
         data = llm.call_json(
             channel.style_prompt,
-            f"{user_msg}\n\nA previous attempt returned {offender!r} as a segment's "
-            f"spoken text. That is a description of a line, not a line. Write the "
-            f"actual words this time.",
-            schema, operation="script", max_tokens=2500,
+            f"{user_msg}\n\nA previous attempt had these problems. Fix them and keep "
+            f"what works:\n- " + "\n- ".join(notes),
+            schema, operation="script", max_tokens=SCRIPT_MAX_TOKENS,
         )
         generated = [_to_segment(s) for s in data["segments"]]
 
@@ -781,7 +842,7 @@ def write_scripts(channel, topic: dict, subtopics: list) -> list:
             f"no repeated examples or phrasing habits — but each one "
             f"complete and correct on its own.\n\n"
             f"{_covered_titles(channel, topic['id'])}"
-            f"{HOOK_AND_LANDING_GUIDANCE}\n\n{_channel_hook(channel)}"
+            f"{HOOK_AND_LANDING_GUIDANCE}\n\n{HUMAN_VOICE_GUIDANCE}\n\n{_channel_hook(channel)}"
             f"{SPOKEN_TEXT_GUIDANCE}\n\n{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}",
             cacheable=True),
     ]

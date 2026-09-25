@@ -206,18 +206,52 @@ def _plan_schema() -> dict:
     return {
         "type": "object",
         "properties": {
-            "scenes": {"type": "array", "items": {
+            "segments": {"type": "array", "items": {
                 "type": "object",
                 "properties": {
-                    "first": {"type": "integer", "description": "First segment index covered."},
-                    "last": {"type": "integer", "description": "Last segment index covered."},
-                    "idea": {"type": "string", "description": "The visual concept, in a sentence "
-                                                              "or two: what is built up on screen."},
+                    "index": {"type": "integer"},
+                    "need": {"type": "integer", "description": "0-10, by the rubric."},
+                    "idea": {"type": "string", "description": "What would be built up on screen "
+                                                              "if this segment is animated."},
+                    "builds_on_previous": {"type": "boolean",
+                                           "description": "True when its picture continues the "
+                                                          "previous segment's."},
                 },
-                "required": ["first", "last", "idea"], "additionalProperties": False}},
+                "required": ["index", "need", "idea", "builds_on_previous"],
+                "additionalProperties": False}},
         },
-        "required": ["scenes"], "additionalProperties": False,
+        "required": ["segments"], "additionalProperties": False,
     }
+
+
+NEED_RUBRIC = """
+For each segment, score how much it NEEDS an animated explanation rather
+than stock footage, 0-10. Judge the segment alone, the same way every
+time:
+
+10     It can't really be followed without seeing it: a construction, a
+       proof, a calculation, a structure whose named parts matter, a
+       process whose order matters.
+7-9    A picture makes it much clearer: quantities compared, a timeline, a
+       cause-and-effect chain, a symbol explained part by part.
+4-6    A picture helps a little: one number, a named idea that can be
+       shown simply.
+1-3    Mood, story, reflection, speaking to the viewer: footage carries it
+       as well or better.
+0      Nothing to show beyond a feeling.
+""".strip()
+
+
+def need_threshold(share: int):
+    """The slider as a bar each segment's need must clear. None: never
+    animate. 0: always. In between, the closer to the stock end, the more
+    essential a picture must be: 10 -> only segments that can't be followed
+    without one; 50 -> anything a picture helps; 90 -> almost everything."""
+    if share <= 0:
+        return None
+    if share >= 100:
+        return 0
+    return 10 - share / 10
 
 
 SCENE_FORMAT = """
@@ -242,45 +276,44 @@ def _style_note(style: dict) -> str:
 
 def plan(segments: list, share: int, subject: str) -> list:
     """[{first, last, idea}] for the stretches that get a scene, in order,
-    not overlapping. Segments not covered keep stock footage."""
+    not overlapping. Segments not covered keep stock footage.
+
+    The slider is a threshold, not a quota (decision 037): every segment
+    is scored for how much it needs a picture, independently of the
+    slider, and animated when its score clears the slider's bar.
+    Consecutive animated segments that build on one picture become one
+    scene.
+    """
+    threshold = need_threshold(share)
+    if threshold is None:
+        return []
     lines = "\n".join(f"[{i}] ({s.duration:.1f}s) {s.text}\n    shot brief: {s.shot_brief}"
                       for i, s in enumerate(segments))
-    if share >= 100:
-        amount = "Animate every segment: cover all of them, from the first to the last."
-    else:
-        amount = (f"Animate roughly {share}% of the video: the segments where a picture "
-                  f"explains best (a structure, a process, a quantity, a comparison). "
-                  f"Leave atmospheric or personal moments to stock footage.")
-    user = (f"The video is about: {subject}\n\nIts segments:\n{lines}\n\n{amount}\n\n"
-            f"Group consecutive segments into one scene when they build on the same "
-            f"picture; start a new scene when the idea changes. Scenes are in order and "
-            f"never overlap.")
+    user = (f"The video is about: {subject}\n\nIts segments:\n{lines}\n\n{NEED_RUBRIC}\n\n"
+            f"For every segment give its score, the picture you'd build for it, and whether "
+            f"that picture continues the previous segment's.")
     data = call_json([SystemBlock(GUIDE, cacheable=True)], user, _plan_schema(),
                      operation="scene_plan", max_tokens=PLAN_MAX_TOKENS, effort=PLAN_EFFORT)
-    out, next_free = [], 0
-    for scene in sorted(data.get("scenes") or [], key=lambda s: int(s.get("first", -1))):
-        # Overlaps are trimmed rather than dropped: ranges that share an
-        # end ({0,1}, {1,2}) are a common way of writing consecutive ones.
-        first = max(int(scene.get("first", -1)), next_free)
-        last = min(int(scene.get("last", -1)), len(segments) - 1)
-        if first < 0 or last < first:
-            continue
-        out.append({"first": first, "last": last, "idea": (scene.get("idea") or "").strip()})
-        next_free = last + 1
-    if share >= 100:
-        out = _cover_every_segment(out, segments)
-    return out
+    rated = {}
+    for row in data.get("segments") or []:
+        i = row.get("index")
+        if isinstance(i, int) and 0 <= i < len(segments) and i not in rated:
+            rated[i] = row
 
-
-def _cover_every_segment(scenes: list, segments: list) -> list:
-    """At 100%, a segment the plan left out still gets a scene: its idea
-    is its own shot brief."""
-    covered = {i for s in scenes for i in range(s["first"], s["last"] + 1)}
+    scenes = []
     for i, segment in enumerate(segments):
-        if i not in covered:
-            scenes.append({"first": i, "last": i,
-                           "idea": segment.shot_brief or f"Show what is said: {segment.text}"})
-    return sorted(scenes, key=lambda s: s["first"])
+        row = rated.get(i, {})
+        need = int(row.get("need") or 0)
+        if need < threshold:
+            log.info(f"  [scene] segment {i}: need {need} < {threshold:g}, stock footage")
+            continue
+        idea = (row.get("idea") or "").strip() or segment.shot_brief or f"Show what is said: {segment.text}"
+        if scenes and scenes[-1]["last"] == i - 1 and row.get("builds_on_previous"):
+            scenes[-1]["last"] = i
+            scenes[-1]["idea"] += f" Then: {idea}"
+        else:
+            scenes.append({"first": i, "last": i, "idea": idea})
+    return scenes
 
 
 def words_for(word_timings: list, start: float, end: float) -> list:
