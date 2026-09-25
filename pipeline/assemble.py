@@ -739,12 +739,19 @@ def run(plan):
     silence = silence_array(tail_seconds, fps, narration.shape[1])
     if split_at > 0:
         split_sample = int(split_at * fps)
-        audio = AudioArrayClip(
-            np.concatenate([narration[:split_sample], lead_silence,
-                           narration[split_sample:], silence], axis=0), fps=fps)
+        voice = np.concatenate([narration[:split_sample], lead_silence,
+                                narration[split_sample:], silence], axis=0)
     else:
-        audio = AudioArrayClip(
-            np.concatenate([lead_silence, narration, silence], axis=0), fps=fps)
+        voice = np.concatenate([lead_silence, narration, silence], axis=0)
+    # Music and effects under it (pipeline.sound). Narration time maps to
+    # track time the same way the video does: later by the card's length
+    # once past where the card was spliced in.
+    from pipeline import sound
+
+    def to_track_time(t):
+        return t + lead_seconds if t >= split_at else t
+
+    audio = AudioArrayClip(sound.mix(voice, fps, channel, plan, to_track_time), fps=fps)
 
     # Video and audio are written separately then muxed with a stream
     # copy. write_videofile's combined path was corrupting roughly the

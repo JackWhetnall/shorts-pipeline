@@ -290,6 +290,21 @@ SLOT_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
 @dataclass
+class Sound(_MappingLike):
+    """What plays under the voice (pipeline.sound, decision 038).
+
+    Music comes from channels/<key>/music/ (or the shared music/ folder)
+    and ducks under speech; `music_level` is its level in the pauses, 0-1.
+    Effects are small synthesised sounds on animated scenes' moves.
+    """
+
+    music: bool = True
+    music_level: float = 0.16
+    effects: bool = True
+    effects_level: float = 0.3
+
+
+@dataclass
 class Scenes(_MappingLike):
     """Animated explanations in this channel's own art direction.
 
@@ -381,6 +396,7 @@ class ChannelConfig:
     autopilot: Autopilot = field(default_factory=Autopilot)
     publishing: Publishing = field(default_factory=Publishing)
     scenes: Scenes = field(default_factory=Scenes)
+    sound: Sound = field(default_factory=Sound)
     archived: bool = False
     # Launch-checklist items marked done by hand. Some steps (Patreon's
     # signup flow) are annoying enough that "noting I'm skipping this"
@@ -531,6 +547,7 @@ _NESTED = {
     "autopilot": Autopilot,
     "publishing": Publishing,
     "scenes": Scenes,
+    "sound": Sound,
 }
 
 

@@ -383,6 +383,36 @@
       </label>
     </fieldset>
 
+    <fieldset>
+      <legend>Sound under the voice</legend>
+      <input type="hidden" name="sound_present" value="1">
+      <label class="checkbox-label">
+        <input type="checkbox" name="sound_music" {% if channel.sound.music %}checked{% endif %}>
+        Music, ducked under speech
+        <button type="button" class="info-dot" data-tooltip="Tracks come from this channel's folder, channels/{{ channel.key }}/music, or the shared music folder. None there means no music.">?</button>
+      </label>
+      <label class="field-row"><span class="field-label">Music level in the pauses</span>
+        <span class="slider-row">
+          <input type="range" name="sound_music_level" min="0" max="0.4" step="0.02"
+                 value="{{ channel.sound.music_level }}"
+                 oninput="this.nextElementSibling.value = Math.round(this.value * 250) + '%'">
+          <output class="slider-value">{{ (channel.sound.music_level * 250)|round|int }}%</output>
+        </span>
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="sound_effects" {% if channel.sound.effects %}checked{% endif %}>
+        Sound effects on animated scenes (pops, whooshes, chimes)
+      </label>
+      <label class="field-row"><span class="field-label">Effects level</span>
+        <span class="slider-row">
+          <input type="range" name="sound_effects_level" min="0" max="0.8" step="0.05"
+                 value="{{ channel.sound.effects_level }}"
+                 oninput="this.nextElementSibling.value = Math.round(this.value * 125) + '%'">
+          <output class="slider-value">{{ (channel.sound.effects_level * 125)|round|int }}%</output>
+        </span>
+      </label>
+    </fieldset>
+
     <details class="card">
       <summary class="summary-heading">Every timing number
         <button type="button" class="info-dot" data-tooltip="Set by the cadence preset and the target length above.">?</button>

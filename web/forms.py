@@ -102,6 +102,14 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
 
     # Unchecked checkboxes submit nothing, so a marker distinguishes "off"
     # from "this form has no such field".
+    if "sound_present" in form:
+        channel.sound.music = bool(form.get("sound_music"))
+        channel.sound.effects = bool(form.get("sound_effects"))
+        channel.sound.music_level = min(0.4, max(0.0, _maybe_float(
+            form, "sound_music_level", channel.sound.music_level)))
+        channel.sound.effects_level = min(0.8, max(0.0, _maybe_float(
+            form, "sound_effects_level", channel.sound.effects_level)))
+
     if "continuity_present" in form:
         channel.build_on_previous = bool(form.get("build_on_previous"))
         scope = form.get("context_scope", "").strip()
