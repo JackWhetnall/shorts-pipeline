@@ -309,6 +309,15 @@ class Sound(_MappingLike):
 
 
 @dataclass
+class Artwork(_MappingLike):
+    """Public-domain paintings (pipeline.artwork). "passage" shows one under
+    the segment that reads the source text (or the opening, on a topic
+    channel); "off" never does."""
+
+    mode: str = "off"
+
+
+@dataclass
 class Scenes(_MappingLike):
     """Animated explanations in this channel's own art direction.
 
@@ -401,6 +410,7 @@ class ChannelConfig:
     publishing: Publishing = field(default_factory=Publishing)
     scenes: Scenes = field(default_factory=Scenes)
     sound: Sound = field(default_factory=Sound)
+    artwork: Artwork = field(default_factory=Artwork)
     archived: bool = False
     # Launch-checklist items marked done by hand. Some steps (Patreon's
     # signup flow) are annoying enough that "noting I'm skipping this"
@@ -552,6 +562,7 @@ _NESTED = {
     "publishing": Publishing,
     "scenes": Scenes,
     "sound": Sound,
+    "artwork": Artwork,
 }
 
 

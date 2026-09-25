@@ -237,6 +237,27 @@ exactly on the geometry. A scene that can't be made
 cleanly falls back to stock footage, and the review page says so. Scenes
 render in the Chrome installed on this PC, so Chrome must stay installed.
 
+## Sound
+
+Under the voice: a music bed that ducks whenever anyone speaks and rises
+in the pauses, and small sound effects (pops, whooshes, chimes, clinks)
+on animated scenes' moves. Effects are made by the app itself, so there
+is nothing to download or license. Music is never generated: put tracks
+in `channels/<key>/music/` for one channel, or `music/` for all of them;
+with none there, there's no music. Levels and on/off are under Settings
+→ Voice & timing. Use tracks you're licensed to use on YouTube *and*
+TikTok/Instagram; a track that gets a Content ID claim can take a
+video's revenue.
+
+## Paintings
+
+Settings → Look → **Paintings**: the passage (on a topic channel, the
+opening) is shown over a public-domain painting or engraving of it, from
+the Art Institute of Chicago's and the Met's open collections, slowly
+panned, and credited in the description. A quick AI look picks the work
+that actually shows the passage, and refuses nudity (it limits ads). If
+nothing fits, the usual footage is used.
+
 ## Hooks and endings
 
 Every video opens with a hook and ends with a landing; that's built into
@@ -249,6 +270,10 @@ machine-written ("that's the whole trick", "it's not X, it's Y") are
 caught and rewritten once. A held beat of silence (Settings →
 Voice & timing, "Held beat after the last word") separates it from the
 outro card.
+
+The hook's punch also appears as big text over the first seconds, and a
+few key words pop in the captions as they're said (both can be switched
+off under Look).
 
 How the hook *sounds* is each channel's own: **How it hooks**, under the
 style prompt in Settings. Minute Pastor's hook is a line spoken before

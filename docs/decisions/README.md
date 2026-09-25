@@ -50,3 +50,4 @@ reason for a change stays true forever.
 | [035](035-scenes-in-the-pipeline.md) | Animated scenes in the pipeline, per channel | Active |
 | [036](036-hooks-landings-and-real-props.md) | Every video hooks and lands; props that touch really touch | Active |
 | [037](037-hooks-that-grab-and-a-threshold-slider.md) | Hooks that grab, scripts that sound human, the animation slider as a threshold | Active; revises 036's hook and 035's slider |
+| [038](038-production-polish.md) | Faster renders, sound, the visual hook, camera, maths, libraries, paintings | Active |

@@ -46,6 +46,24 @@ On a channel's settings page, **Preview a script** (about 2 cents; no
 voice, no video) shows the new hooks. Tell me which ones would and
 wouldn't stop you scrolling; that's the fastest way to tune them.
 
+### 2b-iii. Add music for each channel (15 minutes)
+Videos now have a music bed that ducks under the voice, but the app
+never downloads or generates music: it needs tracks from you.
+1. Pick 3-6 tracks per channel that suit its mood (calm and warm for
+   Minute Pastor; soft and mysterious for Wren's). Good sources: the
+   **YouTube Audio Library** (Studio → Audio Library; choose "no
+   attribution required") and **Pixabay Music**. Avoid anything that
+   might carry a Content ID claim: a claim can take a video's revenue.
+2. Put them in `channels\minute_pastor\music\` (and so on per channel),
+   or `music\` in the project folder to share them across channels.
+3. Levels are under Settings → Voice & timing if the music feels too loud.
+
+### 2b-iv. Try Paintings on Minute Pastor
+Settings → Look → **Paintings**: tick "Show a public-domain painting of
+the passage". Each verse is then read over a classic painting or
+engraving of it (from the Art Institute of Chicago and the Met),
+credited in the description. Off until you switch it on.
+
 ### 2c. Decide scenes for your existing channels
 Every existing channel is **stock only** until you change it. On each
 channel's dashboard there's now an **Animated scenes** card: a slider

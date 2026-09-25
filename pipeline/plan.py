@@ -153,6 +153,8 @@ class Script:
     # few words that pop in the captions as they're spoken.
     screen_hook: str = ""
     emphasis: list = field(default_factory=list)
+    # A short museum search for a painting of this passage (pipeline.artwork).
+    art_query: str = ""
 
     def __post_init__(self):
         if self.source_index is None and self.citation:
@@ -169,6 +171,7 @@ class Script:
                 "payoff": self.payoff,
                 "screen_hook": self.screen_hook,
                 "emphasis": list(self.emphasis),
+                "art_query": self.art_query,
                 "segments": [s.to_jsonable() for s in self.segments],
                 "title_options": list(self.title_options),
                 "description_body": self.description_body}
@@ -181,6 +184,7 @@ class Script:
                    payoff=data.get("payoff", ""),
                    screen_hook=data.get("screen_hook", ""),
                    emphasis=list(data.get("emphasis") or []),
+                   art_query=data.get("art_query", ""),
                    segments=[Segment.from_jsonable(s) for s in data["segments"]],
                    title_options=list(data.get("title_options") or []),
                    description_body=data.get("description_body", ""))
@@ -283,6 +287,8 @@ class RenderPlan:
     # on anything imperfect in the ones that were made. Shown on review.
     scenes_fell_back: int = 0
     scene_notes: list = field(default_factory=list)
+    # Credits for public-domain artwork shown (pipeline.artwork).
+    art_credits: list = field(default_factory=list)
     # The publish gate's verdict for this render (core.publish_gate).
     gate: dict = None
     # The offending text when a segment reads like a description of a line

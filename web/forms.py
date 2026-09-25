@@ -102,6 +102,9 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
 
     # Unchecked checkboxes submit nothing, so a marker distinguishes "off"
     # from "this form has no such field".
+    if "artwork_present" in form:
+        channel.artwork.mode = "passage" if form.get("artwork_passage") else "off"
+
     if "sound_present" in form:
         channel.sound.music = bool(form.get("sound_music"))
         channel.sound.effects = bool(form.get("sound_effects"))

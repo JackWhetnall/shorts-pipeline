@@ -32,7 +32,10 @@ MAX_NEW_PROPS_PER_VIDEO = 4
 def run(plan):
     channel = plan.channel
     share = int(channel.scenes.share or 0)
-    plan.scene_clips, plan.scenes_fell_back, plan.scene_notes = [], 0, []
+    # Segments already given a picture (a painting, pipeline.artwork) keep it.
+    existing = list(getattr(plan, "scene_clips", None) or [])
+    covered = {i for c in existing for i in range(c["first"], c["last"] + 1)}
+    plan.scene_clips, plan.scenes_fell_back, plan.scene_notes = existing, 0, []
     if share <= 0:
         return plan
 
@@ -49,7 +52,8 @@ def run(plan):
     log.info(f"[3/5] Planning animated scenes ({share}% of the video, {style['label']})...")
 
     try:
-        stretches = writer.plan(segments, share, plan.seed.title)
+        stretches = [s for s in writer.plan(segments, share, plan.seed.title)
+                     if not covered & set(range(s["first"], s["last"] + 1))]
     except PipelineError as exc:
         log.warning(f"  [scene] couldn't plan scenes ({exc}); using stock footage throughout.")
         plan.scene_notes.append("The scene plan failed, so this video is all stock footage.")
@@ -85,6 +89,7 @@ def run(plan):
                                     f"and was replaced by stock footage.")
             continue
         plan.scene_clips.append({"first": first, "last": last, "clip": str(clip)})
+        plan.scene_clips.sort(key=lambda c: c["first"])
         plan.scene_notes.extend(f"Scene {i + 1}: {n}" for n in notes)
 
     _save(plan)

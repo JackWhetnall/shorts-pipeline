@@ -570,6 +570,16 @@
     </fieldset>
 
     <fieldset>
+      <legend>Paintings</legend>
+      <input type="hidden" name="artwork_present" value="1">
+      <label class="checkbox-label">
+        <input type="checkbox" name="artwork_passage" {% if channel.artwork.mode == 'passage' %}checked{% endif %}>
+        Show a public-domain painting of the passage while it's read (the opening, on a topic channel)
+        <button type="button" class="info-dot" data-tooltip="From the Art Institute of Chicago's and the Met's open collections, slowly panned; credited in the description. If nothing fits, the usual footage is used.">?</button>
+      </label>
+    </fieldset>
+
+    <fieldset>
       <legend>Hook text and key words</legend>
       <label class="checkbox-label">
         <input type="checkbox" name="style_screen_hook_enabled"

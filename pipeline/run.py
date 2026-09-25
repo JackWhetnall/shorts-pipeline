@@ -153,6 +153,12 @@ def _video_cost(started_at: float, channel_key: str) -> dict:
     return costs.summary_between(started_at, time.time(), channel_key)
 
 
+def _with_credits(text: str, credits: list) -> str:
+    """Public-domain art needs no credit, but gives one: it's the right
+    thing to do, and it shows the work is curated rather than scraped."""
+    return f"{text.rstrip()}\n\n" + "\n".join(credits) if credits else text
+
+
 def _run_checks(plan: RenderPlan) -> dict:
     """The automatic script and picture checks (pipeline.editor_check).
     Each reports whether it ran; neither raises for a service problem."""
@@ -193,8 +199,9 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
     gallery.save_title_and_description(
         plan.video_path,
         plan.script.title or plan.stem.replace("_", " ").title(),
-        description.generate_description(plan.script, plan.channel.monetization,
-                                         plan.channel.end_screen),
+        _with_credits(description.generate_description(plan.script, plan.channel.monetization,
+                                                       plan.channel.end_screen),
+                      getattr(plan, "art_credits", [])),
     )
 
     # The quality signals this render produced, kept beside the video.
@@ -207,7 +214,8 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
         "script_suspect": plan.script_suspect,
         "shot_count": len(plan.shots),
         "clips": sorted({s.clip_path.name for s in plan.shots if s.clip_path and not s.scene}),
-        "scenes": len(plan.scene_clips),
+        "scenes": len([c for c in plan.scene_clips if c.get("kind") != "artwork"]),
+        "artwork": list(getattr(plan, "art_credits", [])),
         "scenes_fell_back": plan.scenes_fell_back,
         "scene_notes": list(plan.scene_notes),
         "similarity": {
@@ -284,6 +292,7 @@ def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
     # and Pillow, which are slow to import and not needed by anything that
     # only wants fetch_seed.
     from pipeline import assemble
+    from pipeline import artwork
     from pipeline.scenes import stage as scenes_stage
 
     job_context.set_channel_key(channel.key)
@@ -295,6 +304,7 @@ def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
         _prepare_output(plan)
         script_gen.run(plan)
         tts.run(plan)
+        artwork.run(plan)
         scenes_stage.run(plan)
         assemble.run(plan)
         _finish(plan, started_at)

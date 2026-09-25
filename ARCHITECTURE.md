@@ -94,7 +94,11 @@ pipeline/     The generation stages. No web dependency at all.
                 candidate drafting/sampling.
   channel_draft A pitch in, every decision a new channel needs out, for review.
   tts           Script -> narration + word timings + real segment spans.
-  assemble      Footage + narration + captions -> the video file.
+  assemble      Footage + narration + captions -> the video file. The
+                background track is built by ffmpeg; moviepy lays captions,
+                the hook text and cards over it.
+  sound         Music bed ducked under speech, synthesised scene effects.
+  artwork       Public-domain paintings under the passage (AIC, the Met).
   description   The paste-ready description and the meta sidecar.
   editor_check  The automatic script and picture checks run on every video.
   similarity    Originality checking against the channel's own history.
@@ -186,6 +190,7 @@ script_gen.run(plan)         -> plan.script   (segments, shot briefs, title, des
 tts.run(plan)                -> plan.voiceover, and each Segment's real start/end
                                  (refused up front if the voice quota
                                  can't cover it)
+artwork.run(plan)            -> a painting under the passage, when switched on
 scenes.stage.run(plan)       -> plan.scene_clips: animated scenes for the
                                  stretches of segments the channel's
                                  `scenes.share` asks for (none at 0)
