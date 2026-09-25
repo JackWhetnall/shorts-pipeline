@@ -119,6 +119,7 @@ def accept(draft_id: str, choices: dict) -> ChannelConfig:
         key=key, channel_display_name=name, content_mode=body["content_mode"],
         voice=choices.get("voice") or body["voice_ids"][0],
         style_prompt=(choices.get("style_prompt") or body["style_prompt"]).strip(),
+        hook_style=(choices.get("hook_style") or body.get("hook_style") or "").strip(),
         avoid_imagery=list(choices.get("avoid_imagery", body["avoid_imagery"])),
         speed=_number(choices.get("speed"), body["speed"], 0.7, 1.2),
     )

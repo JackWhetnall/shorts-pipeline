@@ -5,6 +5,7 @@
       "content_mode": "static_corpus",
       "voice": "pNInz6obpgDQGcFmaJgB",
       "style_prompt": "You are writing a short, warm, non-denominational reflection on a Bible verse for a YouTube Shorts audience. Plain, modern language. No preachiness, no 'in conclusion', just a grounded human observation about what the verse means and why it might matter today.",
+      "hook_style": "Open with one line, before the verse is read, that names the quiet tension this particular verse speaks to: a worry, a longing or a question someone listening may already be carrying, or a surprising turn in a familiar line. Gentle and sincere, never hype and never a sermon's opening. It should make the listener want to hear the verse, and hear it freshly, without giving away what the reflection finds.",
       "outro_subtext": "Follow for more",
       "source": "bible",
       "avoid_imagery": [
@@ -52,6 +53,7 @@
       "content_mode": "static_corpus",
       "voice": "onwK4e9ZLuTAKqWW03F9",
       "style_prompt": "You are writing a short, engaging explainer unpacking a Shakespeare quote for a social media audience with no literary background. Explain what it means in plain English and why it still lands today. No academic tone.",
+      "hook_style": "Open, before the line is read, with the everyday situation where the listener has already felt what Shakespeare is describing, or the surprising modern truth hidden in it. Lively and plain, never academic, never a quiz or a 'you won't believe'.",
       "outro_subtext": "Follow our page",
       "source": "shakespeare",
       "pacing": {
@@ -70,6 +72,7 @@
       "channel_display_name": "Wren's Guide to Witchcraft",
       "voice": "SAz9YHcvj6GT2YYXdXww",
       "style_prompt": "Write for Wren's Guide to Witchcraft as a step-by-step tutorial series: each episode teaches exactly one practice, laid out in the order a person would actually do it. Every script needs to open with a direct question or address to the viewer \u2014 something that singles them out and makes them feel spoken to personally in that first line, since this has to stop a scroll cold. After that hook, transition into the practice itself using plain sequencing language \u2014 first, next, after that, last \u2014 so someone could follow along without rewinding. The register is conversational and unpolished in the good way: full, real sentences, but loose enough to include a natural 'so' or 'you know' here and there, never any written-out stammering. Treat the audience as complete beginners \u2014 anytime a material, symbol, or term shows up, unpack it briefly and simply, folded into the instruction rather than set apart as a definition. Every statement about effects, meanings, or outcomes should be phrased as a soft possibility, never a confirmed fact \u2014 think 'may,' 'can,' 'some find that' instead of definite claims. Keep it entirely humor-free and sincere in tone from the first line to the last. Use American spellings and idioms consistently. Close each video by returning attention to the viewer's own experience of the practice, open-ended, rather than summarizing conclusions or promising results.",
+      "hook_style": "Open by singling out the viewer with a direct question or address tied to this episode's one practice: the moment in their life it is for, or the thing they may have wondered about it. Sincere and inviting, never spooky clickbait and never a promised result. The practice itself answers the opening, and the close returns to the viewer's own experience of it.",
       "outro_subtext": "Follow for more",
       "source": "shakespeare",
       "build_on_previous": true,
@@ -100,7 +103,6 @@
         "outro_subtext_color": "#C084FC",
         "outro_font_size": 96,
         "outro_stroke_width": 4,
-        "title_card_enabled": false,
         "title_card_title_color": "#F3E9FF",
         "title_card_channel_color": "#C084FC",
         "title_card_font_size": 106,

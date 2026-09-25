@@ -94,7 +94,7 @@ def _make(idea, words, duration, style, library, context, stem: Path, tail: floa
     Returns (clip path, notes about anything that remained imperfect)."""
     existing = sorted(p.stem.replace("_", " ") for p in library.glob("*.png"))
     raw = writer.write(idea, words, duration, style, existing, **context)
-    scene, problems, assets = _check(raw, words, duration, style, library, new_props)
+    scene, problems, assets = _check(raw, words, duration, style, library, new_props, look=True)
     if problems:
         log.info(f"  [scene] repairing: {'; '.join(problems)[:300]}")
         raw = writer.write(idea, words, duration, style, existing, previous=raw,
@@ -111,9 +111,12 @@ def _make(idea, words, duration, style, library, context, stem: Path, tail: floa
     return clip, problems          # what's left is layout only: cosmetic, and noted
 
 
-def _check(raw, words, duration, style, library, new_props):
+def _check(raw, words, duration, style, library, new_props, look: bool = False):
     """(scene or None, problems, assets). None means it can't be rendered
-    as is; problems alone (with a scene) are layout imperfections."""
+    as is; problems alone (with a scene) are layout imperfections.
+
+    `look` also has a vision model look at stills of the scene: on the
+    first pass only, since its findings go into the one repair round."""
     scene, problems = writer.validate(raw, words, duration)
     if problems:
         return None, problems, {}
@@ -127,8 +130,27 @@ def _check(raw, words, duration, style, library, new_props):
                               f"from the library."], {}
             new_props[0] += 1
         assets[key] = props.get(library, spec.get("name") or key, style["prop_style"],
-                                spec.get("detail") or "")
-    return scene, writer.layout_problems(render.layout(scene, style, assets)), assets
+                                spec.get("detail") or "", icons=_icons(style))
+    stills = _still_times(duration) if look else ()
+    boxes, images = render.layout(scene, style, assets, stills=stills)
+    problems = writer.layout_problems(boxes) + writer.too_small(boxes)
+    if look:
+        spoken = [" ".join(w for w, t in words if t <= at)[-160:] for at in stills]
+        problems += writer.picture_problems(images, spoken, " ".join(w for w, _ in words))
+    return scene, problems, assets
+
+
+def _still_times(duration: float) -> tuple:
+    """Halfway through, and once everything has arrived."""
+    return (round(duration * 0.5, 2), round(max(0.0, duration - 0.1), 2))
+
+
+def _icons(style: dict) -> dict:
+    """The art direction's free prop library, with its tint as a colour."""
+    icons = dict(style.get("prop_library") or {})
+    if icons.get("tint"):
+        icons["tint"] = style["colors"].get(icons["tint"], icons["tint"])
+    return icons
 
 
 def _save(plan) -> None:

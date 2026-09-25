@@ -271,9 +271,10 @@ def _voice_name(voice_id: str) -> str:
 # The stored field names are terse because they are code. These are what
 # the settings page shows instead.
 PACING_LABELS = {
-    "pause_after_first_segment": "Pause after the first segment (s)",
+    "pause_after_first_segment": "Pause after the quoted passage (s)",
     "pause_after_citation": "Pause after the citation (s)",
     "pause_between_segments": "Pause between segments (s)",
+    "end_hold": "Held beat after the last word, before the outro (s)",
     "max_shot_seconds": "Longest single shot (s)",
     "crossfade": "Crossfade between shots (s)",
     "outro_seconds": "Outro card length (s)",

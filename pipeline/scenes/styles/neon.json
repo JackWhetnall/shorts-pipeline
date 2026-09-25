@@ -2,7 +2,12 @@
   "key": "neon",
   "label": "Neon",
   "description": "Glowing tube lines on a dark night grid: hot pink, cyan and yellow, bold sans type. Energetic, for tech, money and science channels.",
-  "background": {"color": "#0E0B1F", "pattern": "grid", "pattern_color": "#1D1942", "vignette": 0.35},
+  "background": {
+    "color": "#0E0B1F",
+    "pattern": "grid",
+    "pattern_color": "#1D1942",
+    "vignette": 0.35
+  },
   "ink": "#EDEBFF",
   "colors": {
     "ink": "#EDEBFF",
@@ -24,6 +29,15 @@
   "font_text_weight": 600,
   "shadow": null,
   "glow": 7,
-  "motion": {"appear": "back", "draw": "inout", "move": "inout", "count": "out"},
-  "prop_style": "glowing neon-sign illustration: bright tube-like outlines in hot pink, cyan and yellow with a soft glow, minimal dark fills, simple bold shapes, no wall or background drawn"
+  "motion": {
+    "appear": "back",
+    "draw": "inout",
+    "move": "inout",
+    "count": "out"
+  },
+  "prop_style": "glowing neon-sign illustration: bright tube-like outlines in hot pink, cyan and yellow with a soft glow, minimal dark fills, simple bold shapes, no wall or background drawn",
+  "prop_library": {
+    "set": "fluent-emoji-high-contrast",
+    "tint": "accent2"
+  }
 }

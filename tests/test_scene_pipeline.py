@@ -240,18 +240,20 @@ def test_a_scene_is_repaired_once_with_its_problems(plan, monkeypatch, tmp_path)
 
     checks = iter([(scene(), ["'a' and 'b' overlap"], {}), (scene(), [], {})])
     monkeypatch.setattr(writer, "write", write)
-    monkeypatch.setattr(stage, "_check", lambda *a: next(checks))
+    looks = []
+    monkeypatch.setattr(stage, "_check", lambda *a, look=False: looks.append(look) or next(checks))
     monkeypatch.setattr(stage.render, "render", lambda sc, st, assets, out: out)
     clip, notes = stage._make("idea", WORDS, 4.0, art.resolve({}), tmp_path, {},
                               tmp_path / "scene_1", 0.5, [0])
     assert calls == [None, ["'a' and 'b' overlap"]]
+    assert looks == [True, False]            # the picture check runs once, before the repair
     assert notes == [] and clip.suffix == ".mp4"
     assert (tmp_path / "scene_1.json").exists()
 
 
 def test_a_scene_still_broken_after_repair_is_not_rendered(plan, monkeypatch, tmp_path):
     monkeypatch.setattr(writer, "write", lambda *a, **k: {})
-    monkeypatch.setattr(stage, "_check", lambda *a: (None, ["no elements"], {}))
+    monkeypatch.setattr(stage, "_check", lambda *a, **k: (None, ["no elements"], {}))
     monkeypatch.setattr(stage.render, "render", lambda *a: pytest.fail("rendered a broken scene"))
     with pytest.raises(Exception, match="no elements"):
         stage._make("idea", WORDS, 4.0, art.resolve({}), tmp_path, {}, tmp_path / "s", 0.5, [0])
@@ -351,3 +353,148 @@ def test_every_scene_is_written_with_the_whole_narration(plan, monkeypatch):
     monkeypatch.setattr(stage, "_make", make)
     stage.run(plan)
     assert seen["narration"] == "[0] one two\n[1] three four"
+
+
+# --- props: the free library first, and laid on exact points --------------------
+
+class TestIconLibrary:
+    def test_names_are_tried_most_specific_first(self):
+        from pipeline.scenes import iconlib
+        assert iconlib.candidates("Wooden ladder") == ["wooden-ladder", "ladder", "wooden"]
+        assert iconlib.candidates("a coin") == ["coin"]
+
+    def test_only_an_exact_name_counts(self, monkeypatch):
+        from pipeline.scenes import iconlib
+
+        class Response:
+            status_code = 200
+            def __init__(self, icons): self._icons = icons
+            def json(self): return {"icons": self._icons}
+
+        seen = []
+
+        def fake_get(url, params=None, timeout=None):
+            seen.append(params["query"])
+            return Response({"brick-wall": [], "wall": ["fluent-emoji-flat:wall-clock"],
+                             "brick": ["fluent-emoji-flat:brick"]}[params["query"]])
+
+        monkeypatch.setattr(iconlib.requests, "get", fake_get)
+        # "wall" must not become a wall clock; "brick" is an exact match.
+        assert iconlib.find("brick wall", "fluent-emoji-flat") == "fluent-emoji-flat:brick"
+        assert seen == ["brick-wall", "wall", "brick"]
+
+    def test_an_unreachable_library_falls_back_to_generating(self, monkeypatch, tmp_path):
+        from pipeline.scenes import iconlib, props
+
+        def down(*a, **k):
+            raise iconlib.requests.ConnectionError("offline")
+
+        monkeypatch.setattr(iconlib.requests, "get", down)
+        drawn = []
+        monkeypatch.setattr(props, "_generate", lambda prompt: drawn.append(prompt) or _png_bytes())
+        path = props.get(tmp_path, "candle", "chalk", icons={"set": "fluent-emoji-flat"})
+        assert path.exists() and len(drawn) == 1
+
+    def test_a_library_prop_is_kept_with_its_licence(self, monkeypatch, tmp_path):
+        from pipeline.scenes import iconlib, props
+        monkeypatch.setattr(iconlib, "find", lambda name, s: "fluent-emoji-flat:candle")
+        tints = []
+        monkeypatch.setattr(iconlib, "fetch_svg", lambda icon, tint="": tints.append(tint) or "<svg/>")
+        monkeypatch.setattr(iconlib, "rasterize", lambda svg: _png_bytes())
+        monkeypatch.setattr(props, "_generate", lambda prompt: pytest.fail("paid for a free prop"))
+        path = props.get(tmp_path, "candle", "chalk",
+                         icons={"set": "fluent-emoji-flat", "tint": "#F4F1E8"})
+        import json
+        note = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
+        assert note["licence"] == "MIT" and note["source"] == "iconify:fluent-emoji-flat:candle"
+        assert tints == ["#F4F1E8"]
+
+    def test_a_line_style_tints_its_props_in_the_channels_ink(self):
+        icons = stage._icons(art.resolve({"preset": "chalkboard", "ink": "#ABCDEF"}))
+        assert icons == {"set": "fluent-emoji-high-contrast", "tint": "#ABCDEF"}
+
+
+def _png_bytes(size=(200, 200)):
+    import io
+    from PIL import Image
+    image = Image.new("RGBA", (400, 400), (0, 0, 0, 0))
+    image.paste(Image.new("RGBA", size, (200, 120, 40, 255)), (100, 100))
+    out = io.BytesIO(); image.save(out, format="PNG")
+    return out.getvalue()
+
+
+def test_a_props_long_axis_is_found_whatever_angle_it_was_drawn_at(tmp_path):
+    from PIL import Image, ImageDraw
+    from pipeline.scenes import props
+    import math
+    image = Image.new("RGBA", (400, 400), (0, 0, 0, 0))
+    ImageDraw.Draw(image).line([(80, 320), (320, 80)], fill=(0, 0, 0, 255), width=24)  # foot bottom-left
+    path = tmp_path / "pole.png"; image.save(path)
+    meta = props.axis(path)
+    assert math.degrees(meta["angle"]) == pytest.approx(-45, abs=3)     # pointing up and right
+    assert meta["length"] == pytest.approx(340, abs=25)
+    assert (meta["cx"], meta["cy"]) == (pytest.approx(200, abs=6), pytest.approx(200, abs=6))
+
+
+def test_the_draft_gives_a_new_channel_its_hook_style(tmp_path, monkeypatch):
+    from core import drafts
+    monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", tmp_path / "channels.json")
+    monkeypatch.setattr(drafts, "DRAFTS_DIR", tmp_path / "drafts")
+    monkeypatch.setattr(drafts.channel_admin, "create_channel", lambda channel, complete: None)
+    drafts.save({"id": "d1", "pitch": "p", "outline": [], "channel": {
+        "name_options": ["Hooked"], "content_mode": "static_corpus", "corpus_source": "bible",
+        "voice_ids": ["a" * 20], "style_prompt": "Warm.", "hook_style": "Open on a quiet question.",
+        "avoid_imagery": [], "speed": 1.0, "target_seconds": 45, "segment_count": 3,
+        "palette_key": "warm_gold", "custom_quotes": [], "subject": ""}})
+    channel = drafts.accept("d1", {})
+    assert channel.hook_style == "Open on a quiet question."
+
+
+def test_a_picture_huddled_in_a_corner_is_sent_back_to_be_drawn_bigger():
+    small = [(5.0, [{"id": "tri", "type": "shape", "kind": "poly", "box": [300, 200, 600, 500]}])]
+    big = [(5.0, [{"id": "tri", "type": "shape", "kind": "poly", "box": [120, 200, 960, 1100]}])]
+    assert "Draw it bigger" in writer.too_small(small)[0]
+    assert writer.too_small(big) == []
+
+
+def test_the_picture_check_turns_what_it_sees_into_repair_notes(monkeypatch):
+    # Regression: the ladder "against a wall" was drawn with no wall; boxes
+    # can't see that, a look at the stills can.
+    seen = {}
+
+    def fake(system, content, schema, **kwargs):
+        seen["content"], seen["kwargs"] = content, kwargs
+        return {"problems": ["The words say the ladder leans on a wall, but no wall is drawn."]}
+
+    monkeypatch.setattr(writer, "call_json", fake)
+    notes = writer.picture_problems([b"jpeg1", b"jpeg2"], ["lean a ladder", "against a wall"],
+                                    "lean a ladder against a wall")
+    assert notes == ["Picture check: The words say the ladder leans on a wall, but no wall is drawn."]
+    assert sum(1 for c in seen["content"] if c["type"] == "image") == 2
+    assert seen["kwargs"]["model"] == writer.PICTURE_MODEL
+
+
+def test_a_picture_check_that_cannot_run_finds_nothing(monkeypatch):
+    def down(*a, **k):
+        raise ExternalServiceError("Claude", "down", user_message="The AI service failed.")
+    monkeypatch.setattr(writer, "call_json", down)
+    assert writer.picture_problems([b"x"], ["y"], "z") == []
+
+
+def test_the_frame_check_judges_a_scene_once_it_is_built(monkeypatch):
+    # Regression: sampled mid-way, a scene is always "incomplete", and the
+    # frame check blocked the Pythagoras video for it.
+    from pipeline import editor_check
+    from pipeline.plan import Shot
+
+    segments = [Segment(text="all of it", shot_brief="b", start=0, end=10)]
+    plan = SimpleNamespace(shots=[Shot(start=0, end=10, segment_index=0, scene=True),
+                                  Shot(start=10, end=14, segment_index=0)],
+                           script=SimpleNamespace(segments=segments),
+                           channel=SimpleNamespace(avoid_imagery=[]),
+                           title_card_seconds=0, title_card_at=0)
+    asked = {}
+    monkeypatch.setattr(editor_check, "_frames_at", lambda path, times: asked.setdefault("t", times))
+    monkeypatch.setattr(editor_check, "_run", lambda *a: None)
+    editor_check.check_frames(Path("v.mp4"), plan)
+    assert asked["t"] == [pytest.approx(9.0), pytest.approx(12.0)]

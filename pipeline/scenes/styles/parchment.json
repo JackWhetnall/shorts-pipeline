@@ -2,7 +2,12 @@
   "key": "parchment",
   "label": "Parchment",
   "description": "Sepia ink on aged paper: fine lines with a slight hand-drawn waver, old-book serif type, muted oxblood, ochre and verdigris. For history, folklore, philosophy and faith.",
-  "background": {"color": "#F1E4C8", "pattern": "none", "grain": 0.13, "vignette": 0.24},
+  "background": {
+    "color": "#F1E4C8",
+    "pattern": "none",
+    "grain": 0.13,
+    "vignette": 0.24
+  },
   "ink": "#3B2A1A",
   "colors": {
     "ink": "#3B2A1A",
@@ -22,8 +27,23 @@
   "font_display_weight": 700,
   "font_text": "Constantia",
   "font_text_weight": 400,
-  "shadow": {"dx": 0, "dy": 4, "blur": 2, "color": "#3B2A1A", "opacity": 0.14},
+  "shadow": {
+    "dx": 0,
+    "dy": 4,
+    "blur": 2,
+    "color": "#3B2A1A",
+    "opacity": 0.14
+  },
   "sketch": 3,
-  "motion": {"appear": "out", "draw": "inout", "move": "inout", "count": "out"},
-  "prop_style": "antique ink engraving illustration: fine sepia ink linework with light cross-hatching, muted watercolour washes in oxblood red, ochre and verdigris green, like a plate from an old almanac, no paper or background drawn"
+  "motion": {
+    "appear": "out",
+    "draw": "inout",
+    "move": "inout",
+    "count": "out"
+  },
+  "prop_style": "antique ink engraving illustration: fine sepia ink linework with light cross-hatching, muted watercolour washes in oxblood red, ochre and verdigris green, like a plate from an old almanac, no paper or background drawn",
+  "prop_library": {
+    "set": "fluent-emoji-high-contrast",
+    "tint": "ink"
+  }
 }

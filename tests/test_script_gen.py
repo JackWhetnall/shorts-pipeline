@@ -445,3 +445,70 @@ class TestOriginalityGate:
         script_gen.run(plan)
         assert plan.similarity.flagged
         assert plan.script.segments[0].text == self.EARLIER
+
+
+# --- the hook and the landing ------------------------------------------------
+
+def _seg(text):
+    return {"text": text, "shot_brief": "a candle", "keywords": ["candle"]}
+
+
+class TestHookAndLanding:
+    def test_a_quote_video_opens_with_its_hook_before_the_passage(self, monkeypatch):
+        seen = {}
+
+        def fake(system, user, schema, **kwargs):
+            seen["user"], seen["schema"] = user, schema
+            return {"hook_promise": "why a threat reads as a promise",
+                    "payoff": "the last line names the promise",
+                    "hook": "This verse sounds like a warning. It was written as comfort.",
+                    "hook_shot_brief": "storm clouds parting", "hook_keywords": ["clouds"],
+                    "segments": [_seg("One two three."), _seg("Four five six.")],
+                    "title_options": ["T"], "description_body": "d",
+                    "quote_shot_brief": "an open bible", "quote_keywords": ["bible"]}
+
+        monkeypatch.setattr(llm, "call_json", fake)
+        channel = _channel(content_mode="static_corpus", source="bible",
+                           hook_style="Open on a quiet question.")
+        channel.pacing.segment_count = 2
+        script = script_gen.generate_script(
+            Seed(type="quote", text="Fear not.", reference="Isaiah 41:10"), channel)
+        texts = [s.text for s in script.segments]
+        assert texts[0].startswith("This verse sounds like a warning")
+        assert texts[1] == "Fear not." and script.source_index == 1
+        assert script.hook_promise == "why a threat reads as a promise"
+        # Planned before written: the loop comes first in the schema.
+        assert list(seen["schema"]["properties"])[:3] == ["hook_promise", "payoff", "hook"]
+        assert "Open on a quiet question." in seen["user"]
+        assert "THE LANDING" in seen["user"]
+
+    def test_a_topic_script_carries_its_planned_loop(self, monkeypatch):
+        monkeypatch.setattr(llm, "call_json", lambda *a, **k: {
+            "hook_promise": "p", "payoff": "q",
+            "segments": [_seg("One two three."), _seg("Four five six."), _seg("Seven eight.")],
+            "title_options": ["T"], "description_body": "d"})
+        script = script_gen.generate_script(Seed(type="topic", topic="Pythagoras"), _channel())
+        assert (script.hook_promise, script.payoff, script.source_index) == ("p", "q", None)
+
+    def test_the_originality_check_skips_the_passage_but_not_the_hook(self):
+        from pipeline import similarity
+        from pipeline.plan import Script, Segment
+        script = Script(segments=[Segment("my hook"), Segment("their verse"), Segment("my notes")],
+                        citation="John 3:16", source_index=1)
+        assert similarity.script_text(script) == "my hook my notes"
+        # Scripts saved before hooks existed: the passage was segment 0.
+        old = Script.from_jsonable({"citation": "John 3:16",
+                                    "segments": [{"text": "verse"}, {"text": "notes"}]})
+        assert old.source_index == 0 and similarity.script_text(old) == "notes"
+
+    def test_the_script_studio_plans_each_loop_too(self):
+        item = script_gen._batch_schema()["properties"]["scripts"]["items"]
+        assert {"hook_promise", "payoff"} <= set(item["required"])
+
+
+def test_a_hook_is_always_a_finished_sentence():
+    # Regression: Minute Pastor hooks came back as lowercase fragments with
+    # no question mark, and the captions show them exactly as written.
+    assert script_gen._sentence("why does he keep answering her") == "Why does he keep answering her?"
+    assert script_gen._sentence("this verse sounds like a threat") == "This verse sounds like a threat."
+    assert script_gen._sentence("It isn't what it seems!") == "It isn't what it seems!"

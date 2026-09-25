@@ -224,11 +224,31 @@ sets:
 A channel made from a pitch gets both chosen for it, and they're
 reviewed on the draft page like everything else.
 
-Each object (a piggy bank, a ladder) is drawn once per channel by
-OpenAI's image model, at about 4 cents, and reused in every later
-video; they live in `channels/<key>/props/`. A scene that can't be made
+Each illustrated object (a coin, a candle) comes first from a free,
+MIT-licensed library (Microsoft's Fluent Emoji), recoloured to the
+channel's look; only an object the library doesn't have is drawn by
+OpenAI's image model, at about 4 cents. Either way it's fetched once per
+channel and reused; they live in `channels/<key>/props/`, each with a
+note of its source and licence. Things that have to line up with the
+maths (a ladder against a wall, a ramp) are drawn by the scene itself,
+exactly on the geometry. A scene that can't be made
 cleanly falls back to stock footage, and the review page says so. Scenes
 render in the Chrome installed on this PC, so Chrome must stay installed.
+
+## Hooks and endings
+
+Every video opens with a hook and ends with a landing; that's built into
+how scripts are written, for every channel. The hook is the first
+sentence: a specific question or tension that this video, and only this
+one, then answers, honestly and in full. The landing closes it and ends
+on a line that sounds like an ending. A held beat of silence (Settings →
+Voice & timing, "Held beat after the last word") separates it from the
+outro card.
+
+How the hook *sounds* is each channel's own: **How it hooks**, under the
+style prompt in Settings. Minute Pastor's hook is a line spoken before
+the verse is read. The automatic script check flags a missing hook or an
+ending that doesn't land, and holds a video whose hook it never pays off.
 
 ## Writing a channel's style prompt for you
 

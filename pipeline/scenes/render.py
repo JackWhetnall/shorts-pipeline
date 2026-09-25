@@ -22,6 +22,7 @@ from pathlib import Path
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from core.paths import FRAME_HEIGHT, FRAME_WIDTH
+from pipeline.scenes import props
 
 log = get_logger(__name__)
 
@@ -49,6 +50,7 @@ def build_html(scene: dict, style: dict, assets: dict) -> str:
         "SCENE": {"width": FRAME_WIDTH, "height": FRAME_HEIGHT, **scene},
         "STYLE": style,
         "ASSETS": {name: _data_uri(p) for name, p in (assets or {}).items()},
+        "ASSET_META": {name: props.axis(p) for name, p in (assets or {}).items()},
     }
     # json.dumps output is valid JS; "</" is escaped so a label containing
     # "</script>" can't end the script block.
@@ -111,13 +113,17 @@ def render_frame(scene: dict, style: dict, assets: dict, t: float, out_path: Pat
     return Path(out_path)
 
 
-def layout(scene: dict, style: dict, assets: dict, step: float = 0.5) -> list:
-    """[(t, [{id, type, kind, box}])] every `step` seconds and at the end:
-    what the layout check measures."""
+def layout(scene: dict, style: dict, assets: dict, step: float = 0.5,
+           stills: tuple = ()) -> tuple:
+    """([(t, [{id, type, kind, box}])] every `step` seconds and at the end,
+    [JPEG bytes at each of `stills`]): what the layout and picture checks
+    look at, from one page load."""
     duration = float(scene["duration"])
     times = [round(i * step, 3) for i in range(int(duration / step) + 1)] + [duration - 0.05]
     with _Page(scene, style, assets) as page:
-        return [(t, page.page.evaluate("t => window.__layout(t)", t)) for t in times]
+        boxes = [(t, page.page.evaluate("t => window.__layout(t)", t)) for t in times]
+        shots = [page.frame(t) for t in stills]
+    return boxes, shots
 
 
 def render(scene: dict, style: dict, assets: dict, out_path: Path, fps: int = FPS) -> Path:

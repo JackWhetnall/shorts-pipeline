@@ -29,18 +29,24 @@ The copy you started by hand is running old code.
    seconds, open `cache\web.log` in the project folder and send me the
    last few lines.
 
-### 2b. Watch the Pythagoras video, and look at the maths draft
-A full example with animated scenes throughout, made by pitching a maths
-channel ("maths explained visually, for adults put off it at school").
-The draft picked the Chalkboard look and set 100% animated by itself.
+### 2b. Check the hook styles I wrote for your channels
+Every video now opens with a hook and ends with a proper landing. How
+each channel's hook *sounds* is a setting: **Settings → How it hooks**,
+just under the style prompt. I wrote one for Minute Pastor, Wren's Guide
+and Shakespeare Lines to fit their style prompts. Read them and adjust
+the wording to your taste; they steer every future script.
 
-1. Watch `cache\scene_samples\maths_demo\pythagoras_scenes.mp4`. Tell me
-   what's off: pacing, how busy it is, fonts, whether the pictures match
-   the words.
-2. The draft it came from is in your drafts: **Channels → New channel**,
-   under the pitch box (*Second Look Maths*). Its **Animated scenes** card
-   shows the look with a live preview. Create it only if you want a
-   maths channel; otherwise throw the draft away.
+Minute Pastor's videos now begin with one spoken line **before** the
+verse. Try **Preview a script** on its settings page (about a penny) to
+see a few.
+
+### 2b-ii. Watch the new Pythagoras video
+`cache\scene_samples\maths_demo_v2\pythagoras_v3.mp4`: the new hook
+and landing, the held ending, the Clean flat look, the ladder drawn
+against a brick wall. Tell me what's still off. The maths draft is still
+in your drafts (**Channels → New channel**) if you want the channel; it
+suggested Chalkboard, which you can change on its **Animated scenes**
+card.
 
 ### 2c. Decide scenes for your existing channels
 Every existing channel is **stock only** until you change it. On each

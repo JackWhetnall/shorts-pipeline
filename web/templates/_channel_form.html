@@ -80,6 +80,11 @@
       </span>
     </label>
 
+    <label>How it hooks &mdash; the opening line, in this channel's voice
+      <button type="button" class="info-dot" data-tooltip="Every video opens with a hook: a specific question or tension the video then pays off. This says how this channel does it: how loud, what kind of question, what it never does.">?</button>
+      <textarea name="hook_style" rows="3" placeholder="e.g. Open on the quiet question the passage answers, the one a listener is already carrying. Never hype; never give the answer first.">{{ channel.hook_style or '' }}</textarea>
+    </label>
+
     {# The actual preview: script generation only, no voiceover, no
        footage, no render — a few seconds and about a penny, so a style
        prompt can be iterated on without committing a whole video to find

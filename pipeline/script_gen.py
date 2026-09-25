@@ -134,6 +134,70 @@ def placeholder_text(segments: list) -> str:
     return ""
 
 
+HOOK_AND_LANDING_GUIDANCE = """
+THE OPENING. The first five seconds decide whether anyone watches the
+rest, so the first sentence is the hook. Its job: make this viewer need
+what this video, and only this video, is about to give them, and trust
+that it will be worth it.
+
+- It opens a loop: a specific question, tension, or gap between what the
+  viewer assumes and what is true, which the rest of the video closes.
+- It is specific to THIS video: its passage, its idea, its numbers. A
+  hook that would fit any other video on this channel is not a hook.
+- It is honest. The video pays it off completely, and the payoff should
+  feel bigger than the promise: someone who stays should feel their
+  curiosity rewarded, never baited. No "you won't believe", no
+  "everything you know is wrong", no promise the script doesn't keep.
+- It points at the payoff without spending it. Never give the answer away
+  in the opening.
+- It starts in the middle of the idea: no greeting, no channel name, no
+  "in this video", "today", "let's talk about", "have you ever wondered".
+- One sentence, about 8-16 words, easy to say in one breath.
+- It speaks in the channel's own register. A quiet, reverent channel
+  hooks quietly: a question someone is carrying, a surprising turn in a
+  familiar line. An energetic channel hooks with pace. The intensity is
+  the channel's; the open loop is universal.
+
+Ways in (pick what suits THIS content, and vary it from video to video):
+a surprising truth about something familiar; the question the viewer
+didn't know they had; the stake, meaning what changes for them once they
+see this; a contradiction or paradox; a concrete moment dropped straight
+into; one precise, striking detail or number; a common belief that is
+quietly wrong.
+
+THE MIDDLE keeps the loop open. Each segment moves toward the payoff and
+gives a reason to hear the next. Don't resolve the hook early.
+
+THE LANDING. The last segment is the end of the video and must sound like
+it. It closes the loop the opening opened, plainly enough that the
+viewer feels it click, ideally echoing the opening's words or image. It
+lands one final thought and ends on a short, complete sentence that
+falls to a close: the last line of a piece, not a line that leads into
+more. No new idea, no trailing "and" or "so", no "thanks for watching"
+or "follow for more" (the outro card does that). A channel that closes on
+a reflective question still delivers it as a final line, not a lead-in.
+
+Plan it before writing: "hook_promise" is the loop the opening opens (the
+question or tension, in a phrase) and "payoff" is how and where the
+ending closes it. Then write the lines to that plan.
+""".strip()
+
+
+def _channel_hook(channel) -> str:
+    """The channel's own way of hooking, when it has one."""
+    style = (getattr(channel, "hook_style", "") or "").strip()
+    return f"How this channel opens, in its own voice: {style}\n\n" if style else ""
+
+
+QUOTE_HOOK_GUIDANCE = """
+On this channel the video begins with "hook", one spoken line said BEFORE
+the passage is read. It is the opening described above: it makes the
+listener want to hear the passage, and hear it differently, without
+explaining it or giving away what the analysis will find. The passage
+follows it, then the segments. The last segment is the landing.
+""".strip()
+
+
 def _segment_properties() -> dict:
     return {
         "text": {"type": "string"},
@@ -160,8 +224,16 @@ PACKAGING_SCHEMA = {
     "description_body": {"type": "string"},
 }
 
+# First in the schema, so the loop is planned before any line is written.
+PLAN_SCHEMA = {
+    "hook_promise": {"type": "string",
+                     "description": "The question or tension the opening line opens, in a phrase."},
+    "payoff": {"type": "string",
+               "description": "How and where the ending closes that loop."},
+}
 
-def _segments_schema(extra: dict = None) -> dict:
+
+def _segments_schema(extra: dict = None, lead: dict = None) -> dict:
     """The response schema.
 
     No array length bounds: the API rejects `minItems`/`maxItems` values
@@ -172,6 +244,8 @@ def _segments_schema(extra: dict = None) -> dict:
     schema = {
         "type": "object",
         "properties": {
+            **PLAN_SCHEMA,
+            **(lead or {}),
             "segments": {
                 "type": "array",
                 "items": {
@@ -196,6 +270,16 @@ QUOTE_SCHEMA_EXTRA = {
     "quote_shot_brief": {"type": "string"},
     "quote_keywords": {"type": "array", "items": {"type": "string"}},
 }
+
+# The hook line spoken before the passage, with its own footage.
+QUOTE_SCHEMA_LEAD = {
+    "hook": {"type": "string", "description": "The spoken opening line, said before the passage: "
+                                              "one full sentence with its capital and its "
+                                              "final punctuation."},
+    "hook_shot_brief": {"type": "string"},
+    "hook_keywords": {"type": "array", "items": {"type": "string"}},
+}
+HOOK_WORDS = 14          # what the hook takes out of a quote video's budget
 
 
 # Measured across this project's own finished videos: 158 words in 63.8s,
@@ -245,7 +329,9 @@ def _quote_instructions(count: int, budget: dict) -> str:
         "Each segment is spoken on its own, so it must read naturally as a standalone "
         "chunk rather than as a fragment of a longer sentence.\n\n"
         '"quote_shot_brief" and "quote_keywords" describe the footage for the quote '
-        "itself; each segment's own fields describe the footage for that segment.\n\n"
+        "itself, \"hook_shot_brief\" and \"hook_keywords\" the footage for the hook; "
+        "each segment's own fields describe the footage for that segment.\n\n"
+        f"{HOOK_AND_LANDING_GUIDANCE}\n\n{QUOTE_HOOK_GUIDANCE}\n\n"
         f"{SPOKEN_TEXT_GUIDANCE}\n\n{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}"
     )
 
@@ -260,7 +346,9 @@ def _topic_instructions(count: int, budget: dict) -> str:
         f"{budget['target_seconds']:.0f} seconds. Going long is as wrong as going "
         f"short.\n\n"
         "Each segment is spoken on its own, so it must read naturally as a standalone "
-        "chunk rather than as a fragment of a longer sentence.\n\n"
+        "chunk rather than as a fragment of a longer sentence. The first segment opens "
+        "with the hook; the last is the landing.\n\n"
+        f"{HOOK_AND_LANDING_GUIDANCE}\n\n"
         f"{SPOKEN_TEXT_GUIDANCE}\n\n{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}"
     )
 
@@ -317,6 +405,24 @@ def _clean(text: str) -> str:
     return " ".join((text or "").split())
 
 
+_QUESTION_START = re.compile(
+    r"^(what|why|how|when|who|whom|whose|where|which|is|are|was|were|do|does|did|can|"
+    r"could|would|should|will|have|has|had)\b", re.I)
+
+
+def _sentence(text: str) -> str:
+    """A spoken line as a finished sentence: it is burned into the
+    captions too. Hooks came back as caption fragments ("why does he keep
+    answering her") with no capital and no question mark."""
+    text = _clean(text)
+    if not text:
+        return text
+    text = text[0].upper() + text[1:]
+    if text[-1] not in ".!?…\"'”’":
+        text += "?" if _QUESTION_START.match(text) else "."
+    return text
+
+
 def _check_count(segments: list, wanted: int) -> None:
     """Warn, don't fail, when the model returns the wrong number.
 
@@ -355,16 +461,19 @@ def generate_script(seed: Seed, channel, avoid: str = "") -> Script:
         # first, so a 60-word verse and a 12-word one leave the analysis
         # the right amount of room rather than the same amount.
         budget = word_budget(channel.pacing, count,
-                             spoken_words=len(seed.text.split()), speed=channel.speed)
-        schema = _segments_schema(extra=QUOTE_SCHEMA_EXTRA)
+                             spoken_words=len(seed.text.split()) + HOOK_WORDS,
+                             speed=channel.speed)
+        schema = _segments_schema(extra=QUOTE_SCHEMA_EXTRA, lead=QUOTE_SCHEMA_LEAD)
         user_msg = (f'Quote: "{seed.text}"\n'
                     f"Reference: {seed.reference}\n\n"
+                    f"{_channel_hook(channel)}"
                     f"{_quote_instructions(count, budget)}")
     elif seed.type == "topic":
         budget = word_budget(channel.pacing, count, speed=channel.speed)
         schema = _segments_schema()
         user_msg = (f'Topic: "{seed.topic}"\n\n'
                     f"{_continuity(channel, seed)}"
+                    f"{_channel_hook(channel)}"
                     f"{_topic_instructions(count, budget)}")
     else:
         raise PipelineError(
@@ -408,6 +517,8 @@ def generate_script(seed: Seed, channel, avoid: str = "") -> Script:
 
     titles = [_clean(t) for t in (data.get("title_options") or []) if t and t.strip()]
     description_body = (data.get("description_body") or "").strip()
+    loop = {"hook_promise": (data.get("hook_promise") or "").strip(),
+            "payoff": (data.get("payoff") or "").strip()}
 
     if seed.type == "quote":
         # Segment 0 is the source text verbatim — never regenerated,
@@ -417,11 +528,21 @@ def generate_script(seed: Seed, channel, avoid: str = "") -> Script:
             shot_brief=_clean(data.get("quote_shot_brief", "")),
             keywords=[k.strip().lower() for k in (data.get("quote_keywords") or []) if k.strip()],
         )
-        return Script(segments=[quote_segment] + generated, citation=seed.reference,
-                      title_options=titles, description_body=description_body)
+        hook_text = _sentence(data.get("hook") or "")
+        if not hook_text:
+            return Script(segments=[quote_segment] + generated, citation=seed.reference,
+                          title_options=titles, description_body=description_body,
+                          source_index=0, **loop)
+        hook_segment = Segment(
+            text=hook_text, shot_brief=_clean(data.get("hook_shot_brief", "")),
+            keywords=[k.strip().lower() for k in (data.get("hook_keywords") or []) if k.strip()],
+        )
+        return Script(segments=[hook_segment, quote_segment] + generated,
+                      citation=seed.reference, title_options=titles,
+                      description_body=description_body, source_index=1, **loop)
 
     return Script(segments=generated, citation=None,
-                  title_options=titles, description_body=description_body)
+                  title_options=titles, description_body=description_body, **loop)
 
 
 def _stored_script(plan) -> Script:
@@ -585,6 +706,7 @@ def _batch_schema() -> dict:
                                            "answers, matching the list you "
                                            "were given.",
                         },
+                        **PLAN_SCHEMA,
                         "segments": {
                             "type": "array",
                             "items": {
@@ -596,7 +718,7 @@ def _batch_schema() -> dict:
                         },
                         **PACKAGING_SCHEMA,
                     },
-                    "required": ["index", "segments", "title_options",
+                    "required": ["index", *PLAN_SCHEMA, "segments", "title_options",
                                 "description_body"],
                     "additionalProperties": False,
                 },
@@ -659,6 +781,7 @@ def write_scripts(channel, topic: dict, subtopics: list) -> list:
             f"no repeated examples or phrasing habits — but each one "
             f"complete and correct on its own.\n\n"
             f"{_covered_titles(channel, topic['id'])}"
+            f"{HOOK_AND_LANDING_GUIDANCE}\n\n{_channel_hook(channel)}"
             f"{SPOKEN_TEXT_GUIDANCE}\n\n{SHOT_BRIEF_GUIDANCE}\n\n{PACKAGING_GUIDANCE}",
             cacheable=True),
     ]
@@ -708,6 +831,8 @@ def write_scripts(channel, topic: dict, subtopics: list) -> list:
                 "title_options": [_clean(t) for t in (item.get("title_options") or [])
                                   if t and t.strip()],
                 "description_body": (item.get("description_body") or "").strip(),
+                "hook_promise": (item.get("hook_promise") or "").strip(),
+                "payoff": (item.get("payoff") or "").strip(),
             },
         })
 

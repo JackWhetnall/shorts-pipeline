@@ -65,6 +65,9 @@
     <label>Style prompt: the instruction every script is written from
       <textarea name="style_prompt" rows="10">{{ body.style_prompt }}</textarea>
     </label>
+    <label>How it hooks: how every video opens, in this channel's voice
+      <textarea name="hook_style" rows="3">{{ body.hook_style or '' }}</textarea>
+    </label>
     {% if body.corpus_source == 'custom' %}
     <label>Its quotes, one per line (&ldquo;quote &mdash; author&rdquo;). Check the attributions:
       a wrong one is read aloud as fact.

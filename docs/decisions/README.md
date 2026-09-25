@@ -48,3 +48,4 @@ reason for a change stays true forever.
 | [033](033-posting-from-this-pc.md) | Posting to TikTok and Instagram from this PC | Replaces 031's phone hand-off |
 | [034](034-animated-scenes-renderer.md) | Animated scenes: a timeline engine in headless Chrome | Active; extended by 035 |
 | [035](035-scenes-in-the-pipeline.md) | Animated scenes in the pipeline, per channel | Active |
+| [036](036-hooks-landings-and-real-props.md) | Every video hooks and lands; props that touch really touch | Active |

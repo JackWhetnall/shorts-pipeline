@@ -139,6 +139,20 @@ class Script:
     citation: str = None
     title_options: list = field(default_factory=list)
     description_body: str = ""
+    # Which segment is someone else's words read verbatim (the passage on
+    # a quote channel), with the citation spoken straight after it. It
+    # used to always be 0; a hook line now comes before it. None when the
+    # format has no source text.
+    source_index: int = None
+    # What the opening makes the viewer want to know, and where the video
+    # answers it: planned by the writer before the lines, kept so review
+    # and the script check can hold the video to it.
+    hook_promise: str = ""
+    payoff: str = ""
+
+    def __post_init__(self):
+        if self.source_index is None and self.citation:
+            self.source_index = 0
 
     @property
     def title(self) -> str:
@@ -146,6 +160,9 @@ class Script:
 
     def to_jsonable(self) -> dict:
         return {"citation": self.citation,
+                "source_index": self.source_index,
+                "hook_promise": self.hook_promise,
+                "payoff": self.payoff,
                 "segments": [s.to_jsonable() for s in self.segments],
                 "title_options": list(self.title_options),
                 "description_body": self.description_body}
@@ -153,6 +170,9 @@ class Script:
     @classmethod
     def from_jsonable(cls, data: dict) -> "Script":
         return cls(citation=data.get("citation"),
+                   source_index=data.get("source_index"),
+                   hook_promise=data.get("hook_promise", ""),
+                   payoff=data.get("payoff", ""),
                    segments=[Segment.from_jsonable(s) for s in data["segments"]],
                    title_options=list(data.get("title_options") or []),
                    description_body=data.get("description_body", ""))

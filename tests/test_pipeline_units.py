@@ -272,10 +272,18 @@ class TestTtsPlan:
         plan = tts.build_plan(segments, None, self._pacing())
         assert [p[2] for p in plan] == [0, 1]
 
-    def test_last_segment_has_no_trailing_pause(self):
+    def test_the_last_line_is_followed_by_the_held_ending_beat(self):
+        # Regression: with no pause after the last line, the outro card cut
+        # in on the final syllable and every video seemed to stop mid-thought.
         segments = [Segment("a"), Segment("b")]
         plan = tts.build_plan(segments, None, self._pacing())
-        assert plan[-1][1] == 0.0
+        assert plan[-1][1] == self._pacing().end_hold > 0
+
+    def test_a_hook_before_the_passage_moves_the_citation_after_the_passage(self):
+        segments = [Segment("hook"), Segment("quote"), Segment("one")]
+        plan = tts.build_plan(segments, "John 3:16", self._pacing(), source_index=1)
+        assert [p[2] for p in plan] == [0, 1, None, 2]
+        assert plan[0][1] == 0.4 and plan[1][1] == 0.7       # the long pause follows the passage
 
 
 # --- captions and shots ------------------------------------------------

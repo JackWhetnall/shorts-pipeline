@@ -46,7 +46,8 @@ MAX_LABEL_CHARS = 40
 MAX_NEW_PROPS = 2             # per scene
 
 ELEMENT_TYPES = ("shape", "label", "prop", "counter", "chart")
-SHAPE_KINDS = ("circle", "star", "polygon", "poly", "square", "angle", "line", "arrow", "rect")
+SHAPE_KINDS = ("circle", "star", "polygon", "poly", "square", "angle", "line", "arrow", "rect",
+               "beam")
 ACTIONS = ("appear", "draw", "write", "count", "move", "highlight", "wiggle", "stack", "exit")
 AREA_KINDS = ("circle", "polygon", "poly", "square", "rect")
 COLOR_TOKENS = ("ink", "ink_soft", "label_fill", "accent1", "accent2", "accent3", "accent4", "accent5")
@@ -87,8 +88,14 @@ shape: `kind` is one of
   Optional size (default 44).
 - line / arrow: x, y, x2, y2.
 - rect: centred box: x, y, w, h, optional radius.
+- beam: a physical bar exactly between two points: x, y, x2, y2,
+  thickness (default 56). rungs: true makes it a ladder (spacing between
+  rungs, default 70). Use a beam for anything long that must line up with
+  the geometry: a ladder, plank, ramp, pole, beam of a seesaw.
 Optional: stroke (colour), fill (colour), fill_opacity (0-1, use about
-0.2-0.4 for areas you want to read as shaded), width (line weight).
+0.2-0.4 for areas you want to read as shaded), width (line weight),
+texture ("bricks", "planks" or "hatch") for a surface: a brick wall is a
+rect with texture "bricks"; hatched ground is a rect with "hatch".
 
 label: short text. `text`, or `parts` [{text, color}] for text in coloured
 pieces (an equation whose terms match their shapes). size (44-100),
@@ -98,7 +105,10 @@ color, font: "text" for the plainer body font. Unicode maths is fine:
 ² ³ √ × ÷ − π θ ≈ ≠ ≤. No LaTeX.
 
 prop: an illustrated object from the channel's prop library: asset (a key
-declared in this scene's `props`), w (and optionally h), x, y.
+declared in this scene's `props`), w (and optionally h), x, y. fit:
+"cover" fills the w-by-h box exactly (cropping). span: {from, to} lays a
+long, thin object (a candle, a pencil, a sword) exactly along two points,
+its top at `to`; each point is [x, y] or an anchor like {of, vertex}.
 
 counter: a number that counts. from, prefix ("£"), suffix ("%"), decimals,
 size (90-130), x, y. Counts to a value with the count action.
@@ -174,9 +184,17 @@ the word that names it; one without is on screen from the first frame.
 - Geometry is exact. When you give coordinates, work them out: a 3-4-5
   triangle is 3:4:5, a right angle is square. Draw figures large: a main
   figure should span 400-700 px.
+- Things that touch in the narration touch on screen, exactly. A ladder
+  "against a wall" has its foot on the ground line and its top on the
+  wall's top edge; a ball "on a ramp" sits on the ramp's line. Work out
+  those contact points once, then use the SAME points for the objects
+  and for any geometry drawn over them (the triangle's corners are the
+  ladder's foot, the wall's foot and the ladder's top). A wall stands on
+  the ground; an axis is never a stand-in for a wall.
 - Props only for concrete, recognisable objects that add meaning (a
-  ladder, a coin, a candle); never for text, numbers, arrows or geometric
-  shapes, which you draw. Reuse the channel's existing props by their
+  coin, a candle, a piggy bank); never for text, numbers, arrows or
+  geometric shapes, which you draw. Anything that must line up with the
+  geometry (a ladder, a plank, a wall) is drawn: a beam or a rect. Reuse the channel's existing props by their
   exact names. Name a new prop generically ("wooden ladder"), because it
   will be drawn once and reused in future videos. At most two new props
   in a scene.
@@ -456,6 +474,74 @@ def layout_problems(boxes_over_time: list) -> list:
                          f"{text['id']!r} sits across the edge of {area['id']!r} (at {t:.1f}s); "
                          f"put it clearly inside or clearly outside.")
     return list(problems.values())
+
+
+STAGE_MIN_W, STAGE_MIN_H = 560, 520    # the finished picture should fill at least this
+
+
+def too_small(boxes_over_time: list) -> list:
+    """A note when the finished picture huddles in a corner of the stage."""
+    if not boxes_over_time:
+        return []
+    items = [it for it in boxes_over_time[-1][1] if it["box"][2] - it["box"][0] > 1]
+    if not items:
+        return []
+    left = min(it["box"][0] for it in items)
+    right = max(it["box"][2] for it in items)
+    top = min(it["box"][1] for it in items)
+    bottom = max(it["box"][3] for it in items)
+    if right - left < STAGE_MIN_W and bottom - top < STAGE_MIN_H:
+        return [f"The finished picture only fills x {left:.0f}-{right:.0f}, y {top:.0f}-{bottom:.0f}. "
+                f"Draw it bigger: the stage is x 60-1020, y 110-1290."]
+    return []
+
+
+PICTURE_MODEL = "claude-haiku-4-5"
+PICTURE_SYSTEM = """
+You check an animated explainer scene before it is rendered. You see
+stills from it, each with the words spoken up to that moment, and the
+whole scene's narration. Report only real problems, as short fix
+instructions for the scene's designer:
+
+- Something the words name is missing or wrong: a ladder "against a
+  wall" with no wall, a number attached to the wrong thing, an answer
+  shown before it is worked out.
+- Objects that should touch don't (floating, not resting where the words
+  put them), or a picture that makes no sense for the words.
+- Clutter or unreadable text: overlapping labels, text on busy lines,
+  labels on things they don't describe.
+- The picture is small and leaves most of the stage empty.
+
+The bottom third is kept empty on purpose (captions go there); never
+report that. The first still is mid-way, so things still to come are
+fine there. Don't report style preferences. Return an empty list when
+the scene is right.
+""".strip()
+
+
+def picture_problems(stills: list, spoken: list, narration: str) -> list:
+    """Problems a look at the scene's stills finds: what measuring boxes
+    can't, like a wall the words name that was never drawn. A failed call
+    finds nothing: the frame check on the finished video still runs."""
+    import base64
+    from core.errors import PipelineError
+
+    content = [{"type": "text", "text": f"The scene's narration: {narration}"}]
+    for n, (image, said) in enumerate(zip(stills, spoken), 1):
+        content.append({"type": "text", "text": f'Still {n}, after the words: "{said}"'})
+        content.append({"type": "image", "source": {
+            "type": "base64", "media_type": "image/jpeg",
+            "data": base64.b64encode(image).decode("ascii")}})
+    schema = {"type": "object",
+              "properties": {"problems": {"type": "array", "items": {"type": "string"}}},
+              "required": ["problems"], "additionalProperties": False}
+    try:
+        data = call_json(PICTURE_SYSTEM, content, schema, operation="scene_look",
+                         model=PICTURE_MODEL, max_tokens=1500, effort=None)
+    except PipelineError as exc:
+        log.info(f"  [scene] picture check didn't run ({exc})")
+        return []
+    return [f"Picture check: {p}" for p in data.get("problems") or [] if p]
 
 
 def _overlap(a, b, of: str = "smaller") -> float:

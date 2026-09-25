@@ -82,6 +82,10 @@ class Pacing(_MappingLike):
     pause_after_first_segment: float = 0.7
     pause_after_citation: float = 0.5
     pause_between_segments: float = 0.4
+    # A held beat after the last word, on the last picture, before the
+    # outro card. Without it the card cut in on the final syllable and
+    # every video seemed to stop mid-thought.
+    end_hold: float = 0.9
     max_shot_seconds: float = 5.0
     crossfade: float = 0.5
     outro_seconds: float = 3.0
@@ -336,6 +340,10 @@ class ChannelConfig:
     content_mode: str = "topic"
     voice: str = ""
     style_prompt: str = ""
+    # How this channel opens a video, in its own register. Every channel
+    # hooks (pipeline.script_gen's HOOK_AND_LANDING_GUIDANCE); this is how
+    # its hook sounds. Empty means the general guidance alone.
+    hook_style: str = ""
     outro_subtext: str = "Subscribe for more"
     output_dir: str = ""
     # static_corpus only: a key in pipeline.quote_source.SOURCES.

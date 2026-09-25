@@ -123,7 +123,9 @@ pipeline/     The generation stages. No web dependency at all.
     render        Scene + art direction -> one self-contained page, captured
                   frame by frame in the installed Chrome, piped to ffmpeg.
     props         The per-channel prop library (channels/<key>/props/<style>):
-                  illustrated once, cleaned, reused.
+                  from the free library or illustrated once, cleaned, reused.
+    iconlib       The free prop library: Fluent Emoji (MIT) via Iconify, tinted
+                  to the channel's ink for line styles (decision 036).
     styles/       Art direction presets: clean_flat, chalkboard, neon, parchment.
     examples/     Hand-written scenes: the pentagram, compound interest.
 

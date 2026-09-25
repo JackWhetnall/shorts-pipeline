@@ -88,6 +88,12 @@ rules and the video's spoken script. Report only real problems:
 - Text that is not a finished spoken line: a note, placeholder, stage
   direction or bracketed slot. It is read aloud exactly as written.
 - Anything demeaning to a group, or unsuitable for a general audience.
+- The opening (the first line) doesn't hook: it opens no specific
+  question or tension, or starts with a greeting or preamble. A note.
+- The opening promises something the script never delivers: bait.
+  Block it.
+- The ending doesn't land: it trails off, leads into more, or never
+  closes the question the opening opened. A note.
 
 Text marked SOURCE is someone else's words, quoted verbatim. Never report
 it as a problem; judge only whether the lines around it describe it
@@ -117,7 +123,8 @@ Some frames are animated explanations (diagrams, labels, equations drawn
 in the channel's style) rather than footage. Judge those against the
 words only: are the numbers, labels and pictures right for what is being
 said, and readable? A diagram is never a problem for not being the
-footage a shot brief described.
+footage a shot brief described, and a caption is only ever a few words
+of the line: never report a caption as incomplete.
 
 {SEVERITY_GUIDE}
 """.strip()
@@ -142,10 +149,13 @@ class CheckResult:
 def check_script(script, channel) -> CheckResult:
     lines = []
     for i, segment in enumerate(script.segments):
-        label = "SOURCE" if (i == 0 and script.citation) else f"LINE {i}"
+        label = "SOURCE" if (i == script.source_index and script.citation) else f"LINE {i}"
         lines.append(f"[{label}] {segment.text}")
     if script.citation:
         lines.append(f"[CITATION, spoken after the source] {script.citation}")
+    if getattr(script, "hook_promise", ""):
+        lines.append(f"[THE WRITER'S PLAN] Opening loop: {script.hook_promise}. "
+                     f"Closed by: {script.payoff}")
     avoid = ", ".join(channel.avoid_imagery) or "(none)"
     user = (f"The channel's writing rules:\n{channel.style_prompt}\n\n"
             f"Subjects this channel avoids: {avoid}\n\n"
@@ -160,19 +170,21 @@ def check_frames(video_path: Path, plan) -> CheckResult:
     if not shots:
         return CheckResult(ran=False, error="no shots to check")
     picked = _spread(shots, MAX_FRAMES)
+    # An animated scene builds up while it's spoken; mid-way it is only
+    # ever "incomplete". Judge it near its end, once it's all there.
+    moments = [s.start + (s.end - s.start) * (0.9 if s.scene else 0.5) for s in picked]
     try:
-        images = _frames_at(video_path, [video_time(plan, (s.start + s.end) / 2) for s in picked])
+        images = _frames_at(video_path, [video_time(plan, t) for t in moments])
     except Exception as exc:  # noqa: BLE001 - a check that can't run says so
         log.warning(f"  [check] couldn't read frames for the visual check ({exc}).")
         return CheckResult(ran=False, error="couldn't read frames")
 
     segments = plan.script.segments
     content = []
-    for n, (shot, data) in enumerate(zip(picked, images), 1):
+    for n, (shot, data, moment) in enumerate(zip(picked, images, moments), 1):
         # An animated scene's shot spans several segments: judge the frame
         # against the words actually being spoken at that moment.
-        middle = (shot.start + shot.end) / 2
-        segment = next((s for s in segments if s.start <= middle < s.end),
+        segment = next((s for s in segments if s.start <= moment < s.end),
                        segments[shot.segment_index])
         # A scene is drawn from the words, not the stock-footage brief:
         # judged against the brief, every diagram "fails" to be footage.

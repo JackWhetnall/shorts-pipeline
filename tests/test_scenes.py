@@ -234,3 +234,24 @@ def test_every_preset_builds_without_errors(tmp_path):
     for key in art.presets():
         art.preview({"preset": key}, tmp_path)               # raises if the page fails to build
     assert len(list(tmp_path.glob("*.jpg"))) == len(art.presets())
+
+
+@pytest.mark.slow
+def test_a_beam_lies_exactly_between_its_two_points(tmp_path):
+    # A ladder "against a wall" is drawn along the same points as the
+    # triangle over it, so it can't drift off the geometry.
+    scene = {"duration": 1.0, "elements": [
+        {"id": "ladder", "type": "shape", "kind": "beam", "x": 300, "y": 1000, "x2": 700, "y2": 500,
+         "rungs": True, "thickness": 40},
+        {"id": "wall", "type": "shape", "kind": "rect", "x": 760, "y": 750, "w": 120, "h": 500,
+         "texture": "bricks", "fill": "accent1"},
+    ], "actions": []}
+    page = _open(scene, {})
+    try:
+        page.frame(1.0)
+        box = _box(page, "ladder")
+        assert box[0] == pytest.approx(300 - 20, abs=30) and box[2] == pytest.approx(700 + 20, abs=30)
+        assert box[1] == pytest.approx(500 - 20, abs=30) and box[3] == pytest.approx(1000 + 20, abs=30)
+        assert page.page.evaluate("document.querySelectorAll('pattern[id^=tex]').length") == 1
+    finally:
+        page.__exit__(None, None, None)

@@ -38,17 +38,25 @@ def slug(name: str) -> str:
 
 def prompt_for(name: str, prop_style: str, detail: str = "") -> str:
     return (f"A single {name}{', ' + detail if detail else ''}. {prop_style}. "
-            f"One object only, centred, filling most of the frame, fully visible with "
+            f"One object only, upright and seen straight on, centred, filling most of the "
+            f"frame, fully visible with "
             f"nothing cropped, isolated on a transparent background, no ground shadow, "
             f"no text, no lettering, no border.")
 
 
-def get(library: Path, name: str, prop_style: str, detail: str = "") -> Path:
-    """The prop's PNG, generating it the first time it's asked for."""
+def get(library: Path, name: str, prop_style: str, detail: str = "",
+        icons: dict = None) -> Path:
+    """The prop's PNG, the first time it's asked for taken from the free
+    library (`icons`: {"set", "tint"}, see pipeline.scenes.iconlib) when it
+    has this object, or else generated."""
     library = Path(library)
     path = library / f"{slug(name)}.png"
     if path.exists():
         return path
+    if icons and icons.get("set"):
+        from pipeline.scenes import iconlib
+        if iconlib.get(library, name, path, icons["set"], icons.get("tint", "")):
+            return path
     library.mkdir(parents=True, exist_ok=True)
     path.write_bytes(clean(_generate(prompt_for(name, prop_style, detail))))
     log.info(f"  [scene] new prop: {name} -> {path.name}")
@@ -85,6 +93,36 @@ def clean(png: bytes) -> bytes:
     out = io.BytesIO()
     image.save(out, format="PNG", optimize=True)
     return out.getvalue()
+
+
+def axis(path: Path) -> dict:
+    """The object's long axis in its image: {w, h, cx, cy, angle, length}.
+
+    `angle` (radians, y down) points from the object's foot to its top, so
+    a prop laid along two points puts its top at the second one. Worked
+    out from the opaque pixels (principal component), so it's right for
+    an icon drawn diagonally as well as one drawn upright.
+    """
+    import numpy as np
+    from PIL import Image
+
+    image = Image.open(path).convert("RGBA")
+    alpha = np.asarray(image.getchannel("A"))
+    ys, xs = np.nonzero(alpha > 128)
+    w, h = image.size
+    if len(xs) < 10:
+        return {"w": w, "h": h, "cx": w / 2, "cy": h / 2, "angle": -np.pi / 2, "length": h}
+    pts = np.stack([xs, ys], axis=1).astype(float)
+    centre = pts.mean(axis=0)
+    _, vectors = np.linalg.eigh(np.cov((pts - centre).T))
+    direction = vectors[:, -1]                       # the long axis
+    if direction[1] > 0:                             # point it upwards: that end is the top
+        direction = -direction
+    along = (pts - centre) @ direction
+    lo, hi = along.min(), along.max()
+    mid = centre + direction * (lo + hi) / 2
+    return {"w": w, "h": h, "cx": float(mid[0]), "cy": float(mid[1]),
+            "angle": float(np.arctan2(direction[1], direction[0])), "length": float(hi - lo)}
 
 
 def _generate(prompt: str) -> bytes:

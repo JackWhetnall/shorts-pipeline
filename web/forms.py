@@ -94,6 +94,7 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
     if voice or "voice" in form:
         channel.voice = voice
     channel.style_prompt = form.get("style_prompt", channel.style_prompt).strip()
+    channel.hook_style = form.get("hook_style", channel.hook_style).strip()
     channel.channel_display_name = form.get(
         "channel_display_name", channel.channel_display_name).strip()
     channel.outro_subtext = form.get("outro_subtext", channel.outro_subtext).strip()

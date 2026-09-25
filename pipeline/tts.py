@@ -68,6 +68,10 @@ RATE_LIMIT_BACKOFF_BASE = 2.0   # seconds, doubling: 2, 4, 8, 16, 32
 TRAILING_PAD = 0.25
 SEGMENT_FADE_IN = 0.01
 SEGMENT_FADE_OUT = 0.02
+# The very last line keeps more of its natural tail and fades gently: the
+# end of a video is where a clipped breath is most audible.
+FINAL_TRAILING_PAD = 0.6
+FINAL_FADE_OUT = 0.35
 
 # Local, not a cloud ASR service — this is a QA check and shouldn't add a
 # third paid vendor. small.en rather than base.en because the smaller
@@ -443,29 +447,33 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
     return word_timings, samples, SAMPLE_RATE
 
 
-def build_plan(segments: list, citation: str, pacing) -> list:
+def build_plan(segments: list, citation: str, pacing, source_index: int = 0) -> list:
     """[(text, pause_after, segment_index_or_None), ...].
 
     The spoken citation gets index None: it doesn't start its own visual
-    segment, it folds into segment 0's span. Omitted entirely when a
-    format has no citation.
+    segment, it folds into the source segment's span (the passage it
+    cites, which a hook line may precede). Omitted entirely when a format
+    has no citation.
     """
     plan = []
     last = len(segments) - 1
+    source_index = 0 if source_index is None else source_index
     for i, segment in enumerate(segments):
-        if i == 0 and citation:
+        if i == source_index and citation:
             plan.append((segment.text, pacing.pause_after_first_segment, i))
             plan.append((expand_citation_for_speech(citation), pacing.pause_after_citation, None))
         else:
-            pause = pacing.pause_between_segments if i < last else 0.0
+            # The last line gets a held beat of silence after it, so the
+            # video ends rather than stops (Pacing.end_hold).
+            pause = pacing.pause_between_segments if i < last else getattr(pacing, "end_hold", 0.0)
             plan.append((segment.text, pause, i))
     return plan
 
 
-def narration_characters(segments: list, citation: str, pacing) -> int:
+def narration_characters(segments: list, citation: str, pacing, source_index: int = 0) -> int:
     """Characters ElevenLabs will bill for one clean pass of this script."""
     return sum(len(apply_pronunciation_overrides(text))
-               for text, _, _ in build_plan(segments, citation, pacing))
+               for text, _, _ in build_plan(segments, citation, pacing, source_index))
 
 
 def _stitch(results, segments, out_audio_path: str):
@@ -483,7 +491,8 @@ def _stitch(results, segments, out_audio_path: str):
     fps = SAMPLE_RATE
     nchannels = None
 
-    for (pause, segment_index, timings, samples) in results:
+    for n, (pause, segment_index, timings, samples) in enumerate(results):
+        is_final = n == len(results) - 1
         if samples.ndim == 1:
             samples = samples.reshape(-1, 1)
         # The first segment sets the channel count; every later one is
@@ -494,10 +503,12 @@ def _stitch(results, segments, out_audio_path: str):
         samples = match_channels(samples, nchannels)
 
         if timings:
-            trim = int(min(len(samples), (timings[-1].end + TRAILING_PAD) * fps))
+            pad = FINAL_TRAILING_PAD if is_final else TRAILING_PAD
+            trim = int(min(len(samples), (timings[-1].end + pad) * fps))
             samples = samples[:trim]
 
-        samples = apply_fade(samples, fps, SEGMENT_FADE_IN, SEGMENT_FADE_OUT)
+        samples = apply_fade(samples, fps, SEGMENT_FADE_IN,
+                             FINAL_FADE_OUT if is_final else SEGMENT_FADE_OUT)
 
         if segment_index is not None:
             segment_starts[segment_index] = offset
@@ -526,7 +537,7 @@ def _stitch(results, segments, out_audio_path: str):
 
 
 def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: str,
-                       pacing, speed: float = 1.0) -> Voiceover:
+                       pacing, speed: float = 1.0, source_index: int = 0) -> Voiceover:
     """Synthesize the whole narration and fill in each segment's real
     start/end times.
 
@@ -535,7 +546,7 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
     frame-accurate samples near its exact end is unreliable, and the real
     samples are already here.
     """
-    plan = build_plan(segments, citation, pacing)
+    plan = build_plan(segments, citation, pacing, source_index)
     out_path = Path(out_audio_path)
     segment_paths = [out_path.with_name(f"{out_path.stem}_seg{i}.mp3") for i in range(len(plan))]
 
@@ -603,12 +614,13 @@ def run(plan):
     # third segment: a quota that runs out mid-narration still bills the
     # segments that did get through.
     voice_quota.require_room(narration_characters(plan.script.segments, plan.script.citation,
-                                                  plan.channel.pacing))
+                                                  plan.channel.pacing, getattr(plan.script, "source_index", 0)))
 
     log.info("[2/5] Generating the voiceover...")
     plan.voiceover = generate_voiceover(
         plan.script.segments, plan.script.citation, plan.channel.voice,
         str(plan.audio_path), plan.channel.pacing, speed=plan.channel.speed,
+        source_index=getattr(plan.script, "source_index", 0),
     )
 
     try:

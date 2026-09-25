@@ -125,14 +125,16 @@ def cosine(a_words: list, b_words: list) -> float:
 def script_text(script) -> str:
     """The generated prose only.
 
-    For a quote channel, segment 0 is the source quote — someone else's
-    words, identical every time that verse comes up, and not what this
-    check is about. Including it would flag every repeated verse as
-    self-plagiarism while hiding real drift in the analysis.
+    For a quote channel, the source segment is the quote itself — someone
+    else's words, identical every time that verse comes up, and not what
+    this check is about. Including it would flag every repeated verse as
+    self-plagiarism while hiding real drift in the analysis. (The hook
+    before it is ours, so it stays in.)
     """
-    segments = script.segments
-    if script.citation and segments:
-        segments = segments[1:]
+    segments = list(script.segments)
+    source = getattr(script, "source_index", 0 if script.citation else None)
+    if script.citation and segments and source is not None and source < len(segments):
+        del segments[source]
     return " ".join(s.text for s in segments)
 
 

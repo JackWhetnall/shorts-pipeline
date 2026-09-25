@@ -75,6 +75,7 @@ def accept(draft_id):
     choices = {
         "name": name,
         "style_prompt": form.get("style_prompt"),
+        "hook_style": form.get("hook_style"),
         "voice": form.get("voice"),
         "palette": form.get("palette"),
         "target_seconds": form.get("target_seconds"),

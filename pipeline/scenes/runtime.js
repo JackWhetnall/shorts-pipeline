@@ -18,6 +18,9 @@ window.__start = function () {
   "use strict";
   const NS = "http://www.w3.org/2000/svg";
   const SCENE = window.SCENE, STYLE = window.STYLE, ASSETS = window.ASSETS || {};
+  // Per asset: its pixel size and the long axis of the object in it
+  // (worked out in Python), so a prop can be laid along two points.
+  const META = window.ASSET_META || {};
   const W = SCENE.width || 1080, H = SCENE.height || 1920;
   const stage = document.getElementById("stage");
 
@@ -138,6 +141,7 @@ window.__start = function () {
           < (mx - base.cx) ** 2 + (my - base.cy) ** 2) { nx = -nx; ny = -ny; }
       pts = [p1, p2, [p2[0] + nx, p2[1] + ny], [p1[0] + nx, p1[1] + ny]];
     }
+    if (e.kind === "beam") pts = [[e.x, e.y], [e.x2, e.y2]];
     const [cx, cy] = pts && pts.length ? centroid(pts)
       : e.kind === "line" || e.kind === "arrow" ? [(e.x + e.x2) / 2, (e.y + e.y2) / 2] : [e.x, e.y];
     geom[e.id] = {pts, cx, cy};
@@ -173,6 +177,25 @@ window.__start = function () {
   // --- builders -------------------------------------------------------
   // Each returns {g, spec, draw(p), extra(t)}; g carries the element's
   // transform and opacity, set by __seek.
+  // Surface textures for areas (a brick wall, hatched ground), drawn in
+  // the element's own stroke colour over its fill.
+  const TEXTURES = {
+    bricks: (pat, c) => { node("path", {d: "M 0 0.5 H 64 M 0 32.5 H 64 M 32 0 V 32 M 0 32 V 64 M 64 32 V 64",
+                                        fill: "none", stroke: c, "stroke-width": 3, opacity: 0.8}, pat); },
+    hatch: (pat, c) => { node("path", {d: "M -8 8 L 8 -8 M 0 64 L 64 0 M 56 72 L 72 56", fill: "none",
+                                       stroke: c, "stroke-width": 3, opacity: 0.6}, pat); },
+    planks: (pat, c) => { node("path", {d: "M 0 0.5 H 64 M 20 0 V 21 M 44 21 V 42 M 0 21.5 H 64 M 0 42.5 H 64 M 10 42 V 64",
+                                        fill: "none", stroke: c, "stroke-width": 3, opacity: 0.7}, pat); },
+  };
+  let textureCount = 0;
+  function textureFill(e) {
+    const make = TEXTURES[e.texture];
+    if (!make) return null;
+    const id = `tex${textureCount++}`;
+    const pat = node("pattern", {id, width: 64, height: 64, patternUnits: "userSpaceOnUse"}, defs);
+    make(pat, color(e.stroke || "ink"));
+    return `url(#${id})`;
+  }
   function strokeAttrs(e) {
     return {
       stroke: color(e.stroke || "ink"),
@@ -218,6 +241,24 @@ window.__start = function () {
       d = order.map((i, k) => `${k ? "L" : "M"} ${v[i][0]} ${v[i][1]}`).join(" ") + " Z";
     } else if (e.kind === "line" || e.kind === "arrow") {
       d = `M ${e.x} ${e.y} L ${e.x2} ${e.y2}`;
+    } else if (e.kind === "beam") {
+      // A physical bar exactly between two points: a plank, pole or ramp,
+      // or with rungs, a ladder. Drawn, not illustrated, so it lies
+      // precisely on the geometry it stands for.
+      const dx = e.x2 - e.x, dy = e.y2 - e.y, L = Math.hypot(dx, dy) || 1;
+      const t = (e.thickness || 56) / 2, nx = -dy / L * t, ny = dx / L * t;
+      const rail = s => `M ${e.x + nx * s} ${e.y + ny * s} L ${e.x2 + nx * s} ${e.y2 + ny * s}`;
+      if (e.rungs) {
+        const n = Math.max(2, Math.round(L / (e.spacing || 70)));
+        d = rail(1) + " " + rail(-1);
+        for (let i = 1; i < n; i++) {
+          const px = e.x + dx * i / n, py = e.y + dy * i / n;
+          d += ` M ${px + nx} ${py + ny} L ${px - nx} ${py - ny}`;
+        }
+      } else {
+        d = `M ${e.x + nx} ${e.y + ny} L ${e.x2 + nx} ${e.y2 + ny} L ${e.x2 - nx} ${e.y2 - ny} `
+          + `L ${e.x - nx} ${e.y - ny} Z`;
+      }
     } else if (e.kind === "rect") {
       const r = e.radius || 24, x = e.x - e.w / 2, y = e.y - e.h / 2;
       d = `M ${x + r} ${y} H ${x + e.w - r} Q ${x + e.w} ${y} ${x + e.w} ${y + r} V ${y + e.h - r} `
@@ -228,6 +269,12 @@ window.__start = function () {
     }
     const path = node("path", {d, ...strokeAttrs(e)}, g);
     const setDraw = drawable(path, e);
+    const tex = textureFill(e);
+    let texPath = null;
+    if (tex) {
+      texPath = node("path", {d, fill: tex, stroke: "none"}, g);
+      g.insertBefore(texPath, path);
+    }
     let head = null;
     if (e.kind === "arrow") {
       const ang = Math.atan2(e.y2 - e.y, e.x2 - e.x), s = (e.width || STYLE.stroke_width || 10) * 3;
@@ -235,7 +282,11 @@ window.__start = function () {
       const p2 = [e.x2 - s * Math.cos(ang + 0.5), e.y2 - s * Math.sin(ang + 0.5)];
       head = node("path", {d: `M ${p1} L ${e.x2} ${e.y2} L ${p2}`, ...strokeAttrs({...e, fill: null})}, g);
     }
-    return {draw: p => { setDraw(p); if (head) head.setAttribute("opacity", p > 0.97 ? 1 : 0); }};
+    return {draw: p => {
+      setDraw(p);
+      if (head) head.setAttribute("opacity", p > 0.97 ? 1 : 0);
+      if (texPath) texPath.setAttribute("opacity", clamp((p - 0.85) / 0.15));
+    }};
   }
 
   function buildLabel(e, g) {
@@ -288,8 +339,25 @@ window.__start = function () {
   function buildProp(e, g) {
     const src = ASSETS[e.asset];
     const w = e.w || 300, h = e.h || w;
+    if (src && e.span) {
+      // Laid along two exact points (a ladder from the ground to the top
+      // of a wall): the object's own long axis, whatever angle it was
+      // drawn at, is turned onto the line and scaled to its length. The
+      // "to" end is the object's top.
+      const m = META[e.asset] || {w: 100, h: 100, cx: 50, cy: 50, angle: -Math.PI / 2, length: 100};
+      const inner = node("g", {}, g);
+      node("image", {href: src, x: 0, y: 0, width: m.w, height: m.h}, inner);
+      return {h, w, span: (p1, p2) => {
+        const L = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) || 1;
+        const turn = (Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) - m.angle) * 180 / Math.PI;
+        inner.setAttribute("transform", `rotate(${turn}) scale(${L / m.length}) translate(${-m.cx} ${-m.cy})`);
+      }};
+    }
     if (src) {
-      node("image", {href: src, x: -w / 2, y: -h / 2, width: w, height: h}, g);
+      // fit "cover" fills the box and crops (a wall, the ground); "fill"
+      // stretches; the default keeps the whole object inside the box.
+      const par = {cover: "xMidYMid slice", fill: "none"}[e.fit] || "xMidYMid meet";
+      node("image", {href: src, x: -w / 2, y: -h / 2, width: w, height: h, preserveAspectRatio: par}, g);
     } else {
       // A missing prop is visible, not silent: the layout checker should
       // never let this through, and if it does, it shows.
@@ -367,9 +435,16 @@ window.__start = function () {
     item.api = BUILDERS[spec.type](spec, g) || {};
     items.push(item);
   }
+  // A point given as [x, y] or as an anchor on another element.
+  const pointOf = p => Array.isArray(p) ? p : resolveXY({anchor: p});
   // Positions after every element exists, so anchors can refer forward.
   for (const it of items) {
-    const [x, y] = it.spec.type === "shape" || it.spec.type === "chart" ? [0, 0] : resolveXY(it.spec);
+    let [x, y] = it.spec.type === "shape" || it.spec.type === "chart" ? [0, 0] : resolveXY(it.spec);
+    if (it.spec.span && it.api.span) {
+      const p1 = pointOf(it.spec.span.from), p2 = pointOf(it.spec.span.to);
+      [x, y] = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+      it.api.span([p1[0] - x, p1[1] - y], [p2[0] - x, p2[1] - y]);
+    }
     it.base = [x, y];
     if (it.spec.type === "chart") it.base = [it.spec.x, it.spec.y];
     // A label with a pointer draws a leader line to what it names.

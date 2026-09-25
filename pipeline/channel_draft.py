@@ -57,7 +57,11 @@ video so the channel is recognisable: a starting preset, its own palette
 (background, ink and five accents that read well on the background),
 fonts from the installed list, and a prop style (how its illustrated
 objects are drawn: medium, line, colour, mood; never a subject). Choose
-a look that fits the audience and is distinct, not generic. Then choose
+the look from the audience's relationship to the subject, not from the
+subject's stereotype: adults who were put off maths at school should not
+be shown a school chalkboard, and a calm devotional audience should not
+get neon. Clean and uncluttered beats textured unless texture is the
+point. Distinct, not generic. Then choose
 how much of each video is animated: 0 for pure mood and atmosphere, about
 30 to animate only the moments that explain something, 60-80 for
 teaching channels, 100 for subjects that are explained visually all the
@@ -87,6 +91,15 @@ and claims. Never include a quotable example line or an exact sentence to
 follow. The writer model reuses any sample sentence almost verbatim in
 nearly every video, which is exactly the sameness that gets a channel
 demonetised. Describe what a good opening DOES, never what one SAYS.
+
+Every video opens with a hook: in its first sentence, a specific question
+or tension that this video then pays off, honestly and in full. That is
+true of every channel. The hook style says how THIS channel does it: what
+kind of loop it opens (a quiet question a listener is carrying, a
+surprising number, a common belief that is wrong), at what intensity, and
+what it never does. A reflective channel hooks gently and must never
+sound like clickbait; an energetic one can hook hard. Same rule as above:
+describe, never give an example line.
 """.strip()
 
 
@@ -150,6 +163,11 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
                         "description": "topic mode: the subject the syllabus covers, in a "
                                        "phrase. '' for static_corpus."},
             "style_prompt": {"type": "string"},
+            "hook_style": {"type": "string",
+                           "description": "How this channel's videos open, in 1-3 sentences: "
+                                          "the kind of question or tension its hooks open and "
+                                          "at what intensity, in its own register. Guidance, "
+                                          "never an example line."},
             "target_seconds": {"type": "integer",
                                "description": "Finished video length, 30-90."},
             "segment_count": {"type": "integer", "description": "Spoken segments, 2-6."},
@@ -174,7 +192,7 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
                                      "the draft does about it."},
         },
         "required": ["name_options", "summary", "audience", "content_mode",
-                     "corpus_source", "custom_quotes", "subject", "style_prompt",
+                     "corpus_source", "custom_quotes", "subject", "style_prompt", "hook_style",
                      "target_seconds", "segment_count", "speed", "avoid_imagery",
                      "voice_brief", "voice_ids", "palette_key", "art",
                      "needs_news_source", "risks"],
