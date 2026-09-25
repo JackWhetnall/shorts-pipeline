@@ -67,6 +67,14 @@ the passage". Each verse is then read over a classic painting or
 engraving of it (from the Art Institute of Chicago and the Met),
 credited in the description. Off until you switch it on.
 
+### 2b-v. Curiosity Leak: lower its graphics slider
+It's set to "Always animated", which the new rules say is wrong for a
+subject that can be filmed (people, animals, everyday life): real
+footage of a dog yawning beats any graphic. On its dashboard, under
+**Graphics and illustrations**, drag the slider to about 40 ("When it
+clearly helps") and **Save the look**. Press **See the motion graphics
+in this look** to see what its graphics will look like.
+
 ### 2c. Decide scenes for your existing channels
 Every existing channel is **stock only** until you change it. On each
 channel's dashboard there's now an **Animated scenes** card: a slider
