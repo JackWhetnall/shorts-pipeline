@@ -2,10 +2,14 @@
 Free, openly licensed illustrations for scene props, tried before any
 image is generated.
 
-Microsoft's Fluent Emoji (MIT) through the Iconify API: about 1,500
-everyday objects in two sets. The colour set suits flat looks; the line
-set is recoloured in the channel's ink, so a chalk or ink channel's props
-look drawn in the same hand as everything else. A prop is fetched once
+Openly licensed sets through the Iconify API, tried in the order an art
+direction lists them. Microsoft's Fluent Emoji (MIT: about 1,500
+everyday objects and people, in a colour set and a line set) come first;
+Google's Noto emoji (Apache 2.0) back up the colour looks, and Tabler,
+Phosphor (MIT) and Lucide (ISC) back up the line looks with diagram
+icons: gears, bulbs, scales, hourglasses. Line sets are recoloured in the
+channel's ink, so a chalk or ink channel's props look drawn in the same
+hand as everything else. A prop is fetched once
 per channel and look, and kept in its prop library like a generated one,
 with a note of where it came from and its licence. Nothing is sent but
 the object's name.
@@ -36,7 +40,20 @@ LICENCES = {
     "fluent-emoji-flat": ("MIT", "https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE"),
     "fluent-emoji-high-contrast": ("MIT",
                                    "https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE"),
+    "noto": ("Apache-2.0", "https://github.com/googlefonts/noto-emoji/blob/main/svg/LICENSE"),
+    "tabler": ("MIT", "https://github.com/tabler/tabler-icons/blob/master/LICENSE"),
+    "ph": ("MIT", "https://github.com/phosphor-icons/core/blob/main/LICENSE"),
+    "lucide": ("ISC", "https://github.com/lucide-icons/lucide/blob/main/LICENSE"),
 }
+# Thin-line sets whose bold weight reads better at video size.
+BOLD_VARIANT = {"ph": "-bold"}
+
+
+def sets_of(icons: dict) -> list:
+    """The sets an art direction's prop library lists, in order."""
+    icons = icons or {}
+    found = list(icons.get("sets") or []) or ([icons["set"]] if icons.get("set") else [])
+    return [s for s in found if s in LICENCES]
 
 
 def candidates(name: str) -> list:
@@ -53,15 +70,16 @@ def find(name: str, icon_set: str) -> str:
     for query in candidates(name):
         try:
             response = requests.get(f"{API}/search", timeout=TIMEOUT,
-                                    params={"query": query, "prefix": icon_set, "limit": 32})
+                                    params={"query": query, "prefix": icon_set, "limit": 64})
             icons = response.json().get("icons", []) if response.status_code == 200 else []
         except (requests.RequestException, ValueError) as exc:
             log.info(f"  [scene] icon library unreachable ({exc}); generating instead")
             return ""
         # Exact names only: "wall" must not become "wall-clock".
-        for icon in icons:
-            if icon.split(":", 1)[1] == query:
-                return icon
+        names = {icon.split(":", 1)[1]: icon for icon in icons}
+        for wanted in (query + BOLD_VARIANT.get(icon_set, ""), query):
+            if wanted in names:
+                return names[wanted]
     return ""
 
 
@@ -92,11 +110,18 @@ def rasterize(svg: str) -> bytes:
             browser.close()
 
 
-def get(library: Path, name: str, path: Path, icon_set: str, tint: str = "") -> bool:
-    """Save the library's illustration of `name` to `path` (with a note of
-    its source and licence beside it). False when there's no good match or
-    the library can't be reached; the caller generates one instead."""
-    icon = find(name, icon_set)
+def get(library: Path, name: str, path: Path, icon_sets, tint: str = "") -> bool:
+    """Save the first listed set's illustration of `name` to `path` (with a
+    note of its source and licence beside it). False when no set has a
+    good match or the library can't be reached; the caller generates one
+    instead."""
+    if isinstance(icon_sets, str):
+        icon_sets = [icon_sets]
+    icon, icon_set = "", ""
+    for icon_set in icon_sets:
+        icon = find(name, icon_set)
+        if icon:
+            break
     if not icon:
         return False
     try:

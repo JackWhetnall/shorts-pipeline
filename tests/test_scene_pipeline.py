@@ -439,7 +439,32 @@ class TestIconLibrary:
 
     def test_a_line_style_tints_its_props_in_the_channels_ink(self):
         icons = stage._icons(art.resolve({"preset": "chalkboard", "ink": "#ABCDEF"}))
-        assert icons == {"set": "fluent-emoji-high-contrast", "tint": "#ABCDEF"}
+        assert icons["tint"] == "#ABCDEF"
+        assert icons["sets"][0] == "fluent-emoji-high-contrast" and "ph" in icons["sets"]
+
+    def test_the_next_set_is_tried_when_the_first_has_nothing(self, monkeypatch, tmp_path):
+        from pipeline.scenes import iconlib
+        asked = []
+        monkeypatch.setattr(iconlib, "find", lambda name, s: asked.append(s)
+                            or ("ph:hourglass-bold" if s == "ph" else ""))
+        monkeypatch.setattr(iconlib, "fetch_svg", lambda icon, tint="": "<svg/>")
+        monkeypatch.setattr(iconlib, "rasterize", lambda svg: _png_bytes())
+        assert iconlib.get(tmp_path, "hourglass", tmp_path / "hourglass.png",
+                           ["fluent-emoji-high-contrast", "ph", "tabler"])
+        assert asked == ["fluent-emoji-high-contrast", "ph"]
+        import json
+        note = json.loads((tmp_path / "hourglass.json").read_text(encoding="utf-8"))
+        assert note["source"] == "iconify:ph:hourglass-bold" and note["licence"] == "MIT"
+
+    def test_a_thin_line_set_prefers_its_bold_weight(self, monkeypatch):
+        from pipeline.scenes import iconlib
+
+        class Response:
+            status_code = 200
+            def json(self): return {"icons": ["ph:gear", "ph:gear-bold", "ph:gear-six"]}
+
+        monkeypatch.setattr(iconlib.requests, "get", lambda *a, **k: Response())
+        assert iconlib.find("gear", "ph") == "ph:gear-bold"
 
 
 def _png_bytes(size=(200, 200)):

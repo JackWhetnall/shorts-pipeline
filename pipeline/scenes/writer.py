@@ -223,7 +223,10 @@ the word that names it; one without is on screen from the first frame.
 - Props only for concrete, recognisable objects that add meaning (a
   coin, a candle, a piggy bank); never for text, numbers, arrows or
   geometric shapes, which you draw. Anything that must line up with the
-  geometry (a ladder, a plank, a wall) is drawn: a beam or a rect. Reuse the channel's existing props by their
+  geometry (a ladder, a plank, a wall) is drawn: a beam or a rect.
+- Name props the way an emoji or icon would be named ("candle", "light
+  bulb", "person walking", "hourglass", "gear", "church"): common names
+  are found in free libraries instantly; unusual ones cost a drawing. Reuse the channel's existing props by their
   exact names. Name a new prop generically ("wooden ladder"), because it
   will be drawn once and reused in future videos. At most two new props
   in a scene.

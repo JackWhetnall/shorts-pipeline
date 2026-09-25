@@ -38,7 +38,12 @@
   },
   "prop_style": "chalk drawing as if on a blackboard: loose hand-drawn outlines in white chalk with visible chalk texture, flat pastel chalk fills in yellow, pale blue and pink, simple and clear, no board or background drawn",
   "prop_library": {
-    "set": "fluent-emoji-high-contrast",
+    "sets": [
+      "fluent-emoji-high-contrast",
+      "ph",
+      "tabler",
+      "lucide"
+    ],
     "tint": "ink"
   }
 }

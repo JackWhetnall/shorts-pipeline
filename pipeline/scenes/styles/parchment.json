@@ -43,7 +43,12 @@
   },
   "prop_style": "antique ink engraving illustration: fine sepia ink linework with light cross-hatching, muted watercolour washes in oxblood red, ochre and verdigris green, like a plate from an old almanac, no paper or background drawn",
   "prop_library": {
-    "set": "fluent-emoji-high-contrast",
+    "sets": [
+      "fluent-emoji-high-contrast",
+      "ph",
+      "tabler",
+      "lucide"
+    ],
     "tint": "ink"
   }
 }

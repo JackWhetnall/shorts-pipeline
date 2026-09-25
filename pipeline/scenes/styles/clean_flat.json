@@ -42,6 +42,9 @@
   },
   "prop_style": "flat vector illustration, thick dark navy (#1F2233) outlines of even weight, bold flat fills in coral (#FF6B4A), teal (#2EC4B6), warm yellow (#FFB627) and white, a single simple highlight shape, no gradients, no texture, no text, friendly and clean, like a modern explainer video",
   "prop_library": {
-    "set": "fluent-emoji-flat"
+    "sets": [
+      "fluent-emoji-flat",
+      "noto"
+    ]
   }
 }

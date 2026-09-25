@@ -53,10 +53,10 @@ def get(library: Path, name: str, prop_style: str, detail: str = "",
     path = library / f"{slug(name)}.png"
     if path.exists():
         return path
-    if icons and icons.get("set"):
-        from pipeline.scenes import iconlib
-        if iconlib.get(library, name, path, icons["set"], icons.get("tint", "")):
-            return path
+    from pipeline.scenes import iconlib
+    sets = iconlib.sets_of(icons)
+    if sets and iconlib.get(library, name, path, sets, (icons or {}).get("tint", "")):
+        return path
     library.mkdir(parents=True, exist_ok=True)
     path.write_bytes(clean(_generate(prompt_for(name, prop_style, detail))))
     log.info(f"  [scene] new prop: {name} -> {path.name}")
