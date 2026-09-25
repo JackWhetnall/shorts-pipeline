@@ -215,6 +215,8 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
         "shot_count": len(plan.shots),
         "clips": sorted({s.clip_path.name for s in plan.shots if s.clip_path and not s.scene}),
         "scenes": len([c for c in plan.scene_clips if c.get("kind") != "artwork"]),
+        "visuals": [{k: d.get(k) for k in ("index", "medium", "template", "reason")}
+                    for d in getattr(plan, "visual_plan", []) or []],
         "artwork": list(getattr(plan, "art_credits", [])),
         "scenes_fell_back": plan.scenes_fell_back,
         "scene_notes": list(plan.scene_notes),
@@ -292,8 +294,7 @@ def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
     # and Pillow, which are slow to import and not needed by anything that
     # only wants fetch_seed.
     from pipeline import assemble
-    from pipeline import artwork
-    from pipeline.scenes import stage as scenes_stage
+    from pipeline import artwork, visuals
 
     job_context.set_channel_key(channel.key)
     started_at = time.time()
@@ -305,7 +306,7 @@ def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
         script_gen.run(plan)
         tts.run(plan)
         artwork.run(plan)
-        scenes_stage.run(plan)
+        visuals.run(plan)
         assemble.run(plan)
         _finish(plan, started_at)
     except Exception:

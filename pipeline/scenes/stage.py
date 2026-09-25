@@ -1,6 +1,11 @@
 """
-The pipeline stage: after the voiceover (the scenes are timed to it),
-before assembly (which lays them in as shots).
+Free-form diagrams: writing, checking, repairing and rendering one.
+
+Since decision 040 the visual director (pipeline.director) decides what
+each segment shows, and pipeline.visuals makes it; this module makes a
+free-form diagram, now used for geometry and plots only, and holds the
+helpers the other media share (the hook hold-back, prop icons,
+checkpoints). What follows is the original description of the stage.
 
 For a channel with `scenes.share` above 0: plan which stretches of the
 script become scenes, write each one, check it, repair it once if the
@@ -21,81 +26,11 @@ from pathlib import Path
 from core import job_context
 from core.errors import PipelineError
 from core.logging_setup import get_logger
-from core.paths import channel_props_dir
-from pipeline.scenes import art, props, render, writer
+from pipeline.scenes import props, render, writer
 
 log = get_logger(__name__)
 
 MAX_NEW_PROPS_PER_VIDEO = 4
-
-
-def run(plan):
-    channel = plan.channel
-    share = int(channel.scenes.share or 0)
-    # Segments already given a picture (a painting, pipeline.artwork) keep it.
-    existing = list(getattr(plan, "scene_clips", None) or [])
-    covered = {i for c in existing for i in range(c["first"], c["last"] + 1)}
-    plan.scene_clips, plan.scenes_fell_back, plan.scene_notes = existing, 0, []
-    if share <= 0:
-        return plan
-
-    restored = _restore()
-    if restored is not None:
-        plan.scene_clips, plan.scenes_fell_back, plan.scene_notes = restored
-        log.info(f"  [scene] reusing {len(plan.scene_clips)} rendered scene(s) from the earlier attempt")
-        return plan
-
-    segments = plan.script.segments
-    style = art.resolve(channel.scenes.art)
-    library = channel_props_dir(channel.key, style["key"])
-    folder = plan.out_dir / f"{plan.stem}_scenes"
-    log.info(f"[3/5] Planning animated scenes ({share}% of the video, {style['label']})...")
-
-    try:
-        stretches = [s for s in writer.plan(segments, share, plan.seed.title)
-                     if not covered & set(range(s["first"], s["last"] + 1))]
-    except PipelineError as exc:
-        log.warning(f"  [scene] couldn't plan scenes ({exc}); using stock footage throughout.")
-        plan.scene_notes.append("The scene plan failed, so this video is all stock footage.")
-        plan.scenes_fell_back = 1
-        _save(plan)
-        return plan
-
-    # Every scene sees the whole script: which number is which, and what
-    # has been revealed by its turn. Written alone, the Pythagoras demo's
-    # third scene put the 6 on the wall and gave the answer away early.
-    narration = "\n".join(f"[{i}] {s.text}" for i, s in enumerate(segments))
-    hook_end = _hook_end(plan)
-    new_props = [0]
-    for i, stretch in enumerate(stretches):
-        first, last = stretch["first"], stretch["last"]
-        start, end = segments[first].start, segments[last].end
-        words = writer.words_for(plan.voiceover.word_timings, start, end)
-        context = {"before": stretches[i - 1]["idea"] if i else "",
-                   "after": stretches[i + 1]["idea"] if i + 1 < len(stretches) else "",
-                   "narration": narration,
-                   "reserve": _reserve_note(hook_end, words) if first == 0 else ""}
-        not_before = hook_end if first == 0 else 0.0
-        log.info(f"  [scene] {i + 1}/{len(stretches)}: segments {first}-{last}, "
-                 f"{end - start:.1f}s: {stretch['idea'][:80]}")
-        try:
-            clip, notes = _make(stretch["idea"], words, end - start, style, library, context,
-                                folder / f"scene_{i + 1}", plan.channel.pacing.crossfade, new_props,
-                                not_before)
-        except Exception as exc:  # noqa: BLE001 - degrades to stock and is flagged, never silent
-            if not isinstance(exc, PipelineError):
-                log.exception(f"  [scene] scene {i + 1} failed unexpectedly")
-            log.warning(f"  [scene] scene {i + 1} fell back to stock footage: {exc}")
-            plan.scenes_fell_back += 1
-            plan.scene_notes.append(f"Scene {i + 1} ({stretch['idea'][:60]}) couldn't be made "
-                                    f"and was replaced by stock footage.")
-            continue
-        plan.scene_clips.append({"first": first, "last": last, "clip": str(clip)})
-        plan.scene_clips.sort(key=lambda c: c["first"])
-        plan.scene_notes.extend(f"Scene {i + 1}: {n}" for n in notes)
-
-    _save(plan)
-    return plan
 
 
 def _make(idea, words, duration, style, library, context, stem: Path, tail: float, new_props,

@@ -67,8 +67,10 @@ CLAUDE_PRICES = {
 # effective rate and is a good-enough estimate rather than an invoice.
 ELEVENLABS_USD_PER_MILLION_CHARS = 165.0
 
-# gpt-image-1, per generated image at 1024x1024.
+# gpt-image-1, per generated image at 1024x1024, and at the portrait
+# 1024x1536 size (illustrations fill a vertical frame).
 OPENAI_IMAGE_PRICES = {"low": 0.011, "medium": 0.042, "high": 0.167, "auto": 0.042}
+OPENAI_PORTRAIT_PRICES = {"low": 0.016, "medium": 0.063, "high": 0.25, "auto": 0.063}
 
 _lock = threading.Lock()
 _warned_unwritable = False
@@ -156,9 +158,10 @@ def record_elevenlabs(operation: str, model: str, characters: int, channel_key: 
 
 
 def record_openai_images(operation: str, model: str, count: int, quality: str,
-                         channel_key: str = None) -> CostRecord:
+                         channel_key: str = None, portrait: bool = False) -> CostRecord:
     from core import job_context
-    unit = OPENAI_IMAGE_PRICES.get(quality, OPENAI_IMAGE_PRICES["auto"])
+    prices = OPENAI_PORTRAIT_PRICES if portrait else OPENAI_IMAGE_PRICES
+    unit = prices.get(quality, prices["auto"])
     record = CostRecord(
         ts=time.time(), service="openai-image", operation=operation, model=model,
         cost_usd=unit * count, job_id=job_context.get_job_id(),

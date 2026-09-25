@@ -33,8 +33,6 @@ from pipeline.llm import SystemBlock, call_json
 
 log = get_logger(__name__)
 
-PLAN_MAX_TOKENS = 6000
-PLAN_EFFORT = "low"
 WRITE_MAX_TOKENS = 16000
 WRITE_EFFORT = "medium"      # the geometry and the timing both need real thought
 
@@ -234,46 +232,6 @@ the word that names it; one without is on screen from the first frame.
 """.strip()
 
 
-def _plan_schema() -> dict:
-    return {
-        "type": "object",
-        "properties": {
-            "segments": {"type": "array", "items": {
-                "type": "object",
-                "properties": {
-                    "index": {"type": "integer"},
-                    "need": {"type": "integer", "description": "0-10, by the rubric."},
-                    "idea": {"type": "string", "description": "What would be built up on screen "
-                                                              "if this segment is animated."},
-                    "builds_on_previous": {"type": "boolean",
-                                           "description": "True when its picture continues the "
-                                                          "previous segment's."},
-                },
-                "required": ["index", "need", "idea", "builds_on_previous"],
-                "additionalProperties": False}},
-        },
-        "required": ["segments"], "additionalProperties": False,
-    }
-
-
-NEED_RUBRIC = """
-For each segment, score how much it NEEDS an animated explanation rather
-than stock footage, 0-10. Judge the segment alone, the same way every
-time:
-
-10     It can't really be followed without seeing it: a construction, a
-       proof, a calculation, a structure whose named parts matter, a
-       process whose order matters.
-7-9    A picture makes it much clearer: quantities compared, a timeline, a
-       cause-and-effect chain, a symbol explained part by part.
-4-6    A picture helps a little: one number, a named idea that can be
-       shown simply.
-1-3    Mood, story, reflection, speaking to the viewer: footage carries it
-       as well or better.
-0      Nothing to show beyond a feeling.
-""".strip()
-
-
 def need_threshold(share: int):
     """The slider as a bar each segment's need must clear. None: never
     animate. 0: always. In between, the closer to the stock end, the more
@@ -304,48 +262,6 @@ def _style_note(style: dict) -> str:
     return (f"This channel's art direction: {style.get('label', style['key'])}. "
             f"{style.get('description', '')} Colours: {colours}. Background "
             f"{style['background']['color']}. Pick colours that read well on it.")
-
-
-def plan(segments: list, share: int, subject: str) -> list:
-    """[{first, last, idea}] for the stretches that get a scene, in order,
-    not overlapping. Segments not covered keep stock footage.
-
-    The slider is a threshold, not a quota (decision 037): every segment
-    is scored for how much it needs a picture, independently of the
-    slider, and animated when its score clears the slider's bar.
-    Consecutive animated segments that build on one picture become one
-    scene.
-    """
-    threshold = need_threshold(share)
-    if threshold is None:
-        return []
-    lines = "\n".join(f"[{i}] ({s.duration:.1f}s) {s.text}\n    shot brief: {s.shot_brief}"
-                      for i, s in enumerate(segments))
-    user = (f"The video is about: {subject}\n\nIts segments:\n{lines}\n\n{NEED_RUBRIC}\n\n"
-            f"For every segment give its score, the picture you'd build for it, and whether "
-            f"that picture continues the previous segment's.")
-    data = call_json([SystemBlock(GUIDE, cacheable=True)], user, _plan_schema(),
-                     operation="scene_plan", max_tokens=PLAN_MAX_TOKENS, effort=PLAN_EFFORT)
-    rated = {}
-    for row in data.get("segments") or []:
-        i = row.get("index")
-        if isinstance(i, int) and 0 <= i < len(segments) and i not in rated:
-            rated[i] = row
-
-    scenes = []
-    for i, segment in enumerate(segments):
-        row = rated.get(i, {})
-        need = int(row.get("need") or 0)
-        if need < threshold:
-            log.info(f"  [scene] segment {i}: need {need} < {threshold:g}, stock footage")
-            continue
-        idea = (row.get("idea") or "").strip() or segment.shot_brief or f"Show what is said: {segment.text}"
-        if scenes and scenes[-1]["last"] == i - 1 and row.get("builds_on_previous"):
-            scenes[-1]["last"] = i
-            scenes[-1]["idea"] += f" Then: {idea}"
-        else:
-            scenes.append({"first": i, "last": i, "idea": idea})
-    return scenes
 
 
 def words_for(word_timings: list, start: float, end: float) -> list:
@@ -473,6 +389,13 @@ def validate(raw: dict, words: list, duration: float) -> tuple:
         for part in e.get("parts") or []:
             if part.get("color") and part["color"] not in COLOR_TOKENS:
                 part["color"] = "ink"
+        # Text in the colour of its own pill is invisible: three labels in
+        # the first Curiosity Leak video were white on white.
+        if e.get("type") == "label" and e.get("color") == (e.get("fill") or "label_fill") \
+                and e.get("pill") is not False and e.get("style") != "title":
+            e["color"] = "ink"
+        if e.get("type") in ("label", "counter", "math") and e.get("color") == "label_fill":
+            e["color"] = "ink"
         seen.add(eid)
 
     actions = []

@@ -199,36 +199,10 @@ def no_checkpoints(monkeypatch):
     monkeypatch.setattr(stage.job_context, "save_json_checkpoint", lambda name, data: None)
 
 
-def test_a_stock_only_channel_never_calls_the_model(plan, monkeypatch):
-    plan.channel.scenes.share = 0
-    monkeypatch.setattr(writer, "plan", lambda *a: pytest.fail("planned scenes"))
-    stage.run(plan)
-    assert plan.scene_clips == [] and plan.scenes_fell_back == 0
 
 
-def test_a_scene_that_cannot_be_made_falls_back_to_stock_and_says_so(plan, monkeypatch):
-    monkeypatch.setattr(writer, "plan", lambda *a: [{"first": 0, "last": 0, "idea": "a"},
-                                                    {"first": 1, "last": 1, "idea": "b"}])
-
-    def make(idea, *args, **kwargs):
-        if idea == "a":
-            raise ExternalServiceError("Claude", "boom", user_message="The AI service failed.")
-        return Path("b.mp4"), ["'x' and 'y' overlap (at 1.0s)."]
-
-    monkeypatch.setattr(stage, "_make", make)
-    stage.run(plan)
-    assert plan.scene_clips == [{"first": 1, "last": 1, "clip": "b.mp4"}]
-    assert plan.scenes_fell_back == 1
-    assert any("replaced by stock footage" in n for n in plan.scene_notes)
-    assert any("overlap" in n for n in plan.scene_notes)
 
 
-def test_a_failed_plan_leaves_the_whole_video_to_stock(plan, monkeypatch):
-    def fail(*a):
-        raise ExternalServiceError("Claude", "down", user_message="The AI service failed.")
-    monkeypatch.setattr(writer, "plan", fail)
-    stage.run(plan)
-    assert plan.scene_clips == [] and plan.scenes_fell_back == 1
 
 
 def test_a_scene_is_repaired_once_with_its_problems(plan, monkeypatch, tmp_path):
@@ -304,7 +278,7 @@ def test_the_frame_check_judges_a_scene_frame_by_the_words_spoken_then(monkeypat
                            title_card_seconds=0, title_card_at=0)
     monkeypatch.setattr(editor_check, "_frames_at", lambda path, times: ["img"])
     sent = {}
-    monkeypatch.setattr(editor_check, "_run", lambda system, content, op: sent.setdefault("c", content))
+    monkeypatch.setattr(editor_check, "_run", lambda system, content, op: sent.setdefault("c", content) and editor_check.CheckResult(ran=True))
     editor_check.check_frames(Path("v.mp4"), plan)
     assert "second words" in sent["c"][0]["text"]            # the middle of the shot is at 5s
     # Regression: judged against the stock-footage brief ("tape measure on
@@ -313,74 +287,11 @@ def test_the_frame_check_judges_a_scene_frame_by_the_words_spoken_then(monkeypat
     assert "b2" not in sent["c"][0]["text"] and "animated explanation" in sent["c"][0]["text"]
 
 
-class TestPlan:
-    """The slider is a threshold on each segment's need for a picture, not a
-    quota of the video (decision 037)."""
-    SEGMENTS = [Segment(text=f"line {i}", shot_brief=f"brief {i}", start=i * 5.0, end=(i + 1) * 5.0)
-                for i in range(4)]
-    RATED = [{"index": 0, "need": 2, "idea": "a hook", "builds_on_previous": False},
-             {"index": 1, "need": 10, "idea": "the triangle", "builds_on_previous": False},
-             {"index": 2, "need": 7, "idea": "its squares", "builds_on_previous": True},
-             {"index": 3, "need": 5, "idea": "the answer", "builds_on_previous": False}]
-
-    def _plan(self, monkeypatch, share, rated=None):
-        calls = []
-        monkeypatch.setattr(writer, "call_json",
-                            lambda *a, **k: calls.append(a) or {"segments": rated or self.RATED})
-        return writer.plan(self.SEGMENTS, share, "Pythagoras"), calls
-
-    def _spans(self, scenes):
-        return [(s["first"], s["last"]) for s in scenes]
-
-    def test_fully_stock_never_asks(self, monkeypatch):
-        scenes, calls = self._plan(monkeypatch, 0)
-        assert scenes == [] and calls == []
-
-    def test_fully_animated_animates_every_segment_whatever_its_score(self, monkeypatch):
-        scenes, _ = self._plan(monkeypatch, 100)
-        assert self._spans(scenes) == [(0, 0), (1, 2), (3, 3)]
-
-    def test_near_the_stock_end_only_essential_segments_are_animated(self, monkeypatch):
-        scenes, _ = self._plan(monkeypatch, 10)                   # bar: 9
-        assert self._spans(scenes) == [(1, 1)]
-        assert scenes[0]["idea"] == "the triangle"
-
-    def test_in_the_middle_anything_a_picture_helps_is_animated(self, monkeypatch):
-        scenes, _ = self._plan(monkeypatch, 50)                   # bar: 5
-        assert self._spans(scenes) == [(1, 2), (3, 3)]
-        assert scenes[0]["idea"] == "the triangle Then: its squares"
-
+class TestThreshold:
     def test_the_bar_moves_the_same_way_as_the_slider(self):
         bars = [writer.need_threshold(s) for s in (5, 30, 50, 80, 95)]
         assert bars == sorted(bars, reverse=True)
         assert writer.need_threshold(0) is None and writer.need_threshold(100) == 0
-
-    def test_the_model_is_never_told_the_slider(self, monkeypatch):
-        # The score must be the segment's own, so the same script scores
-        # the same whatever the channel's setting.
-        _, calls = self._plan(monkeypatch, 30)
-        assert "30" not in calls[0][1] and "%" not in calls[0][1]
-
-    def test_a_segment_left_unscored_counts_as_no_need(self, monkeypatch):
-        scenes, _ = self._plan(monkeypatch, 60, rated=[self.RATED[1]])
-        assert self._spans(scenes) == [(1, 1)]
-
-
-
-def test_every_scene_is_written_with_the_whole_narration(plan, monkeypatch):
-    # Regression: written with only its own lines, the Pythagoras demo's
-    # third scene labelled the wall 6 (it was 8) and showed the answer
-    # before the narration reached it.
-    monkeypatch.setattr(writer, "plan", lambda *a: [{"first": 1, "last": 1, "idea": "b"}])
-    seen = {}
-
-    def make(idea, words, duration, style, library, context, *rest):
-        seen.update(context)
-        return Path("b.mp4"), []
-
-    monkeypatch.setattr(stage, "_make", make)
-    stage.run(plan)
-    assert seen["narration"] == "[0] one two\n[1] three four"
 
 
 # --- props: the free library first, and laid on exact points --------------------
@@ -548,7 +459,7 @@ def test_the_frame_check_judges_a_scene_once_it_is_built(monkeypatch):
                            title_card_seconds=0, title_card_at=0)
     asked = {}
     monkeypatch.setattr(editor_check, "_frames_at", lambda path, times: asked.setdefault("t", times))
-    monkeypatch.setattr(editor_check, "_run", lambda *a: None)
+    monkeypatch.setattr(editor_check, "_run", lambda *a: editor_check.CheckResult(ran=True))
     editor_check.check_frames(Path("v.mp4"), plan)
     assert asked["t"] == [pytest.approx(9.0), pytest.approx(12.0)]
 

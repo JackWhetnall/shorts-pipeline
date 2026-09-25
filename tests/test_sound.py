@@ -34,15 +34,28 @@ def _plan_with_scene(tmp_path, actions):
                            script=SimpleNamespace(segments=segments), stem="v")
 
 
-def test_scene_moves_become_cues_at_their_moment_in_the_narration(tmp_path):
+def test_only_the_moments_that_land_make_a_sound(tmp_path):
+    # Regression: a pop on every element arriving was intrusive. Diagrams
+    # sound on highlights and coins landing only; templates on the few
+    # moments they declare; never closer than MIN_GAP, never more than MAX_CUES.
     plan = _plan_with_scene(tmp_path, [
-        {"target": "t", "do": "appear", "at": 0.5, "dur": 0.4},
-        {"target": "t", "do": "appear", "at": 0.55, "dur": 0.4},      # too close: dropped
-        {"target": "t", "do": "count", "at": 1.0, "dur": 2},          # no sound
-        {"target": "c", "do": "stack", "at": 2.0, "dur": 2.0, "count": 2},
+        {"target": "t", "do": "appear", "at": 0.5, "dur": 0.4},        # silent now
+        {"target": "t", "do": "highlight", "at": 1.0, "dur": 0.5},
+        {"target": "t", "do": "highlight", "at": 1.5, "dur": 0.5},     # too close: dropped
+        {"target": "c", "do": "stack", "at": 3.0, "dur": 2.0, "count": 2},
     ])
     cues = sound.scene_cues(plan)
-    assert [(round(t, 2), k) for t, k, _ in cues] == [(4.5, "pop"), (6.7, "clink"), (7.7, "clink")]
+    assert [(round(t, 2), k) for t, k, _ in cues] == [(5.0, "chime"), (7.7, "clink")]   # 8.7 too close
+
+
+def test_a_templates_own_moments_are_its_sounds(tmp_path):
+    clip = tmp_path / "seg1_template.mp4"
+    clip.with_suffix(".json").write_text(json.dumps({"template": "big_number",
+                                                     "cues": [[2.15, "pop", 0.8]]}), encoding="utf-8")
+    plan = SimpleNamespace(scene_clips=[{"first": 1, "last": 1, "clip": str(clip)}],
+                           script=SimpleNamespace(segments=[Segment("a", start=0, end=4),
+                                                            Segment("b", start=4, end=9)]))
+    assert sound.scene_cues(plan) == [(6.15, "pop", 0.8)]
 
 
 def test_the_music_ducks_under_speech_and_rises_in_the_pauses(tmp_path):

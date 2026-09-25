@@ -52,10 +52,10 @@ def synth(kind: str, fps: int) -> np.ndarray:
 def _raw(kind: str, fps: int) -> np.ndarray:
     rng = np.random.default_rng(7)                 # the same sound every time
     if kind == "pop":
-        n = int(0.12 * fps); t = np.arange(n) / fps
-        freq = 880 * np.exp(-t * 18) + 320           # a quick downward chirp
+        n = int(0.14 * fps); t = np.arange(n) / fps
+        freq = 520 * np.exp(-t * 14) + 220           # a soft, low downward chirp
         wave = np.sin(2 * np.pi * np.cumsum(freq) / fps)
-        return wave * _envelope(n, fps, 0.002, 0.035)
+        return wave * _envelope(n, fps, 0.006, 0.045)
     if kind == "whoosh":
         n = int(0.42 * fps); t = np.arange(n) / fps
         noise = rng.standard_normal(n)
@@ -81,11 +81,12 @@ def _raw(kind: str, fps: int) -> np.ndarray:
     raise ValueError(kind)
 
 
-# Which effect each scene action makes, and how loud relative to the others.
-ACTION_SOUNDS = {"appear": ("pop", 0.9), "draw": ("whoosh", 0.55), "highlight": ("chime", 0.45),
-                 "wiggle": ("tick", 0.6), "exit": ("whoosh", 0.35), "focus": ("whoosh", 0.3),
-                 "reset": ("whoosh", 0.25)}
-MIN_GAP = 0.12                 # two effects closer than this: keep the first
+# Which free-form diagram moves make a sound. Only the moments that land:
+# a pop on every element arriving was the "very intrusive" noise of the
+# first Curiosity Leak video. Templates declare their own few moments.
+ACTION_SOUNDS = {"highlight": ("chime", 0.5), "focus": ("whoosh", 0.35)}
+MIN_GAP = 1.2                  # effects closer than this: keep the first
+MAX_CUES = 8                   # per video, whatever the scenes ask for
 
 
 def scene_cues(plan) -> list:
@@ -97,6 +98,8 @@ def scene_cues(plan) -> list:
             continue
         scene = json.loads(spec.read_text(encoding="utf-8"))
         start = plan.script.segments[clip["first"]].start
+        # A template says which of its moments deserve a sound.
+        cues += [(start + float(at), kind, float(gain)) for at, kind, gain in scene.get("cues") or []]
         for action in scene.get("actions") or []:
             at = start + float(action.get("at", 0))
             if action.get("do") in ACTION_SOUNDS:
@@ -112,7 +115,7 @@ def scene_cues(plan) -> list:
     for cue in cues:
         if not kept or cue[0] - kept[-1][0] >= MIN_GAP:
             kept.append(cue)
-    return kept
+    return kept[:MAX_CUES]
 
 
 def add_effects(track: np.ndarray, fps: int, cues: list, level: float) -> np.ndarray:

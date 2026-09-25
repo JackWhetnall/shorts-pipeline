@@ -67,10 +67,13 @@ def build_html(scene: dict, style: dict, assets: dict) -> str:
 
 
 class _Page:
-    """A headless Chrome page with the scene loaded and built."""
+    """A headless Chrome page with the scene loaded and built: a free-form
+    scene, or any self-contained page (`html`) that sets window.__ready and
+    provides window.__seek(t), like a motion-graphics template."""
 
-    def __init__(self, scene: dict, style: dict, assets: dict):
-        self.html = build_html(scene, style, assets)
+    def __init__(self, scene: dict = None, style: dict = None, assets: dict = None,
+                 html: str = None):
+        self.html = html if html is not None else build_html(scene, style, assets)
 
     def __enter__(self):
         from playwright.sync_api import sync_playwright
@@ -128,9 +131,27 @@ def layout(scene: dict, style: dict, assets: dict, step: float = 0.5,
 
 def render(scene: dict, style: dict, assets: dict, out_path: Path, fps: int = FPS) -> Path:
     """The whole scene to an mp4 (no audio) of `scene["duration"]` seconds."""
+    return encode(_Page(scene, style, assets), float(scene["duration"]), out_path, fps)
+
+
+def render_page(html: str, duration: float, out_path: Path, fps: int = FPS) -> Path:
+    """Any seekable page (a template) to an mp4 of `duration` seconds."""
+    return encode(_Page(html=html), duration, out_path, fps)
+
+
+def page_frame(html: str, t: float, out_path: Path = None) -> bytes:
+    """One still of a seekable page at time `t`, as JPEG bytes (and saved
+    to `out_path` if given)."""
+    with _Page(html=html) as page:
+        data = page.frame(t)
+    if out_path:
+        Path(out_path).write_bytes(data)
+    return data
+
+
+def encode(page_maker, duration: float, out_path: Path, fps: int = FPS) -> Path:
     import imageio_ffmpeg
 
-    duration = float(scene["duration"])
     frames = max(1, round(duration * fps))
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -138,7 +159,7 @@ def render(scene: dict, style: dict, assets: dict, out_path: Path, fps: int = FP
            "-f", "image2pipe", "-framerate", str(fps), "-c:v", "mjpeg", "-i", "-",
            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
            str(out_path)]
-    with _Page(scene, style, assets) as page:
+    with page_maker as page:
         encoder = subprocess.Popen(cmd, stdin=subprocess.PIPE)
         try:
             for i in range(frames):

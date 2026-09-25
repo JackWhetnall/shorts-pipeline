@@ -308,7 +308,8 @@ class Sound(_MappingLike):
     # written by the draft, or worked out the first time music is needed.
     music_moods: list = field(default_factory=list)
     effects: bool = True
-    effects_level: float = 0.3
+    # A third of what it was: the first videos' effects were intrusive.
+    effects_level: float = 0.1
 
 
 @dataclass

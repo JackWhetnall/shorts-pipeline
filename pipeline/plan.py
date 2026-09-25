@@ -287,8 +287,10 @@ class RenderPlan:
     # on anything imperfect in the ones that were made. Shown on review.
     scenes_fell_back: int = 0
     scene_notes: list = field(default_factory=list)
-    # Credits for public-domain artwork shown (pipeline.artwork).
+    # Credits for public-domain artwork and CC BY music (pipeline.artwork, sound).
     art_credits: list = field(default_factory=list)
+    # The director's choice for each segment (pipeline.director), for review.
+    visual_plan: list = field(default_factory=list)
     # The publish gate's verdict for this render (core.publish_gate).
     gate: dict = None
     # The offending text when a segment reads like a description of a line

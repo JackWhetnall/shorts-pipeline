@@ -118,6 +118,9 @@ Burned-in captions are part of the video. Report only real problems:
 - A technical fault: a black or frozen-looking frame, heavy compression
   damage, or a visible watermark or logo.
 - The caption is unreadable against the picture.
+- It looks unfinished or amateur: mostly empty, a few small shapes adrift,
+  blank boxes, text too small to read on a phone, or a picture with no
+  clear connection to the words. Block it: a viewer scrolls past this.
 
 A shot that is merely generic, or only loosely related, is fine: this is
 background footage. Do not report it.
@@ -200,7 +203,28 @@ def check_frames(video_path: Path, plan) -> CheckResult:
     avoid = ", ".join(plan.channel.avoid_imagery) or "(none)"
     content.append({"type": "text",
                     "text": f"This channel must never show: {avoid}. Report problems by frame number."})
-    return _run(FRAMES_SYSTEM, content, "check_frames")
+    result = _run(FRAMES_SYSTEM, content, "check_frames")
+    # Measured, not judged: a frame with almost nothing in it.
+    for n, data in enumerate(images, 1):
+        if looks_empty(data):
+            result.problems.append({"where": f"Frame {n}", "severity": BLOCK,
+                                    "problem": "The picture is nearly empty."})
+    return result
+
+
+EMPTY_SPREAD = 10.0       # luminance spread below which a frame is blank
+
+
+def looks_empty(jpeg_b64: str) -> bool:
+    """Whether a frame is nearly blank above the captions: almost no
+    variation in brightness across its top two thirds."""
+    from PIL import Image, ImageStat
+    try:
+        image = Image.open(io.BytesIO(base64.b64decode(jpeg_b64))).convert("L")
+    except Exception:  # noqa: BLE001 - a measurement that can't be made finds nothing
+        return False
+    top = image.crop((0, 0, image.width, int(image.height * 0.66)))
+    return ImageStat.Stat(top).stddev[0] < EMPTY_SPREAD
 
 
 def _run(system: str, user, operation: str) -> CheckResult:

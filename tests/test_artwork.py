@@ -110,21 +110,6 @@ def test_a_failure_keeps_the_footage(tmp_path, monkeypatch):
     assert plan.scene_clips == [] and plan.art_credits == []
 
 
-def test_scenes_leave_a_painted_segment_alone(tmp_path, monkeypatch):
-    from pipeline.scenes import stage, writer
-    plan = _plan(tmp_path)
-    plan.channel.scenes.share = 100
-    plan.scene_clips = [{"first": 1, "last": 1, "clip": "art.mp4", "kind": "artwork"}]
-    plan.seed = SimpleNamespace(title="t")
-    plan.voiceover = SimpleNamespace(word_timings=[])
-    monkeypatch.setattr(stage.job_context, "load_json_checkpoint", lambda n: None)
-    monkeypatch.setattr(stage.job_context, "save_json_checkpoint", lambda n, d: None)
-    monkeypatch.setattr(writer, "plan", lambda *a: [{"first": 0, "last": 1, "idea": "x"},
-                                                    {"first": 2, "last": 2, "idea": "y"}])
-    monkeypatch.setattr(stage, "_make", lambda idea, *a: (Path(f"{idea}.mp4"), []))
-    stage.run(plan)
-    assert [(c["first"], c["last"], c.get("kind")) for c in plan.scene_clips] == [
-        (1, 1, "artwork"), (2, 2, None)]
 
 
 def test_the_description_carries_the_credit():
