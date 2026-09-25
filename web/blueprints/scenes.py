@@ -29,12 +29,15 @@ def art_from(values) -> dict:
     return art.sparse({f: values.get(f"art_{f}") for f in FIELDS if values.get(f"art_{f}")})
 
 
-def form_context(settings: dict, share: int) -> dict:
-    """What _scene_settings.html needs."""
+def form_context(settings: dict, share: int, board_only: bool = False) -> dict:
+    """What _scene_settings.html needs. `board_only` is a quiz channel:
+    only the look applies, shown on its board rather than a diagram."""
+    preview = "scenes.quiz_preview" if board_only else "scenes.preview"
     return {
+        "scene_board_only": board_only,
         "scene_art": art.editable(settings),
-        "scene_preview_url": url_for("scenes.preview", **{f"art_{k}": v for k, v in
-                                                          art.clean(settings).items()}),
+        "scene_preview_url": url_for(preview, **{f"art_{k}": v for k, v in
+                                                 art.clean(settings).items()}),
         "scene_share": share,
         "scene_presets": {k: art.editable({"preset": k}) | {"label": p["label"],
                                                             "description": p["description"]}
@@ -47,6 +50,18 @@ def form_context(settings: dict, share: int) -> dict:
                                "accent3": "Accent 3", "accent4": "Accent 4",
                                "accent5": "Accent 5", "pattern_color": "Pattern"},
     }
+
+
+@bp.route("/scenes/quiz-preview.jpg")
+def quiz_preview():
+    """A quiz board mid-countdown in the look given by the query string."""
+    from pipeline import quiz
+    try:
+        path = quiz.sample_still(art.resolve(art_from(request.args)), PREVIEW_DIR)
+    except PipelineError as exc:
+        log.warning(f"quiz preview failed: {exc}")
+        return exc.user_message, 503
+    return send_file(path, mimetype="image/jpeg", max_age=86400)
 
 
 @bp.route("/scenes/art-preview.jpg")

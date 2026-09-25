@@ -254,7 +254,8 @@ def _settings_context(channel, error: str = None) -> dict:
         "posting_error": request.args.get("posting_error"),
         "posting_ready": request.args.get("posting_ready"),
         "plan_estimate": _plan_estimate(channel.key, channel),
-        **scene_form_context(channel.scenes.art, channel.scenes.share),
+        **scene_form_context(channel.scenes.art, channel.scenes.share,
+                             board_only=channel.format == "quiz"),
         "music_channel_key": channel.key, "music_tracks": music_library.tracks(channel.key),
         "music_suggest_url": url_for("music.suggest", key=channel.key),
     }

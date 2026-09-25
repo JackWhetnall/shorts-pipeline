@@ -158,11 +158,17 @@
   </div>
 
   <div class="card">
-    <h2>{{ 'The board\'s look' if body.format == 'quiz' else 'Graphics and illustrations' }}</h2>
+    <h2>{{ "The board's look" if body.format == 'quiz' else 'Pictures' }}</h2>
     {% if body.format == 'quiz' %}<p class="meta">The quiz board uses these colours and fonts.
       The slider doesn't apply: a quiz has no footage.</p>{% endif %}
     {% if body.art and body.art.reason %}<p class="meta">{{ body.art.reason }}</p>{% endif %}
     {% include "_scene_settings.html" %}
+    {% if body.format != 'quiz' %}
+    <label class="checkbox-label">
+      <input type="checkbox" name="museum_art" {% if body.museum_art %}checked{% endif %}>
+      Use public-domain paintings and engravings where one shows what's being said
+    </label>
+    {% endif %}
   </div>
 
   {% if draft.outline and body.format != 'quiz' %}

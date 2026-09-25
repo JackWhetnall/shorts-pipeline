@@ -283,3 +283,27 @@ def test_a_replacement_never_repeats_an_answer_already_in_the_round():
     assert quiz._mentions("Which country is shaped like a boot? Italy", "Italy")
     assert not quiz._mentions("Which country contains Australia's capital?", "Au")
     assert quiz._mentions("the Pacific Ocean", "The Pacific")
+
+
+def test_a_long_category_shrinks_to_one_line_rather_than_wrapping():
+    """Regression: "General Knowledge Quiz" in a serif face wrapped onto a
+    second line that ran into the question card."""
+    from pipeline.scenes import art
+    script = quiz.to_script(_round(), _channel(), "General Knowledge", "Medium")
+    for seg in script.segments:
+        seg.start, seg.end = 0.0, 1.0
+    html = quiz.board_html(script, quiz.timeline(script, []), art.resolve({}), 10.0)
+    assert "<span class='cat' data-fit=" in html and "white-space: nowrap" in html
+
+
+def test_settings_for_a_quiz_show_only_the_board_look(tmp_path, monkeypatch):
+    from web import create_app
+    from core.channels import save_channel
+    monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", tmp_path / "channels.json")
+    channel = _channel()
+    channel.voice = "a" * 20
+    save_channel(channel)
+    page = create_app().test_client().get("/channels/pub_quiz/settings").get_data(as_text=True)
+    assert "Board look" in page and "quiz-preview.jpg" in page
+    assert 'type="range" name="scene_share"' not in page and 'name="scene_share"' in page
+    assert "Paintings and engravings" not in page and "Hook text and key words" not in page

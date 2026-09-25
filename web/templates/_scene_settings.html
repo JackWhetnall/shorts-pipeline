@@ -9,6 +9,11 @@
     <span class="hint" data-scene-preview-status></span>
   </div>
   <div class="scene-controls">
+    {% if scene_board_only %}
+    {# Kept, not shown: a quiz has no footage, and switching the format
+       back shouldn't lose the setting. #}
+    <input type="hidden" name="scene_share" value="{{ scene_share }}">
+    {% else %}
     <label class="field-row">
       <span class="field-label">When to use graphics instead of footage</span>
       <span class="slider-row">
@@ -22,6 +27,7 @@
         left is always footage, all the way right never footage, and near the left only segments
         that can't be shown any other way get a graphic.</span>
     </label>
+    {% endif %}
 
     <label class="field-row">
       <span class="field-label">Starting look</span>
@@ -81,6 +87,9 @@
       </label>
     </div>
 
+    {% if scene_board_only %}
+    <input type="hidden" name="art_prop_style" value="{{ scene_art.prop_style }}">
+    {% else %}
     <div class="field-row">
       <button type="button" class="btn-ghost" data-template-sheet
               data-sheet-base="{{ url_for('scenes.template_sheet') }}">See the motion graphics in this look</button>
@@ -94,5 +103,6 @@
       <span class="hint">Each object (a piggy bank, a candle) is drawn once in this style, then
         reused in every video. Changing this only affects objects drawn from now on.</span>
     </label>
+    {% endif %}
   </div>
 </div>

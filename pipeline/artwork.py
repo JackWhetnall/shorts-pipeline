@@ -1,20 +1,21 @@
 """
-Public-domain paintings under the passage a video reads.
+Public-domain paintings and engravings as a segment's picture.
 
-For a channel with `artwork.mode` "passage": the segment that reads the
-source text (the verse, on Minute Pastor) is shown over a painting of
-that passage, slowly panned and zoomed, instead of stock footage. Great
-art has illustrated these texts for centuries; it is on-subject, it
-looks like nothing else in a feed, and it is the opposite of generic
-stock, which matters for the reused-content rules.
+One of the visual director's media (pipeline.director), offered when a
+channel allows it (`artwork.mode` "allowed"): for a segment about
+something great art has shown (a battle, a myth, a scene from scripture
+or a novel, a historical figure, a painting itself), a real work from a
+museum collection, slowly panned, instead of stock footage. It is a real
+picture, like footage, so the graphics slider doesn't limit it; it looks
+like nothing else in a feed, which matters for the reused-content rules.
 
 Where it comes from: the Art Institute of Chicago's and the Met's open
-access collections (public-domain works, free APIs, no key). The script
-writer suggests a short search ("Samson Delilah"); candidates are found
-in both, paintings first; a quick look by a vision model picks the one
-that actually shows the passage, or none. The work is credited in the
-video's description. If nothing fits, or a museum is unreachable, the
-segment keeps its stock footage. See decision 038.
+access collections (public-domain works, free APIs, no key). The
+director writes a short museum search ("Samson Delilah"); candidates are
+found in both, paintings first; a quick look by a vision model picks the
+one that actually shows what's being said, or none, and then the
+segment keeps its footage. The work is credited in the video's
+description. See decisions 038 and 042.
 """
 
 from __future__ import annotations
@@ -111,9 +112,9 @@ def credit(work: dict) -> str:
 
 PICK_SYSTEM = """
 You pick the artwork to show, slowly panned, while a short vertical video
-reads a passage aloud. Choose the one that most clearly shows what the
-passage is about (its people, its moment) and would look good filling a
-phone screen. Reject fragments, text-only pages, heavily damaged or
+says a line. Choose the one that most clearly shows what the line is
+about (its people, its moment) and would look good filling a phone
+screen. Reject fragments, text-only pages, heavily damaged or
 unclear images, graphic violence, and ANY nudity or partial nudity, even
 in classical art: it limits which ads the video can carry. Answer 0 if
 none fits well; a wrong picture is worse than none.
@@ -124,7 +125,7 @@ def pick(candidates: list, passage: str) -> dict:
     """The candidate a vision model says shows the passage, or None."""
     from pipeline import llm
 
-    content = [{"type": "text", "text": f"The passage: {passage}"}]
+    content = [{"type": "text", "text": f"The line: {passage}"}]
     shown = []
     for work in candidates:
         try:
@@ -221,36 +222,20 @@ def ken_burns(image, seconds: float, out_path: Path) -> Path:
 
 # --- the stage --------------------------------------------------------------
 
-def target_segment(plan):
-    """The segment the painting goes under: the passage on a quote
-    channel, otherwise the opening."""
-    source = getattr(plan.script, "source_index", None)
-    return source if source is not None else 0
+def allowed(channel) -> bool:
+    """Whether the director may use artwork on this channel. ("passage"
+    was this setting's earlier, one-segment form.)"""
+    return getattr(getattr(channel, "artwork", None), "mode", "off") in ("allowed", "passage")
 
 
-def run(plan):
-    """Show a painting under the passage, when the channel asks for it."""
-    plan.art_credits = []
-    mode = getattr(getattr(plan.channel, "artwork", None), "mode", "off")
-    query = (getattr(plan.script, "art_query", "") or "").strip()
-    if mode != "passage" or not query:
-        return plan
-    index = target_segment(plan)
-    segment = plan.script.segments[index]
-    try:
-        candidates = search(query)
-        work = pick(candidates, segment.text) if candidates else None
-        if work is None:
-            log.info(f"  [art] nothing fitting for {query!r}; keeping footage")
-            return plan
-        out = plan.out_dir / f"{plan.stem}_art.mp4"
-        ken_burns(_download(work), segment.duration + plan.channel.pacing.crossfade, out)
-    except Exception as exc:  # noqa: BLE001 - degrades to footage, and says so in the log
-        log.warning(f"  [art] couldn't show a painting ({exc}); keeping footage")
-        return plan
-    log.info(f"  [art] {credit(work)}")
-    plan.scene_clips = [c for c in plan.scene_clips or [] if not c["first"] <= index <= c["last"]]
-    plan.scene_clips.append({"first": index, "last": index, "clip": str(out), "kind": "artwork"})
-    plan.scene_clips.sort(key=lambda c: c["first"])
-    plan.art_credits = [credit(work)]
-    return plan
+def make(query: str, words: str, seconds: float, out_path: Path) -> tuple:
+    """(clip, credit) for one segment: the best-fitting work for `query`,
+    panned for `seconds`. Raises PipelineError when nothing fits, and the
+    segment keeps its footage."""
+    candidates = search(query)
+    work = pick(candidates, words) if candidates else None
+    if work is None:
+        raise PipelineError(f"no artwork fits {query!r}",
+                            user_message="No painting fitted this segment.")
+    ken_burns(_download(work), seconds, out_path)
+    return out_path, credit(work)

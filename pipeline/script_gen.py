@@ -276,10 +276,6 @@ seconds: 2-6 words that make someone stop, not a copy of the whole line
 "emphasis" is up to 6 single words from the spoken lines that carry the
 meaning (the key numbers and nouns), exactly as they are written in the
 lines. They pop in the captions as they're said.
-
-"art_query" is 2-4 words to search a museum's collection for an old
-painting or engraving of this passage's scene or subject (people and
-moment, e.g. names from the passage), or "" if no artwork would show it.
 """.strip()
 
 PACKAGING_SCHEMA = {
@@ -287,7 +283,6 @@ PACKAGING_SCHEMA = {
     "description_body": {"type": "string"},
     "screen_hook": {"type": "string"},
     "emphasis": {"type": "array", "items": {"type": "string"}},
-    "art_query": {"type": "string"},
 }
 
 # First in the schema, so the loop is planned before any line is written.
@@ -599,8 +594,7 @@ def generate_script(seed: Seed, channel, avoid: str = "") -> Script:
     loop = {"hook_promise": (data.get("hook_promise") or "").strip(),
             "payoff": (data.get("payoff") or "").strip(),
             "screen_hook": _clean(data.get("screen_hook") or ""),
-            "emphasis": [w.strip() for w in data.get("emphasis") or [] if w and w.strip()][:6],
-            "art_query": _clean(data.get("art_query") or "")}
+            "emphasis": [w.strip() for w in data.get("emphasis") or [] if w and w.strip()][:6]}
 
     if seed.type == "quote":
         # Segment 0 is the source text verbatim — never regenerated,
@@ -918,7 +912,6 @@ def write_scripts(channel, topic: dict, subtopics: list) -> list:
                 "payoff": (item.get("payoff") or "").strip(),
                 "screen_hook": _clean(item.get("screen_hook") or ""),
                 "emphasis": [w.strip() for w in item.get("emphasis") or [] if w and w.strip()][:6],
-                "art_query": _clean(item.get("art_query") or ""),
             },
         })
 

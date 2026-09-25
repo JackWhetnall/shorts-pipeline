@@ -47,7 +47,8 @@ def review(draft_id):
         "channel_draft.html", draft=record, body=body,
         palettes=palettes.PALETTES,
         error=request.args.get("error"),
-        **form_context(drafted_art, drafted_art.get("scene_share", 0)),
+        **form_context(drafted_art, drafted_art.get("scene_share", 0),
+                       board_only=body.get("format") == "quiz"),
         music_draft=True, music_channel_key="", music_tracks=[],
         music_suggest_url=url_for("music.suggest_for_draft", draft_id=draft_id),
     )
@@ -88,6 +89,7 @@ def accept(draft_id):
         "art": art_from(form),
         "scene_share": form.get("scene_share"),
         "music": form.getlist("music_track"),
+        "museum_art": form.get("museum_art") == "on",
     }
     if "quotes" in form:
         choices["quotes"] = form.get("quotes", "")

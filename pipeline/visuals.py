@@ -1,11 +1,11 @@
 """
 The visuals stage: carry out the director's plan (pipeline.director).
 
-After the voiceover (everything is timed to it) and the paintings
-(pipeline.artwork, which keep their segments), before assembly. For each
-segment the director didn't leave to footage, make its clip: a filled
-template (pipeline.templates.fill), an illustration (pipeline.illustrate)
-or, for geometry and plots only, a free-form diagram (pipeline.scenes).
+After the voiceover (everything is timed to it), before assembly. For
+each segment the director didn't leave to footage, make its clip: a
+filled template (pipeline.templates.fill), an illustration
+(pipeline.illustrate), a museum painting (pipeline.artwork) or, for
+geometry and plots only, a free-form diagram (pipeline.scenes).
 Anything that fails falls back to footage and says so on the review
 page; by now a script and a voiceover are paid for, and nothing here is
 worth losing them over. Clips are checkpointed so a retry doesn't pay
@@ -17,7 +17,7 @@ from __future__ import annotations
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from core.paths import channel_props_dir
-from pipeline import director, illustrate
+from pipeline import artwork, director, illustrate
 from pipeline.scenes import art, stage, writer
 from pipeline.templates import fill
 
@@ -34,12 +34,15 @@ def run(plan):
     plan.scene_clips, plan.scenes_fell_back, plan.scene_notes = existing, 0, []
     plan.visual_plan = []
     share = int(channel.scenes.share or 0)
-    if share <= 0:
+    paintings = artwork.allowed(channel)
+    plan.art_credits = []
+    if share <= 0 and not paintings:
         return plan
 
     restored = stage._restore()
     if restored is not None:
         plan.scene_clips, plan.scenes_fell_back, plan.scene_notes = restored
+        plan.art_credits = [c["credit"] for c in plan.scene_clips if c.get("credit")]
         log.info(f"  [visuals] reusing {len(plan.scene_clips)} clip(s) from the earlier attempt")
         return plan
 
@@ -49,7 +52,8 @@ def run(plan):
     folder = plan.out_dir / f"{plan.stem}_scenes"
     log.info(f"[3/5] Directing the visuals ({style['label']})...")
     try:
-        directions = director.direct(segments, plan.seed.title, share, covered)
+        directions = director.direct(segments, plan.seed.title, share, covered,
+                                     artwork=paintings)
     except PipelineError as exc:
         log.warning(f"  [visuals] couldn't direct ({exc}); footage throughout")
         plan.scene_notes.append("The visual plan failed, so this video is all footage.")
@@ -71,9 +75,14 @@ def run(plan):
         stem = folder / f"seg{i}_{d['medium']}"
         log.info(f"  [visuals] segment {i}: {d['medium']} "
                  f"{d.get('template') or ''} ({d.get('reason', '')[:60]})")
+        credit = ""
         try:
-            clip, notes = _make(d, words, segment.duration, narration, style, props_dir, stem,
-                                tail, not_before, hook_end, i)
+            if d["medium"] == "artwork":
+                (clip, credit), notes = artwork.make(d["brief"], segment.text, segment.duration + tail,
+                                                     stem.with_suffix(".mp4")), []
+            else:
+                clip, notes = _make(d, words, segment.duration, narration, style, props_dir, stem,
+                                    tail, not_before, hook_end, i)
         except Exception as exc:  # noqa: BLE001 - degrades to footage and is flagged, never silent
             if not isinstance(exc, PipelineError):
                 log.exception(f"  [visuals] segment {i} failed unexpectedly")
@@ -82,7 +91,11 @@ def run(plan):
             plan.scene_notes.append(f"Segment {i + 1}'s {d['medium']} couldn't be made; "
                                     f"it uses footage instead.")
             continue
-        plan.scene_clips.append({"first": i, "last": i, "clip": str(clip), "kind": d["medium"]})
+        entry = {"first": i, "last": i, "clip": str(clip), "kind": d["medium"]}
+        if credit:
+            entry["credit"] = credit
+            plan.art_credits.append(credit)
+        plan.scene_clips.append(entry)
         plan.scene_clips.sort(key=lambda c: c["first"])
         plan.scene_notes.extend(f"Segment {i + 1}: {n}" for n in notes)
 

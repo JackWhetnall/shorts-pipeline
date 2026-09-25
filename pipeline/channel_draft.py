@@ -51,6 +51,9 @@ shapes that draw themselves, labels, equations, counters, charts and
 illustrated props (a piggy bank, a candle), built up in time with the
 words. Stock footage carries mood and cannot demonstrate anything precise.
 Scenes explain: structures, processes, quantities, comparisons, symbols.
+A channel about history, myth, scripture, literature or art can also be
+allowed public-domain museum paintings and engravings (`museum_art`),
+used for any segment a well-known work shows better than footage.
 
 Every channel has its own art direction for its scenes, used in every
 video so the channel is recognisable: a starting preset, its own palette
@@ -213,6 +216,11 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
                                          "best first."},
             "palette_key": {"type": "string", "enum": palette_keys},
             "art": _art_schema(),
+            "museum_art": {"type": "boolean",
+                           "description": "True if public-domain paintings and engravings "
+                                          "would often show what this channel talks about "
+                                          "(history, myth, scripture, literature, art). "
+                                          "False for a quiz."},
             "music_moods": {"type": "array", "items": {"type": "string"},
                             "description": "Three short searches (2-4 words: mood, instrument, "
                                            "style) for instrumental background music that suits "
@@ -230,7 +238,7 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
                      "content_mode",
                      "corpus_source", "custom_quotes", "subject", "style_prompt", "hook_style",
                      "target_seconds", "segment_count", "speed", "avoid_imagery",
-                     "voice_brief", "voice_ids", "palette_key", "art", "music_moods",
+                     "voice_brief", "voice_ids", "palette_key", "art", "museum_art", "music_moods",
                      "needs_news_source", "risks"],
         "additionalProperties": False,
     }
@@ -314,6 +322,7 @@ def clean(data: dict, voice_ids: list) -> dict:
             out["subject"] = out.get("summary") or out["name_options"][0]
     else:
         out["quiz_categories"], out["quiz_difficulties"] = [], []
+    out["museum_art"] = bool(data.get("museum_art")) and out["format"] != "quiz"
     longest = 180 if out["format"] == "quiz" else 90
     out["target_seconds"] = int(_clamp(data.get("target_seconds"), 45, 30, longest))
     out["segment_count"] = int(_clamp(data.get("segment_count"), 3, 2, 6))

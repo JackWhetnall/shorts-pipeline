@@ -297,7 +297,7 @@ def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
     # and Pillow, which are slow to import and not needed by anything that
     # only wants fetch_seed.
     from pipeline import assemble
-    from pipeline import artwork, visuals
+    from pipeline import visuals
 
     job_context.set_channel_key(channel.key)
     started_at = time.time()
@@ -308,7 +308,6 @@ def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:
         _prepare_output(plan)
         script_gen.run(plan)
         tts.run(plan)
-        artwork.run(plan)
         visuals.run(plan)
         assemble.run(plan)
         _finish(plan, started_at)

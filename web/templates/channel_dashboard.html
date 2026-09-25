@@ -161,9 +161,10 @@
       {% if channel.format == 'quiz' %}a quiz board: each question in full, a countdown, the answers filling a numbered list
       {%- elif channel.scenes.share <= 0 %}real footage throughout
       {%- elif channel.scenes.share >= 100 %}graphics and illustrations throughout
-      {%- else %}footage, with graphics where a segment needs one (bar {{ channel.scenes.share }}){% endif %},
+      {%- else %}footage, with graphics where a segment needs one (bar {{ channel.scenes.share }}){% endif %}
+      {%- if channel.format != 'quiz' and channel.artwork.mode in ('allowed', 'passage') %}, and museum paintings where one fits{% endif %},
       in the {{ scene_look }} look.
-      <a href="{{ url_for('channels.settings', key=key, _anchor='section-graphics') }}">Graphics settings</a></li>
+      <a href="{{ url_for('channels.settings', key=key, _anchor='section-graphics') }}">{{ 'Board look' if channel.format == 'quiz' else 'Picture settings' }}</a></li>
     <li><strong>Music:</strong>
       {% if not channel.sound.music %}off
       {%- elif music_tracks %}{{ music_tracks|length }} track{{ 's' if music_tracks|length != 1 }}

@@ -196,7 +196,7 @@ class TestPages:
         review_url = response.headers["Location"]
         page = client.get(review_url).get_data(as_text=True)
         assert "Orbit Notes" in page and "What things are made of" in page
-        assert "Graphics and illustrations" in page and "science needs showing" in page
+        assert "Pictures" in page and "science needs showing" in page
         assert "art_preset=chalkboard" in page          # the preview shows the drafted look
 
         draft_id = review_url.rstrip("/").split("/")[-1]

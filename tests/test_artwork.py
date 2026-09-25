@@ -1,6 +1,6 @@
 """
-pipeline.artwork: public-domain paintings under the passage. The museums
-and the vision call are faked; nothing leaves the machine.
+pipeline.artwork: public-domain paintings as one of the director's media.
+The museums and the model calls are faked; nothing leaves the machine.
 """
 
 from __future__ import annotations
@@ -68,48 +68,89 @@ def test_the_picker_can_say_none_fit(monkeypatch):
     assert artwork.pick(works, "passage") is works[0]
 
 
-def _plan(tmp_path, mode="passage", query="Samson Delilah"):
-    channel = ChannelConfig(key="c")
-    channel.artwork.mode = mode
-    script = Script(segments=[Segment("hook", start=0, end=2), Segment("verse", start=2, end=8),
-                              Segment("notes", start=8, end=12)],
-                    citation="Judges 16:8", source_index=1, art_query=query)
-    return SimpleNamespace(channel=channel, script=script, out_dir=tmp_path, stem="v", scene_clips=[])
+WORK = {"title": "The Capture of Samson", "artist": "Rubens", "date": "1609",
+        "museum": "Art Institute of Chicago"}
 
 
-def test_the_painting_goes_under_the_passage_and_is_credited(tmp_path, monkeypatch):
-    work = {"title": "The Capture of Samson", "artist": "Rubens", "date": "1609",
-            "museum": "Art Institute of Chicago"}
-    monkeypatch.setattr(artwork, "search", lambda q: [work])
-    monkeypatch.setattr(artwork, "pick", lambda found, passage: found[0])
+def test_a_painting_is_panned_for_the_segment_and_credited(tmp_path, monkeypatch):
+    monkeypatch.setattr(artwork, "search", lambda q: [WORK])
+    monkeypatch.setattr(artwork, "pick", lambda found, words: found[0])
     monkeypatch.setattr(artwork, "_download", lambda w: "image")
     made = {}
     monkeypatch.setattr(artwork, "ken_burns", lambda image, seconds, out: made.update(s=seconds) or out)
-    plan = artwork.run(_plan(tmp_path))
-    assert plan.scene_clips == [{"first": 1, "last": 1, "clip": str(tmp_path / "v_art.mp4"),
-                                 "kind": "artwork"}]
-    assert made["s"] == pytest.approx(6.0 + plan.channel.pacing.crossfade)
-    assert plan.art_credits == ["Art: The Capture of Samson, Rubens (1609). Art Institute of Chicago, public domain."]
+    clip, credit = artwork.make("Samson Delilah", "Delilah cut his hair", 6.0, tmp_path / "a.mp4")
+    assert clip == tmp_path / "a.mp4" and made["s"] == 6.0
+    assert credit == "Art: The Capture of Samson, Rubens (1609). Art Institute of Chicago, public domain."
 
 
-def test_off_or_nothing_to_search_changes_nothing(tmp_path, monkeypatch):
-    monkeypatch.setattr(artwork, "search", lambda q: pytest.fail("searched"))
-    assert artwork.run(_plan(tmp_path, mode="off")).scene_clips == []
-    assert artwork.run(_plan(tmp_path, query="")).scene_clips == []
+def test_nothing_fitting_leaves_the_segment_to_footage(tmp_path, monkeypatch):
+    monkeypatch.setattr(artwork, "search", lambda q: [WORK])
+    monkeypatch.setattr(artwork, "pick", lambda found, words: None)
+    with pytest.raises(artwork.PipelineError):
+        artwork.make("Samson Delilah", "words", 6.0, tmp_path / "a.mp4")
 
 
-def test_a_failure_keeps_the_footage(tmp_path, monkeypatch):
-    monkeypatch.setattr(artwork, "search", lambda q: [{"title": "x"}])
-    monkeypatch.setattr(artwork, "pick", lambda found, passage: found[0])
-
-    def broken(work):
-        raise artwork.PipelineError("no", user_message="A painting couldn't be downloaded.")
-
-    monkeypatch.setattr(artwork, "_download", broken)
-    plan = artwork.run(_plan(tmp_path))
-    assert plan.scene_clips == [] and plan.art_credits == []
+def test_the_setting_allows_it_and_the_old_passage_mode_still_counts():
+    channel = ChannelConfig(key="c")
+    assert not artwork.allowed(channel)
+    channel.artwork.mode = "allowed"
+    assert artwork.allowed(channel)
+    channel.artwork.mode = "passage"
+    assert artwork.allowed(channel)
 
 
+def _segments():
+    return [Segment("Delilah betrayed him", shot_brief="scissors", start=0, end=3),
+            Segment("and he pulled down the temple", shot_brief="ruins", start=3, end=7)]
+
+
+def test_the_director_offers_artwork_even_to_a_footage_only_channel(monkeypatch):
+    """Regression: paintings were a separate stage that only ever showed
+    the passage, which made the setting read as a Bible feature. They are
+    a real picture, like footage, so the graphics slider doesn't gate them."""
+    from pipeline import director
+    seen = {}
+
+    def call_json(system, user, schema, **kwargs):
+        seen["media"] = schema["properties"]["segments"]["items"]["properties"]["medium"]["enum"]
+        seen["guide"] = system[0].text
+        return {"segments": [
+            {"index": 0, "medium": "artwork", "template": "", "brief": "Samson Delilah",
+             "need": 2, "reason": "a famous scene"},
+            {"index": 1, "medium": "illustration", "template": "", "brief": "x", "need": 9,
+             "reason": "not allowed here"}]}
+
+    monkeypatch.setattr(director, "call_json", call_json)
+    out = director.direct(_segments(), "Samson", share=0, artwork=True)
+    assert seen["media"] == ["footage", "artwork"] and "museum" in seen["guide"]
+    assert [d["medium"] for d in out] == ["artwork", "footage"]
+    # Without it, a footage-only channel costs no call at all.
+    monkeypatch.setattr(director, "call_json", lambda *a, **k: pytest.fail("called"))
+    assert {d["medium"] for d in director.direct(_segments(), "Samson", share=0)} == {"footage"}
+
+
+def test_visuals_credit_the_artwork_on_its_clip(tmp_path, monkeypatch):
+    from pipeline import visuals
+    from pipeline.plan import Voiceover
+    channel = ChannelConfig(key="c")
+    channel.artwork.mode = "allowed"
+    script = Script(segments=_segments())
+    plan = SimpleNamespace(channel=channel, script=script, out_dir=tmp_path, stem="v",
+                           scene_clips=[], seed=SimpleNamespace(title="Samson"),
+                           voiceover=Voiceover(audio_path=None, word_timings=[], samples=None, fps=1))
+    monkeypatch.setattr(visuals.stage, "_restore", lambda: None)
+    monkeypatch.setattr(visuals.stage, "_save", lambda plan: None)
+    monkeypatch.setattr(visuals.stage, "_hook_end", lambda plan: 0.0)
+    monkeypatch.setattr(visuals.director, "direct", lambda *a, **k: [
+        {"index": 0, "medium": "artwork", "template": "", "brief": "Samson Delilah", "need": 2,
+         "reason": ""}, {"index": 1, "medium": "footage", "template": "", "brief": "", "need": 0,
+                         "reason": ""}])
+    monkeypatch.setattr(visuals.artwork, "make",
+                        lambda query, words, seconds, out: (out, "Art: X. Y, public domain."))
+    visuals.run(plan)
+    assert plan.scene_clips[0]["kind"] == "artwork"
+    assert plan.scene_clips[0]["credit"] == "Art: X. Y, public domain."
+    assert plan.art_credits == ["Art: X. Y, public domain."]
 
 
 def test_the_description_carries_the_credit():

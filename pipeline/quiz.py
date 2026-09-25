@@ -430,8 +430,9 @@ BOARD_CSS = f"""
 .kicker {{ position: absolute; left: 60px; right: 60px; top: {KICKER_Y}px; display: flex;
   justify-content: center; gap: 22px; align-items: center; }}
 .kicker .cat {{ font-family: var(--display); font-weight: var(--dw); font-size: 46px;
-  letter-spacing: .08em; text-transform: uppercase; color: var(--ink); }}
-.kicker .lvl {{ padding: 8px 26px; font-size: 36px; }}
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink);
+  white-space: nowrap; overflow: hidden; min-width: 0; max-width: 690px; }}
+.kicker .lvl {{ padding: 8px 26px; font-size: 36px; flex: none; white-space: nowrap; }}
 .qcard {{ position: absolute; left: 60px; width: 960px; top: {CARD_TOP}px; height: {CARD_H}px; }}
 .qcard > div {{ position: absolute; inset: 0; display: flex; flex-direction: column;
   justify-content: center; align-items: center; padding: 40px 56px; text-align: center; }}
@@ -539,7 +540,7 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
             f"data-in='{t['countdown']:.3f}' data-anim='none' data-dur='{span:.3f}'/></svg>{digits}</div>")
 
     stage = (f"<div class='board'>"
-             f"<div class='kicker' {_in(0, 'fade', 0.3)}><span class='cat'>{esc(quiz['category'])} quiz</span>"
+             f"<div class='kicker' {_in(0, 'fade', 0.3)}><span class='cat' data-fit='24'>{esc(quiz['category'])} quiz</span>"
              f"<span class='chip filled a2 lvl'>{esc(quiz['difficulty'])}</span></div>"
              f"<div class='card qcard'>{''.join(card)}</div>"
              f"<div class='rows'>{''.join(row_html)}</div>{''.join(timers)}</div>")
@@ -600,3 +601,49 @@ def board(plan):
     plan.visual_plan = [{"index": 0, "medium": "quiz board", "template": "quiz",
                          "reason": "the quiz format"}]
     return plan
+
+
+# --- a still for the settings page -------------------------------------------
+
+SAMPLE_ROUND = [("What is the capital of Australia?", "Canberra"),
+                ("How many sides does a hexagon have?", "Six"),
+                ("Which planet is known as the Red Planet?", "Mars"),
+                ("What is the chemical symbol for gold?", "Au")]
+
+
+def sample_still(style: dict, cache_dir: Path, questions: int = 10) -> Path:
+    """The board mid-countdown on question 3 of a sample round, in this
+    look: what the settings page shows for a quiz channel's look. Cached
+    by content, so each look is drawn once."""
+    import hashlib
+    from core.channels import ChannelConfig
+    from pipeline.plan import WordTiming
+    from pipeline.scenes import render
+
+    digest = hashlib.sha1(json.dumps([style, questions, page_version()], sort_keys=True)
+                          .encode()).hexdigest()[:16]
+    out = Path(cache_dir) / f"quiz_{digest}.jpg"
+    if out.exists():
+        return out
+    channel = ChannelConfig(key="sample", format="quiz")
+    channel.quiz.questions = questions
+    rows = [SAMPLE_ROUND[i % len(SAMPLE_ROUND)] for i in range(questions)]
+    script = to_script({"intro": "Intro.", "outro": "Outro.",
+                        "questions": [{"lead_in": "", "question": q, "answer": a,
+                                       "spoken_answer": a} for q, a in rows]},
+                       channel, "General knowledge", "Medium")
+    t, words = 0.0, []
+    for seg in script.segments:
+        seg.start = t
+        words.append(WordTiming("w", t, t + 2.0))
+        t += 2.2 + (seg.pause_after or 0.3)
+        seg.end = t
+    times = timeline(script, words)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    render.page_frame(board_html(script, times, style, t), times["questions"][2]["countdown"] + 1.4, out)
+    return out
+
+
+def page_version() -> float:
+    """Changes when the board's code does, so cached stills are redrawn."""
+    return Path(__file__).stat().st_mtime

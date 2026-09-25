@@ -321,9 +321,10 @@ class Sound(_MappingLike):
 
 @dataclass
 class Artwork(_MappingLike):
-    """Public-domain paintings (pipeline.artwork). "passage" shows one under
-    the segment that reads the source text (or the opening, on a topic
-    channel); "off" never does."""
+    """Public-domain paintings and engravings (pipeline.artwork). "allowed"
+    lets the visual director use one for any segment great art has shown;
+    "off" never does. ("passage", the earlier one-segment form, reads as
+    "allowed".)"""
 
     mode: str = "off"
 

@@ -183,7 +183,7 @@ def plan(tmp_path, monkeypatch):
 
 
 def test_each_medium_is_made_and_a_failure_falls_back_to_footage(plan, monkeypatch):
-    monkeypatch.setattr(director, "direct", lambda *a: [dict(r) for r in ROWS])
+    monkeypatch.setattr(director, "direct", lambda *a, **k: [dict(r) for r in ROWS])
     monkeypatch.setattr(visuals.fill, "make", lambda *a, **k: (Path("tpl.mp4"), []))
 
     def broken(*a, **k):
@@ -195,10 +195,10 @@ def test_each_medium_is_made_and_a_failure_falls_back_to_footage(plan, monkeypat
     assert plan.scenes_fell_back == 1 and "uses footage instead" in plan.scene_notes[0]
 
 
-def test_a_painting_keeps_its_segment(plan, monkeypatch):
+def test_an_already_pictured_segment_keeps_its_clip(plan, monkeypatch):
     plan.scene_clips = [{"first": 0, "last": 0, "clip": "art.mp4", "kind": "artwork"}]
     seen = {}
-    monkeypatch.setattr(director, "direct", lambda segs, subj, share, skip: seen.setdefault("skip", skip) and [])
+    monkeypatch.setattr(director, "direct", lambda segs, subj, share, skip, **k: seen.setdefault("skip", skip) and [])
     visuals.run(plan)
     assert seen["skip"] == {0} and plan.scene_clips[0]["kind"] == "artwork"
 

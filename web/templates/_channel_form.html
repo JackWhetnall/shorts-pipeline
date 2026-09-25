@@ -30,8 +30,9 @@
     <span>Captions, background, title and outro cards</span>
   </a>
   <a href="#section-graphics" class="settings-nav-link">
-    <strong>Graphics</strong>
-    <span>Footage or graphics, their look, paintings</span>
+    <strong>{{ 'Board look' if channel.format == 'quiz' else 'Pictures' }}</strong>
+    <span>{{ "The quiz board's colours and fonts" if channel.format == 'quiz'
+             else 'Footage, graphics, paintings, and their look' }}</span>
   </a>
   <a href="#section-music" class="settings-nav-link">
     <strong>Music &amp; sound</strong>
@@ -584,6 +585,7 @@
       {% endif %}
     </fieldset>
 
+    {% if channel.format != 'quiz' %}
     <fieldset>
       <legend>Hook text and key words</legend>
       <label class="checkbox-label">
@@ -597,6 +599,7 @@
         Pop the key words in the captions as they're said
       </label>
     </fieldset>
+    {% endif %}
 
     <fieldset>
       <legend>Title card
@@ -787,28 +790,40 @@
 
   <!-- ---------------------------------------------------------------- -->
   <section id="section-graphics" class="settings-section">
-    <h2>Graphics</h2>
+    {% if channel.format == 'quiz' %}
+    <h2>Board look</h2>
     <p class="subtitle">
-      Each segment gets real footage, an illustration in this channel's look, or a
-      designed motion graphic, timed to the words.
+      A quiz is its board: these colours and fonts, and nothing else. (Footage,
+      graphics and paintings belong to narrated channels; the format is set under
+      <a href="#section-content">Channel</a>.)
     </p>
-    <p class="hint info-banner" data-show-when="format=quiz">A quiz's board takes this look's
-      colours and fonts. Nothing else here applies to it: a quiz has no footage,
-      illustrations or paintings.</p>
+    {% else %}
+    <h2>Pictures</h2>
+    <p class="subtitle">
+      Each segment gets real footage, a museum painting, an illustration in this
+      channel's look, or a designed motion graphic, timed to the words.
+    </p>
+    {% endif %}
     <fieldset>
-      <legend>Footage or graphics</legend>
+      <legend>{{ 'The look' if channel.format == 'quiz' else 'Footage or graphics' }}</legend>
       {% include "_scene_settings.html" %}
     </fieldset>
 
+    {% if channel.format != 'quiz' %}
     <fieldset>
-      <legend>Paintings</legend>
+      <legend>Paintings and engravings</legend>
       <input type="hidden" name="artwork_present" value="1">
       <label class="checkbox-label">
-        <input type="checkbox" name="artwork_passage" {% if channel.artwork.mode == 'passage' %}checked{% endif %}>
-        Show a public-domain painting of the passage while it's read (the opening, on a topic channel)
-        <button type="button" class="info-dot" data-tooltip="From the Art Institute of Chicago's and the Met's open collections, slowly panned; credited in the description. If nothing fits, the usual footage is used.">?</button>
+        <input type="checkbox" name="artwork_allowed" {% if channel.artwork.mode in ('allowed', 'passage') %}checked{% endif %}>
+        Use a public-domain painting or engraving where one shows what's being said
       </label>
+      <p class="hint">For segments about history, myths, scripture, literature or art: the
+        director can choose a real work from the Art Institute of Chicago's and the Met's open
+        collections instead of footage, slowly panned and credited in the description. It's
+        a real picture, like footage, so the slider above doesn't limit it. When nothing fits,
+        the segment keeps its footage. Free apart from a fraction of a cent to pick the work.</p>
     </fieldset>
+    {% endif %}
 
   </section>
 

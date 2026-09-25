@@ -6,6 +6,8 @@ The visual director: for each segment, the kind of picture that fits.
     template      a designed motion graphic: a number, a comparison, a list, a
                   process, a timeline, a definition, an equation... (pipeline.templates)
     diagram       a free-form constructed drawing, for geometry and plots only
+    artwork       a public-domain painting or engraving (pipeline.artwork), when
+                  the channel allows it; a real picture, so not held to the bar
 
 One Sonnet call reads the whole script and chooses, with a reason, a
 brief, and a score for how much the segment needs something other than
@@ -26,16 +28,29 @@ from pipeline.templates import library
 
 log = get_logger(__name__)
 
-MEDIA = ("footage", "illustration", "template", "diagram")
+MEDIA = ("footage", "illustration", "template", "diagram", "artwork")
+GRAPHICS = ("illustration", "template", "diagram")
 MAX_TOKENS = 5000
 EFFORT = "low"
 
-GUIDE = """
+INTRO = """
 You are the visual director of a short vertical explainer video. For each
 spoken segment, choose what is on screen while it's said:
 
 - footage: real stock video. Best for people, animals, places, objects and
   actions: anything a camera can film. A dog yawning is footage.
+""".strip()
+
+ARTWORK = """
+- artwork: a real public-domain painting, engraving or print from a museum
+  collection, slowly panned. For history, historical people, myths,
+  scripture, literature and art itself, when a well-known work would show
+  what's being said. Never for anything modern. Its brief is a museum
+  search of 2-4 words: names and titles ("Samson Delilah", "Battle of
+  Trafalgar", "Ophelia").
+""".strip()
+
+GRAPHICS_GUIDE = """
 - illustration: one image drawn in the channel's style, slowly pushed in.
   For what can't be filmed: inside the body, the past, a metaphor, a
   scene from a story or scripture.
@@ -46,7 +61,9 @@ spoken segment, choose what is on screen while it's said:
 {catalogue}
 - diagram: a free-form constructed drawing. Only for geometry (shapes,
   angles, constructions) and plotted graphs. Never for anything else.
+""".strip()
 
+OUTRO = """
 Also score how much each segment NEEDS something other than footage, 0-10:
 10 means footage genuinely can't carry it (a calculation, a structure with
 named parts, a statistic that is the point); 5 means a graphic helps but
@@ -60,16 +77,26 @@ striking picture you can get. Everything must match what the words say.
 For each segment give: medium, template (name, when medium is template),
 brief (for footage: what to film; for illustration: the image to draw,
 concretely; for template: what it shows, with the words' actual numbers;
-for diagram: the construction), need, and reason (a few words).
+for diagram: the construction; for artwork: the museum search), need, and
+reason (a few words).
 """.strip()
 
 
-def _schema() -> dict:
+def _guide(media: list) -> str:
+    parts = [INTRO]
+    if "artwork" in media:
+        parts.append(ARTWORK)
+    if "template" in media:
+        parts.append(GRAPHICS_GUIDE.format(catalogue=library.catalogue()))
+    return "\n".join(parts) + "\n\n" + OUTRO
+
+
+def _schema(media: list = MEDIA) -> dict:
     return {"type": "object", "properties": {"segments": {"type": "array", "items": {
         "type": "object",
         "properties": {
             "index": {"type": "integer"},
-            "medium": {"type": "string", "enum": list(MEDIA)},
+            "medium": {"type": "string", "enum": list(media)},
             "template": {"type": "string", "enum": ["", *library.TEMPLATES]},
             "brief": {"type": "string"},
             "need": {"type": "integer"},
@@ -80,18 +107,21 @@ def _schema() -> dict:
         "required": ["segments"], "additionalProperties": False}
 
 
-def direct(segments: list, subject: str, share: int, skip: set = frozenset()) -> list:
+def direct(segments: list, subject: str, share: int, skip: set = frozenset(),
+           artwork: bool = False) -> list:
     """[{index, medium, template, brief, need, reason}] for every segment
-    not in `skip` (already pictured, e.g. by a painting), with the
-    channel's bar applied: below it, footage."""
+    not in `skip` (already pictured), with the channel's bar applied to
+    graphics: below it, footage. `artwork` offers museum paintings too,
+    which are real pictures and so are never held to the bar."""
     bar = need_threshold(share)
     todo = [i for i in range(len(segments)) if i not in skip]
-    if bar is None or not todo:
+    media = ["footage", *(["artwork"] if artwork else []), *(GRAPHICS if bar is not None else [])]
+    if media == ["footage"] or not todo:
         return [{"index": i, "medium": "footage", "template": "", "brief": segments[i].shot_brief,
                  "need": 0, "reason": "the channel uses footage"} for i in todo]
     lines = "\n".join(f"[{i}] ({segments[i].duration:.1f}s) {segments[i].text}" for i in todo)
-    data = call_json([SystemBlock(GUIDE.format(catalogue=library.catalogue()), cacheable=True)],
-                     f"The video is about: {subject}\n\nSegments:\n{lines}", _schema(),
+    data = call_json([SystemBlock(_guide(media), cacheable=True)],
+                     f"The video is about: {subject}\n\nSegments:\n{lines}", _schema(media),
                      operation="director", max_tokens=MAX_TOKENS, effort=EFFORT)
     chosen = {r["index"]: r for r in data.get("segments") or []
               if isinstance(r.get("index"), int) and r["index"] in todo}
@@ -101,9 +131,11 @@ def direct(segments: list, subject: str, share: int, skip: set = frozenset()) ->
                                    "reason": "not directed"})
         r["index"] = i
         r["brief"] = (r.get("brief") or "").strip() or segments[i].shot_brief or segments[i].text
+        if r.get("medium") not in media:
+            r["medium"] = "footage"
         if r["medium"] == "template" and r.get("template") not in library.TEMPLATES:
             r["medium"] = "illustration"
-        if r["medium"] != "footage" and int(r.get("need") or 0) < bar:
+        if r["medium"] in GRAPHICS and int(r.get("need") or 0) < bar:
             log.info(f"  [director] segment {i}: {r['medium']} scores {r.get('need')} < {bar:g}; footage")
             r["medium"] = "footage"
             r["brief"] = segments[i].shot_brief or r["brief"]

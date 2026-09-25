@@ -155,7 +155,7 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             quiz.difficulties = list(dict.fromkeys(levels))
 
     if "artwork_present" in form:
-        channel.artwork.mode = "passage" if form.get("artwork_passage") else "off"
+        channel.artwork.mode = "allowed" if form.get("artwork_allowed") else "off"
 
     if "sound_present" in form:
         channel.sound.music = bool(form.get("sound_music"))

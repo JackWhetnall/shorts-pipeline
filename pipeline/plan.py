@@ -157,8 +157,6 @@ class Script:
     # few words that pop in the captions as they're spoken.
     screen_hook: str = ""
     emphasis: list = field(default_factory=list)
-    # A short museum search for a painting of this passage (pipeline.artwork).
-    art_query: str = ""
     # A quiz's structure (pipeline.quiz): category, difficulty, and each
     # question with its answer and which segments ask and answer it.
     # None for every other format.
@@ -179,7 +177,6 @@ class Script:
                 "payoff": self.payoff,
                 "screen_hook": self.screen_hook,
                 "emphasis": list(self.emphasis),
-                "art_query": self.art_query,
                 "quiz": self.quiz,
                 "segments": [s.to_jsonable() for s in self.segments],
                 "title_options": list(self.title_options),
@@ -193,7 +190,6 @@ class Script:
                    payoff=data.get("payoff", ""),
                    screen_hook=data.get("screen_hook", ""),
                    emphasis=list(data.get("emphasis") or []),
-                   art_query=data.get("art_query", ""),
                    quiz=data.get("quiz"),
                    segments=[Segment.from_jsonable(s) for s in data["segments"]],
                    title_options=list(data.get("title_options") or []),

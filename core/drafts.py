@@ -141,6 +141,9 @@ def accept(draft_id: str, choices: dict) -> ChannelConfig:
     channel.scenes.share = int(_number(choices.get("scene_share"),
                                        drafted_art.get("scene_share", 0), 0, 100))
 
+    wanted = choices.get("museum_art")
+    if (body.get("museum_art") if wanted is None else wanted) and body.get("format") != "quiz":
+        channel.artwork.mode = "allowed"
     if body.get("format") == "quiz":
         _set_up_quiz(channel, body, choices)
 
