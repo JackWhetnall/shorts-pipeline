@@ -62,8 +62,13 @@ def restart() -> None:
     """Start this app again with its original command, a few seconds from
     now (so the port is free), and end this process."""
     command = list(getattr(sys, "orig_argv", None) or [sys.executable, *sys.argv])
+    # The new copy has no console (it's detached), so its output goes to
+    # the app's log, the same one the logon-task copy writes.
+    log_path = ROOT / "cache" / "web.log"
     relauncher = ("import subprocess, sys, time; time.sleep(%d); "
-                  "subprocess.Popen(sys.argv[1:], cwd=%r)" % (RESTART_DELAY, str(ROOT)))
+                  "out = open(%r, 'a', encoding='utf-8'); "
+                  "subprocess.Popen(sys.argv[1:], cwd=%r, stdout=out, stderr=out, "
+                  "stdin=subprocess.DEVNULL)" % (RESTART_DELAY, str(log_path), str(ROOT)))
     flags = 0
     if os.name == "nt":
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
