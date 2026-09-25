@@ -1926,6 +1926,11 @@ function initSettingsSections(form) {
   // wizard's redirects all link to /settings#section-look and friends.
   const wanted = (location.hash || "").slice(1);
   if (!showSettingsSection(wanted)) showSettingsSection(first);
+  // And a link to another section from within this page, which changes
+  // only the hash and so never reloads it.
+  window.addEventListener("hashchange", () => {
+    if (showSettingsSection(location.hash.slice(1))) window.scrollTo({top: 0});
+  });
 
   for (const link of links) {
     link.addEventListener("click", (event) => {

@@ -81,6 +81,35 @@ def _maybe_int(form, name, current):
     return current if value is None else int(value)
 
 
+def _apply_publishing_plan(plan, form) -> None:
+    """When the channel publishes and how many videos it keeps ready
+    (core.publish_queue, core.scheduler). Times that aren't HH:MM are
+    dropped rather than saved, so a typo can't stop the channel."""
+    from core import posting
+    from core.channels import SLOT_RE
+
+    plan.enabled = form.get("plan_enabled") == "on"
+    slots = [s.strip() for s in (form.get("slots") or "").replace(";", ",").split(",")]
+    slots = [f"{int(h):02d}:{m}" for h, m in (s.split(":", 1) for s in slots if ":" in s)
+             if h.strip().isdigit() and m.strip().isdigit()]
+    plan.slots = sorted({s for s in slots if SLOT_RE.match(s)})
+    # Dropped, not clamped: a stray "9" must not quietly become Sunday.
+    plan.weekdays = sorted({int(d) for d in form.getlist("weekdays")
+                            if d.strip().isdigit() and int(d) in range(7)})
+    plan.buffer = min(14, max(1, _maybe_int(form, "buffer", plan.buffer)))
+    plan.post_tiktok = form.get("post_tiktok") == "on"
+    plan.post_instagram = form.get("post_instagram") == "on"
+    # "browser|profile folder", or "" for the default browser. Only values
+    # the page offered are kept: a profile that doesn't exist yet is made
+    # by the setup button, not typed.
+    choice = form.get("posting_profile", "")
+    offered = {c["value"] for c in posting.profile_choices()}
+    if choice in offered:
+        plan.posting_browser, plan.posting_profile = choice.split("|", 1)
+    elif choice == "":
+        plan.posting_browser = plan.posting_profile = ""
+
+
 def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
     """Apply a settings/new-channel form onto `channel`, in place.
 
@@ -102,6 +131,14 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
 
     # Unchecked checkboxes submit nothing, so a marker distinguishes "off"
     # from "this form has no such field".
+    if "publishing_plan_present" in form:
+        _apply_publishing_plan(channel.publishing, form)
+
+    if "scene_share" in form:
+        from web.blueprints.scenes import art_from
+        channel.scenes.share = min(100, max(0, _maybe_int(form, "scene_share", channel.scenes.share)))
+        channel.scenes.art = art_from(form)
+
     if "artwork_present" in form:
         channel.artwork.mode = "passage" if form.get("artwork_passage") else "off"
 

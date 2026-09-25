@@ -29,7 +29,7 @@ import logging
 import os
 import secrets
 
-from flask import Flask, abort, flash, g, jsonify, render_template, request, session
+from flask import Flask, abort, flash, g, jsonify, render_template, request, session, url_for
 
 from core import jobs
 from core.errors import PipelineError, friendly_message
@@ -113,6 +113,19 @@ def create_app(debug: bool = False) -> Flask:
                     "active_job_count": len(jobs.active_jobs())}
         except Exception:  # noqa: BLE001 - chrome must never break a page
             return {"review_waiting": 0, "to_post": 0, "active_job_count": 0}
+
+    @app.context_processor
+    def inject_asset_version():
+        """A query string that changes whenever the stylesheet or script
+        does. Without it the browser kept the old style.css after an update,
+        and a fixed layout looked unfixed until a hard refresh."""
+        def asset(name):
+            try:
+                version = int(os.path.getmtime(os.path.join(app.static_folder, name)))
+            except OSError:
+                version = 0
+            return url_for("static", filename=name, v=version)
+        return {"asset": asset}
 
     @app.context_processor
     def inject_fonts():

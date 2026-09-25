@@ -55,8 +55,10 @@
      before it started. */
   --fit-height: calc(100dvh - var(--header-height)
                      - var(--action-bar-height) - var(--sp-5) * 2);
-  /* Sticky elements below the header clear it by the same amount. */
-  --sticky-top: var(--sticky-top);
+  /* Sticky elements below the header clear it by the same amount. (This
+     once read `var(--sticky-top)`: a variable defined as itself is
+     invalid, so every sticky sidebar and player silently didn't stick.) */
+  --sticky-top: calc(var(--header-height) + var(--sp-3));
 
   --font: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
@@ -1842,7 +1844,11 @@ label > textarea {
 
 @media (max-width: 900px) {
   .settings-layout { grid-template-columns: 1fr; }
-  .settings-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  /* Still sticky when narrow: a row of tabs that stays in reach, on a
+     background so the page doesn't show through it. */
+  .settings-nav { flex-direction: row; flex-wrap: wrap; z-index: 5;
+                  background: var(--bg); padding: var(--sp-1, 0.25rem) 0;
+                  top: var(--header-height); }
   .settings-nav-link span { display: none; }
 }
 

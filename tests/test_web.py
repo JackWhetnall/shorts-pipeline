@@ -750,8 +750,9 @@ class TestAudienceCard:
 class TestPublishingPlan:
     def test_saving_the_plan_keeps_valid_times_and_drops_typos(self, client, config_path):
         from core.channels import load_channels
-        response = client.post("/channels/test_channel/publishing", data={
-            "csrf_token": csrf(client), "enabled": "on", "slots": "18:00, 9:30, 25:99, noon",
+        response = client.post("/channels/test_channel/settings", data={
+            "csrf_token": csrf(client), "publishing_plan_present": "1", "plan_enabled": "on",
+            "slots": "18:00, 9:30, 25:99, noon",
             "weekdays": ["0", "2", "4", "9"], "buffer": "5", "post_tiktok": "on",
         })
         assert response.status_code == 302
@@ -760,7 +761,37 @@ class TestPublishingPlan:
         assert plan.weekdays == [0, 2, 4] and plan.buffer == 5
         assert plan.post_tiktok and not plan.post_instagram
 
+    def test_the_plan_left_out_of_a_post_is_left_alone(self, client, config_path):
+        """Sections are saved only when their fields were on the page: a
+        post without the plan must not switch the channel off."""
+        from core.channels import load_channels, save_channel
+        channel = load_channels(config_path)["test_channel"]
+        channel.publishing.enabled = True
+        channel.publishing.slots = ["18:00"]
+        save_channel(channel, config_path)
+        client.post("/channels/test_channel/settings", data={"csrf_token": csrf(client)})
+        plan = load_channels(config_path)["test_channel"].publishing
+        assert plan.enabled and plan.slots == ["18:00"]
+
+    def test_graphics_are_saved_by_the_settings_form(self, client, config_path):
+        from core.channels import load_channels
+        client.post("/channels/test_channel/settings", data={
+            "csrf_token": csrf(client), "scene_share": "35", "art_preset": "chalkboard"})
+        scenes = load_channels(config_path)["test_channel"].scenes
+        assert scenes.share == 35 and scenes.art.get("preset") == "chalkboard"
+
+    def test_settings_live_on_the_settings_page_not_the_dashboard(self, client):
+        """The plan, graphics and music were once edited on the dashboard
+        beside the settings page, with their own Save buttons."""
+        settings = client.get("/channels/test_channel/settings").get_data(as_text=True)
+        for marker in ('name="slots"', 'name="scene_share"', "data-music-picker",
+                       'id="section-graphics"', 'id="section-music"'):
+            assert marker in settings
+        dashboard = client.get("/channels/test_channel").get_data(as_text=True)
+        assert 'name="slots"' not in dashboard and 'name="scene_share"' not in dashboard
+        assert "section-publishing" in dashboard and "section-graphics" in dashboard
+
     def test_the_dashboard_shows_the_launch_pipeline(self, client):
         html = client.get("/channels/test_channel").get_data(as_text=True)
-        assert "Launch" in html and "Publishing plan" in html
+        assert "Launch" in html and "Publishing" in html
         assert "Make and approve a first video" in html

@@ -125,86 +125,18 @@
 {% endif %}
 
 <div class="card" id="publishing-plan">
-  <h2>Publishing plan</h2>
-  <p class="subtitle">
-    When this channel publishes, and how many videos it keeps ready ahead
-    of time. Approved videos (by you, or by the checks under autopilot)
-    queue up and go out at these times. The app makes new ones in the
-    background to keep the queue full, and stops if too many are waiting
-    for a look.
-  </p>
-  <form method="post" action="{{ url_for('channels.set_publishing', key=key) }}" class="channel-form">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label class="checkbox-label">
-      <input type="checkbox" name="enabled" {% if channel.publishing.enabled %}checked{% endif %}>
-      Run this channel on its own: keep videos ready, publish on time
-    </label>
-    <label>Publish at (24-hour; several separated by commas)
-      <input type="text" name="slots" value="{{ channel.publishing.slots|join(', ') }}" placeholder="18:00">
-    </label>
-    <fieldset class="weekday-picker">
-      <legend>On</legend>
-      {% for name in weekday_names %}
-      <label class="checkbox-label">
-        <input type="checkbox" name="weekdays" value="{{ loop.index0 }}" {% if loop.index0 in channel.publishing.weekdays %}checked{% endif %}>
-        {{ name }}
-      </label>
-      {% endfor %}
-    </fieldset>
-    <label>Keep this many ready
-      <input type="number" name="buffer" min="1" max="14" value="{{ channel.publishing.buffer }}">
-    </label>
-    <label class="checkbox-label">
-      <input type="checkbox" name="post_tiktok" {% if channel.publishing.post_tiktok %}checked{% endif %}>
-      Also post each one to TikTok from this PC
-    </label>
-    <label class="checkbox-label">
-      <input type="checkbox" name="post_instagram" {% if channel.publishing.post_instagram %}checked{% endif %}>
-      Also post each one to Instagram from this PC
-    </label>
-    <label>Post from
-      <select name="posting_profile">
-        <option value="" {% if not channel.publishing.posting_profile %}selected{% endif %}>Your default browser, as it is</option>
-        {% for choice in posting_choices %}
-        <option value="{{ choice.value }}" {% if choice.value == channel.publishing.posting_browser ~ '|' ~ channel.publishing.posting_profile %}selected{% endif %}>{{ choice.label }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <p class="hint">
-      As each video goes out it's added to <a href="{{ url_for('review.handoff_page') }}">To post</a>,
-      where one click opens this browser profile at the upload page, shows the
-      video in Explorer ready to drag in, and puts the caption on your
-      clipboard. TikTok and Instagram only let reviewed apps post for you, so
-      the drag, paste and Post are yours.
-    </p>
-    {% if plan_estimate %}
-    <p class="hint">At this plan: about {{ plan_estimate.videos }} videos a month, roughly
-      {{ '{:,}'.format(plan_estimate.characters) }} ElevenLabs characters{% if plan_estimate.limit %} of your
-      {{ '{:,}'.format(plan_estimate.limit) }}{% endif %}.</p>
+  <h2>Publishing</h2>
+  <p class="meta">
+    {% if channel.publishing.enabled %}
+      Runs on its own: {{ channel.publishing.slots|join(', ') or 'no times set' }}
+      {%- if channel.publishing.weekdays|length < 7 %}, on
+        {% for d in channel.publishing.weekdays %}{{ weekday_names[d] }}{{ ', ' if not loop.last }}{% endfor %}{% endif %},
+      keeping {{ channel.publishing.buffer }} ready.
+    {% else %}
+      Not publishing on its own yet.
     {% endif %}
-    <button type="submit">Save plan</button>
-  </form>
-
-  <h3>This channel's own browser profile</h3>
-  {% if posting_error %}<p class="error">{{ posting_error }}</p>{% endif %}
-  {% if posting_ready %}
-  <p class="meta info-banner">A new {{ channel.publishing.posting_browser|capitalize }} window opened
-    on TikTok's and Instagram's login pages. Sign in to <strong>this channel's</strong> accounts
-    there; the profile remembers them from now on.</p>
-  {% endif %}
-  <p class="hint">
-    A profile keeps its own logins, so this channel's TikTok and Instagram
-    stay signed in there and never mix with your personal accounts or
-    another channel's. {% if channel.publishing.posting_profile %}This channel posts from
-    <strong>{{ channel.publishing.posting_browser|capitalize }}: {{ channel.publishing.posting_profile }}</strong>.{% endif %}
+    <a href="{{ url_for('channels.settings', key=key, _anchor='section-publishing') }}">Change the plan</a>
   </p>
-  <form method="post" action="{{ url_for('channels.set_up_posting_profile', key=key) }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="btn-ghost">
-      {{ 'Open its login pages again' if channel.publishing.posting_profile else 'Make a profile for this channel and sign in' }}
-    </button>
-  </form>
-
   <h3>Right now</h3>
   <p class="meta">
     {% if progress.active_job %}Making a video.
@@ -222,23 +154,21 @@
   {% endif %}
 </div>
 
-<div class="card" id="music">
-  <h2>Music</h2>
-  <p class="subtitle">Played quietly under every video, ducking whenever anyone speaks.</p>
-  {% include "_music_picker.html" %}
-</div>
-
-<div class="card" id="animated-scenes">
-  <h2>Graphics and illustrations</h2>
-  <p class="subtitle">
-    Designed motion graphics and illustrations in this channel's own look,
-    timed to the words, where they show something better than footage.
-  </p>
-  <form method="post" action="{{ url_for('scenes.save', key=key) }}" class="channel-form">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    {% include "_scene_settings.html" %}
-    <div class="actions"><button type="submit" class="btn btn-primary">Save the look</button></div>
-  </form>
+<div class="card" id="settings-glance">
+  <h2>How it's made</h2>
+  <ul class="glance">
+    <li><strong>Pictures:</strong>
+      {% if channel.scenes.share <= 0 %}real footage throughout
+      {%- elif channel.scenes.share >= 100 %}graphics and illustrations throughout
+      {%- else %}footage, with graphics where a segment needs one (bar {{ channel.scenes.share }}){% endif %},
+      in the {{ scene_look }} look.
+      <a href="{{ url_for('channels.settings', key=key, _anchor='section-graphics') }}">Graphics settings</a></li>
+    <li><strong>Music:</strong>
+      {% if not channel.sound.music %}off
+      {%- elif music_tracks %}{{ music_tracks|length }} track{{ 's' if music_tracks|length != 1 }}
+      {%- else %}none chosen yet; suggestions are fetched at the next video{% endif %}.
+      <a href="{{ url_for('channels.settings', key=key, _anchor='section-music') }}">Music settings</a></li>
+  </ul>
 </div>
 
 {% if cost and cost.calls %}

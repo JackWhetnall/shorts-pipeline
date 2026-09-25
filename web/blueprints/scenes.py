@@ -8,14 +8,12 @@ channel page and on each channel's dashboard. See decision 035.
 
 from __future__ import annotations
 
-from flask import Blueprint, redirect, request, send_file, url_for
+from flask import Blueprint, request, send_file, url_for
 
-from core.channels import save_channel
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from core.paths import CACHE_DIR
 from pipeline.scenes import art
-from web.helpers import as_int, channel_or_404
 
 log = get_logger(__name__)
 
@@ -74,12 +72,3 @@ def template_sheet():
     except PipelineError as exc:
         return exc.user_message, 503
     return send_file(path, mimetype="image/jpeg", max_age=86400)
-
-
-@bp.route("/channels/<key>/scenes", methods=["POST"])
-def save(key):
-    channel = channel_or_404(key)
-    channel.scenes.art = art_from(request.form)
-    channel.scenes.share = as_int(request.form.get("scene_share"), default=0, minimum=0, maximum=100)
-    save_channel(channel)
-    return redirect(url_for("channels.dashboard", key=key, _anchor="animated-scenes"))

@@ -1171,8 +1171,8 @@ class TestSettingsContentSection:
         """Four hidden tabs plus a nine-step wizard is what made it unclear
         where anything lived."""
         html = client.get("/channels/c/settings").get_data(as_text=True)
-        for anchor in ("section-content", "section-voice", "section-look",
-                       "section-publishing", "section-money"):
+        for anchor in ("section-content", "section-voice", "section-look", "section-graphics",
+                       "section-music", "section-publishing", "section-money"):
             assert f'id="{anchor}"' in html
 
     def test_the_look_section_carries_the_caption_controls(self, client):
