@@ -241,7 +241,7 @@ def test_a_scene_is_repaired_once_with_its_problems(plan, monkeypatch, tmp_path)
     checks = iter([(scene(), ["'a' and 'b' overlap"], {}), (scene(), [], {})])
     monkeypatch.setattr(writer, "write", write)
     looks = []
-    monkeypatch.setattr(stage, "_check", lambda *a, look=False: looks.append(look) or next(checks))
+    monkeypatch.setattr(stage, "_check", lambda *a, look=False, not_before=0.0: looks.append(look) or next(checks))
     monkeypatch.setattr(stage.render, "render", lambda sc, st, assets, out: out)
     clip, notes = stage._make("idea", WORDS, 4.0, art.resolve({}), tmp_path, {},
                               tmp_path / "scene_1", 0.5, [0])

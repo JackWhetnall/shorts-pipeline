@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from core.channels import Pacing, Style
 from pipeline import assemble, script_gen
 from pipeline.plan import Script, Segment, WordTiming
@@ -61,12 +63,31 @@ def test_the_writer_is_asked_for_both():
     assert {"screen_hook", "emphasis"} <= set(item["required"])
 
 
-def test_the_first_scene_is_told_to_keep_the_hooks_band_clear():
+def test_the_first_scene_waits_for_the_hook_text_to_go():
     from pipeline.scenes import stage
     plan = SimpleNamespace(channel=SimpleNamespace(style=Style()),
                            script=SimpleNamespace(screen_hook="Kill something inside"),
                            voiceover=SimpleNamespace(word_timings=_words("Paul says kill it. More.")))
-    note = stage._opening_reserve(plan)
-    assert "until 1.6s" in note or "until 1." in note
+    end = stage._hook_end(plan)
+    assert end == pytest.approx(_words("Paul says kill it. More.")[3].end + 0.35)
+    words = [(w.word, w.start) for w in _words("Paul says kill it. More.")]
+    assert "starts on word 4" in stage._reserve_note(end, words)
     plan.script.screen_hook = ""
-    assert stage._opening_reserve(plan) == ""
+    assert stage._hook_end(plan) == 0.0
+
+
+def test_anything_early_is_flagged_and_as_a_last_resort_held_back():
+    # The owner: the big hook text must never cover a diagram; the picture
+    # starts after it.
+    from pipeline.scenes import writer
+    scene = {"duration": 6.0, "actions": [
+        {"target": "tri", "do": "draw", "at": 0.2, "dur": 1.0},
+        {"target": "a", "do": "appear", "at": 0.9, "dur": 0.4},
+        {"target": "tri", "do": "highlight", "at": 1.0, "dur": 0.5},    # not an entry
+        {"target": "b", "do": "appear", "at": 3.0, "dur": 0.4}]}
+    notes = writer.early_entries(scene, 2.0)
+    assert len(notes) == 2 and "'tri' comes on at 0.2s" in notes[0]
+    writer.hold_back(scene, 2.0)
+    assert [a["at"] for a in scene["actions"]] == [2.0, 2.15, 1.0, 3.0]
+    assert writer.early_entries(scene, 2.0) == []
+    assert writer.early_entries(scene, 0.0) == []

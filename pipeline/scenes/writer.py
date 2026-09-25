@@ -559,6 +559,35 @@ def layout_problems(boxes_over_time: list) -> list:
     return list(problems.values())
 
 
+ENTRIES = ("appear", "draw", "write", "stack")
+HOLD_BACK_STAGGER = 0.15
+
+
+def early_entries(scene: dict, not_before: float) -> list:
+    """Notes for anything that comes on screen before `not_before` (the
+    moment the opening hook text leaves)."""
+    if not_before <= 0:
+        return []
+    return [f"{a['target']!r} comes on at {a['at']:.1f}s, but nothing may appear before "
+            f"{not_before:.1f}s: the opening text is on screen until then."
+            for a in scene.get("actions") or [] if a["do"] in ENTRIES and a["at"] < not_before]
+
+
+def hold_back(scene: dict, not_before: float) -> dict:
+    """Move any entry before `not_before` to just after it, in the order
+    they came, so the picture starts once the hook text has gone. The
+    last resort, after the repair round was asked to do it properly."""
+    if not_before <= 0:
+        return scene
+    early = sorted((a for a in scene.get("actions") or []
+                    if a["do"] in ENTRIES and a["at"] < not_before), key=lambda a: a["at"])
+    limit = max(0.0, float(scene["duration"]) - 0.15)
+    for n, a in enumerate(early):
+        a["at"] = round(min(limit, not_before + n * HOLD_BACK_STAGGER), 3)
+        a["dur"] = round(max(0.1, min(float(a.get("dur") or 0.5), float(scene["duration"]) - a["at"])), 3)
+    return scene
+
+
 STAGE_MIN_W, STAGE_MIN_H = 560, 520    # the finished picture should fill at least this
 
 

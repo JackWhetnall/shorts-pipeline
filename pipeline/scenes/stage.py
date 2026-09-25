@@ -65,7 +65,7 @@ def run(plan):
     # has been revealed by its turn. Written alone, the Pythagoras demo's
     # third scene put the 6 on the wall and gave the answer away early.
     narration = "\n".join(f"[{i}] {s.text}" for i, s in enumerate(segments))
-    reserve = _opening_reserve(plan)
+    hook_end = _hook_end(plan)
     new_props = [0]
     for i, stretch in enumerate(stretches):
         first, last = stretch["first"], stretch["last"]
@@ -74,12 +74,14 @@ def run(plan):
         context = {"before": stretches[i - 1]["idea"] if i else "",
                    "after": stretches[i + 1]["idea"] if i + 1 < len(stretches) else "",
                    "narration": narration,
-                   "reserve": reserve if first == 0 else ""}
+                   "reserve": _reserve_note(hook_end, words) if first == 0 else ""}
+        not_before = hook_end if first == 0 else 0.0
         log.info(f"  [scene] {i + 1}/{len(stretches)}: segments {first}-{last}, "
                  f"{end - start:.1f}s: {stretch['idea'][:80]}")
         try:
             clip, notes = _make(stretch["idea"], words, end - start, style, library, context,
-                                folder / f"scene_{i + 1}", plan.channel.pacing.crossfade, new_props)
+                                folder / f"scene_{i + 1}", plan.channel.pacing.crossfade, new_props,
+                                not_before)
         except Exception as exc:  # noqa: BLE001 - degrades to stock and is flagged, never silent
             if not isinstance(exc, PipelineError):
                 log.exception(f"  [scene] scene {i + 1} failed unexpectedly")
@@ -96,19 +98,31 @@ def run(plan):
     return plan
 
 
-def _make(idea, words, duration, style, library, context, stem: Path, tail: float, new_props):
+def _make(idea, words, duration, style, library, context, stem: Path, tail: float, new_props,
+          not_before: float = 0.0):
     """One scene, written, checked, repaired once if needed, and rendered.
-    Returns (clip path, notes about anything that remained imperfect)."""
+    Returns (clip path, notes about anything that remained imperfect).
+
+    `not_before`: nothing may appear before this (the opening hook text
+    is on screen until then). Asked for, checked, and as a last resort
+    enforced by holding early entries back."""
     existing = sorted(p.stem.replace("_", " ") for p in library.glob("*.png"))
     raw = writer.write(idea, words, duration, style, existing, **context)
-    scene, problems, assets = _check(raw, words, duration, style, library, new_props, look=True)
+    scene, problems, assets = _check(raw, words, duration, style, library, new_props, look=True,
+                                     not_before=not_before)
     if problems:
         log.info(f"  [scene] repairing: {'; '.join(problems)[:300]}")
         raw = writer.write(idea, words, duration, style, existing, previous=raw,
                            problems=problems, **context)
-        scene, problems, assets = _check(raw, words, duration, style, library, new_props)
+        scene, problems, assets = _check(raw, words, duration, style, library, new_props,
+                                         not_before=not_before)
     if scene is None:
         raise PipelineError("; ".join(problems), user_message="An animated scene couldn't be made.")
+    early = set(writer.early_entries(scene, not_before))
+    if early:
+        log.info(f"  [scene] holding {len(early)} entry(ies) back until the hook text has gone")
+        writer.hold_back(scene, not_before)
+        problems = [p for p in problems if p not in early]
 
     # Held on its last picture for the crossfade into whatever follows.
     scene["duration"] = round(duration + tail, 3)
@@ -118,7 +132,8 @@ def _make(idea, words, duration, style, library, context, stem: Path, tail: floa
     return clip, problems          # what's left is layout only: cosmetic, and noted
 
 
-def _check(raw, words, duration, style, library, new_props, look: bool = False):
+def _check(raw, words, duration, style, library, new_props, look: bool = False,
+           not_before: float = 0.0):
     """(scene or None, problems, assets). None means it can't be rendered
     as is; problems alone (with a scene) are layout imperfections.
 
@@ -140,7 +155,8 @@ def _check(raw, words, duration, style, library, new_props, look: bool = False):
                                 spec.get("detail") or "", icons=_icons(style))
     stills = _still_times(duration) if look else ()
     boxes, images = render.layout(scene, style, assets, stills=stills)
-    problems = writer.layout_problems(boxes) + writer.too_small(boxes)
+    problems = (writer.early_entries(scene, not_before) + writer.layout_problems(boxes)
+                + writer.too_small(boxes))
     if look:
         spoken = [" ".join(w for w, t in words if t <= at)[-160:] for at in stills]
         problems += writer.picture_problems(images, spoken, " ".join(w for w, _ in words))
@@ -152,19 +168,24 @@ def _still_times(duration: float) -> tuple:
     return (round(duration * 0.5, 2), round(max(0.0, duration - 0.1), 2))
 
 
-def _opening_reserve(plan) -> str:
-    """The on-screen hook covers the top of the frame for the video's first
-    seconds; a scene there must leave that band clear until it has gone."""
+def _hook_end(plan) -> float:
+    """When the on-screen hook text has gone (0 when there isn't any). The
+    first scene's picture starts then, never under the text."""
     from pipeline import assemble
 
     if not (getattr(plan.channel.style, "screen_hook_enabled", True)
             and getattr(plan.script, "screen_hook", "")):
+        return 0.0
+    return assemble.screen_hook_window(plan.voiceover.word_timings)[1]
+
+
+def _reserve_note(hook_end: float, words: list) -> str:
+    if hook_end <= 0:
         return ""
-    _, end = assemble.screen_hook_window(plan.voiceover.word_timings)
-    top = assemble.SCREEN_HOOK_Y - 240
-    return (f"The video's opening text covers y {top}-{assemble.SCREEN_HOOK_Y + 240} "
-            f"until {end:.1f}s. Put nothing in that band before then: start the picture "
-            f"lower, or bring things in there after {end:.1f}s.")
+    first = next((i for i, (_, t) in enumerate(words) if t >= hook_end), len(words) - 1)
+    return (f"The video's opening hook text fills the screen until {hook_end:.1f}s. Nothing "
+            f"may appear before then: the picture starts on word {first} or later, on a clear "
+            f"stage.")
 
 
 def _icons(style: dict) -> dict:
