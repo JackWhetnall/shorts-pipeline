@@ -215,6 +215,10 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
     job_context.set_job_id(job_id)
     job_context.set_channel_key(channel_key)
     try:
+        # A queued job whose turn comes after an update: stop before paying
+        # for anything. Its retry runs on the new code, reusing nothing
+        # (nothing was made yet).
+        _refuse_if_stale()
         channel = load_channels()[channel_key]
         plan = generate(channel, Seed.from_jsonable(seed), interactive=False)
         with _lock:
@@ -311,10 +315,29 @@ def _advance_queue() -> None:
             # Loop round and try the next one instead of stranding the queue.
 
 
+UPDATING = ("The app was updated since it started and is restarting to pick "
+            "the update up. Try again in a minute.")
+
+
+def busy() -> bool:
+    """Whether any video is being made or waiting to be."""
+    with _lock:
+        return any(j.status in RUNNING_STATES for j in _jobs.values())
+
+
+def _refuse_if_stale() -> None:
+    # Old core code in memory with new pipeline code from disk is how a
+    # render once failed at its last step (core.code_freshness).
+    from core import code_freshness
+    if code_freshness.is_stale():
+        raise JobError("code changed since start", user_message=UPDATING)
+
+
 def start_job(channel_key: str, seed: dict) -> str:
     """Queue or start a job. Raises JobError if this channel already has
-    one in flight."""
+    one in flight, or if the app is waiting to restart onto new code."""
     install()
+    _refuse_if_stale()
     with _lock:
         if any(j.status in RUNNING_STATES and j.channel_key == channel_key
                for j in _jobs.values()):
@@ -346,6 +369,7 @@ def retry_job(job_id: str) -> str:
     completed are reused rather than paid for twice.
     """
     install()
+    _refuse_if_stale()
     with _lock:
         job = _jobs.get(job_id)
         if job is None:

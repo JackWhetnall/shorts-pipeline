@@ -38,6 +38,11 @@ def main() -> None:
         log.info(f"Restored {restored} job record(s) from the last session.")
     if not args.no_scheduler:
         scheduler.start_background()
+    # Restart onto new code after an update, once nothing is running.
+    if not args.debug:
+        from core import code_freshness
+        code_freshness.remember()
+        code_freshness.watch(lambda: jobs.busy() or scheduler.busy())
 
     log.info(f"Open http://{args.host}:{args.port}/")
     app.run(host=args.host, port=args.port, debug=args.debug,

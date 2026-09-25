@@ -104,6 +104,13 @@ def _refresh_audience(channels: dict) -> None:
 
 _thread = None
 _stop = threading.Event()
+# Set while a tick is running: an upload mid-way must not be cut off by a
+# restart (core.code_freshness).
+_ticking = threading.Event()
+
+
+def busy() -> bool:
+    return _ticking.is_set()
 
 
 def start_background() -> None:
@@ -118,7 +125,11 @@ def start_background() -> None:
         # due while the app was down, which is usually surprising rather
         # than helpful. Wait one interval first.
         while not _stop.wait(TICK_SECONDS):
-            tick()
+            _ticking.set()
+            try:
+                tick()
+            finally:
+                _ticking.clear()
 
     _stop.clear()
     _thread = threading.Thread(target=loop, daemon=True, name="scheduler")
