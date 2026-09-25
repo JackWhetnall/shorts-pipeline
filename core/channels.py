@@ -304,6 +304,9 @@ class Sound(_MappingLike):
 
     music: bool = True
     music_level: float = 0.16
+    # Search phrases for finding this channel's music (core.music_library);
+    # written by the draft, or worked out the first time music is needed.
+    music_moods: list = field(default_factory=list)
     effects: bool = True
     effects_level: float = 0.3
 

@@ -62,13 +62,17 @@ def test_the_music_ducks_under_speech_and_rises_in_the_pauses(tmp_path):
     assert level(5.9, 6.0) < pause * 0.2           # and out
 
 
-def test_no_music_folder_means_no_music_and_nothing_breaks(tmp_path, monkeypatch):
+def test_no_music_anywhere_means_no_music_and_nothing_breaks(tmp_path, monkeypatch):
+    from core import music_library
     monkeypatch.setattr(sound, "CHANNELS_DIR", tmp_path / "channels")
     monkeypatch.setattr(sound, "SHARED_MUSIC_DIR", tmp_path / "music")
+    asked = []
+    monkeypatch.setattr(music_library, "auto_fill", lambda channel: asked.append(channel.key) or [])
     channel = ChannelConfig(key="c")
     voice = np.full((FPS, 2), 0.1)
     out = sound.mix(voice, FPS, channel, SimpleNamespace(scene_clips=[], stem="v"), lambda t: t)
     assert np.array_equal(out, voice)
+    assert asked == ["c"]                         # it tried to fetch some first
 
 
 def test_the_channels_own_music_comes_before_the_shared_folder(tmp_path, monkeypatch):

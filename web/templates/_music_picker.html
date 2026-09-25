@@ -1,0 +1,32 @@
+{# Music suggestions with players. On a channel's dashboard it adds and
+   removes tracks directly; on the draft page (music_draft set) the ticked
+   ones are downloaded when the channel is created. #}
+<div class="music-picker" data-music-picker
+     data-suggest-url="{{ music_suggest_url }}"
+     {% if music_channel_key %}data-channel="{{ music_channel_key }}"{% endif %}
+     {% if music_draft %}data-draft="1"{% endif %}>
+  {% if music_channel_key %}
+  <h3>This channel's music</h3>
+  <ul class="music-list" data-music-current>
+    {% for t in music_tracks %}
+    <li class="music-row">
+      <span><strong>{{ t.title }}</strong>{% if t.creator %} <span class="hint">by {{ t.creator }}</span>{% endif %}
+        {% if t.licence %}<span class="hint">({{ t.licence|upper }})</span>{% endif %}</span>
+      <audio controls preload="none" src="{{ url_for('music.play', key=music_channel_key, name=t.file) }}"></audio>
+      <button type="button" class="btn-ghost danger-text" data-music-remove="{{ t.file }}">Remove</button>
+    </li>
+    {% else %}
+    <li class="hint">None yet. The best few suggestions are fetched automatically at the next
+      video, or choose your own below.</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <div class="actions">
+    <button type="button" class="btn-ghost" data-music-find>Suggest tracks</button>
+    <span class="hint" data-music-status></span>
+  </div>
+  <ul class="music-list" data-music-suggestions></ul>
+  <p class="hint">Openly licensed tracks (CC0, public domain, or CC BY credited in the
+    description) that suit this channel, never one another channel uses. Listen before you
+    choose: titles and tags can mislead.</p>
+</div>

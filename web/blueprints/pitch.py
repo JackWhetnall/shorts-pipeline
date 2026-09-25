@@ -48,6 +48,8 @@ def review(draft_id):
         palettes=palettes.PALETTES,
         error=request.args.get("error"),
         **form_context(drafted_art, drafted_art.get("scene_share", 0)),
+        music_draft=True, music_channel_key="", music_tracks=[],
+        music_suggest_url=url_for("music.suggest_for_draft", draft_id=draft_id),
     )
 
 
@@ -85,6 +87,7 @@ def accept(draft_id):
                           if a.strip()],
         "art": art_from(form),
         "scene_share": form.get("scene_share"),
+        "music": form.getlist("music_track"),
     }
     if "quotes" in form:
         choices["quotes"] = form.get("quotes", "")

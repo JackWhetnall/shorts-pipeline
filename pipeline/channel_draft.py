@@ -184,6 +184,10 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
                                          "best first."},
             "palette_key": {"type": "string", "enum": palette_keys},
             "art": _art_schema(),
+            "music_moods": {"type": "array", "items": {"type": "string"},
+                            "description": "Three short searches (2-4 words: mood, instrument, "
+                                           "style) for instrumental background music that suits "
+                                           "the channel under narration."},
             "needs_news_source": {"type": "boolean",
                                   "description": "True if the idea depends on recent "
                                                  "events that a syllabus can't provide."},
@@ -195,7 +199,7 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
         "required": ["name_options", "summary", "audience", "content_mode",
                      "corpus_source", "custom_quotes", "subject", "style_prompt", "hook_style",
                      "target_seconds", "segment_count", "speed", "avoid_imagery",
-                     "voice_brief", "voice_ids", "palette_key", "art",
+                     "voice_brief", "voice_ids", "palette_key", "art", "music_moods",
                      "needs_news_source", "risks"],
         "additionalProperties": False,
     }

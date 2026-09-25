@@ -2162,3 +2162,10 @@ button.topic-row.selected:hover {
 .scene-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--sp-3, 0.75rem); align-items: end; }
 .scene-share-value { flex-basis: 9rem; }
 @media (max-width: 700px) { .scene-settings { grid-template-columns: 1fr; } .scene-preview img { max-width: 14rem; } }
+
+/* --- Music picker --------------------------------------------------------- */
+.music-list { list-style: none; padding: 0; margin: var(--sp-3, 0.75rem) 0; display: flex; flex-direction: column; gap: var(--sp-2, 0.5rem); }
+.music-row { display: grid; grid-template-columns: 1fr minmax(12rem, 18rem) auto; gap: var(--sp-3, 0.75rem); align-items: center; }
+.music-row audio { width: 100%; height: 2.2rem; }
+.music-why { display: block; }
+@media (max-width: 700px) { .music-row { grid-template-columns: 1fr; } }

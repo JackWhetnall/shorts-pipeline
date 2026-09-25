@@ -27,6 +27,7 @@ from pipeline import quote_source
 from pipeline.run import fetch_seed
 from web.blueprints.curriculum import channels_running_low
 from web.blueprints.scenes import form_context as scene_form_context
+from core import music_library
 from web.forms import ORDERING_CHOICE_FIELDS, apply_channel_form, format_affiliate_links
 from web.helpers import (
     all_channels, as_int, channel_or_404, channel_progress, format_date,
@@ -117,6 +118,8 @@ def dashboard(key):
         cost=_channel_cost(key),
         rename_error=request.args.get("rename_error"),
         **scene_form_context(channel.scenes.art, channel.scenes.share),
+        music_channel_key=key, music_tracks=music_library.tracks(key),
+        music_suggest_url=url_for("music.suggest", key=key),
     )
 
 

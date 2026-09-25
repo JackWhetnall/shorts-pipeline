@@ -188,12 +188,22 @@ def mix(voice: np.ndarray, fps: int, channel, plan, to_track_time) -> np.ndarray
         out = add_effects(out, fps, cues, sound.effects_level)
     if sound.music:
         tracks = music_tracks(channel.key)
+        if not tracks:
+            # Nothing chosen yet: fetch the channel's best few itself
+            # (core.music_library), so no one has to go looking.
+            from core import music_library
+            music_library.auto_fill(channel)
+            tracks = music_tracks(channel.key)
         if tracks:
             pick = random.Random(plan.stem).choice(tracks)
             log.info(f"  [sound] music: {pick.name}")
             out += music_bed(pick, len(out), fps, out.shape[1], voice, sound.music_level)
+            from core import music_library
+            line = music_library.credit_for(pick)
+            if line and hasattr(plan, "art_credits"):
+                plan.art_credits.append(line)
         else:
-            log.info("  [sound] no music: add tracks to channels/<key>/music or music/")
+            log.info("  [sound] no music available for this channel")
     peak = np.abs(out).max()
     if peak > 0.98:                                  # never clip: scale the whole mix down
         out *= 0.98 / peak

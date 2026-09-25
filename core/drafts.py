@@ -146,10 +146,24 @@ def accept(draft_id: str, choices: dict) -> ChannelConfig:
     if channel.content_mode == "topic":
         _start_topic_plan(channel, body["subject"], record["outline"])
 
+    channel.sound.music_moods = list(body.get("music_moods") or [])
     channel_admin.create_channel(channel, complete=False)
+    _add_music(channel.key, choices.get("music") or [])
     discard(draft_id)
     log.info(f"Created channel {key} from a pitch ({record['pitch']!r}).")
     return channel
+
+
+def _add_music(channel_key: str, track_ids: list) -> None:
+    """The tracks ticked on the draft page. A failed download is logged,
+    not fatal: the channel exists, and fetches music itself if it has
+    none."""
+    from core import music_library
+    for track_id in track_ids[:8]:
+        try:
+            music_library.add(channel_key, music_library.candidate(track_id))
+        except PipelineError as exc:
+            log.warning(f"{channel_key}: couldn't add track {track_id}: {exc}")
 
 
 def _start_topic_plan(channel, subject: str, outline: list) -> None:

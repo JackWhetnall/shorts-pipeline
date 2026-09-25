@@ -123,6 +123,13 @@
   </div>
 
   <div class="card">
+    <h2>Music</h2>
+    <p class="meta">Tick what suits it; the ticked tracks are fetched when the channel is
+      created. Leave them all unticked and the best few are fetched at its first video.</p>
+    {% include "_music_picker.html" %}
+  </div>
+
+  <div class="card">
     <h2>Animated scenes</h2>
     {% if body.art and body.art.reason %}<p class="meta">{{ body.art.reason }}</p>{% endif %}
     {% include "_scene_settings.html" %}

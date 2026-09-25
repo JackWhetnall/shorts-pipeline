@@ -2809,3 +2809,78 @@ function initSceneSettings(root) {
 }
 
 document.querySelectorAll("[data-scene-settings]").forEach(initSceneSettings);
+
+// --- Music (_music_picker.html) ------------------------------------------
+// Suggestions arrive with players; on a dashboard "Add" downloads a track
+// into the channel, on a draft the ticked ones are fetched at creation.
+function initMusicPicker(root) {
+  const channel = root.dataset.channel;
+  const isDraft = root.dataset.draft === "1";
+  const status = root.querySelector("[data-music-status]");
+  const list = root.querySelector("[data-music-suggestions]");
+  const current = root.querySelector("[data-music-current]");
+
+  const renderCurrent = tracks => {
+    if (!current) return;
+    current.innerHTML = tracks.length ? tracks.map(t => `
+      <li class="music-row">
+        <span><strong>${escapeHtml(t.title)}</strong>${t.creator ? ` <span class="hint">by ${escapeHtml(t.creator)}</span>` : ""}
+          ${t.licence ? `<span class="hint">(${escapeHtml(t.licence.toUpperCase())})</span>` : ""}</span>
+        <audio controls preload="none" src="/channels/${channel}/music/file/${encodeURIComponent(t.file)}"></audio>
+        <button type="button" class="btn-ghost danger-text" data-music-remove="${escapeHtml(t.file)}">Remove</button>
+      </li>`).join("") : `<li class="hint">None yet.</li>`;
+  };
+
+  const post = async (url, body) => {
+    const res = await apiFetch(url, {method: "POST", headers: {"Content-Type": "application/json"},
+                                     body: JSON.stringify(body)});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "That didn't work.");
+    return data;
+  };
+
+  root.addEventListener("click", async event => {
+    const remove = event.target.closest("[data-music-remove]");
+    const add = event.target.closest("[data-music-add]");
+    try {
+      if (remove) {
+        renderCurrent((await post(`/channels/${channel}/music/remove`, {file: remove.dataset.musicRemove})).tracks);
+      } else if (add) {
+        add.disabled = true; add.textContent = "Adding…";
+        renderCurrent((await post(`/channels/${channel}/music/add`, {id: add.dataset.musicAdd})).tracks);
+        add.closest("li").remove();
+      }
+    } catch (err) {
+      status.textContent = err.message;
+      if (add) { add.disabled = false; add.textContent = "Add"; }
+    }
+  });
+
+  root.querySelector("[data-music-find]").addEventListener("click", async () => {
+    status.textContent = "Finding tracks that suit this channel… (about 15 seconds)";
+    list.innerHTML = "";
+    try {
+      const res = await fetch(root.dataset.suggestUrl);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Couldn't find tracks.");
+      status.textContent = data.tracks.length
+        ? `Searched for: ${data.moods.join(", ")}.` : "Nothing suitable came up. Try again later.";
+      list.innerHTML = data.tracks.map((t, i) => `
+        <li class="music-row">
+          <span><strong>${escapeHtml(t.title)}</strong>${t.creator ? ` <span class="hint">by ${escapeHtml(t.creator)}</span>` : ""}
+            <span class="hint">${Math.floor(t.seconds / 60)}:${String(t.seconds % 60).padStart(2, "0")}, ${escapeHtml(t.licence.toUpperCase())}</span>
+            ${t.why ? `<span class="hint music-why">${escapeHtml(t.why)}</span>` : ""}</span>
+          <audio controls preload="none" src="${escapeHtml(t.url)}"></audio>
+          ${isDraft
+            ? `<label class="checkbox-label"><input type="checkbox" name="music_track" value="${escapeHtml(t.id)}" ${i < 3 ? "checked" : ""}> Use</label>`
+            : `<button type="button" class="btn-ghost" data-music-add="${escapeHtml(t.id)}">Add</button>`}
+        </li>`).join("");
+    } catch (err) {
+      status.textContent = err.message;
+    }
+  });
+
+  if (isDraft) root.querySelector("[data-music-find]").click();   // a draft shows its options straight away
+}
+
+document.querySelectorAll("[data-music-picker]").forEach(initMusicPicker);
