@@ -149,6 +149,27 @@ def page_frame(html: str, t: float, out_path: Path = None) -> bytes:
     return data
 
 
+def page_frames(pages: list) -> list:
+    """[(html, t)] -> JPEG bytes for each, from one browser: the template
+    gallery films a dozen pages, and a browser per page would take a
+    minute."""
+    from playwright.sync_api import sync_playwright
+
+    out = []
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(channel="chrome", headless=True)
+        try:
+            page = browser.new_page(viewport={"width": FRAME_WIDTH, "height": FRAME_HEIGHT})
+            for html, t in pages:
+                page.set_content(html)
+                page.wait_for_function("window.__ready === true", timeout=15000)
+                page.evaluate(f"window.__seek({t:.4f})")
+                out.append(page.screenshot(type="jpeg", quality=JPEG_QUALITY))
+        finally:
+            browser.close()
+    return out
+
+
 def encode(page_maker, duration: float, out_path: Path, fps: int = FPS) -> Path:
     import imageio_ffmpeg
 

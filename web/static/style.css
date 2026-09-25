@@ -2169,3 +2169,5 @@ button.topic-row.selected:hover {
 .music-row audio { width: 100%; height: 2.2rem; }
 .music-why { display: block; }
 @media (max-width: 700px) { .music-row { grid-template-columns: 1fr; } }
+
+.template-sheet { width: 100%; max-width: 720px; border-radius: 10px; border: 1px solid var(--border); margin-top: var(--sp-2, .5rem); }

@@ -61,12 +61,15 @@ the look from the audience's relationship to the subject, not from the
 subject's stereotype: adults who were put off maths at school should not
 be shown a school chalkboard, and a calm devotional audience should not
 get neon. Clean and uncluttered beats textured unless texture is the
-point. Distinct, not generic. Then set when a segment is animated rather
-than stock footage, 0-100. It is a threshold on how much each segment
-needs a picture: 0 never animates (pure mood and atmosphere); 10-20
-animates only segments that can't be followed without a picture; about 50
-animates whatever a picture helps; 100 animates every segment (subjects
-explained visually all the way through, like maths).
+point. Distinct, not generic. Then set when a segment uses a graphic
+(an illustration in this look, or a designed motion graphic: a number, a
+comparison, a list, a process) instead of real footage, 0-100. It is a
+threshold on how much a segment needs one: 0 is always footage; 20-35
+suits channels about people, animals, places and everyday life, where
+real footage is usually best and a graphic only earns its place for a
+statistic or a comparison; 40-60 suits science, history and ideas; 80+
+only subjects explained visually throughout, like maths. Never set 100
+for a channel whose subject can be filmed.
 
 Where the words come from: either `topic` mode, where every script is
 written from one topic in an ordered syllabus that runs from what anyone

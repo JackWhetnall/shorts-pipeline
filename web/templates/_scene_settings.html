@@ -10,15 +10,17 @@
   </div>
   <div class="scene-controls">
     <label class="field-row">
-      <span class="field-label">When to animate instead of stock footage</span>
+      <span class="field-label">When to use graphics instead of footage</span>
       <span class="slider-row">
         <input type="range" name="scene_share" min="0" max="100" step="5" value="{{ scene_share }}"
                data-scene-share>
         <output class="slider-value scene-share-value" data-scene-share-label></output>
       </span>
-      <span class="hint">Each segment is judged on how much it needs a picture. Towards
-        the left only segments that can't be followed without one are animated; all the way
-        left is always stock, all the way right always animated.</span>
+      <span class="hint">For each segment the director picks real footage, an illustration
+        in this look, or a designed motion graphic (a number, a comparison, a list, a process...),
+        and scores how much it needs something other than footage. This is the bar: all the way
+        left is always footage, all the way right never footage, and near the left only segments
+        that can't be shown any other way get a graphic.</span>
     </label>
 
     <label class="field-row">
@@ -79,8 +81,15 @@
       </label>
     </div>
 
+    <div class="field-row">
+      <button type="button" class="btn-ghost" data-template-sheet
+              data-sheet-base="{{ url_for('scenes.template_sheet') }}">See the motion graphics in this look</button>
+      <span class="hint">About 20 seconds the first time.</span>
+      <img class="template-sheet hidden" data-template-sheet-img alt="Every motion-graphics template in this look">
+    </div>
+
     <label class="field-row">
-      <span class="field-label">How its illustrated objects are drawn</span>
+      <span class="field-label">How its illustrations and icons are drawn</span>
       <textarea name="art_prop_style" rows="3" data-scene-field="prop_style">{{ scene_art.prop_style }}</textarea>
       <span class="hint">Each object (a piggy bank, a candle) is drawn once in this style, then
         reused in every video. Changing this only affects objects drawn from now on.</span>

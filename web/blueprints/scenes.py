@@ -63,6 +63,19 @@ def preview():
     return send_file(path, mimetype="image/jpeg", max_age=86400)
 
 
+@bp.route("/scenes/template-sheet.jpg")
+def template_sheet():
+    """Every motion-graphics template in the look given by the query
+    string, as one sheet. Filmed once per look (about 20 seconds)."""
+    from pipeline.templates import gallery
+    style = art.resolve(art_from(request.args))
+    try:
+        path = gallery.sheet(style, PREVIEW_DIR, CACHE_DIR / "template_icons" / style["key"])
+    except PipelineError as exc:
+        return exc.user_message, 503
+    return send_file(path, mimetype="image/jpeg", max_age=86400)
+
+
 @bp.route("/channels/<key>/scenes", methods=["POST"])
 def save(key):
     channel = channel_or_404(key)

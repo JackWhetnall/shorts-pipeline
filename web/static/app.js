@@ -2806,6 +2806,19 @@ function initSceneSettings(root) {
     refresh();
   });
   fields.forEach(f => f.addEventListener("change", refresh));
+
+  const sheetButton = root.querySelector("[data-template-sheet]");
+  const sheet = root.querySelector("[data-template-sheet-img]");
+  if (sheetButton && sheet) {
+    sheetButton.addEventListener("click", () => {
+      const params = new URLSearchParams({art_preset: preset.value});
+      fields.forEach(f => { if (f.value) params.set(`art_${f.dataset.sceneField}`, f.value); });
+      sheetButton.textContent = "Filming them…";
+      sheet.onload = () => { sheetButton.textContent = "Refresh"; sheet.classList.remove("hidden"); };
+      sheet.onerror = () => { sheetButton.textContent = "Couldn't film them: try again"; };
+      sheet.src = `${sheetButton.dataset.sheetBase}?${params}`;
+    });
+  }
 }
 
 document.querySelectorAll("[data-scene-settings]").forEach(initSceneSettings);

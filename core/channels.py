@@ -86,7 +86,8 @@ class Pacing(_MappingLike):
     # outro card. Without it the card cut in on the final syllable and
     # every video seemed to stop mid-thought.
     end_hold: float = 0.9
-    max_shot_seconds: float = 5.0
+    # Short-form is cut fast: something new every few seconds.
+    max_shot_seconds: float = 3.5
     crossfade: float = 0.5
     outro_seconds: float = 3.0
     caption_max_group_size: int = 4
