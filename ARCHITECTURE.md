@@ -374,6 +374,14 @@ A quiz channel keeps every question it has asked in
 related questions; a local check against the whole bank replaces repeats.
 Difficulty is a level on a fixed 1-10 scale (`quiz.levels`).
 
+**Long quizzes** (`pipeline/longform.py`) are not a pipeline run. A job
+with seed type `longform` recuts finished quiz shorts: each short saves
+where its questions and answers are in its voice track (`_quiz.json`),
+so only the host's joining lines are voiced. The long video lives under
+`output/<channel>/longform/` (`gallery.is_long`), publishes in its own
+slots, YouTube only, and always waits for review. See decision
+[044](docs/decisions/044-long-quizzes.md).
+
 A channel without a syllabus keeps drawing from its flat `topics` list.
 See decision [018](docs/decisions/018-topic-curriculum.md).
 

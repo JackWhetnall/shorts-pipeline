@@ -115,6 +115,21 @@ difficulties = 75 quizzes) are all live.
    (the draft's choice). Change them in **Settings → Channel** if you'd
    rather say "Very hard".
 
+### 2e. Watch the first long quiz (new)
+In **Review** there's a 7-minute widescreen quiz: your Science (Medium) and
+Space (Hard) shorts recut into "20 Questions, Medium to Hard", answers at
+the end. Its host lines were newly voiced (about 450 characters, $0.14 in
+all); every question and answer is cut from the shorts. Watch the joins
+and the answer sections. It was a test: discard it to free those two
+rounds for a proper six-round quiz later, or keep it.
+Long quizzes are made from **Create video → A long quiz** once enough
+shorts are finished (the card shows how many are ready at each
+difficulty; "rising" mixes them, easiest first). Settings → Channel sets
+the default rounds and variant, and can make one every N days;
+Settings → Publishing → **Long quizzes** sets their own days and times.
+Custom thumbnails need your YouTube account verified (Studio → Settings
+→ Channel → Feature eligibility); until then YouTube picks a frame.
+
 ## Starting to publish (Minute Pastor, Wren's, The Pub Quiz Round)
 
 ### 3a. Decide the voice allowance first (the one real limit)
