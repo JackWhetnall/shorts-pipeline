@@ -881,5 +881,17 @@ def run(plan):
         track_path.unlink(missing_ok=True)
 
     library.mark_used([shot.clip_path for shot in plan.shots if shot.clip_path], channel.key)
+    remove_working_files(plan)
     job_context.report_progress(None)
     return plan
+
+
+def remove_working_files(plan) -> None:
+    """The render's intermediate clips (animated scenes, illustrations,
+    paintings, a quiz board), once the finished video exists. Kept until
+    then, because a retry after a failed render reuses them; after it they
+    only took up space (a quiz board is as big as the video)."""
+    import shutil
+    folder = Path(plan.out_dir) / f"{plan.stem}_scenes"
+    if folder.is_dir():
+        shutil.rmtree(folder, ignore_errors=True)

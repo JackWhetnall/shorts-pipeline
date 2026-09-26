@@ -78,7 +78,7 @@ def queued(channel) -> list:
     if not directory.exists():
         return []
     items = []
-    for path in directory.rglob("*.mp4"):
+    for path in gallery.videos_in(directory):
         info = gallery.load_publish_info(path)
         if gallery.is_queued(info):
             items.append((info["queued_at"], path))
@@ -252,7 +252,7 @@ def awaiting_posts(channels: dict) -> list:
         directory = gallery.resolve_output_dir(channel.output_dir)
         if not directory.exists():
             continue
-        for path in directory.rglob("*.mp4"):
+        for path in gallery.videos_in(directory):
             info = gallery.load_publish_info(path)
             pending = [p for p, h in info["handoff"].items() if not h.get("posted_at")]
             if pending and not info["discarded"]:

@@ -59,6 +59,16 @@ def resolve_output_dir(output_dir: str) -> Path:
     return (PROJECT_ROOT / output_dir).resolve()
 
 
+def videos_in(directory: Path):
+    """Every finished video under `directory`: its mp4s, but not a render's
+    working files (a `<stem>_scenes` folder of clips, or a `_TEMP_` file),
+    which once showed up in the review queue as videos of their own."""
+    for path in Path(directory).rglob("*.mp4"):
+        if "_TEMP_" in path.name or any(p.name.endswith("_scenes") for p in path.parents):
+            continue
+        yield path
+
+
 def read_text_tolerantly(path: Path) -> str:
     """UTF-8 first, cp1252 as a fallback.
 
@@ -400,7 +410,7 @@ def video_state_counts(output_dir: str) -> dict:
         return empty
 
     total = discarded = published = queued = 0
-    for path in directory.rglob("*.mp4"):
+    for path in videos_in(directory):
         total += 1
         info = load_publish_info(path)
         if info["discarded"]:
@@ -422,7 +432,7 @@ def latest_video_mtime(output_dir: str):
     directory = resolve_output_dir(output_dir)
     if not directory.exists():
         return None
-    mtimes = [p.stat().st_mtime for p in directory.rglob("*.mp4")]
+    mtimes = [p.stat().st_mtime for p in videos_in(directory)]
     return max(mtimes) if mtimes else None
 
 
@@ -431,7 +441,7 @@ def latest_published_at(output_dir: str):
     if not directory.exists():
         return None
     stamps = []
-    for path in directory.rglob("*.mp4"):
+    for path in videos_in(directory):
         info = load_publish_info(path)
         if info["published_at"]:
             stamps.append(datetime.fromisoformat(info["published_at"]).timestamp())
@@ -451,7 +461,7 @@ def list_videos(output_dir: str) -> list:
         return []
 
     videos = []
-    for path in directory.rglob("*.mp4"):
+    for path in videos_in(directory):
         meta_path = _sidecar(path, "meta.txt")
         links = load_publish_info(path)
         videos.append({
@@ -578,7 +588,7 @@ def orphaned_files(output_dir: str) -> list:
     directory = resolve_output_dir(output_dir)
     if not directory.exists():
         return []
-    stems = {p.stem for p in directory.rglob("*.mp4")}
+    stems = {p.stem for p in videos_in(directory)}
     orphans = []
     for path in directory.rglob("*"):
         if not path.is_file() or path.suffix == ".mp4":

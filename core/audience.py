@@ -102,7 +102,7 @@ def _due_videos(channel, force: bool) -> dict:
     if not directory.exists():
         return {}
     due = {}
-    for path in directory.rglob("*.mp4"):
+    for path in gallery.videos_in(directory):
         info = gallery.load_publish_info(path)
         vid = video_id(info.get("youtube_url", ""))
         if not vid or info.get("discarded"):

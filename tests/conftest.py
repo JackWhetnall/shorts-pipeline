@@ -21,3 +21,5 @@ def _isolated_script_history(tmp_path, monkeypatch):
     render would write) this installation's real history."""
     monkeypatch.setattr("pipeline.similarity.SCRIPT_HISTORY_PATH",
                         tmp_path / "script_history.json")
+    # And a quiz channel's question bank (pipeline.quiz).
+    monkeypatch.setattr("pipeline.quiz.QUESTION_BANK_DIR", tmp_path / "question_banks")

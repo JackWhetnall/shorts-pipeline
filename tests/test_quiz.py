@@ -122,7 +122,11 @@ class TestFactCheck:
         similarity.record("pub_quiz", "other", quiz.to_script(_round(prefix="Geo"), _channel(),
                                                               "Geography", "Easy"))
         asked = quiz.asked_before("pub_quiz", "science")
-        assert asked[0].startswith("Old") and asked[-1].startswith("Geo")
+        # This category's questions are shown; another category's only
+        # when they touch on this one (and the local check catches the rest).
+        assert asked[0].startswith("Old") and not any(q.startswith("Geo") for q in asked)
+        geo = quiz.to_script(_round(prefix="Geo"), _channel(), "Geography", "Easy").quiz["questions"]
+        assert quiz.repeats(geo, "pub_quiz") == [0, 1, 2]
 
 
 class TestRounds:
@@ -268,7 +272,7 @@ def test_the_round_is_written_to_fit_a_short():
     channel = _channel(10)
     channel.pacing.target_seconds = 150
     assert 220 <= quiz.word_budget(channel) <= 260
-    assert "at most" in quiz._user("Science", "Hard", 10, channel, [], "")
+    assert "at most" in quiz._user("Science", "Hard", 10, channel, ([], []), "")
 
 
 def test_a_video_past_three_minutes_is_held():
@@ -330,7 +334,7 @@ class TestLadder:
                 return {"results": [{"number": i + 1, "working": "", "correct_answers": ["x"],
                                      "verdict": "ok", "note": ""} for i in range(3)]}
             prompts.append(user)
-            difficulty = user.split("Difficulty: ")[1].split("\n")[0]
+            difficulty = user.split("Difficulty: ")[1].split(",")[0]
             return _round(prefix=difficulty)
 
         monkeypatch.setattr(quiz, "call_json", call_json)
@@ -342,9 +346,9 @@ class TestLadder:
         hard = plan.find("Science: Hard")
         script = quiz.write_script(Seed(type="topic", topic=hard["title"], topic_id=hard["id"]),
                                    plan.channel)
-        assert [p.split("Difficulty: ")[1].split("\n")[0] for p in plan.prompts] == [
+        assert [p.split("Difficulty: ")[1].split(",")[0] for p in plan.prompts] == [
             "Easy", "Medium", "Hard"]
-        assert "The Easy round (must be easier" in plan.prompts[1]
+        assert "The Easy round, level 2 (must be easier" in plan.prompts[1]
         assert "Easy question number 1?" in plan.prompts[2] and "Medium question number 1?" in plan.prompts[2]
         assert script.quiz["difficulty"] == "Hard"
         # The easier rounds are stored for their own videos; the other
@@ -362,7 +366,7 @@ class TestLadder:
             channel=plan.channel, seed=Seed(type="topic", topic=easy["title"], topic_id=easy["id"])))
         assert stored.quiz["difficulty"] == "Easy"
         # And counts as asked, so no other round repeats it.
-        assert "Easy question number 1?" in quiz.asked_before("pub_quiz", "Maths")
+        assert "Easy question number 1?" in quiz.asked_before("pub_quiz", "Science")
 
     def test_a_round_already_made_counts_as_a_rung(self, plan):
         """The owner made Medium first: Easy must be pitched below it."""
@@ -375,5 +379,86 @@ class TestLadder:
                           quiz.to_script(_round(prefix="Made"), plan.channel, "Science", "Medium"))
         easy = plan.find("Science: Easy")
         quiz.write_script(Seed(type="topic", topic=easy["title"], topic_id=easy["id"]), plan.channel)
-        assert "The Medium round (must be harder" in plan.prompts[0]
+        assert "The Medium round, level 4 (must be harder" in plan.prompts[0]
         assert "Made question number 1? (Made1)" in plan.prompts[0]
+
+
+class TestScale:
+    def test_the_default_ladder_sits_on_the_fixed_scale(self):
+        assert quiz.levels(["Easy", "Medium", "Hard", "Fiendish", "Impossible"]) == [
+            ("Easy", 2), ("Medium", 4), ("Hard", 5.5), ("Fiendish", 8), ("Impossible", 9.5)]
+
+    def test_a_level_added_later_slots_in_without_moving_the_others(self):
+        before = dict(quiz.levels(["Easy", "Medium", "Hard", "Fiendish", "Impossible"]))
+        after = dict(quiz.levels(["Easy", "Medium", "Hard", "Tricky", "Fiendish", "Impossible"]))
+        assert all(after[k] == v for k, v in before.items())
+        assert before["Hard"] < after["Tricky"] < before["Fiendish"]
+
+    def test_an_unknown_name_sits_between_its_neighbours_and_a_number_wins(self):
+        assert dict(quiz.levels(["Easy", "Warm", "Hard"]))["Warm"] == 4        # midway 2 .. 5.5
+        assert dict(quiz.levels(["Easy", "Spicy (7)", "Hard"])) == {"Easy": 2, "Spicy": 7, "Hard": 8}
+        # The list's order is the ladder's: levels always rise down it, even
+        # when a familiar name is out of its usual place.
+        odd = [level for _, level in quiz.levels(["Easy", "Impossible", "Hard"])]
+        assert odd == sorted(odd) and len(set(odd)) == 3
+
+    def test_a_numbered_category_shares_its_memory(self):
+        assert quiz.base_category("General Knowledge 2") == "General Knowledge"
+        assert quiz.base_category("General Knowledge (3)") == "General Knowledge"
+        assert quiz.base_category("Henry VIII") == "Henry"         # the price of Roman numerals
+        assert quiz.base_category("Maths") == "Maths"
+
+    def test_a_new_level_reaches_every_round_already_planned(self, tmp_path, monkeypatch):
+        from core import curriculum
+        monkeypatch.setattr("core.curriculum.CURRICULA_DIR", tmp_path / "curricula")
+        channel = _channel()
+        channel.quiz.difficulties = ["Easy", "Hard"]
+        data = curriculum.start("pub_quiz", "quiz", [{"title": "Science"}])
+        topic = data["topics"][0]["id"]
+        curriculum.add_subtopics("pub_quiz", topic, quiz.subtopic_rows("Science", ["Easy", "Hard"]))
+        curriculum.add_subtopics("pub_quiz", topic, quiz.subtopic_rows("Science", ["Easy", "Hard"], 2))
+        channel.quiz.difficulties = ["Easy", "Hard", "Tricky"]
+        assert quiz.sync_ladders(channel) == 2
+        titles = [s["title"] for s in curriculum.subtopics("pub_quiz")]
+        assert "Science: Tricky" in titles and "Science: Tricky (round 2)" in titles
+        assert quiz.sync_ladders(channel) == 0
+
+
+class TestBank:
+    def test_every_round_is_kept_beyond_the_originality_history(self):
+        for n in range(3):
+            quiz.remember("pub_quiz", f"v{n}", quiz.to_script(_round(prefix=f"R{n}"), _channel(),
+                                                               "Science", "Easy"))
+        assert [r["video"] for r in quiz.bank("pub_quiz")] == ["v0", "v1", "v2"]
+        quiz.remember("pub_quiz", "v1", quiz.to_script(_round(prefix="Again"), _channel(),
+                                                      "Science", "Easy"))
+        assert len(quiz.bank("pub_quiz")) == 3          # a re-render replaces, never duplicates
+
+    def test_a_new_topic_is_shown_what_other_topics_asked_about_it(self):
+        biology = {"intro": "i", "outro": "o", "title_options": ["t"], "description_body": "",
+                   "questions": [
+                       {"lead_in": "", "question": "Which snake has the most toxic venom?",
+                        "answer": "Inland taipan", "spoken_answer": "x"},
+                       {"lead_in": "", "question": "What do bees make?", "answer": "Honey",
+                        "spoken_answer": "x"}]}
+        quiz.remember("pub_quiz", "bio", quiz.to_script(biology, _channel(2), "Biology", "Easy"))
+        same, related = quiz.context_questions("pub_quiz", "Snakes")
+        assert same == [] and [q["answer"] for q in related] == ["Inland taipan"]
+        # And a repeat is caught however it's worded, in any category.
+        again = [{"question": "Which snake's venom is the most toxic?", "answer": "the inland taipan"}]
+        assert quiz.repeats(again, "pub_quiz") == [0]
+        assert quiz.repeats([{"question": "Which bird lays the largest egg?", "answer": "Ostrich"}],
+                            "pub_quiz") == []
+
+
+def test_a_finished_render_leaves_no_working_files_and_listings_skip_them(tmp_path):
+    from core import gallery
+    from pipeline import assemble
+    (tmp_path / "v.mp4").write_bytes(b"")
+    work = tmp_path / "v_scenes"
+    work.mkdir()
+    (work / "board.mp4").write_bytes(b"")
+    (tmp_path / "old_TEMP_board.mp4").write_bytes(b"")
+    assert [p.name for p in gallery.videos_in(tmp_path)] == ["v.mp4"]
+    assemble.remove_working_files(SimpleNamespace(out_dir=tmp_path, stem="v"))
+    assert not work.exists()

@@ -149,8 +149,13 @@ SETTINGS_SECTIONS = ("section-content", "section-voice", "section-look", "sectio
 def settings(key):
     channel = channel_or_404(key)
     if request.method == "POST":
+        levels_before = list(channel.quiz.difficulties)
         apply_channel_form(channel, request.form)
         notes = _save_quote_list(channel, request.form)
+        if channel.format == "quiz" and channel.quiz.difficulties != levels_before:
+            # A level added in settings reaches every category's rounds now.
+            from pipeline import quiz
+            quiz.sync_ladders(channel)
         # Which section was open, carried back through the redirect.
         # Sections are switched rather than scrolled now, so without this a
         # save from Look drops you back on Channel with no sign of where
@@ -250,6 +255,7 @@ def _settings_context(channel, error: str = None) -> dict:
         # The publishing plan, graphics and music: settings, so they live
         # here rather than scattered over the dashboard.
         "weekday_names": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+        "quiz_levels": [(label, f"{level:g}") for label, level in _quiz_levels(channel)],
         "posting_choices": posting.profile_choices(),
         "posting_error": request.args.get("posting_error"),
         "posting_ready": request.args.get("posting_ready"),
@@ -524,7 +530,7 @@ def _times_used(channel, seed) -> dict:
     directory = (PROJECT_ROOT / channel.output_dir)
     if not directory.exists():
         return {"count": 0, "last": None}
-    matches = [p for p in directory.rglob("*.mp4")
+    matches = [p for p in gallery.videos_in(directory)
                if p.stem == stem or p.stem.rsplit("_", 1)[0] == stem]
     matches = [p for p in matches if not gallery.load_publish_info(p)["discarded"]]
     if not matches:
@@ -833,3 +839,8 @@ def card_preview_image(key):
         log.exception("Card preview failed")
         return jsonify({"error": "Could not render a preview."}), 500
     return Response(png, mimetype="image/png", headers={"Cache-Control": "no-store"})
+
+
+def _quiz_levels(channel) -> list:
+    from pipeline import quiz
+    return quiz.levels(channel.quiz.difficulties)

@@ -26,11 +26,13 @@ from __future__ import annotations
 import html
 import json
 import math
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
 from core import curriculum
 from core.errors import PipelineError
+from core.paths import PROJECT_ROOT
 from core.logging_setup import get_logger
 from pipeline.llm import SystemBlock, call_json
 from pipeline.plan import Script, Segment
@@ -41,9 +43,6 @@ WRITE_MAX_TOKENS = 10000
 WRITE_EFFORT = "medium"
 VERIFY_MAX_TOKENS = 16000
 VERIFY_EFFORT = "high"         # a wrong answer is the one unrecoverable mistake
-# Earlier questions shown to the writer so it doesn't ask them again:
-# this category's first, then the channel's others.
-HISTORY_QUESTIONS = 250
 QUESTION_CHARS = 170      # read aloud and shown whole: a sentence, not a paragraph
 ANSWER_CHARS = 40         # one row of the board
 
@@ -92,15 +91,17 @@ Each question:
   on, with the odd bit of colour ("halfway there", "last one"). Under 7
   words. Empty for the first question.
 
-Difficulty, for the whole round:
-- Easy: most adults would know it.
-- Medium: a regular at the pub quiz would.
-- Hard: a keen quizzer would; most people wouldn't.
-- Very hard: specialist knowledge, or a detail most enthusiasts miss.
-- Impossible: only an expert, or someone who happens to know an obscure
-  but real and checkable fact. Still fair: never a trick, never
-  something unknowable.
-Within the round, ease in: the first question or two a touch gentler.
+Difficulty is given as a level on this 1-10 scale. The level is what
+counts; the label is only this channel's name for it.
+- 1-2: almost every adult knows it.
+- 3-4: most adults would get it: everyday general knowledge.
+- 5-6: a regular at the pub quiz would; about a third of adults.
+- 7-8: keen quizzers and fans of the category; about one in ten.
+- 9-10: specialists, or the rare person who happens to know an obscure
+  but real, checkable fact. Still fair: never a trick, never something
+  unknowable.
+Hold the whole round within about a point of its level, easing in with
+the first question or two.
 
 Cover the category broadly, not one narrow corner of it, and never ask
 two questions whose answers give each other away.
@@ -201,6 +202,13 @@ VERIFY_SCHEMA = {
 
 # --- what this round is --------------------------------------------------
 
+def base_category(title: str) -> str:
+    """A category without its number: "General Knowledge 2" and
+    "General Knowledge (3)" are more of General Knowledge, and share its
+    memory of what has been asked."""
+    return re.sub(r"\s*(\(\s*\d+\s*\)|\d+|\b[IVX]+\b)\s*$", "", (title or "").strip()) or (title or "").strip()
+
+
 def round_of(seed, channel) -> tuple:
     """(category, difficulty) for a seed. The topic plan knows exactly;
     a bare seed title of the form "Science: Hard" is split instead."""
@@ -210,13 +218,79 @@ def round_of(seed, channel) -> tuple:
             topic = curriculum.find_topic(channel.key, entry["topic"]) or {}
             difficulty = entry.get("angle") or ""
             if topic.get("title") and difficulty:
-                return topic["title"], difficulty
+                return base_category(topic["title"]), difficulty
     title = seed.topic or seed.title or "General knowledge"
     for sep in (":", " — ", " - "):
         if sep in title:
             category, difficulty = title.split(sep, 1)
-            return category.strip(), difficulty.split("(")[0].strip()
-    return title.strip(), (channel.quiz.difficulties or ["Medium"])[0]
+            return base_category(category.strip()), difficulty.split("(")[0].strip()
+    return base_category(title.strip()), levels(channel.quiz.difficulties)[0][0]
+
+
+# --- the difficulty scale ------------------------------------------------------
+#
+# What the writer is held to is a number on one fixed 1-10 scale; the
+# label is only the channel's name for it. A level added later (say
+# "Tricky" between Hard and Fiendish) therefore slots in between its
+# neighbours instead of stretching every other level, and "Hard" means the
+# same thing on every channel.
+
+KNOWN_LEVELS = {"very easy": 1, "easy": 2, "medium": 4, "moderate": 4, "hard": 5.5,
+                "tricky": 6.5, "very hard": 7, "fiendish": 8, "expert": 8.5, "brutal": 8.5,
+                "impossible": 9.5}
+LEVEL_RE = re.compile(r"^(.*?)\s*\((\d+(?:\.\d+)?)\)\s*$")
+
+
+def parse_level(text: str) -> tuple:
+    """("Tricky", 7.0) from "Tricky (7)"; ("Tricky", None) from "Tricky"."""
+    text = " ".join(str(text or "").split())
+    match = LEVEL_RE.match(text)
+    if match:
+        return match.group(1).strip(), max(1.0, min(10.0, float(match.group(2))))
+    return text, None
+
+
+def levels(difficulties: list) -> list:
+    """[(label, level)] in the channel's order. A level given in brackets
+    is used as is; a familiar name gets its usual level when that keeps the
+    order rising; anything else sits evenly between its neighbours."""
+    parsed = [parse_level(d) for d in difficulties if str(d).strip()] or [("Medium", None)]
+    anchors = [None] * len(parsed)
+    last = 0.0
+    for i, (label, given) in enumerate(parsed):
+        level = given if given is not None else KNOWN_LEVELS.get(label.lower())
+        if level is not None and (given is not None or level > last):
+            anchors[i] = level
+            last = level
+    known = [i for i, a in enumerate(anchors) if a is not None]
+    if not known:
+        n = len(parsed)
+        anchors = [2 + 7.5 * i / max(1, n - 1) for i in range(n)] if n > 1 else [5.0]
+    else:
+        for i in range(len(parsed)):
+            if anchors[i] is not None:
+                continue
+            before = max((k for k in known if k < i), default=None)
+            after = min((k for k in known if k > i), default=None)
+            if before is None:
+                anchors[i] = max(1.0, anchors[after] - 1.5 * (after - i))
+            elif after is None:
+                anchors[i] = min(10.0, anchors[before] + 1.0 * (i - before))
+            else:
+                share = (i - before) / (after - before)
+                anchors[i] = anchors[before] + (anchors[after] - anchors[before]) * share
+    return [(label, round(level * 2) / 2) for (label, _), level in zip(parsed, anchors)]
+
+
+def level_of(channel, label: str) -> float:
+    for name, level in levels(channel.quiz.difficulties):
+        if name.lower() == (label or "").lower():
+            return level
+    return KNOWN_LEVELS.get((label or "").lower(), 5.0)
+
+
+def labels(channel) -> list:
+    return [label for label, _ in levels(channel.quiz.difficulties)]
 
 
 def subtopic_rows(category: str, difficulties: list, round_number: int = 1) -> list:
@@ -225,8 +299,12 @@ def subtopic_rows(category: str, difficulties: list, round_number: int = 1) -> l
     format needs. Titles carry the category and, after the first, the
     round, because the plan drops any title it already has."""
     suffix = f" (round {round_number})" if round_number > 1 else ""
-    return [{"title": f"{category}: {d}{suffix}", "angle": d}
-            for d in difficulties if str(d).strip()]
+    return [{"title": f"{category}: {label}{suffix}", "angle": label}
+            for label, _ in levels(difficulties)]
+
+
+def _named(topic: dict) -> bool:
+    return bool((topic.get("title") or "").strip()) and not topic.get("placeholder")
 
 
 def top_up(channel) -> int:
@@ -240,8 +318,10 @@ def top_up(channel) -> int:
         return 0
     added = 0
     for topic in data["topics"]:
-        rounds = 1 + sum(1 for s in data["subtopics"] if s["topic"] == topic["id"]) // max(
-            1, len(channel.quiz.difficulties))
+        if not _named(topic):
+            continue
+        rounds = max([_round_number(s["title"]) for s in data["subtopics"]
+                      if s["topic"] == topic["id"]] or [0]) + 1
         before = len(curriculum.load(channel.key)["subtopics"])
         curriculum.add_subtopics(channel.key, topic["id"],
                                  subtopic_rows(topic["title"], channel.quiz.difficulties, rounds))
@@ -250,13 +330,86 @@ def top_up(channel) -> int:
     return added
 
 
+def sync_ladders(channel) -> int:
+    """Give every round already in the plan a rung for each difficulty
+    the channel now has: a level added in settings ("Tricky") arrives in
+    every category at once, not only from the next round. Nothing is
+    removed; a level taken out of settings keeps its written rounds."""
+    if not curriculum.exists(channel.key):
+        return 0
+    data = curriculum.load(channel.key)
+    added = 0
+    for topic in data["topics"]:
+        if not _named(topic):
+            continue
+        mine = [s for s in data["subtopics"] if s["topic"] == topic["id"]]
+        for n in sorted({_round_number(s["title"]) for s in mine}):
+            have = {(s.get("angle") or "").lower() for s in mine if _round_number(s["title"]) == n}
+            missing = [r for r in subtopic_rows(topic["title"], channel.quiz.difficulties, n)
+                       if r["angle"].lower() not in have]
+            if missing:
+                curriculum.add_subtopics(channel.key, topic["id"], missing)
+                added += len(missing)
+    if added:
+        log.info(f"{channel.key}: added {added} quizzes for its new difficulty levels")
+    return added
+
+
+# --- the question bank -------------------------------------------------------------
+#
+# Every question a channel has asked, kept for good. The originality
+# history keeps only the last 200 videos, which a daily quiz channel
+# outgrows in seven months. The writer is shown this category's questions
+# (and other categories' questions that touch on it); beyond what fits in
+# a prompt, a local check against the whole bank catches repeats, which
+# are then replaced like answers the fact check didn't pass.
+
+QUESTION_BANK_DIR = PROJECT_ROOT / "config" / "question_banks"
+SAME_CATEGORY_CONTEXT = 300     # ~6k tokens: a few cents a round on Sonnet
+RELATED_CONTEXT = 80
+STOPWORDS = frozenset("""
+what which who whom whose when where why how that this these those with from into
+than then there their they them have has had were was does did been being about
+after before under over also only first name called known most many much more
+""".split())
+
+
+def _bank_path(channel_key: str) -> Path:
+    return QUESTION_BANK_DIR / f"{channel_key}.json"
+
+
+def bank(channel_key: str) -> list:
+    """[{video, category, questions: [{question, answer}]}], oldest first.
+    Seeded from the originality history the first time, so rounds made
+    before the bank existed are remembered too."""
+    path = _bank_path(channel_key)
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            log.warning(f"{channel_key}: the question bank couldn't be read; starting from the history")
+    from pipeline import similarity
+    history = similarity._load().get(channel_key) or []
+    return [{"video": e.get("title", ""), "category": e["quiz"].get("category", ""),
+             "questions": e["quiz"].get("questions") or []} for e in history if e.get("quiz")]
+
+
+def remember(channel_key: str, video: str, script: Script) -> None:
+    """Add a finished quiz's questions to the bank."""
+    quiz = script.quiz or {}
+    rounds = [r for r in bank(channel_key) if r.get("video") != video]
+    rounds.append({"video": video, "category": base_category(quiz.get("category", "")),
+                   "questions": [{"question": q.get("question", ""), "answer": q.get("answer", "")}
+                                 for q in quiz.get("questions") or []]})
+    path = _bank_path(channel_key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(rounds, indent=1, ensure_ascii=False), encoding="utf-8")
+
+
 def _made(channel_key: str) -> list:
     """[(video stem, {category, questions})] for every quiz this channel
-    has made, newest first, from the originality history."""
-    from pipeline import similarity
-
-    history = similarity._load().get(channel_key) or []
-    return [(e.get("title", ""), e["quiz"]) for e in reversed(history) if e.get("quiz")]
+    has made, newest first."""
+    return [(r.get("video", ""), r) for r in reversed(bank(channel_key))]
 
 
 def _written(channel_key: str) -> list:
@@ -268,17 +421,73 @@ def _written(channel_key: str) -> list:
             if (s.get("script") or {}).get("quiz") and s["status"] == curriculum.PENDING]
 
 
-def asked_before(channel_key: str, category: str) -> list:
-    """Questions this channel has already asked or written, this
-    category's first: every video it has made (the originality history)
-    and every round written ahead of its video."""
-    same, other = [], []
+def _keywords(text: str) -> set:
+    words = re.findall(r"[a-z0-9]+", (text or "").lower())
+    out = set()
+    for w in words:
+        if len(w) < 4 or w in STOPWORDS:
+            continue
+        out.add(w[:-1] if len(w) > 4 and w.endswith("s") and not w.endswith("ss") else w)
+    return out
+
+
+def _all_questions(channel_key: str) -> list:
+    """[(category, {question, answer})] for everything made or written."""
     rounds = [q for _, q in _made(channel_key)] + [q for _, q in _written(channel_key)]
-    for text in rounds:
-        for q in text.get("questions") or []:
-            (same if text.get("category", "").lower() == category.lower() else other).append(
-                q.get("question", ""))
-    return list(dict.fromkeys(q for q in same + other if q))[:HISTORY_QUESTIONS]
+    return [(base_category(r.get("category", "")), q) for r in rounds
+            for q in r.get("questions") or [] if q.get("question")]
+
+
+def context_questions(channel_key: str, category: str) -> tuple:
+    """(this category's earlier questions, other categories' questions that
+    touch on it): what the writer is shown. "Snakes" sees the snake
+    questions a "Biology" round asked."""
+    base = base_category(category).lower()
+    words = _keywords(base)
+    same, related = [], []
+    for cat, q in _all_questions(channel_key):
+        if cat.lower() == base:
+            same.append(q)
+        elif words & _keywords(f"{q['question']} {q.get('answer', '')}"):
+            related.append(q)
+
+    def unique(rows, limit):
+        seen, out = set(), []
+        for q in rows:
+            if q["question"] not in seen:
+                seen.add(q["question"])
+                out.append(q)
+        return out[:limit]
+    return unique(same, SAME_CATEGORY_CONTEXT), unique(related, RELATED_CONTEXT)
+
+
+def _norm_answer(answer: str) -> str:
+    return re.sub(r"^(the|a|an)\s+", "", re.sub(r"[^a-z0-9 ]", "", (answer or "").lower())).strip()
+
+
+def repeats(questions: list, channel_key: str) -> list:
+    """Indices of questions that repeat one already asked or written on
+    this channel, in any category: the same answer to much the same
+    question, or much the same question. Local and free, so it covers the
+    whole bank however large it grows."""
+    past = [(_norm_answer(q.get("answer", "")), _keywords(q["question"]))
+            for _, q in _all_questions(channel_key)]
+    found = []
+    for i, q in enumerate(questions):
+        answer, words = _norm_answer(q["answer"]), _keywords(q["question"])
+        for old_answer, old_words in past:
+            overlap = len(words & old_words) / max(1, len(words | old_words))
+            if (answer and answer == old_answer and overlap >= 0.3) or overlap >= 0.6:
+                found.append(i)
+                break
+    return found
+
+
+def asked_before(channel_key: str, category: str) -> list:
+    """The questions the writer is told not to repeat, this category's
+    first (see context_questions)."""
+    same, related = context_questions(channel_key, category)
+    return [q["question"] for q in same + related]
 
 
 # --- the difficulty ladder -------------------------------------------------------
@@ -289,18 +498,16 @@ def asked_before(channel_key: str, category: str) -> list:
 # videos are still made in whatever order the channel's ordering picks.
 
 def _round_number(title: str) -> int:
-    import re
     match = re.search(r"\(round (\d+)\)", title or "")
     return int(match.group(1)) if match else 1
 
 
 def ladder(channel, entry: dict) -> list:
     """This round's category at every difficulty, in the same round,
-    easiest first."""
-    order = {str(d).lower(): i for i, d in enumerate(channel.quiz.difficulties)}
+    easiest first (by level, so a level added later sorts into place)."""
     rungs = [s for s in curriculum.subtopics(channel.key, topic_id=entry["topic"])
              if _round_number(s["title"]) == _round_number(entry["title"])]
-    return sorted(rungs, key=lambda s: order.get((s.get("angle") or "").lower(), len(order)))
+    return sorted(rungs, key=lambda s: level_of(channel, s.get("angle") or ""))
 
 
 def _questions_of(channel_key: str, entry: dict) -> list:
@@ -316,9 +523,15 @@ def _questions_of(channel_key: str, entry: dict) -> list:
     return []
 
 
+def _listed(questions: list) -> str:
+    return "\n".join(f"- {q.get('question')}" + (f" ({q['answer']})" if q.get("answer") else "")
+                     for q in questions)
+
+
 def ladder_note(channel, entry: dict) -> str:
     """The same category's other rungs, so this round's difficulty sits
-    between them."""
+    between them, and the same level from the round before, so rounds
+    don't drift."""
     rungs = ladder(channel, entry)
     here = next((i for i, s in enumerate(rungs) if s["id"] == entry["id"]), 0)
     parts = []
@@ -327,12 +540,21 @@ def ladder_note(channel, entry: dict) -> str:
         if not questions:
             continue
         side = "easier" if i < here else "harder"
-        listed = "\n".join(f"- {q.get('question')}" + (f" ({q['answer']})" if q.get("answer") else "")
-                           for q in questions)
-        parts.append(f"The {rung.get('angle')} round (must be {side} than this one):\n{listed}")
+        level = level_of(channel, rung.get("angle"))
+        parts.append(f"The {rung.get('angle')} round, level {level:g} (must be {side} than "
+                     f"this one):\n{_listed(questions)}")
+    this_round = _round_number(entry["title"])
+    if this_round > 1:
+        for earlier in curriculum.subtopics(channel.key, topic_id=entry["topic"]):
+            if (_round_number(earlier["title"]) == this_round - 1
+                    and (earlier.get("angle") or "").lower() == (entry.get("angle") or "").lower()):
+                questions = _questions_of(channel.key, earlier)
+                if questions:
+                    parts.append(f"The same level in the previous round (match its difficulty; "
+                                 f"don't repeat it):\n{_listed(questions)}")
     if not parts:
         return ""
-    return ("This category's other difficulty levels. Pitch this round clearly between them: "
+    return ("This category's other rounds, for calibration. Pitch this one at its own level: "
             "a step harder than every easier round, a step easier than every harder one. "
             "Don't repeat their questions.\n\n" + "\n\n".join(parts))
 
@@ -388,25 +610,31 @@ def word_budget(channel) -> int:
     return int(talk * WORDS_PER_SECOND * (channel.speed or 1.0))
 
 
-def _user(category: str, difficulty: str, count: int, channel, avoid: list, extra: str) -> str:
-    listed = "\n".join(f"- {q}" for q in avoid)
+def _user(category: str, difficulty: str, count: int, channel, context: tuple, extra: str) -> str:
+    same, related = context
     words = word_budget(channel)
-    return (f"Category: {category}\nDifficulty: {difficulty}\nQuestions: exactly {count}\n"
+    text = (f"Category: {category}\n"
+            f"Difficulty: {difficulty}, level {level_of(channel, difficulty):g} on the 1-10 scale\n"
+            f"Questions: exactly {count}\n"
             f"Length: the whole round as spoken (intro, lead-ins, questions, answers, "
             f"sign-off) is at most {words} words, about {max(12, (words - 60) // count)} per "
             f"question with its answer. The clock time is extra and fixed, so this is what "
-            f"keeps the video under three minutes; count as you write.\n\n"
-            + (f"Already asked on this channel; don't ask these again or anything that "
-               f"gives the same answer to the same fact:\n{listed}\n\n" if listed else "")
-            + extra)
+            f"keeps the video under three minutes; count as you write.\n\n")
+    if same:
+        text += (f"Already asked in {category} on this channel. Don't ask these again, or the "
+                 f"same fact another way:\n{_listed(same)}\n\n")
+    if related:
+        text += (f"Asked in other categories and touching on {category}. Don't repeat these "
+                 f"either:\n{_listed(related)}\n\n")
+    return text + extra
 
 
-def _write(category, difficulty, channel, avoid, extra="") -> dict:
+def _write(category, difficulty, channel, context, extra="") -> dict:
     count = channel.quiz.questions
     system = [SystemBlock(SYSTEM, cacheable=True),
               SystemBlock(f"This channel's own brief for its host and its rounds:\n\n"
                           f"{channel.style_prompt}")]
-    data = call_json(system, _user(category, difficulty, count, channel, avoid, extra), _schema(),
+    data = call_json(system, _user(category, difficulty, count, channel, context, extra), _schema(),
                      operation="quiz_write", max_tokens=WRITE_MAX_TOKENS, effort=WRITE_EFFORT)
     return _clean_round(data, count)
 
@@ -439,7 +667,6 @@ def verify(category: str, difficulty: str, questions: list) -> list:
 def _mentions(text: str, answer: str) -> bool:
     """Whether `answer` appears in `text` as whole words ("Au" is not in
     "Australia"), ignoring case and a leading "the"."""
-    import re
     answer = re.sub(r"^the\s+", "", (answer or "").strip(), flags=re.I)
     return bool(answer) and re.search(rf"\b{re.escape(answer)}\b", text or "", re.I) is not None
 
@@ -462,7 +689,7 @@ def write_script(seed, channel, avoid: str = "") -> Script:
 def write_round(channel, entry: dict, avoid: str = "") -> Script:
     """One rung of a category's ladder, written knowing the others."""
     topic = curriculum.find_topic(channel.key, entry["topic"]) or {}
-    category = topic.get("title") or entry["title"].split(":")[0]
+    category = base_category(topic.get("title") or entry["title"].split(":")[0])
     difficulty = entry.get("angle") or round_of(SimpleNamespace(
         topic_id="", topic=entry["title"], title=entry["title"]), channel)[1]
     extra = "\n\n".join(p for p in (ladder_note(channel, entry), avoid) if p)
@@ -470,29 +697,35 @@ def write_round(channel, entry: dict, avoid: str = "") -> Script:
 
 
 def _write_checked(channel, category: str, difficulty: str, extra: str = "") -> Script:
-    """Write a round and fact-check it (see the module docstring)."""
-    asked = asked_before(channel.key, category)
-    data = _write(category, difficulty, channel, asked, extra)
+    """Write a round, fact-check it, and check it against every question
+    the channel has asked (see the module docstring)."""
+    context = context_questions(channel.key, category)
+    data = _write(category, difficulty, channel, context, extra)
     questions = data["questions"]
     verdicts = verify(category, difficulty, questions)
+    for i in repeats(questions, channel.key):
+        log.info(f"  [quiz] Q{i + 1} repeats a question already asked on this channel")
+        verdicts[i] = "repeat"
 
     bad = [i for i, v in enumerate(verdicts) if v != "ok"]
     if bad:
-        log.info(f"  [quiz] replacing {len(bad)} question(s) the fact check didn't pass")
+        log.info(f"  [quiz] replacing {len(bad)} question(s) the checks didn't pass")
         kept = [q for i, q in enumerate(questions) if i not in bad]
         keep = [q["question"] for q in kept]
-        staying = "\n".join(f"- {q['question']} ({q['answer']})" for q in kept)
         instead = (f"Only the questions are needed this time; the intro and sign-off "
                    f"will be discarded. These stay in the round, so no question may "
-                   f"share an answer or a subject with them:\n{staying}")
-        replacement = _write(category, difficulty, channel, asked + keep,
+                   f"share an answer or a subject with them:\n{_listed(kept)}")
+        replacement = _write(category, difficulty, channel,
+                             (context[0] + [{"question": q} for q in keep], context[1]),
                              "\n\n".join(p for p in (extra, instead) if p))["questions"]
         # Nothing that repeats or gives away an answer already in the round
         # (a replacement "capital of Italy" beside "which country is shaped
-        # like a boot").
+        # like a boot"), nor anything asked before.
         taken = " ".join(f"{q['question']} {q['answer']}" for q in kept)
-        fresh = [q for q in replacement
-                 if q["question"] not in keep and not _mentions(taken, q["answer"])
+        again = set(repeats(replacement, channel.key))
+        fresh = [q for i, q in enumerate(replacement)
+                 if i not in again and q["question"] not in keep
+                 and not _mentions(taken, q["answer"])
                  and not any(_mentions(f"{q['question']} {q['answer']}", q2["answer"])
                              for q2 in kept)][:len(bad)]
         fresh_verdicts = verify(category, difficulty, fresh) if fresh else []
@@ -503,7 +736,7 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "") -> 
 
     unverified = [i + 1 for i, v in enumerate(verdicts) if v != "ok"]
     if unverified:
-        log.warning(f"  [quiz] question(s) {unverified} still didn't pass the fact check; "
+        log.warning(f"  [quiz] question(s) {unverified} still didn't pass the checks; "
                     f"this video will wait for a person.")
     return to_script(data, channel, category, difficulty, unverified)
 
@@ -706,7 +939,9 @@ def board(plan):
     style = art.resolve(plan.channel.scenes.art)
     page_html = board_html(script, times, style, duration)
 
-    clip = Path(plan.out_dir) / f"{plan.stem}_TEMP_board.mp4"
+    # In the render's working folder, removed once the video is finished
+    # (pipeline.assemble.remove_working_files).
+    clip = Path(plan.out_dir) / f"{plan.stem}_scenes" / "board.mp4"
     log.info(f"[3/5] Filming the quiz board ({duration:.0f} seconds)...")
     render.render_page(page_html, duration, clip, fps=BOARD_FPS)
     clip.with_suffix(".json").write_text(json.dumps({"timer_cues": timer_cues(times)}),

@@ -192,6 +192,10 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
         log.warning(f"  [similarity] {report.summary}")
     similarity.record(plan.channel.key, plan.stem, plan.script, video_path=plan.video_path)
     plan.similarity = report
+    if plan.script.quiz:
+        # Every question asked, kept for good, so no later round repeats it.
+        from pipeline import quiz
+        quiz.remember(plan.channel.key, plan.stem, plan.script)
 
     # Seed the editable title and description. Stored on the video rather
     # than only in the meta file, so the review screen can show them,

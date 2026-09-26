@@ -134,8 +134,12 @@
           <textarea name="quiz_difficulties" rows="5">{{ channel.quiz.difficulties|join('
 ') }}</textarea>
         </label>
-        <p class="hint">A new difficulty level reaches the topic plan with its next round of
-          quizzes. Categories are edited on the <a href="{{ url_for('curriculum.page', key=channel.key) }}">topic plan</a>.</p>
+        <p class="hint">Each level sits on one fixed 1-10 scale, and the number is what the
+          writer is held to: {% for label, level in quiz_levels %}{{ label }} {{ level }}{{ ', ' if not loop.last }}{% endfor %}.
+          Add a level anywhere and it slots in between its neighbours without moving the others
+          ("Tricky" between Hard and Fiendish is 6.5), or give it a number: <code>Tricky (7)</code>.
+          A new level is added to every category's rounds straight away. Categories are edited on
+          the <a href="{{ url_for('curriculum.page', key=channel.key) }}">topic plan</a>.</p>
       </div>
     </fieldset>
 
