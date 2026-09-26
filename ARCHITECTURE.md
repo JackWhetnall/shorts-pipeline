@@ -365,6 +365,14 @@ rerolled.
 
 A running channel's plan tops itself up: when fewer than 30 are
 pending, the scheduler writes the next topic (core.scheduler.top_up_plans).
+It also grows by hand from the plan page or the settings' topic count:
+topics are added, named, or removed only while empty, so nothing written
+is ever touched (core.curriculum, "growing the plan"; decision 043).
+
+A quiz channel keeps every question it has asked in
+`config/question_banks/<key>.json`. The writer sees its category's and
+related questions; a local check against the whole bank replaces repeats.
+Difficulty is a level on a fixed 1-10 scale (`quiz.levels`).
 
 A channel without a syllabus keeps drawing from its flat `topics` list.
 See decision [018](docs/decisions/018-topic-curriculum.md).

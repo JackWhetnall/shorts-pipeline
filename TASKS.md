@@ -4,7 +4,7 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 25 Sep 2026 (afternoon).*
+*Last updated: 26 Sep 2026.*
 
 ---
 
@@ -115,39 +115,62 @@ difficulties = 75 quizzes) are all live.
    (the draft's choice). Change them in **Settings → Channel** if you'd
    rather say "Very hard".
 
-## When you have time to focus (testing the automation)
+## Starting to publish (Minute Pastor, Wren's, The Pub Quiz Round)
 
-### 3. Set Minute Pastor's publishing plan
-1. Open **Channels → Minute Pastor**. The **Launch** card should say you're
-   on *Set when it publishes*. Click **Do this →**.
-2. In **Settings → Publishing → When it publishes**:
+### 3a. Decide the voice allowance first (the one real limit)
+Daily on all three needs about **75,000 ElevenLabs characters a month**;
+Starter has **30,000**. Measured per video: Minute Pastor ~530, Wren's
+~765, the quiz ~1,200-1,470 (ten questions and answers is a lot of
+talking). Pick one:
+- **Upgrade ElevenLabs** to the next plan up (Creator is 100,000 a month
+  at the time of writing; check the price on your subscription page).
+  Then everything below can be daily.
+- **Stay on Starter** and fit the cadence to it, e.g. Minute Pastor daily
+  (~16,000), the quiz twice a week (~10,000), Wren's once a week (~3,000):
+  about 29,000.
+The app refuses a video it can't afford rather than failing half-way, and
+each channel's plan shows its monthly characters as you set it.
+
+### 3b. Set each channel's publishing plan (5 minutes each)
+For each of the three channels:
+1. **Settings → Publishing → When it publishes**:
    - Tick **Run this channel on its own**.
-   - **Publish at**: a time your audience scrolls, e.g. `18:00`.
-   - **Keep this many ready**: `3`.
+   - **Publish at**: a time your audience scrolls, e.g. `18:00`; stagger
+     the three by an hour or so.
+   - **On**: the days you settled on in 3a.
+   - **Keep this many ready**: `3` (the quiz can use `2`: each is bigger).
    - Tick **Also post each one to TikTok / Instagram from this PC** if
      you'll post there.
-3. **Save changes**. On the dashboard, under *Right now*, it should say it
+2. **Save changes**. On the dashboard, under *Right now*, it should say it
    will start a video on the next check (within five minutes).
 
-Cost check: the section shows the plan's monthly ElevenLabs characters.
-Daily is about 16,400 of your 30,000.
+The topic plans take care of themselves now: the scheduler writes more
+when a running channel gets low (the quiz adds another round of every
+category, free), and you can add topics any time from the topic plan page
+without touching what's written.
 
-### 4. Give Minute Pastor its own browser profile (for TikTok/Instagram)
+### 4. Give each channel its own browser profile (for TikTok/Instagram)
 So posting always opens the right accounts, already signed in.
-1. Minute Pastor's **Settings → Publishing → TikTok and Instagram** →
+1. The channel's **Settings → Publishing → TikTok and Instagram** →
    **Make a profile for this channel and sign in**.
-2. A new Chrome window opens (profile folder "Shorts minute_pastor") on
-   TikTok's and Instagram's login pages. Sign in to **Minute Pastor's**
+2. A new Chrome window opens (profile folder "Shorts <channel>") on
+   TikTok's and Instagram's login pages. Sign in to **that channel's**
    accounts in that window. Nothing else to do; it remembers them.
-3. Optional: in that Chrome window, click the profile icon (top right) →
-   rename it "Minute Pastor" so you can tell it apart.
-4. Back in Settings, check **Post from** now shows that profile,
-   and **Save plan**.
+3. Optional: rename the Chrome profile (profile icon, top right) so you
+   can tell them apart.
+4. Back in Settings, check **Post from** shows that profile, and **Save
+   changes**.
 
 To test: in **Review**, press **Post to TikTok** on a video. Chrome should
-open on TikTok's upload page as Minute Pastor, and an Explorer window with
+open on TikTok's upload page as that channel, and an Explorer window with
 the video selected. Drag it in, press Ctrl+V for the caption. (Don't post
 the test unless you mean to.)
+
+### 4b. Connect each channel's YouTube account
+**Settings → Publishing → Automatic YouTube uploads → Connect this
+channel**, signed in as the Google account that owns that YouTube channel.
+Until the API audit (step 9) is approved, uploads arrive private and you
+make them public in Studio.
 
 ### 5. Do the shadow run: review five videos with the checks' verdicts
 The app wants to see that its automatic checks agree with you before it

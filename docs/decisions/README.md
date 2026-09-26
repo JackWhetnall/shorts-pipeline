@@ -55,3 +55,4 @@ reason for a change stays true forever.
 | [040](040-visual-rethink.md) | A visual director, designed templates and illustrations | Active; supersedes 035's planner |
 | [041](041-quiz-format.md) | A quiz format, fact-checked; settings in one place; plans that top themselves up | Active; quiz writing revised by 042 |
 | [042](042-settings-that-apply-and-the-quiz-ladder.md) | Settings that apply, paintings as a medium, the quiz ladder, one way to choose a video | Active; revises 038's paintings |
+| [043](043-plans-that-grow-and-quiz-memory.md) | Plans that grow safely, quiz memory for years, a fixed difficulty scale | Active |
