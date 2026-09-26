@@ -196,6 +196,10 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
         # Every question asked, kept for good, so no later round repeats it.
         from pipeline import quiz
         quiz.remember(plan.channel.key, plan.stem, plan.script)
+        try:
+            quiz.save_round(plan)
+        except Exception:  # noqa: BLE001 - the short is finished; only its reuse in a long quiz is lost
+            log.exception("Could not save this round's timings for long quizzes")
 
     # Seed the editable title and description. Stored on the video rather
     # than only in the meta file, so the review screen can show them,

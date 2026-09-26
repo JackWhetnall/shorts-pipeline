@@ -134,6 +134,22 @@
           <textarea name="quiz_difficulties" rows="5">{{ channel.quiz.difficulties|join('
 ') }}</textarea>
         </label>
+        <label class="field-row"><span class="field-label">Long quizzes: rounds</span>
+          <input type="number" name="quiz_longform_rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}">
+        </label>
+        <label class="field-row"><span class="field-label">Long quizzes: answers</span>
+          <select name="quiz_longform_variant">
+            <option value="alternate" {{ 'selected' if channel.quiz.longform_variant == 'alternate' }}>Alternate between the two</option>
+            <option value="after_each" {{ 'selected' if channel.quiz.longform_variant == 'after_each' }}>After each question</option>
+            <option value="at_end" {{ 'selected' if channel.quiz.longform_variant == 'at_end' }}>At the end of each round</option>
+          </select>
+        </label>
+        <label class="field-row"><span class="field-label">Make a long quiz automatically every</span>
+          <span><input type="number" name="quiz_longform_every_days" min="0" max="60" class="narrow-number"
+                 value="{{ channel.quiz.longform_every_days }}"> days <span class="hint">(0: only when you ask)</span></span>
+        </label>
+        <p class="hint">A long quiz is widescreen, made from rounds that are already shorts (only the
+          host's joining lines are voiced), and waits in review; Publishing sets when they go out.</p>
         <p class="hint">Each level sits on one fixed 1-10 scale, and the number is what the
           writer is held to: {% for label, level in quiz_levels %}{{ label }} {{ level }}{{ ', ' if not loop.last }}{% endfor %}.
           Add a level anywhere and it slots in between its neighbours without moving the others
@@ -916,6 +932,26 @@
         {{ '{:,}'.format(plan_estimate.limit) }}{% endif %}.</p>
       {% endif %}
     </fieldset>
+
+    {% if channel.format == 'quiz' %}
+    <fieldset>
+      <legend>Long quizzes</legend>
+      <label>Publish at (24-hour; several separated by commas)
+        <input type="text" name="long_slots" value="{{ channel.publishing.long_slots|join(', ') }}" placeholder="19:00">
+      </label>
+      <fieldset class="weekday-picker">
+        <legend>On</legend>
+        {% for name in weekday_names %}
+        <label class="checkbox-label">
+          <input type="checkbox" name="long_weekdays" value="{{ loop.index0 }}" {% if loop.index0 in channel.publishing.long_weekdays %}checked{% endif %}>
+          {{ name }}
+        </label>
+        {% endfor %}
+      </fieldset>
+      <p class="hint">Their own slots, separate from the shorts', and YouTube only: they never go
+        to TikTok or Instagram. A long video you approve waits for the next of these.</p>
+    </fieldset>
+    {% endif %}
 
     <fieldset>
       <legend>TikTok and Instagram</legend>

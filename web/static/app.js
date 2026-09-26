@@ -2980,3 +2980,26 @@ async function planRemove(channelKey, topicId, button) {
   const data = await planPost(`/api/channels/${channelKey}/curriculum/${topicId}/remove`, {}, button);
   if (data) window.location.reload();
 }
+
+// --- Create video: a long quiz ------------------------------------------------
+
+async function startLongform(channelKey, button) {
+  const status = document.getElementById("longform-status");
+  const variant = document.querySelector('input[name="longform-variant"]:checked');
+  await withButtonLoading(button, "Starting…", async () => {
+    const res = await apiFetch(`/api/channels/${channelKey}/longform`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        difficulty: document.getElementById("longform-difficulty").value,
+        rounds: Number(document.getElementById("longform-rounds").value),
+        variant: variant ? variant.value : "",
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { status.textContent = data.error || "Couldn't start it."; return; }
+    currentJobId = data.job_id;
+    showJobProgressView();
+    pollJob(data.job_id);
+  });
+}

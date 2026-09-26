@@ -220,7 +220,12 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
         # (nothing was made yet).
         _refuse_if_stale()
         channel = load_channels()[channel_key]
-        plan = generate(channel, Seed.from_jsonable(seed), interactive=False)
+        if seed.get("type") == "longform":
+            # A long quiz recut from finished shorts (pipeline.longform).
+            from pipeline import longform
+            plan = longform.make(channel, seed)
+        else:
+            plan = generate(channel, Seed.from_jsonable(seed), interactive=False)
         with _lock:
             job = _jobs[job_id]
             job.status = "done"
@@ -228,11 +233,12 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
             job.result_path = str(plan.video_path)
             job.finished_at = time.time()
             job.progress_percent = None
-            if plan.footage_degraded:
+            job.warnings.extend(getattr(plan, "warnings", None) or [])
+            if getattr(plan, "footage_degraded", False):
                 job.warnings.append(
                     "Footage was chosen without scoring because the matching step "
                     "failed. The video rendered, but watch it before publishing.")
-            if plan.footage_unconfident and not plan.footage_degraded:
+            if getattr(plan, "footage_unconfident", 0) and not plan.footage_degraded:
                 job.warnings.append(
                     f"{plan.footage_unconfident} shot(s) had no footage that scored as a "
                     f"good match, even after fetching. Watch those before publishing.")
@@ -240,11 +246,11 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
                 job.warnings.append(
                     f"{plan.scenes_fell_back} animated scene(s) couldn't be made and used "
                     f"stock footage instead.")
-            if plan.footage_repeated:
+            if getattr(plan, "footage_repeated", False):
                 job.warnings.append(
                     "This video reuses a footage clip — the library ran out of distinct "
                     "matches. Worth reviewing before publishing.")
-            if plan.similarity is not None and plan.similarity.flagged:
+            if getattr(plan, "similarity", None) is not None and plan.similarity.flagged:
                 job.warnings.append(f"Originality check: {plan.similarity.summary}")
         _persist(job_id)
         _autopilot(job_id, channel, plan)

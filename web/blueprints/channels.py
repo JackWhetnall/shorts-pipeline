@@ -396,10 +396,14 @@ def create_video(key):
         up_next = curriculum.load(key).get("up_next") or ""
     from pipeline.curriculum_gen import estimate_cost
 
+    longform = None
+    if channel.format == "quiz":
+        from pipeline import longform as long_quiz, quiz
+        longform = {"ready": long_quiz.availability(channel), "labels": quiz.labels(channel)}
     # ?subtopic_id= arrives from the plan page's "Make now".
     return render_template("create_video.html", key=key, channel=channel, plan=plan,
                            up_next=up_next, initial_subtopic=request.args.get("subtopic_id", ""),
-                           cost=estimate_cost())
+                           cost=estimate_cost(), longform=longform)
 
 
 @bp.route("/api/channels/<key>/ordering-preview", methods=["POST"])
@@ -690,6 +694,31 @@ def api_generate(key):
     seed = data.get("seed")
     if not seed:
         return jsonify({"error": "No quote or topic was chosen."}), 400
+    return jsonify({"job_id": jobs.start_job(key, seed)})
+
+
+@bp.route("/api/channels/<key>/longform", methods=["POST"])
+def api_longform(key):
+    """Start a long widescreen quiz made from this channel's finished shorts."""
+    channel = channel_or_404(key)
+    if channel.format != "quiz":
+        return jsonify({"error": "Long videos are made from quiz rounds."}), 400
+    from pipeline import longform
+    data = request.get_json(force=True, silent=True) or {}
+    seed = {"type": "longform", "difficulty": data.get("difficulty") or "best",
+            "variant": data.get("variant") or "", "rounds": data.get("rounds") or ""}
+    try:
+        request_ = longform.plan_request(channel, seed)
+    except (TypeError, ValueError):
+        return jsonify({"error": "That number of rounds isn't a number."}), 400
+    chosen = longform.choose_rounds(channel, request_["difficulty"], request_["rounds"])
+    if len(chosen) < request_["rounds"]:
+        return jsonify({"error": f"{len(chosen)} of {request_['rounds']} rounds are ready at "
+                                 f"{request_['difficulty']}. Choose fewer rounds, another "
+                                 f"difficulty, or rising."}), 400
+    label = ("rising" if request_["difficulty"] == longform.RISING else request_["difficulty"])
+    seed.update(request_, topic=f"Long quiz: {request_['rounds']} rounds, {label}, "
+                                f"{'answers at the end' if request_['variant'] == 'at_end' else 'answers as you go'}")
     return jsonify({"job_id": jobs.start_job(key, seed)})
 
 

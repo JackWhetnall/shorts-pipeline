@@ -59,12 +59,24 @@ def resolve_output_dir(output_dir: str) -> Path:
     return (PROJECT_ROOT / output_dir).resolve()
 
 
-def videos_in(directory: Path):
+LONGFORM_DIR = "longform"
+
+
+def is_long(video_path) -> bool:
+    """A widescreen long video (pipeline.longform), which lives under the
+    channel's `longform/` folder."""
+    return LONGFORM_DIR in Path(video_path).parts
+
+
+def videos_in(directory: Path, long: bool = None):
     """Every finished video under `directory`: its mp4s, but not a render's
     working files (a `<stem>_scenes` folder of clips, or a `_TEMP_` file),
-    which once showed up in the review queue as videos of their own."""
+    which once showed up in the review queue as videos of their own.
+    `long` True or False keeps only long videos or only shorts."""
     for path in Path(directory).rglob("*.mp4"):
         if "_TEMP_" in path.name or any(p.name.endswith("_scenes") for p in path.parents):
+            continue
+        if long is not None and is_long(path.relative_to(directory)) != long:
             continue
         yield path
 
@@ -397,7 +409,7 @@ def get_or_create_thumbnail(video_path: Path) -> Path:
 
 # --- listing ----------------------------------------------------------
 
-def video_state_counts(output_dir: str) -> dict:
+def video_state_counts(output_dir: str, long: bool = None) -> dict:
     """One pass, each sidecar read once.
 
     `active` (total minus discarded) is what "video count" means
@@ -410,7 +422,7 @@ def video_state_counts(output_dir: str) -> dict:
         return empty
 
     total = discarded = published = queued = 0
-    for path in videos_in(directory):
+    for path in videos_in(directory, long=long):
         total += 1
         info = load_publish_info(path)
         if info["discarded"]:
@@ -506,7 +518,7 @@ def list_videos(output_dir: str) -> list:
 # `john_3_1` would sweep up `john_3_16`'s files.
 SIDECAR_SUFFIXES = (
     "audio.mp3", "meta.txt", "description.txt", "publish.json",
-    "thumb.jpg", "cost.json", "report.json", "stats.json",
+    "thumb.jpg", "cost.json", "report.json", "stats.json", "quiz.json",
 )
 
 
@@ -595,7 +607,7 @@ def orphaned_files(output_dir: str) -> list:
             continue
         stem = path.stem
         for suffix in ("_audio", "_meta", "_description", "_publish",
-                       "_thumb", "_cost", "_report"):
+                       "_thumb", "_cost", "_report", "_quiz"):
             if suffix in stem:
                 stem = stem[:stem.rindex(suffix)]
                 break

@@ -72,8 +72,11 @@ class _Page:
     provides window.__seek(t), like a motion-graphics template."""
 
     def __init__(self, scene: dict = None, style: dict = None, assets: dict = None,
-                 html: str = None):
+                 html: str = None, size: tuple = None):
         self.html = html if html is not None else build_html(scene, style, assets)
+        # (width, height): the vertical frame unless a page asks for another
+        # (a widescreen long quiz, a thumbnail).
+        self.size = size or (FRAME_WIDTH, FRAME_HEIGHT)
 
     def __enter__(self):
         from playwright.sync_api import sync_playwright
@@ -84,7 +87,7 @@ class _Page:
             self._pw.stop()
             raise PipelineError(f"couldn't start Chrome: {exc}", user_message=(
                 "Couldn't start Chrome to render an animated scene. Is Chrome installed?")) from exc
-        page = self._browser.new_page(viewport={"width": FRAME_WIDTH, "height": FRAME_HEIGHT})
+        page = self._browser.new_page(viewport={"width": self.size[0], "height": self.size[1]})
         errors = []
         page.on("pageerror", lambda exc: errors.append(str(exc)))
         page.set_content(self.html)
@@ -140,15 +143,16 @@ def render(scene: dict, style: dict, assets: dict, out_path: Path, fps: int = FP
     return encode(_Page(scene, style, assets), float(scene["duration"]), out_path, fps)
 
 
-def render_page(html: str, duration: float, out_path: Path, fps: int = FPS) -> Path:
+def render_page(html: str, duration: float, out_path: Path, fps: int = FPS,
+                size: tuple = None) -> Path:
     """Any seekable page (a template) to an mp4 of `duration` seconds."""
-    return encode(_Page(html=html), duration, out_path, fps)
+    return encode(_Page(html=html, size=size), duration, out_path, fps)
 
 
-def page_frame(html: str, t: float, out_path: Path = None) -> bytes:
+def page_frame(html: str, t: float, out_path: Path = None, size: tuple = None) -> bytes:
     """One still of a seekable page at time `t`, as JPEG bytes (and saved
     to `out_path` if given)."""
-    with _Page(html=html) as page:
+    with _Page(html=html, size=size) as page:
         data = page.frame(t)
     if out_path:
         Path(out_path).write_bytes(data)

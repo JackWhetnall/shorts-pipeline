@@ -364,6 +364,13 @@ class Quiz(_MappingLike):
     answer_pause: float = 1.2
     difficulties: list = field(default_factory=lambda: [
         "Easy", "Medium", "Hard", "Very hard", "Impossible"])
+    # Long widescreen quizzes made from finished shorts (pipeline.longform):
+    # how many rounds, which variant ("after_each", "at_end", or
+    # "alternate" between them), and how often the scheduler makes one
+    # (0 is only when you ask).
+    longform_rounds: int = 6
+    longform_variant: str = "alternate"
+    longform_every_days: int = 0
 
 
 @dataclass
@@ -392,6 +399,9 @@ class Publishing(_MappingLike):
     post_instagram: bool = False
     posting_browser: str = ""      # "chrome" | "edge" | "" for the default browser
     posting_profile: str = ""      # the browser's profile folder, e.g. "Shorts minute_pastor"
+    # Long videos (pipeline.longform) go out in their own slots, YouTube only.
+    long_slots: list = field(default_factory=lambda: ["19:00"])
+    long_weekdays: list = field(default_factory=lambda: [5])
 
 
 @dataclass

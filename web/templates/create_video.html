@@ -10,6 +10,38 @@
 <div id="create-video-page" data-channel-key="{{ key }}"></div>
 
 <div id="seed-idle">
+{% if longform %}
+  <div class="card" id="longform-card" data-channel-key="{{ key }}">
+    <h2>A long quiz <span class="hint">widescreen, from finished shorts</span></h2>
+    <p class="meta">Rounds that are already shorts, recut into one widescreen video with the host
+      joining them: only those joining lines are voiced (about 1,000 ElevenLabs characters), and
+      each round goes into one long video only, so two never share questions.</p>
+    <div class="channel-form">
+      <label>Difficulty
+        <select id="longform-difficulty">
+          {% for label in longform.labels %}
+          <option value="{{ label }}" {{ 'disabled' if longform.ready[label] < 2 }}>{{ label }} &mdash; {{ longform.ready[label] }} ready</option>
+          {% endfor %}
+          <option value="rising">Rising: each round harder &mdash; {{ longform.ready.rising }} categories ready</option>
+        </select>
+      </label>
+      <label>Rounds
+        <input type="number" id="longform-rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}" class="narrow-number">
+      </label>
+      <fieldset>
+        <legend>Answers</legend>
+        <label class="checkbox-label"><input type="radio" name="longform-variant" value="after_each"
+          {{ 'checked' if channel.quiz.longform_variant != 'at_end' }}> After each question, like the shorts</label>
+        <label class="checkbox-label"><input type="radio" name="longform-variant" value="at_end"
+          {{ 'checked' if channel.quiz.longform_variant == 'at_end' }}> At the end of each round: every question again, then its answer</label>
+      </fieldset>
+      <div class="actions">
+        <button type="button" onclick="startLongform('{{ key }}', this)">Make the long quiz</button>
+        <span class="hint" id="longform-status">Takes about a minute and a half per minute of video to film.</span>
+      </div>
+    </div>
+  </div>
+{% endif %}
 {% if plan %}
   {# One video is always chosen, shown here with the button that makes it.
      Everything below changes which one; nothing below starts anything.

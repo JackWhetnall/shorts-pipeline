@@ -98,6 +98,13 @@ def _apply_publishing_plan(plan, form) -> None:
     plan.weekdays = sorted({int(d) for d in form.getlist("weekdays")
                             if d.strip().isdigit() and int(d) in range(7)})
     plan.buffer = min(14, max(1, _maybe_int(form, "buffer", plan.buffer)))
+    if "long_slots" in form:
+        long_slots = [s.strip() for s in (form.get("long_slots") or "").replace(";", ",").split(",")]
+        long_slots = [f"{int(h):02d}:{m}" for h, m in (s.split(":", 1) for s in long_slots if ":" in s)
+                      if h.strip().isdigit() and m.strip().isdigit()]
+        plan.long_slots = sorted({s for s in long_slots if SLOT_RE.match(s)})
+        plan.long_weekdays = sorted({int(d) for d in form.getlist("long_weekdays")
+                                     if d.strip().isdigit() and int(d) in range(7)})
     plan.post_tiktok = form.get("post_tiktok") == "on"
     plan.post_instagram = form.get("post_instagram") == "on"
     # "browser|profile folder", or "" for the default browser. Only values
@@ -149,6 +156,11 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
         quiz.countdown_seconds = min(10.0, max(1.0, _maybe_float(
             form, "quiz_countdown_seconds", quiz.countdown_seconds)))
         quiz.answer_pause = min(5.0, max(0.0, _maybe_float(form, "quiz_answer_pause", quiz.answer_pause)))
+        quiz.longform_rounds = min(12, max(2, _maybe_int(form, "quiz_longform_rounds", quiz.longform_rounds)))
+        if form.get("quiz_longform_variant") in ("alternate", "after_each", "at_end"):
+            quiz.longform_variant = form.get("quiz_longform_variant")
+        quiz.longform_every_days = min(60, max(0, _maybe_int(
+            form, "quiz_longform_every_days", quiz.longform_every_days)))
         levels = [line.strip() for line in (form.get("quiz_difficulties") or "").splitlines()
                   if line.strip()]
         if levels:

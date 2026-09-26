@@ -389,6 +389,21 @@ def upload(channel_key: str, video_path: Path, title: str, description: str,
     }
 
 
+THUMBNAIL_URL = "https://www.googleapis.com/upload/youtube/v3/thumbnails/set"
+
+
+def set_thumbnail(channel_key: str, video_id: str, image_path: Path) -> None:
+    """A long video's own thumbnail. YouTube allows custom thumbnails only
+    once the account is verified (by phone, in Studio); until then this
+    fails and the video keeps the frame YouTube picked."""
+    token = access_token(channel_key)
+    response = requests.post(THUMBNAIL_URL, params={"videoId": video_id},
+                             headers={"Authorization": f"Bearer {token}",
+                                      "Content-Type": "image/jpeg"},
+                             data=Path(image_path).read_bytes(), timeout=60)
+    _json_or_raise(response, "setting the thumbnail")
+
+
 def _start_session(token: str, metadata: dict, size: int) -> str:
     response = requests.post(
         UPLOAD_URL,

@@ -997,3 +997,39 @@ def sample_still(style: dict, cache_dir: Path, questions: int = 10) -> Path:
 def page_version() -> float:
     """Changes when the board's code does, so cached stills are redrawn."""
     return Path(__file__).stat().st_mtime
+
+
+# --- a round's sidecar, for long quizzes -------------------------------------------
+
+def round_sidecar(video_path) -> Path:
+    video_path = Path(video_path)
+    return video_path.with_name(f"{video_path.stem}_quiz.json")
+
+
+def save_round(plan) -> Path:
+    """Where each question and answer sits in this short's voice track,
+    beside the video: a long quiz (pipeline.longform) cuts them from it
+    rather than paying to voice them again."""
+    quiz = plan.script.quiz
+    segments = plan.script.segments
+
+    def spoken(segment) -> list:
+        # A segment runs to the next one's start, its pause included.
+        return [round(segment.start, 3), round(segment.end - float(segment.pause_after or 0), 3)]
+
+    data = {
+        "version": 1,
+        "category": quiz.get("category", ""),
+        "difficulty": quiz.get("difficulty", ""),
+        "level": level_of(plan.channel, quiz.get("difficulty", "")),
+        "audio": Path(plan.audio_path).name,
+        "unverified": list(quiz.get("unverified") or []),
+        "questions": [{"question": q["question"], "answer": q["answer"],
+                       "spoken_answer": q.get("spoken_answer", ""),
+                       "ask_audio": spoken(segments[q["ask"]]),
+                       "answer_audio": spoken(segments[q["reveal"]])}
+                      for q in quiz.get("questions") or []],
+    }
+    path = round_sidecar(plan.video_path)
+    path.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+    return path

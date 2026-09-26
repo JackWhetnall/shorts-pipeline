@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 from core import gallery, youtube
 from core.errors import PipelineError
@@ -72,13 +73,14 @@ def unqueue(video_path: Path) -> dict:
     return gallery.save_queue_state(video_path, queued_at=None, approved_by=None)
 
 
-def queued(channel) -> list:
-    """This channel's queued videos, first in line first."""
+def queued(channel, long: bool = False) -> list:
+    """This channel's queued videos, first in line first: its shorts, or
+    with `long` its long videos, which go out in their own slots."""
     directory = gallery.resolve_output_dir(channel.output_dir)
     if not directory.exists():
         return []
     items = []
-    for path in gallery.videos_in(directory):
+    for path in gallery.videos_in(directory, long=long):
         info = gallery.load_publish_info(path)
         if gallery.is_queued(info):
             items.append((info["queued_at"], path))
@@ -129,25 +131,45 @@ def latest_slot(publishing, now: datetime):
 
 
 def schedule_for(channel, now: datetime = None) -> list:
-    """[(video_path, when)] for everything queued, in order. `when` is a
-    local datetime, or None for "on the next check" (no plan or no slots)."""
+    """[(video_path, when)] for everything queued, shorts then long videos,
+    each in its lane's order. `when` is a local datetime, or None for "on
+    the next check" (no plan or no slots)."""
     now = now or _now()
-    videos = queued(channel)
-    if not _slots_active(channel):
-        return [(path, None) for path in videos]
-    state = _load_state().get(channel.key, {})
-    last = _parse(state.get("last_slot"))
-    due = latest_slot(channel.publishing, now)
-    slots = []
-    if due and (last is None or due > last) and now - due <= MISSED_SLOT_GRACE:
-        slots.append(due)  # a slot that's due now and still unfilled
-    slots += upcoming_slots(channel.publishing, now, len(videos))
-    return list(zip(videos, slots))
+    out = []
+    for long in (False, True):
+        videos = queued(channel, long=long)
+        if not videos:
+            continue
+        if not _slots_active(channel, long):
+            out += [(path, None) for path in videos]
+            continue
+        plan = _lane(channel, long)
+        last = _parse(_load_state().get(_lane_key(channel.key, long), {}).get("last_slot"))
+        due = latest_slot(plan, now)
+        slots = []
+        if due and (last is None or due > last) and now - due <= MISSED_SLOT_GRACE:
+            slots.append(due)  # a slot that's due now and still unfilled
+        slots += upcoming_slots(plan, now, len(videos))
+        out += list(zip(videos, slots))
+    return out
 
 
-def _slots_active(channel) -> bool:
-    return bool(channel.publishing.enabled and channel.publishing.slots
-                and channel.publishing.weekdays)
+def _lane(channel, long: bool):
+    """The slots a lane publishes in: the plan's own, or for long videos
+    their own days and times."""
+    plan = channel.publishing
+    if not long:
+        return plan
+    return SimpleNamespace(enabled=plan.enabled, slots=plan.long_slots, weekdays=plan.long_weekdays)
+
+
+def _lane_key(channel_key: str, long: bool) -> str:
+    return f"{channel_key}:long" if long else channel_key
+
+
+def _slots_active(channel, long: bool = False) -> bool:
+    plan = _lane(channel, long)
+    return bool(plan.enabled and plan.slots and plan.weekdays)
 
 
 # --- going out -------------------------------------------------------
@@ -161,17 +183,19 @@ def publish_due(channels: dict, now: datetime = None) -> list:
     for key, channel in channels.items():
         if channel.archived:
             continue
-        videos = queued(channel)
-        if not videos:
-            continue
-        if _slots_active(channel):
-            due = latest_slot(channel.publishing, now)
-            last = _parse(state.get(key, {}).get("last_slot"))
-            if due is None or (last is not None and due <= last) or now - due > MISSED_SLOT_GRACE:
+        for long in (False, True):
+            videos = queued(channel, long=long)
+            if not videos:
                 continue
-            state.setdefault(key, {})["last_slot"] = due.isoformat()
-            _save_state(state)
-        results.append(send(channel, videos[0]))
+            if _slots_active(channel, long):
+                lane = _lane_key(key, long)
+                due = latest_slot(_lane(channel, long), now)
+                last = _parse(state.get(lane, {}).get("last_slot"))
+                if due is None or (last is not None and due <= last) or now - due > MISSED_SLOT_GRACE:
+                    continue
+                state.setdefault(lane, {})["last_slot"] = due.isoformat()
+                _save_state(state)
+            results.append(send(channel, videos[0]))
     return results
 
 
@@ -185,7 +209,10 @@ def send(channel, video_path: Path) -> str:
     title = info["title"] or video_path.stem.replace("_", " ")
     description = info["description"]
     messages = []
-    platforms = [p for p in HANDOFF_PLATFORMS if getattr(channel.publishing, f"post_{p}")]
+    long = gallery.is_long(video_path)
+    # TikTok and Instagram are for shorts; a long video is YouTube only.
+    platforms = [] if long else [p for p in HANDOFF_PLATFORMS
+                                 if getattr(channel.publishing, f"post_{p}")]
 
     # YouTube first: if the upload fails the video goes back to review, and
     # it mustn't already be sitting in the phone folder for TikTok.
@@ -199,6 +226,14 @@ def send(channel, video_path: Path) -> str:
             _note_on_report(video_path, f"The scheduled upload failed: {exc.user_message} "
                                         f"It's back in review.")
             return f"{channel.channel_display_name}: upload failed ({exc.user_message})"
+        thumb = video_path.with_name(f"{video_path.stem}_thumb.jpg")
+        if long and thumb.exists() and result.get("id"):
+            try:
+                youtube.set_thumbnail(channel.key, result["id"], thumb)
+            except PipelineError as exc:
+                # The video is out; only its thumbnail is YouTube's own pick.
+                log.warning(f"{channel.key}: thumbnail not set: {exc}")
+                messages.append(f"thumbnail not set ({exc.user_message})")
         links = {f: info[f] for f in gallery.PUBLISH_LINK_FIELDS}
         links["youtube_url"] = result["url"]
         gallery.save_publish_info(video_path, links)

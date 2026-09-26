@@ -29,6 +29,7 @@ run, so two videos are never made at once.
 from __future__ import annotations
 
 import threading
+import time
 
 from core import curriculum, gallery, jobs, publish_queue, voice_quota
 from core.channels import load_channels
@@ -56,7 +57,8 @@ def generation_block(key: str, channel, state: dict = None, active: dict = None)
     active = jobs.active_jobs() if active is None else active
     if key in active:
         return "A video for this channel is being made."
-    state = state or gallery.video_state_counts(channel.output_dir)
+    # Shorts only: a long quiz waiting for a look mustn't stop the shorts.
+    state = state or gallery.video_state_counts(channel.output_dir, long=False)
     if state["queued"] >= plan.buffer:
         return f"{state['queued']} ready and queued, the {plan.buffer} this channel keeps."
     if state["waiting"] >= plan.buffer:
@@ -118,6 +120,38 @@ def top_up_plans(channels: dict = None) -> list:
     return done
 
 
+def fill_long_quizzes(channels: dict = None) -> list:
+    """Start a long quiz for every running quiz channel that makes one
+    every N days, when the last is that old and enough rounds are ready.
+    Returns the keys started."""
+    from pipeline import longform
+
+    channels = channels if channels is not None else load_channels(validate=False)
+    active = jobs.active_jobs()
+    started = []
+    for key, channel in channels.items():
+        every = channel.quiz.longform_every_days
+        if (channel.archived or channel.format != "quiz" or not channel.publishing.enabled
+                or every <= 0 or key in active):
+            continue
+        directory = gallery.resolve_output_dir(channel.output_dir)
+        made = [p.stat().st_mtime for p in gallery.videos_in(directory, long=True)] if directory.exists() else []
+        if made and time.time() - max(made) < every * 86400:
+            continue
+        try:
+            request = longform.plan_request(channel, {"difficulty": "best"})
+            if len(longform.choose_rounds(channel, request["difficulty"], request["rounds"])) < request["rounds"]:
+                continue
+            jobs.start_job(key, {"type": "longform", **request,
+                                 "topic": f"Long quiz: {request['rounds']} rounds, {request['difficulty']}"})
+        except Exception as exc:  # noqa: BLE001 - one channel must not stop the rest
+            log.warning(f"Couldn't start a long quiz for {key}: {exc}")
+            continue
+        started.append(key)
+        log.info(f"Started a long quiz for {key}.")
+    return started
+
+
 def tick() -> None:
     """One pass of all three duties. Each is isolated from the others: a
     failed upload must not stop generation, nor either stop the stats."""
@@ -125,6 +159,7 @@ def tick() -> None:
     for name, duty in (("publishing", lambda: publish_queue.publish_due(channels)),
                        ("topic plans", lambda: top_up_plans(channels)),
                        ("generation", lambda: fill_buffers(channels)),
+                       ("long quizzes", lambda: fill_long_quizzes(channels)),
                        ("statistics", lambda: _refresh_audience(channels))):
         try:
             duty()
