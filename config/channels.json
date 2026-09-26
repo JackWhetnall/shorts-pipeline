@@ -43,6 +43,13 @@
         "tiktok_url": "https://www.tiktok.com/@minutepastor?lang=en-GB",
         "instagram_url": "https://www.instagram.com/minutepastor/"
       },
+      "sound": {
+        "music_moods": [
+          "calm contemplative piano",
+          "gentle acoustic strings",
+          "peaceful ambient background"
+        ]
+      },
       "manual_checklist_overrides": [
         "affiliate",
         "patreon"
@@ -109,6 +116,121 @@
         "title_card_stroke_width": 4,
         "title_card_show_topic": true
       },
+      "content_mode": "topic"
+    },
+    "curiosity_leak": {
+      "voice": "TX3LPaxmHKxFdv7VOQHJ",
+      "style_prompt": "Write for a smart, impatient 14-year-old who has ten seconds of patience and a real appetite for 'wait, WHAT?' moments. The voice is a slightly older sibling who actually knows their stuff: excited, a bit cheeky, never condescending, never using teen slang so hard it sounds fake. Every video opens by doing something specific to the phenomenon itself, not to the channel or the format: it can drop the viewer straight into the strangest consequence of the fact, or contradict something they've probably always assumed, or pose the exact question the video is about to wreck. It should never open by announcing that a fact is coming. From there the script moves the way a good explanation actually moves: tension or mystery first, then the mechanism, then the payoff that reframes what the viewer just heard, landing on why it matters or where it shows up in ordinary life. Avoid stacking unrelated trivia; every video should be built around one idea, explored properly, not five shallow facts. Never claim something is 'proven' when it's contested, never dramatize risk or health claims, and flag genuine scientific uncertainty honestly rather than smoothing over it for a cleaner story. No jump-scares, no fake urgency, no clickbait claims the body of the video doesn't support. It should feel like the smartest, most fun person in class is telling you something they can't believe more people don't know.",
+      "speed": 1.05,
+      "pacing": {
+        "segment_count": 4,
+        "target_seconds": 50.0
+      },
+      "style": {
+        "font_face": "impact",
+        "highlight_color": "#C8FF3D",
+        "stroke_color": "#0E140A",
+        "outro_bg_color": [
+          10,
+          14,
+          8,
+          255
+        ],
+        "outro_subtext_color": "#C8FF3D",
+        "title_card_channel_color": "#C8FF3D",
+        "title_card_bg_color": [
+          10,
+          14,
+          8,
+          255
+        ]
+      },
+      "scenes": {
+        "share": 45,
+        "art": {
+          "preset": "clean_flat"
+        }
+      },
+      "channel_display_name": "Curiosity Leak",
+      "content_mode": "topic"
+    },
+    "the_pub_quiz_round": {
+      "format": "quiz",
+      "voice": "CwhRBWXzGAHq8TQ4Fs17",
+      "style_prompt": "Write for the host of a local pub quiz who genuinely loves this job: warm, quick-witted, never mean, rooting for the listener even on the brutal rounds. Every question stands alone as a clean, unambiguous piece of trivia with one defensible correct answer, phrased the way a real quizmaster would say it aloud, and the accompanying on-screen text matches exactly what's spoken so no viewer is reading something different from what they hear. Move briskly from one question to the next with light, varied connective patter rather than a repeated formula: a short aside, a joke about the category, a nudge before a tricky one, but never padding that delays the countdown. When an answer lands, say it plainly and short, and only add context when it genuinely helps (a date, a one-clause reason) rather than out of habit. Never invent or fudge a fact under pressure to sound clever; if a question is borderline trivia (spelling variants, disputed records, recent events that might have changed), swap it for one that is unambiguous, and keep the difficulty ladder honest so 'impossible' means genuinely obscure rather than unfair or trick-worded. Close each round the same warm way in spirit but not in identical words: inviting the score, asking what topic or difficulty to run next, or nudging a share with mates - never scold, never oversell, keep the pub-night camaraderie.",
+      "hook_style": "Open on the category and difficulty as a direct, friendly challenge or a bit of banter that sets the stakes for this round - a quick tease of how hard it's about to get, or a dare to beat last week's average - never a slow wind-up, but also never fake urgency; it should sound like a quizmaster tapping the mic and grinning, not a trailer voiceover.",
+      "build_on_previous": true,
+      "context_scope": "all",
+      "speed": 1.02,
+      "pacing": {
+        "segment_count": 2,
+        "target_seconds": 150.0
+      },
+      "style": {
+        "font_face": "cambria_bold",
+        "base_color": "#F5EFE3",
+        "highlight_color": "#E0A94D",
+        "stroke_color": "#12100A",
+        "outro_enabled": false,
+        "outro_bg_color": [
+          14,
+          12,
+          8,
+          255
+        ],
+        "outro_title_color": "#F5EFE3",
+        "outro_subtext_color": "#E0A94D",
+        "title_card_title_color": "#F5EFE3",
+        "title_card_channel_color": "#E0A94D",
+        "title_card_bg_color": [
+          14,
+          12,
+          8,
+          255
+        ],
+        "captions_enabled": false,
+        "screen_hook_enabled": false,
+        "emphasis_enabled": false
+      },
+      "ordering": {
+        "topic_order": "random",
+        "subtopic_order": "random",
+        "grouping": "round_robin"
+      },
+      "scenes": {
+        "art": {
+          "preset": "clean_flat",
+          "ink": "#2B2118",
+          "ink_soft": "#6B5B48",
+          "label_fill": "#EADFC5",
+          "accent1": "#B4652E",
+          "accent2": "#2F6E5B",
+          "accent3": "#8C2F39",
+          "accent4": "#3A5A78",
+          "accent5": "#C9A227",
+          "background": "#F6EEDD",
+          "font_display": "Georgia",
+          "prop_style": "Flat vector icons with a slight hand-drawn wobble and thick warm-brown outline, filled with a small muted palette on the board background, like pub chalkboard signage redrawn cleanly"
+        }
+      },
+      "sound": {
+        "music_moods": [
+          "upbeat pub piano",
+          "light quiz tension",
+          "cheerful acoustic tick-tock"
+        ],
+        "effects_level": 0.35
+      },
+      "quiz": {
+        "difficulties": [
+          "Easy",
+          "Medium",
+          "Hard",
+          "Fiendish",
+          "Impossible"
+        ]
+      },
+      "channel_display_name": "The Pub Quiz Round",
       "content_mode": "topic"
     }
   }
