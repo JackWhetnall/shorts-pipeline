@@ -2202,3 +2202,8 @@ button.topic-row.selected:hover {
   .plan-topic > summary { flex-wrap: wrap; }
 }
 .up-next-chip { color: var(--accent); font-weight: 600; }
+.plan-rename { display: flex; gap: var(--sp-2, 0.5rem); flex-wrap: wrap; margin: var(--sp-2, 0.5rem) 0; }
+.plan-rename input { flex: 1; min-width: 12rem; }
+.plan-add-by-hand { margin-top: var(--sp-2, 0.5rem); }
+.plan-add-by-hand textarea { width: 100%; margin: var(--sp-2, 0.5rem) 0; }
+.narrow-number { width: 5rem; }

@@ -295,3 +295,47 @@ def estimate_cost(topic_count: int = DEFAULT_TOPIC_COUNT) -> dict:
         "full_usd": outline + per_topic * topic_count,
         "topic_count": topic_count,
     }
+
+
+# --- growing a plan -----------------------------------------------------------
+
+def extend_outline(channel, curriculum: dict, count: int) -> list:
+    """`count` more topics for an existing plan, after its last one and
+    overlapping none of them. For a quiz channel, new categories."""
+    existing = "\n".join(f"{i + 1}. [{t['level']}] {t['title']}" + (f" - {t['summary']}" if t.get("summary") else "")
+                         for i, t in enumerate(curriculum["topics"]) if not t.get("placeholder"))
+    if getattr(channel, "format", "narrated") == "quiz":
+        system = [SystemBlock(
+            "You choose categories for a pub-quiz channel: each is a topic its rounds are "
+            "asked about, at every difficulty. Good categories are ones quiz audiences enjoy, "
+            "broad enough for many rounds of ten questions, and clearly different from each "
+            "other.", cacheable=True),
+            SystemBlock(f"This channel's own description of what it makes:\n\n{channel.style_prompt}")]
+        user = (f"The channel's categories so far:\n{existing}\n\n"
+                f"Suggest exactly {count} new categories, none overlapping these. Short titles "
+                f"(one to three words). Level: foundation for all.")
+    else:
+        system = [SystemBlock(
+            "You extend syllabuses for short-form video channels: the running order a "
+            "channel covers its subject in.\n\n" + ORDERING_RULES, cacheable=True),
+            SystemBlock(f"This channel's own description of what it makes:\n\n{channel.style_prompt}")]
+        user = (f"The syllabus so far, in order:\n{existing}\n\n"
+                f"Write exactly {count} more topics that continue it after its last topic: "
+                f"none may repeat or overlap an existing one, and they should carry the arc "
+                f"on at or beyond the level where it ends. About 25 videos each.")
+    data = call_json(system, user, _outline_schema(), operation="curriculum_extend",
+                     max_tokens=OUTLINE_MAX_TOKENS, effort=OUTLINE_EFFORT)
+    have = {t["title"].strip().lower() for t in curriculum["topics"]}
+    topics = [t for t in data.get("topics") or [] if (t.get("title") or "").strip()
+              and t["title"].strip().lower() not in have]
+    return topics[:count]
+
+
+def fill_topic(channel, topic: dict) -> list:
+    """A topic's subtopics: a quiz category's rounds by rule (free), or a
+    narrated topic's videos written by the model."""
+    if getattr(channel, "format", "narrated") == "quiz":
+        from pipeline import quiz
+        return quiz.subtopic_rows(topic["title"], channel.quiz.difficulties)
+    from core import curriculum as plan
+    return write_subtopics(channel, plan.load(channel.key), topic)

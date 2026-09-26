@@ -41,6 +41,8 @@ def page(key):
         topics=curriculum.topics_with_subtopics(key),
         next_topic=curriculum.next_unfilled_topic(key),
         up_next=(curriculum.load(key).get("up_next") or "") if curriculum.exists(key) else "",
+        quiz=channel.format == "quiz",
+        noun="category" if channel.format == "quiz" else "topic",
         cost=estimate_cost(DEFAULT_TOPIC_COUNT),
         default_topics=DEFAULT_TOPIC_COUNT,
         default_subtopics=DEFAULT_TOTAL_SUBTOPICS,
@@ -96,7 +98,7 @@ def fill(key):
     wanted = as_int(data.get("count"), 1, 1, 10)
     only = (data.get("topic_id") or "").strip()
 
-    from pipeline.curriculum_gen import write_subtopics
+    from pipeline.curriculum_gen import fill_topic
 
     filled, added = [], 0
     for _ in range(wanted):
@@ -105,7 +107,7 @@ def fill(key):
         if topic is None or (only and topic.get("filled")):
             break
         try:
-            subtopics = write_subtopics(channel, curriculum.load(key), topic)
+            subtopics = fill_topic(channel, topic)
         except PipelineError as exc:
             log.warning(f"{key}: subtopics for {topic['id']} failed: {exc}")
             # Partial success is still success: report what was written
@@ -124,6 +126,109 @@ def fill(key):
         return jsonify({"error": "Every topic already has its subtopics."}), 400
     return jsonify({"ok": True, "topics": filled, "subtopics_added": added,
                     "pending": curriculum.pending_count(key)})
+
+
+# --- growing the plan ----------------------------------------------------------
+#
+# Adding only: nothing here touches a subtopic, a script or the record of
+# what has been made (core.curriculum's "growing the plan").
+
+def _lines(text) -> list:
+    return [line.strip(" -•\t") for line in str(text or "").splitlines() if line.strip(" -•\t")]
+
+
+def _require_plan(key):
+    if not curriculum.exists(key):
+        abort(400, description="This channel has no topic plan yet. Design one first.")
+
+
+@bp.route("/api/channels/<key>/curriculum/topics", methods=["POST"])
+def add_topic(key):
+    """A topic by hand: a title, and either videos typed in, or written
+    for it (a quiz category's rounds by rule), or left empty to fill later."""
+    channel = channel_or_404(key)
+    _require_plan(key)
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        topic = curriculum.add_topic(key, data.get("title", ""), data.get("summary", ""))
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 400
+    typed = _lines(data.get("subtopics"))
+    try:
+        if typed:
+            curriculum.add_subtopics(key, topic["id"], [{"title": t} for t in typed])
+        elif data.get("write"):
+            from pipeline.curriculum_gen import fill_topic
+            curriculum.add_subtopics(key, topic["id"], fill_topic(channel, topic))
+    except PipelineError as exc:
+        return jsonify({"ok": True, "topic": topic["id"],
+                        "warning": f"The topic was added, but its videos weren't: {exc.user_message}"})
+    return jsonify({"ok": True, "topic": topic["id"]})
+
+
+@bp.route("/api/channels/<key>/curriculum/topics/generate", methods=["POST"])
+def generate_topics(key):
+    """More topics, continuing the plan, each with its videos."""
+    channel = channel_or_404(key)
+    _require_plan(key)
+    data = request.get_json(force=True, silent=True) or {}
+    count = as_int(data.get("count"), 5, 1, 20)
+    from pipeline.curriculum_gen import extend_outline, fill_topic
+    try:
+        topics = extend_outline(channel, curriculum.load(key), count)
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 502
+    added, unfilled = [], []
+    for row in topics:
+        try:
+            topic = curriculum.add_topic(key, row["title"], row.get("summary", ""),
+                                         row.get("level", "intermediate"))
+        except PipelineError:
+            continue
+        added.append(topic["title"])
+        try:
+            curriculum.add_subtopics(key, topic["id"], fill_topic(channel, topic))
+        except PipelineError as exc:
+            log.warning(f"{key}: couldn't write videos for {topic['title']}: {exc}")
+            unfilled.append(topic["title"])
+    if not added:
+        return jsonify({"error": "No new topics came back. Try again."}), 502
+    return jsonify({"ok": True, "topics": added, "unfilled": unfilled})
+
+
+@bp.route("/api/channels/<key>/curriculum/<topic_id>/subtopics", methods=["POST"])
+def add_subtopics_by_hand(key, topic_id):
+    channel_or_404(key)
+    _require_plan(key)
+    if curriculum.find_topic(key, topic_id) is None:
+        abort(404, description="That topic is no longer in the plan.")
+    typed = _lines((request.get_json(force=True, silent=True) or {}).get("subtopics"))
+    if not typed:
+        return jsonify({"error": "Type at least one video, one per line."}), 400
+    before = curriculum.progress(key)["total"]
+    curriculum.add_subtopics(key, topic_id, [{"title": t} for t in typed])
+    return jsonify({"ok": True, "added": curriculum.progress(key)["total"] - before})
+
+
+@bp.route("/api/channels/<key>/curriculum/<topic_id>/rename", methods=["POST"])
+def rename_topic(key, topic_id):
+    channel_or_404(key)
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        curriculum.rename_topic(key, topic_id, data.get("title", ""), data.get("summary"))
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 400
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/channels/<key>/curriculum/<topic_id>/remove", methods=["POST"])
+def remove_topic(key, topic_id):
+    channel_or_404(key)
+    try:
+        curriculum.remove_topic(key, topic_id)
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 400
+    return jsonify({"ok": True})
 
 
 @bp.route("/channels/<key>/curriculum/<topic_id>/scripts")

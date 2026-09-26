@@ -462,3 +462,12 @@ def test_a_finished_render_leaves_no_working_files_and_listings_skip_them(tmp_pa
     assert [p.name for p in gallery.videos_in(tmp_path)] == ["v.mp4"]
     assemble.remove_working_files(SimpleNamespace(out_dir=tmp_path, stem="v"))
     assert not work.exists()
+
+
+def test_a_new_category_gets_its_rounds_by_rule(monkeypatch):
+    from pipeline import curriculum_gen
+    monkeypatch.setattr(curriculum_gen, "write_subtopics", lambda *a: pytest.fail("no model call"))
+    channel = _channel()
+    channel.quiz.difficulties = ["Easy", "Hard", "Tricky"]
+    rows = curriculum_gen.fill_topic(channel, {"title": "Snakes"})
+    assert [r["title"] for r in rows] == ["Snakes: Easy", "Snakes: Hard", "Snakes: Tricky"]

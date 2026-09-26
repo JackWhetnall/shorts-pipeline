@@ -163,18 +163,93 @@
     </li>
     {% endfor %}
   </ol>
+  {% if not quiz %}
+  <details class="plan-add-by-hand">
+    <summary class="hint">Add videos to this topic by hand</summary>
+    <textarea rows="4" id="add-subs-{{ topic.id }}" placeholder="One video per line"></textarea>
+    <button type="button" class="btn-ghost" onclick="planAddSubtopics('{{ key }}', '{{ topic.id }}', this)">Add them</button>
+  </details>
+  {% endif %}
   {% else %}
+  {% if topic.placeholder %}
+  <p class="meta">A new {{ noun }}, not named yet.</p>
+  {% endif %}
+  <div class="plan-rename">
+    <input type="text" id="rename-title-{{ topic.id }}" value="{{ '' if topic.placeholder else topic.title }}"
+           placeholder="{{ noun|capitalize }} name">
+    {% if not quiz %}
+    <input type="text" id="rename-summary-{{ topic.id }}" value="{{ topic.summary }}"
+           placeholder="What it covers (optional)">
+    {% endif %}
+    <button type="button" class="btn-ghost" onclick="planRename('{{ key }}', '{{ topic.id }}', this)">
+      {{ 'Name it' if topic.placeholder else 'Rename' }}</button>
+  </div>
+  {% if not topic.placeholder %}
   <div class="actions">
     <button type="button" class="btn-ghost"
             id="curriculum-fill-{{ topic.id }}"
             onclick="fillTopics('{{ key }}', 1, '{{ topic.id }}')">
-      Write this topic's {{ topic.target_subtopics }} subtopics
-      (~{{ '%.2f'|format(cost.per_topic_usd) }} dollars)
+      {% if quiz %}Add its rounds (free){% else %}Write this topic's {{ topic.target_subtopics }} subtopics
+      (~{{ '%.2f'|format(cost.per_topic_usd) }} dollars){% endif %}
     </button>
+    <button type="button" class="btn-ghost danger-text" onclick="planRemove('{{ key }}', '{{ topic.id }}', this)">Remove</button>
   </div>
+  {% if not quiz %}
+  <details class="plan-add-by-hand">
+    <summary class="hint">Or type its videos yourself</summary>
+    <textarea rows="4" id="add-subs-{{ topic.id }}" placeholder="One video per line"></textarea>
+    <button type="button" class="btn-ghost" onclick="planAddSubtopics('{{ key }}', '{{ topic.id }}', this)">Add them</button>
+  </details>
+  {% endif %}
+  {% else %}
+  <div class="actions">
+    <button type="button" class="btn-ghost danger-text" onclick="planRemove('{{ key }}', '{{ topic.id }}', this)">Remove</button>
+  </div>
+  {% endif %}
   {% endif %}
 </details>
 {% endfor %}
+
+<div class="card" id="plan-add">
+  <h2>Add to the plan</h2>
+  <p class="meta">Adding never touches what's already here: every {{ noun }}, video and written
+    script stays as it is.</p>
+  <h3>A {{ noun }} of your own</h3>
+  <div class="channel-form">
+    <label>{{ noun|capitalize }}
+      <input type="text" id="plan-add-title"
+             placeholder="{{ 'e.g. Snakes, or General Knowledge 2' if quiz else 'e.g. How bridges stay up' }}">
+    </label>
+    {% if quiz %}
+    <p class="hint">A numbered category ("General Knowledge 2") shares its category's memory of
+      what has been asked, and a new category is kept clear of questions other categories
+      already asked about it.</p>
+    {% else %}
+    <label>What it covers (optional)
+      <input type="text" id="plan-add-summary">
+    </label>
+    <label>Its videos, one per line (optional)
+      <textarea rows="4" id="plan-add-subtopics"
+                placeholder="Leave empty to have them written, or to add them later"></textarea>
+    </label>
+    {% endif %}
+    <div class="actions">
+      <button type="button" class="btn btn-primary" onclick="planAddTopic('{{ key }}', true, this)">
+        {{ 'Add it with its rounds' if quiz else 'Add it and write its videos' }}</button>
+      <button type="button" class="btn-ghost" onclick="planAddTopic('{{ key }}', false, this)">
+        {{ 'Add it empty' if quiz else 'Add it with the videos typed above, or empty' }}</button>
+    </div>
+  </div>
+  <h3>More, generated</h3>
+  <div class="actions">
+    <input type="number" id="plan-generate-count" min="1" max="20" value="5" class="narrow-number">
+    <button type="button" class="btn-ghost" onclick="planGenerate('{{ key }}', this)">
+      {{ 'Generate more categories' if quiz else 'Generate more topics and their videos' }}</button>
+    <span class="hint">{% if quiz %}One call, under a cent; each new category gets its rounds
+      free.{% else %}About {{ '%.2f'|format(cost.per_topic_usd) }} dollars a topic.{% endif %}</span>
+  </div>
+  <p class="hint" id="plan-add-status"></p>
+</div>
 
 <fieldset class="card danger-zone">
   <legend>Start over</legend>

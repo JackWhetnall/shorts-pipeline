@@ -2034,3 +2034,77 @@ class TestTopicTitleForCard:
 
         seed = Seed(type="topic", topic="Gone", topic_id="t9999")
         assert _topic_title_for_card(self._channel(), seed) == ""
+
+
+class TestGrowingThePlan:
+    """A plan grows for as long as a channel runs, and growing it never
+    touches a subtopic, a script, or the record of what was made."""
+
+    def test_a_topic_can_be_added_named_and_removed_while_empty(self, planned):
+        curriculum.set_script("c", "t0001", {"segments": []})
+        topic = curriculum.add_topic("c", "Bridges", "How they stay up")
+        assert topic["id"] == "u04" and curriculum.find_topic("c", "u04")["title"] == "Bridges"
+        with pytest.raises(curriculum.CurriculumError):
+            curriculum.add_topic("c", "bridges")                    # names are unique
+        curriculum.rename_topic("c", "u04", "Tunnels")
+        curriculum.remove_topic("c", "u04")
+        with pytest.raises(curriculum.CurriculumError):
+            curriculum.remove_topic("c", "u01")                     # it has videos
+        assert curriculum.find("c", "t0001")["script"] == {"segments": []}
+
+    def test_the_topic_count_adds_placeholders_and_only_removes_empty_ones(self, planned):
+        assert curriculum.set_topic_count("c", 5) == ""
+        topics = curriculum.load("c")["topics"]
+        assert len(topics) == 5 and topics[-1].get("placeholder")
+        # A placeholder is never written about until it's named.
+        curriculum.add_subtopics("c", "u03", [{"title": "Deep thing"}])
+        assert curriculum.next_unfilled_topic("c") is None
+        note = curriculum.set_topic_count("c", 1)
+        assert len(curriculum.load("c")["topics"]) == 3 and "keeps 3" in note
+        assert len(curriculum.subtopics("c")) == 6
+
+    def test_the_plan_page_offers_every_way_to_grow(self, planned, tmp_path, monkeypatch):
+        from core.channels import channel_to_sparse_dict, write_raw
+        from web import create_app
+        path = tmp_path / "channels.json"
+        monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", path)
+        channel = ChannelConfig(key="c", content_mode="topic", voice="21m00Tcm4TlvDq8ikWAM",
+                                style_prompt="x")
+        write_raw({"c": channel_to_sparse_dict(channel)}, path)
+        client = create_app().test_client()
+        page = client.get("/channels/c/curriculum").get_data(as_text=True)
+        for text in ("Add to the plan", "Generate more topics", "Add videos to this topic by hand"):
+            assert text in page
+        token = page.split('name="csrf-token" content="')[1].split('"')[0]
+        headers = {"X-CSRF-Token": token}
+
+        made = client.post("/api/channels/c/curriculum/topics", headers=headers, json={
+            "title": "Bridges", "subtopics": "Why arches work\n- Suspension, simply\n"}).get_json()
+        assert [s["title"] for s in curriculum.subtopics("c", topic_id=made["topic"])] == [
+            "Why arches work", "Suspension, simply"]
+
+        from pipeline import curriculum_gen
+        monkeypatch.setattr(curriculum_gen, "extend_outline", lambda ch, data, n: [
+            {"title": "Tunnels", "summary": "", "level": "advanced"},
+            {"title": "Basics", "summary": "", "level": "advanced"}])      # a duplicate is skipped
+        monkeypatch.setattr(curriculum_gen, "write_subtopics",
+                            lambda ch, data, topic: [{"title": f"{topic['title']} one"}])
+        grown = client.post("/api/channels/c/curriculum/topics/generate", headers=headers,
+                            json={"count": 2}).get_json()
+        assert grown["topics"] == ["Tunnels"] and "Tunnels one" in [s["title"] for s in curriculum.subtopics("c")]
+
+    def test_the_settings_count_reaches_the_plan(self, planned, tmp_path, monkeypatch):
+        from core.channels import channel_to_sparse_dict, write_raw
+        from web import create_app
+        path = tmp_path / "channels.json"
+        monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", path)
+        channel = ChannelConfig(key="c", content_mode="topic", voice="21m00Tcm4TlvDq8ikWAM",
+                                style_prompt="x")
+        write_raw({"c": channel_to_sparse_dict(channel)}, path)
+        client = create_app().test_client()
+        page = client.get("/channels/c/settings").get_data(as_text=True)
+        assert 'name="plan_topic_count"' in page and 'value="3"' in page
+        token = page.split('name="csrf-token" content="')[1].split('"')[0]
+        client.post("/channels/c/settings", data={"csrf_token": token, "plan_topic_count": "6"})
+        assert len(curriculum.load("c")["topics"]) == 6
+        assert len(curriculum.subtopics("c")) == 5

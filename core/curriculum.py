@@ -258,11 +258,96 @@ def next_unfilled_topic(channel_key: str) -> dict:
 
     Earliest, not any: topics fill in order so the buffer of pending
     subtopics always continues the arc rather than jumping ahead of it.
+    A placeholder (a slot added by raising the topic count, not yet
+    named) is skipped: there is nothing to write videos about yet.
     """
     for topic in load(channel_key)["topics"]:
-        if not topic.get("filled"):
+        if not topic.get("filled") and not topic.get("placeholder"):
             return topic
     return None
+
+
+# --- growing the plan ------------------------------------------------
+#
+# Everything here only ever adds, renames, or removes a topic that has
+# nothing in it. Subtopics, their scripts and the record of what has been
+# made are never touched: a plan grows for as long as the channel runs.
+
+def _next_topic_id(data: dict) -> str:
+    numbers = [int(t["id"][1:]) for t in data["topics"] if t["id"][1:].isdigit()]
+    return f"u{max(numbers, default=0) + 1:02d}"
+
+
+def add_topic(channel_key: str, title: str, summary: str = "", level: str = "intermediate",
+              placeholder: bool = False) -> dict:
+    """A new topic at the end of the plan. A placeholder is an unnamed
+    slot, named later on the plan page."""
+    data = load(channel_key)
+    title = (title or "").strip()
+    if not title and not placeholder:
+        raise CurriculumError("topic with no title", user_message="Give the topic a name.")
+    if title and title.lower() in {t["title"].strip().lower() for t in data["topics"]}:
+        raise CurriculumError(f"topic {title!r} exists",
+                              user_message=f'The plan already has a topic called "{title}".')
+    topic = {"id": _next_topic_id(data), "title": title or f"New topic {len(data['topics']) + 1}",
+             "summary": (summary or "").strip(),
+             "level": level if level in LEVELS else "intermediate",
+             "target_subtopics": 25, "filled": False}
+    if placeholder:
+        topic["placeholder"] = True
+    data["topics"].append(topic)
+    save(data)
+    return topic
+
+
+def rename_topic(channel_key: str, topic_id: str, title: str, summary: str = None) -> dict:
+    data = load(channel_key)
+    topic = _topic(data, topic_id)
+    title = (title or "").strip()
+    if not title:
+        raise CurriculumError("empty title", user_message="Give the topic a name.")
+    if title.lower() in {t["title"].strip().lower() for t in data["topics"] if t["id"] != topic_id}:
+        raise CurriculumError(f"topic {title!r} exists",
+                              user_message=f'The plan already has a topic called "{title}".')
+    topic["title"] = title
+    if summary is not None:
+        topic["summary"] = summary.strip()
+    topic.pop("placeholder", None)
+    save(data)
+    return topic
+
+
+def remove_topic(channel_key: str, topic_id: str) -> None:
+    """Only a topic with nothing in it: one with subtopics carries the
+    record of what has been made, and scripts that cost money."""
+    data = load(channel_key)
+    _topic(data, topic_id)
+    if any(s["topic"] == topic_id for s in data["subtopics"]):
+        raise CurriculumError(f"topic {topic_id} has subtopics", user_message=(
+            "Only an empty topic can be removed. Skip its videos instead."))
+    data["topics"] = [t for t in data["topics"] if t["id"] != topic_id]
+    save(data)
+
+
+def set_topic_count(channel_key: str, count: int) -> str:
+    """Grow the plan to `count` topics with unnamed placeholders, or shrink
+    it by removing empty topics from the end. Returns a note when it
+    couldn't shrink as far as asked, else ""."""
+    data = load(channel_key)
+    have = len(data["topics"])
+    for _ in range(max(0, count - have)):
+        add_topic(channel_key, "", placeholder=True)
+    if count >= have:
+        return ""
+    removable = [t for t in reversed(load(channel_key)["topics"])
+                 if not any(s["topic"] == t["id"] for s in data["subtopics"])]
+    for topic in removable[:have - count]:
+        remove_topic(channel_key, topic["id"])
+    left = len(load(channel_key)["topics"])
+    if left > count:
+        return (f"The plan keeps {left} topics: the others already have videos in them, "
+                f"and removing them would lose that record.")
+    return ""
 
 
 # --- reading --------------------------------------------------------

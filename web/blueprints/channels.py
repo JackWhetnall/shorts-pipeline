@@ -156,6 +156,13 @@ def settings(key):
             # A level added in settings reaches every category's rounds now.
             from pipeline import quiz
             quiz.sync_ladders(channel)
+        wanted_topics = request.form.get("plan_topic_count", "").strip()
+        if wanted_topics.isdigit() and curriculum.exists(key):
+            wanted = max(1, min(200, int(wanted_topics)))
+            if wanted != len(curriculum.load(key)["topics"]):
+                kept = curriculum.set_topic_count(key, wanted)
+                if kept:
+                    notes = " ".join(n for n in (notes, kept) if n)
         # Which section was open, carried back through the redirect.
         # Sections are switched rather than scrolled now, so without this a
         # save from Look drops you back on Channel with no sign of where

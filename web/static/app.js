@@ -2912,3 +2912,71 @@ function initMusicPicker(root) {
 }
 
 document.querySelectorAll("[data-music-picker]").forEach(initMusicPicker);
+
+// --- Topic plan: growing it -------------------------------------------------
+//
+// Every one of these only adds, names, or removes an empty topic; nothing
+// already written is touched (core.curriculum, "growing the plan").
+
+async function planPost(url, body, button, status) {
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Working…";
+  const res = await apiFetch(url, {method: "POST", headers: {"Content-Type": "application/json"},
+                                   body: JSON.stringify(body || {})});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.error) {
+    (status || document.getElementById("plan-add-status")).textContent = data.error || "That didn't work.";
+    button.disabled = false;
+    button.textContent = original;
+    return null;
+  }
+  return data;
+}
+
+async function planAddTopic(channelKey, write, button) {
+  const title = document.getElementById("plan-add-title").value.trim();
+  const status = document.getElementById("plan-add-status");
+  if (!title) { status.textContent = "Give it a name first."; return; }
+  const summary = document.getElementById("plan-add-summary");
+  const subtopics = document.getElementById("plan-add-subtopics");
+  const typed = subtopics ? subtopics.value : "";
+  const data = await planPost(`/api/channels/${channelKey}/curriculum/topics`, {
+    title, summary: summary ? summary.value : "", subtopics: typed, write: write && !typed.trim(),
+  }, button, status);
+  if (!data) return;
+  if (data.warning) alert(data.warning);
+  window.location.hash = data.topic;
+  window.location.reload();
+}
+
+async function planGenerate(channelKey, button) {
+  const count = Number(document.getElementById("plan-generate-count").value) || 5;
+  const data = await planPost(`/api/channels/${channelKey}/curriculum/topics/generate`, {count}, button);
+  if (!data) return;
+  if (data.unfilled && data.unfilled.length) {
+    alert(`Added ${data.topics.length}. These still need their videos written: ${data.unfilled.join(", ")}`);
+  }
+  window.location.reload();
+}
+
+async function planAddSubtopics(channelKey, topicId, button) {
+  const text = document.getElementById(`add-subs-${topicId}`).value;
+  const data = await planPost(`/api/channels/${channelKey}/curriculum/${topicId}/subtopics`,
+                              {subtopics: text}, button);
+  if (data) { window.location.hash = topicId; window.location.reload(); }
+}
+
+async function planRename(channelKey, topicId, button) {
+  const title = document.getElementById(`rename-title-${topicId}`).value;
+  const summary = document.getElementById(`rename-summary-${topicId}`);
+  const data = await planPost(`/api/channels/${channelKey}/curriculum/${topicId}/rename`,
+                              {title, summary: summary ? summary.value : null}, button);
+  if (data) { window.location.hash = topicId; window.location.reload(); }
+}
+
+async function planRemove(channelKey, topicId, button) {
+  if (!confirm("Remove this empty topic from the plan?")) return;
+  const data = await planPost(`/api/channels/${channelKey}/curriculum/${topicId}/remove`, {}, button);
+  if (data) window.location.reload();
+}

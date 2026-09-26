@@ -188,6 +188,14 @@
           &mdash; {{ topic_plan.pending }} still to make.
           <a href="{{ url_for('curriculum.page', key=channel.key) }}">Open the topic plan &rarr;</a>
         </p>
+        <label class="field-row">
+          <span class="field-label">{{ 'Categories' if channel.format == 'quiz' else 'Topics' }} in its plan</span>
+          <input type="number" name="plan_topic_count" min="1" max="200" value="{{ topic_plan.topic_count }}">
+          <span class="hint">Raise it and that many new, empty {{ 'categories' if channel.format == 'quiz' else 'topics' }}
+            appear at the end of the topic plan, to name and fill there (by hand, or written for you).
+            Lower it and only empty ones at the end are removed: nothing with videos or scripts
+            in it is ever touched.</span>
+        </label>
         {% else %}
         <p class="checklist-box">
           <strong>A topic plan is better than a list.</strong> It designs an
