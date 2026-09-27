@@ -91,6 +91,14 @@ to the two hardest levels and must never answer on their own.
 Dingbats are the weakest kind, so their rounds are worth reviewing
 before publishing.
 
+## Revised: dingbats removed
+
+The owner removed dingbats entirely. A dingbat's meaning lives in its
+exact shape, which a model can't reliably design or judge: even the ones
+that passed were drawn clumsily ("growing pains" shrank). There's also no
+free library of real dingbat images. A category previously set to
+dingbats now makes ordinary rounds.
+
 ## Tried and rejected
 
 - **Google Images.** See above.

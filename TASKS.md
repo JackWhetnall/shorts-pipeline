@@ -147,13 +147,11 @@ Custom thumbnails need your YouTube account verified (Studio → Settings
 ### 2g. Try a picture round
 On The Pub Quiz Round's **Topic plan → Add to the plan**, add a category
 with **Kind of round → Picture round** (flags, country outlines, famous
-faces, landmarks, paintings or dingbats), or switch an existing category
+faces, landmarks or paintings), or switch an existing category
 with its own **Kind of round** menu. Its quizzes then show a picture per
 question. Pictures come only from sources free to reuse (not Google
 Images: "fair use" isn't permission, and it's the usual way channels get
-copyright strikes); credits go in the description automatically. Dingbats
-are the weakest kind: review those before publishing. Custom thumbnails
-and pictures aside, nothing else to set up.
+copyright strikes); credits go in the description automatically.
 
 ## Starting to publish (Minute Pastor, Wren's, The Pub Quiz Round)
 

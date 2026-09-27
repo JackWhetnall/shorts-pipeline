@@ -1,6 +1,6 @@
 """
 Pictures for picture rounds: flags, country outlines, famous faces,
-landmarks, paintings and dingbats, from sources that are safe to reuse.
+landmarks and paintings, from sources that are safe to reuse.
 
 Where each comes from, and why it's safe:
 
@@ -18,14 +18,10 @@ Where each comes from, and why it's safe:
   likeliest route to a copyright claim.
 - paintings: the museum collections pipeline.artwork already uses (public
   domain works from the Art Institute of Chicago and the Met).
-- dingbats: word puzzles set out as text by the writer and drawn here; no
-  image at all.
 
 Every picture is looked at before it's used (check): does it show what
 the answer says, with nothing in it that gives the answer away, and is it
-fit for a general audience. A dingbat is checked blind: the checker is
-shown the drawn puzzle and has to solve it. A question whose picture
-fails is replaced like one whose answer failed the fact check. Pictures
+fit for a general audience. A question whose picture fails is replaced like one whose answer failed the fact check. Pictures
 are cached per subject, so each is fetched and checked once. See
 decision 046.
 """
@@ -56,8 +52,10 @@ KINDS = {
     "faces": "Famous faces: who is this?",
     "landmarks": "Landmarks: name the place",
     "paintings": "Paintings: who painted it, or what is it called?",
-    "dingbats": "Dingbats: word puzzles to solve",
 }
+# Dingbats were tried and removed: a dingbat's meaning is in its exact
+# shape, which a model can't reliably design or judge, and there's no
+# free library of real ones (decision 046).
 FOLDER = CACHE_DIR / "quiz_pictures"
 TIMEOUT = 25
 HEADERS = {"User-Agent": "ShortsPipeline/1.0 (personal quiz videos; https://example.invalid)"}
@@ -304,8 +302,6 @@ def fetch(kind: str, subject, style: dict = None) -> dict:
         return found
     if kind == "paintings":
         return _painting(str(subject))
-    if kind == "dingbats":
-        return _dingbat(subject, style)
     raise PictureError(f"unknown kind {kind}", user_message="That kind of picture round isn't known.")
 
 
@@ -326,74 +322,6 @@ def _painting(subject: str) -> dict:
     credit = artwork.credit(work)
     credit_file.write_text(credit, encoding="utf-8")
     return {"path": str(path), "credit": credit}
-
-
-# --- dingbats --------------------------------------------------------------------------
-
-COLOURS = {"red": "#C62828", "blue": "#1E5AA8", "green": "#2E7D32", "yellow": "#E0A800",
-           "orange": "#E86A10", "purple": "#6A3FA0", "black": "#1B1B1B", "white": "#FFFFFF"}
-SPELLED = {"4": "for", "2": "to", "1": "one", "8": "ate", "u": "you", "r": "are", "c": "see"}
-FILLERS = frozenset({"a", "an", "the", "of", "in", "on", "and", "to", "is"})
-
-
-def dingbat_trivial(layout: list, answer: str) -> bool:
-    """Whether a dingbat just spells its answer out: every word of it is
-    there to read (TOUCH / WOOD for "touch wood"). A real one carries at
-    least one word in the arrangement (HEAD above HEELS: "over")."""
-    shown = set()
-    for item in layout or []:
-        for w in re.findall(r"[a-z0-9]+", str(item.get("text", "")).lower()):
-            shown.add(SPELLED.get(w, w))
-    wanted = [w for w in re.findall(r"[a-z0-9]+", answer.lower()) if w not in FILLERS]
-    if wanted and all(SPELLED.get(w, w) in shown for w in wanted):
-        return True
-    # Or the shown words just run together ("DOWN", "TOWN" for "downtown").
-    from itertools import permutations
-    joined = "".join(re.findall(r"[a-z0-9]+", answer.lower()))
-    words = sorted(shown)[:6]
-    return any("".join(p) == joined for k in (2, 3) for p in permutations(words, k))
-
-
-def dingbat_html(layout: list, style: dict = None, size: int = 900) -> str:
-    """A dingbat drawn from the writer's layout: each item a word or
-    phrase at a position (0-100 across and down), a size, a turn, flipped
-    or struck through."""
-    from pipeline.templates import theme
-    style = style or {}
-    colors = style.get("colors") or {}
-    ink = colors.get("ink", "#2B2118")
-    accent = colors.get("accent2", "#2F6E5B")
-    font = style.get("font_display", "Georgia")
-    items = []
-    for item in layout or []:
-        text = html.escape(str(item.get("text", ""))[:40])
-        x = max(0, min(100, float(item.get("x", 50))))
-        y = max(0, min(100, float(item.get("y", 50))))
-        scale = max(0.4, min(3.0, float(item.get("size", 1))))
-        turn = max(-180, min(180, float(item.get("rotate", 0))))
-        flip = {"horizontal": "scaleX(-1)", "vertical": "scaleY(-1)"}.get(item.get("flip"), "")
-        deco = "line-through" if item.get("strike") else "none"
-        colour = COLOURS.get(item.get("color"), accent if item.get("accent") else ink)
-        items.append(
-            f"<div style='position:absolute;left:{x}%;top:{y}%;transform:translate(-50%,-50%) "
-            f"rotate({turn}deg) {flip};font-size:{64 * scale:.0f}px;color:{colour};"
-            f"text-decoration:{deco};text-decoration-thickness:6px;white-space:pre;"
-            f"font-family:\"{font}\",Georgia,serif;font-weight:700'>{text}</div>")
-    bg = (style.get("background") or {}).get("color", "#F6EEDD")
-    return (f"<!doctype html><html><head><meta charset='utf-8'><style>html,body{{margin:0;"
-            f"width:{size}px;height:{size}px;background:{bg};}}</style></head><body>"
-            f"<div style='position:relative;width:{size}px;height:{size}px'>{''.join(items)}</div>"
-            "<script>window.__seek=function(){};window.__ready=true;</script></body></html>")
-
-
-def _dingbat(layout, style: dict = None) -> dict:
-    from pipeline.scenes import render
-    key = hashlib.sha1(json.dumps([layout, (style or {}).get("key")], sort_keys=True).encode()).hexdigest()[:16]
-    path = FOLDER / "dingbats" / f"{key}.jpg"
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        render.page_frame(dingbat_html(layout, style), 0.0, path, size=(900, 900))
-    return {"path": str(path), "credit": ""}
 
 
 # --- looking before using ------------------------------------------------------------
@@ -419,13 +347,6 @@ published. Answer strictly.
 - suitable: fit for a general audience, and recognisable at phone size?
 """.strip()
 
-SOLVE_SYSTEM = """
-This picture is a dingbat: a word puzzle where the arrangement of the
-words (their positions, sizes, turns, repeats) stands for a common phrase
-or saying. Say what phrase it is. If you can't tell, say so.
-""".strip()
-
-
 def _jpeg_b64(path: str) -> str:
     from PIL import Image
     if path.endswith(".svg"):
@@ -447,15 +368,6 @@ def check(kind: str, path: str, question: str, answer: str) -> str:
     content = [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                             "data": _jpeg_b64(path)}}]
     try:
-        if kind == "dingbats":
-            data = llm.call_json(SOLVE_SYSTEM, content + [{"type": "text", "text": "What phrase is this?"}],
-                                 {"type": "object", "properties": {"phrase": {"type": "string"}},
-                                  "required": ["phrase"], "additionalProperties": False},
-                                 operation="picture_check", model=CHECK_MODEL, max_tokens=600, effort=None)
-            said = re.sub(r"[^a-z ]", "", (data.get("phrase") or "").lower()).split()
-            meant = re.sub(r"[^a-z ]", "", answer.lower()).split()
-            overlap = len(set(said) & set(meant)) / max(1, len(set(meant)))
-            return "" if overlap >= 0.7 else f"solved as \"{data.get('phrase')}\", not \"{answer}\""
         schema = {"type": "object", "properties": {
             "shows_it": {"type": "boolean"}, "gives_away": {"type": "boolean"},
             "suitable": {"type": "boolean"}, "note": {"type": "string"}},

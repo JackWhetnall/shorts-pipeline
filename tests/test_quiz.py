@@ -600,14 +600,10 @@ def test_only_reusable_commons_pictures_are_taken(monkeypatch):
         assert not pictures.REUSABLE.match(no)
 
 
-def test_a_dingbat_that_just_spells_its_answer_is_refused():
-    """Regression: TOUCH above WOOD passed the blind solve for "touch wood":
-    of course it did, it says so. The arrangement must carry a word."""
+
+def test_dingbats_are_not_offered():
+    """Removed: a dingbat's meaning is in its exact shape, which a model
+    can't reliably design or judge, and there's no free library of real
+    ones. Categories set to it before are ordinary rounds now."""
     from pipeline import pictures
-    words = lambda *w: [{"text": x} for x in w]
-    assert pictures.dingbat_trivial(words("TOUCH", "WOOD"), "touch wood")
-    assert pictures.dingbat_trivial(words("DOWN", "TOWN"), "downtown")
-    assert pictures.dingbat_trivial(words("ALL", "4", "ONE"), "all for one")
-    assert not pictures.dingbat_trivial(words("HEAD", "HEELS"), "head over heels")
-    assert not pictures.dingbat_trivial(words("DICE", "DICE"), "paradise")
-    assert not pictures.dingbat_trivial(words("MAN", "BOARD"), "man overboard")
+    assert "dingbats" not in pictures.KINDS and "dingbats" not in quiz.PICTURE_GUIDE

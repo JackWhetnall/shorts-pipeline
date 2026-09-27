@@ -137,22 +137,9 @@ def _schema(kind: str = None) -> dict:
         "required": ["lead_in", "question", "answer", "spoken_answer"],
         "additionalProperties": False,
     }
-    if kind and kind != "dingbats":
+    if kind:
         question["properties"]["subject"] = {"type": "string"}
         question["required"].append("subject")
-    if kind == "dingbats":
-        question["properties"]["layout"] = {"type": "array", "items": {
-            "type": "object",
-            "properties": {"text": {"type": "string"}, "x": {"type": "number"},
-                           "y": {"type": "number"}, "size": {"type": "number"},
-                           "rotate": {"type": "number"},
-                           "flip": {"type": "string", "enum": ["none", "horizontal", "vertical"]},
-                           "strike": {"type": "boolean"},
-                           "color": {"type": "string", "enum": ["ink", "red", "blue", "green",
-                                                                "yellow", "orange", "purple"]}},
-            "required": ["text", "x", "y", "size", "rotate", "flip", "strike", "color"],
-            "additionalProperties": False}}
-        question["required"].append("layout")
     return {
         "type": "object",
         "properties": {
@@ -642,9 +629,6 @@ def _clean_round(data: dict, count: int, kind: str = None) -> dict:
         if kind:
             row["kind"] = kind
             row["subject"] = (q.get("subject") or "").strip()
-            if kind == "dingbats":
-                row["layout"] = [i for i in q.get("layout") or [] if (i.get("text") or "").strip()]
-                row["subject"] = " / ".join(i["text"] for i in row["layout"])
         questions.append(row)
     if len(questions) < count:
         raise PipelineError(f"quiz came back with {len(questions)} of {count} questions",
@@ -725,21 +709,6 @@ landmark, building or natural wonder.
   and likely to be in the Art Institute of Chicago's or the Met's open
   collections, where it's fetched from).
 - question: "Who painted this?" or "What is this painting called?".""",
-    "dingbats": """This is a picture round of dingbats: each question shows words arranged
-so that their layout stands for a common phrase or saying.
-- layout: the words to draw. Each has x and y (0-100, the word's centre),
-  size (0.4-3, 1 is normal), rotate (degrees), flip, strike (crossed out)
-  and color ("ink" normally; a real colour only when the colour is part
-  of the clue, "blue" for a blue moon).
-- The arrangement must carry part of the answer: at least one of its
-  words comes from where, how big, how often, which way round or what
-  colour the words are, never from reading them (HEAD above HEELS for
-  "head over heels"; ROAD crossed with ROAD for "crossroads"). Words
-  simply stacked (TOUCH above WOOD for "touch wood") are not a dingbat.
-  Classic, fair puzzles a player can reason out, using a mix of devices
-  across the round.
-- question: "What phrase is this?" and variations.
-- answer: the phrase.""",
 }
 
 
@@ -864,7 +833,9 @@ def write_round(channel, entry: dict, avoid: str = "") -> Script:
     difficulty = entry.get("angle") or round_of(SimpleNamespace(
         topic_id="", topic=entry["title"], title=entry["title"]), channel)[1]
     extra = "\n\n".join(p for p in (ladder_note(channel, entry), avoid) if p)
-    return _write_checked(channel, category, difficulty, extra, topic.get("picture"))
+    from pipeline import pictures
+    kind = topic.get("picture") if topic.get("picture") in pictures.KINDS else None
+    return _write_checked(channel, category, difficulty, extra, kind)
 
 
 def _check(channel, category: str, difficulty: str, questions: list, kind: str = None) -> list:
@@ -886,9 +857,7 @@ def _check(channel, category: str, difficulty: str, questions: list, kind: str =
         if verdicts[i] != "ok":
             continue
         try:
-            if kind == "dingbats" and pictures.dingbat_trivial(q.get("layout"), q["answer"]):
-                raise pictures.PictureError("just spells its answer out", user_message="")
-            found = pictures.fetch(kind, q.get("layout") if kind == "dingbats" else q["subject"], style)
+            found = pictures.fetch(kind, q["subject"], style)
             problem = pictures.check(kind, found["path"], q["question"], q["answer"])
         except PipelineError as exc:
             problem = str(exc)
@@ -918,7 +887,7 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "",
 
     # Replace what didn't pass from a fresh set of candidates, keeping those
     # that pass. Once for a text round; up to three times for a picture
-    # round, where more candidates fall (dingbats especially).
+    # round, where more candidates fall.
     failed = []
     for _ in range(PICTURE_REWRITES if kind else 1):
         bad = [i for i, v in enumerate(verdicts) if v != "ok"]
@@ -980,7 +949,7 @@ def to_script(data: dict, channel, category: str, difficulty: str,
         segments.append(Segment(text=q["spoken_answer"], pause_after=float(quiz.answer_pause)))
         row = {"question": q["question"], "answer": q["answer"],
                "spoken_answer": q["spoken_answer"], "ask": ask, "reveal": ask + 1}
-        for key in ("kind", "subject", "layout", "picture"):
+        for key in ("kind", "subject", "picture"):
             if q.get(key):
                 row[key] = q[key]
         rows.append(row)
@@ -1062,8 +1031,7 @@ def picture_uri(q: dict, style: dict = None) -> str:
         return ""
     path = (q.get("picture") or {}).get("path", "")
     if not path or not Path(path).exists():
-        subject = q.get("layout") if kind == "dingbats" else q.get("subject")
-        path = pictures.fetch(kind, subject, style)["path"]
+        path = pictures.fetch(kind, q.get("subject"), style)["path"]
     return pictures.data_uri(path)
 
 
@@ -1302,7 +1270,7 @@ def save_round(plan) -> Path:
         "credits": list(quiz.get("credits") or []),
         "questions": [{"question": q["question"], "answer": q["answer"],
                        "spoken_answer": q.get("spoken_answer", ""),
-                       **{k: q[k] for k in ("kind", "subject", "layout", "picture") if q.get(k)},
+                       **{k: q[k] for k in ("kind", "subject", "picture") if q.get(k)},
                        "ask_audio": spoken(segments[q["ask"]]),
                        "answer_audio": spoken(segments[q["reveal"]])}
                       for q in quiz.get("questions") or []],

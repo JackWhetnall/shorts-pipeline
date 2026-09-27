@@ -377,7 +377,7 @@ that runs out gets its next round on demand; questions that clash (same
 answer, one giving another away) are kept out of one round and one long
 video; chemical symbols are respelled for the voice by rule (decision
 [045](docs/decisions/045-quiz-robustness.md)). A category can be a picture
-round (flags, outlines, faces, landmarks, paintings, dingbats): pictures
+round (flags, outlines, faces, landmarks, paintings): pictures
 come from reusable sources only and are looked at before use
 (`pipeline/pictures.py`). Long quizzes run as two series, mixed and per
 category, each using a round once
