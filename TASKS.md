@@ -115,13 +115,16 @@ difficulties = 75 quizzes) are all live.
    (the draft's choice). Change them in **Settings → Channel** if you'd
    rather say "Very hard".
 
-### 2e. Watch the first long quiz (new)
-In **Review** there's a 7-minute widescreen quiz: your Science (Medium) and
-Space (Hard) shorts recut into "20 Questions, Medium to Hard", answers at
-the end. Its host lines were newly voiced (about 450 characters, $0.14 in
-all); every question and answer is cut from the shorts. Watch the joins
-and the answer sections. It was a test: discard it to free those two
-rounds for a proper six-round quiz later, or keep it.
+### 2e. Remake the first long quiz with the new timing
+The 7-minute test quiz in **Review** has the old, quick timing and the
+host explaining the format. **Discard** it (that frees its two rounds),
+then **Create video → A long quiz → Rising, 2 rounds, answers at the
+end**. The new one runs about 11 minutes: a 10-second clock per question,
+30 seconds to finish each round. About 600 characters and 15 cents.
+Two things can't change in these two rounds, because they're cut from
+the shorts: Science question 6 still says "ow" for Au, and Space
+question 8 says "ap-helion". Rounds voiced from now on list their tricky
+words with respellings for the voice.
 Long quizzes are made from **Create video → A long quiz** once enough
 shorts are finished (the card shows how many are ready at each
 difficulty; "rising" mixes them, easiest first). Settings → Channel sets
