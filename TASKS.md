@@ -133,6 +133,17 @@ Settings → Publishing → **Long quizzes** sets their own days and times.
 Custom thumbnails need your YouTube account verified (Studio → Settings
 → Channel → Feature eligibility); until then YouTube picks a frame.
 
+### 2f. Two new settings worth a glance
+- **Settings → Voice & timing → How to say words the voice gets wrong**:
+  one per line, `word = say it like this`. For every channel: Bible
+  names on Minute Pastor, spell names on Wren's. The screen still shows
+  the word as written.
+- **The Pub Quiz Round → Settings → Channel → Long quizzes: a round may
+  appear in N long videos.** 1 (the default) keeps every long video's
+  questions its own; 2 lets a round from a mixed long quiz come back once,
+  e.g. in a "Science: easiest to hardest" one (a new choice on Create
+  video once a category has two or more levels finished).
+
 ## Starting to publish (Minute Pastor, Wren's, The Pub Quiz Round)
 
 ### 3a. Decide the voice allowance first (the one real limit)

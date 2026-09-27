@@ -372,7 +372,11 @@ is ever touched (core.curriculum, "growing the plan"; decision 043).
 A quiz channel keeps every question it has asked in
 `config/question_banks/<key>.json`. The writer sees its category's and
 related questions; a local check against the whole bank replaces repeats.
-Difficulty is a level on a fixed 1-10 scale (`quiz.levels`).
+Difficulty is a level on a fixed 1-10 scale (`quiz.levels`). A category
+that runs out gets its next round on demand; questions that clash (same
+answer, one giving another away) are kept out of one round and one long
+video; chemical symbols are respelled for the voice by rule (decision
+[045](docs/decisions/045-quiz-robustness.md)).
 
 **Long quizzes** (`pipeline/longform.py`) are not a pipeline run. A job
 with seed type `longform` recuts finished quiz shorts: each short saves
