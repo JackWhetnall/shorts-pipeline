@@ -165,8 +165,10 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             quiz.longform_variant = form.get("quiz_longform_variant")
         quiz.longform_every_days = min(60, max(0, _maybe_int(
             form, "quiz_longform_every_days", quiz.longform_every_days)))
-        quiz.longform_round_reuse = min(3, max(1, _maybe_int(
-            form, "quiz_longform_round_reuse", quiz.longform_round_reuse)))
+        if (form.get("quiz_longform_series_name") or "").strip():
+            quiz.longform_series_name = form.get("quiz_longform_series_name").strip()[:40]
+        if "quiz_category_present" in form:
+            quiz.longform_category_when_ready = bool(form.get("quiz_longform_category_when_ready"))
         quiz.longform_clock_seconds = min(30.0, max(3.0, _maybe_float(
             form, "quiz_longform_clock_seconds", quiz.longform_clock_seconds)))
         quiz.longform_finish_seconds = min(120.0, max(0.0, _maybe_float(

@@ -653,6 +653,7 @@ def run(plan):
         # The channel's own list of words the engine misreads, and a quiz
         # round's (pipeline.quiz), the round's winning where both have one.
         say_as={**(getattr(plan.channel, "pronunciations", None) or {}),
+                **(getattr(plan.script, "pronunciations", None) or {}),
                 **((getattr(plan.script, "quiz", None) or {}).get("pronunciations") or {})},
     )
 

@@ -376,10 +376,13 @@ class Quiz(_MappingLike):
     # end) to finish off before the answers.
     longform_clock_seconds: float = 10.0
     longform_finish_seconds: float = 30.0
-    # How many long videos one round may appear in. 1 keeps every long
-    # video's questions its own; 2 lets a round seen in a mixed quiz come
-    # back once in a single-category one. Never twice in one video.
-    longform_round_reuse: int = 1
+    # Long quizzes come in two series, each using a round at most once: a
+    # mixed one ("Quiz Night #12": several categories) and one per category
+    # ("Science Quiz #3": easiest to hardest), so a round can appear once
+    # in each. The mixed series' name, and whether a category's quiz is
+    # made by itself as soon as all its levels are finished.
+    longform_series_name: str = "Quiz Night"
+    longform_category_when_ready: bool = True
 
 
 @dataclass

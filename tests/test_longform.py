@@ -356,12 +356,62 @@ def test_a_single_category_quiz_climbs_its_levels(world):
     assert longform.availability(world.channel)["category:Science"] == 3
 
 
-def test_a_round_can_come_back_once_when_the_channel_allows_it(world):
+def test_a_round_appears_once_in_each_series_never_more(world):
+    """A mixed quiz night and a category's own quiz are separate series,
+    each using a round at most once: no setting to get wrong."""
     _short(world.root, "science_easy", "Science", "Easy")
     long_dir = world.tmp / "out" / "longform" / "2026-09-27"
     long_dir.mkdir(parents=True)
-    (long_dir / "mixed.mp4").write_bytes(b"")
-    quiz.round_sidecar(long_dir / "mixed.mp4").write_text(json.dumps({"rounds": ["science_easy"]}))
-    assert longform.available_rounds(world.channel) == []
-    world.channel.quiz.longform_round_reuse = 2
-    assert [r["stem"] for r in longform.available_rounds(world.channel)] == ["science_easy"]
+    (long_dir / "night.mp4").write_bytes(b"")
+    quiz.round_sidecar(long_dir / "night.mp4").write_text(json.dumps(
+        {"rounds": ["science_easy"], "difficulty": "Easy", "series": "mixed", "episode": 1}))
+    assert longform.available_rounds(world.channel, longform.MIXED) == []
+    assert [r["stem"] for r in longform.available_rounds(world.channel, longform.CATEGORY)] == ["science_easy"]
+    (long_dir / "science.mp4").write_bytes(b"")
+    quiz.round_sidecar(long_dir / "science.mp4").write_text(json.dumps(
+        {"rounds": ["science_easy"], "difficulty": "category:Science", "episode": 1,
+         "category": "Science"}))
+    assert longform.available_rounds(world.channel, longform.CATEGORY) == []
+    # Each series numbers itself: quiz nights together, a category on its own.
+    assert longform.episode(world.channel, longform.MIXED) == 2
+    assert longform.episode(world.channel, longform.CATEGORY, "Science") == 2
+    assert longform.episode(world.channel, longform.CATEGORY, "Maths") == 1
+    assert longform.series_label(world.channel, longform.MIXED, 2) == "Quiz Night #2"
+    assert longform.series_label(world.channel, longform.CATEGORY, 2, "Science") == "Science Quiz #2"
+
+
+def test_a_category_is_ready_when_all_its_levels_are_finished(world):
+    world.channel.quiz.difficulties = ["Easy", "Hard"]
+    _short(world.root, "science_easy", "Science", "Easy")
+    _short(world.root, "space_easy", "Space", "Easy")
+    assert longform.full_ladders(world.channel) == []
+    _short(world.root, "science_hard", "Science", "Hard")
+    assert longform.full_ladders(world.channel) == ["Science"]
+
+
+def test_the_scheduler_makes_a_categorys_quiz_when_ready_one_at_a_time(world, monkeypatch):
+    from core import jobs, scheduler
+    world.channel.quiz.difficulties = ["Easy", "Hard"]
+    world.channel.publishing.enabled = True
+    started = []
+    monkeypatch.setattr(jobs, "active_jobs", lambda: {})
+    monkeypatch.setattr(jobs, "start_job", lambda key, seed: started.append(seed) or "job")
+    _short(world.root, "science_easy", "Science", "Easy")
+    _short(world.root, "science_hard", "Science", "Hard")
+    assert scheduler.fill_category_quizzes({"pub_quiz": world.channel}) == ["pub_quiz"]
+    assert started[0]["difficulty"] == "category:Science" and started[0]["rounds"] == 2
+    long_dir = world.tmp / "out" / "longform" / "2026-09-28"
+    long_dir.mkdir(parents=True)
+    (long_dir / "maths.mp4").write_bytes(b"")
+    quiz.round_sidecar(long_dir / "maths.mp4").write_text(json.dumps(
+        {"rounds": [], "difficulty": "category:Maths", "episode": 1, "category": "Maths"}))
+    assert scheduler.fill_category_quizzes({"pub_quiz": world.channel}) == []    # one waits already
+
+
+def test_the_description_lists_the_answers_with_when_they_come():
+    _, timeline = _laid_out("at_end")
+    text = longform.answers_list(timeline)
+    assert text.startswith("Answers (spoilers!)")
+    assert "Round 2: Space (Hard)" in text and "1. A0 (" in text
+    assert longform.titled("Quiz Night #3", "Sixty questions") == "Quiz Night #3: Sixty questions"
+    assert longform.titled("Quiz Night #3", "Quiz Night #3: Sixty") == "Quiz Night #3: Sixty"

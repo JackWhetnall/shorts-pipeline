@@ -276,6 +276,13 @@ seconds: 2-6 words that make someone stop, not a copy of the whole line
 "emphasis" is up to 6 single words from the spoken lines that carry the
 meaning (the key numbers and nouns), exactly as they are written in the
 lines. They pop in the captions as they're said.
+
+"pronunciations" lists any word in the spoken lines (the passage
+included) that a voice engine might misread, with a plain respelling of
+how to say it: an unusual name ("Melchizedek" as "mel-KIZ-eh-dek"), a
+word whose stress misleads, a symbol or abbreviation ("Au" as "ay you").
+Only what a careful reader could get wrong; usually none. Captions keep
+the word as written; only the voice uses the respelling.
 """.strip()
 
 PACKAGING_SCHEMA = {
@@ -283,7 +290,16 @@ PACKAGING_SCHEMA = {
     "description_body": {"type": "string"},
     "screen_hook": {"type": "string"},
     "emphasis": {"type": "array", "items": {"type": "string"}},
+    "pronunciations": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"written": {"type": "string"}, "say": {"type": "string"}},
+        "required": ["written", "say"], "additionalProperties": False}},
 }
+
+
+def _pronunciations(data: dict) -> dict:
+    return {p["written"].strip(): p["say"].strip() for p in data.get("pronunciations") or []
+            if (p.get("written") or "").strip() and (p.get("say") or "").strip()}
 
 # First in the schema, so the loop is planned before any line is written.
 PLAN_SCHEMA = {
@@ -594,7 +610,8 @@ def generate_script(seed: Seed, channel, avoid: str = "") -> Script:
     loop = {"hook_promise": (data.get("hook_promise") or "").strip(),
             "payoff": (data.get("payoff") or "").strip(),
             "screen_hook": _clean(data.get("screen_hook") or ""),
-            "emphasis": [w.strip() for w in data.get("emphasis") or [] if w and w.strip()][:6]}
+            "emphasis": [w.strip() for w in data.get("emphasis") or [] if w and w.strip()][:6],
+            "pronunciations": _pronunciations(data)}
 
     if seed.type == "quote":
         # Segment 0 is the source text verbatim — never regenerated,
@@ -910,6 +927,7 @@ def write_scripts(channel, topic: dict, subtopics: list) -> list:
                 "payoff": (item.get("payoff") or "").strip(),
                 "screen_hook": _clean(item.get("screen_hook") or ""),
                 "emphasis": [w.strip() for w in item.get("emphasis") or [] if w and w.strip()][:6],
+                "pronunciations": _pronunciations(item),
             },
         })
 

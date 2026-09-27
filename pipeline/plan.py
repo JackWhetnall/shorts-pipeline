@@ -157,6 +157,9 @@ class Script:
     # few words that pop in the captions as they're spoken.
     screen_hook: str = ""
     emphasis: list = field(default_factory=list)
+    # Words the voice misreads and how to say them, from the writer; the
+    # voice only (pipeline.tts.speakable).
+    pronunciations: dict = field(default_factory=dict)
     # A quiz's structure (pipeline.quiz): category, difficulty, and each
     # question with its answer and which segments ask and answer it.
     # None for every other format.
@@ -178,6 +181,7 @@ class Script:
                 "screen_hook": self.screen_hook,
                 "emphasis": list(self.emphasis),
                 "quiz": self.quiz,
+                "pronunciations": dict(self.pronunciations),
                 "segments": [s.to_jsonable() for s in self.segments],
                 "title_options": list(self.title_options),
                 "description_body": self.description_body}
@@ -191,6 +195,7 @@ class Script:
                    screen_hook=data.get("screen_hook", ""),
                    emphasis=list(data.get("emphasis") or []),
                    quiz=data.get("quiz"),
+                   pronunciations=dict(data.get("pronunciations") or {}),
                    segments=[Segment.from_jsonable(s) for s in data["segments"]],
                    title_options=list(data.get("title_options") or []),
                    description_body=data.get("description_body", ""))

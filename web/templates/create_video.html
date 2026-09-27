@@ -26,7 +26,7 @@
           {% if longform.singles %}
           <optgroup label="One category, easiest to hardest">
             {% for option, count in longform.singles %}
-            <option value="{{ option }}" {{ 'disabled' if count < 2 }}>{{ option[9:] }} &mdash; {{ count }} level{{ 's' if count != 1 }} ready</option>
+            <option value="{{ option }}" {{ 'disabled' if count < 2 }}>{{ option[9:] }} &mdash; {{ count }} of {{ longform.labels|length }} levels ready</option>
             {% endfor %}
           </optgroup>
           {% endif %}

@@ -152,6 +152,39 @@ def fill_long_quizzes(channels: dict = None) -> list:
     return started
 
 
+def fill_category_quizzes(channels: dict = None) -> list:
+    """Start a category's long quiz (easiest to hardest) as soon as it has
+    a finished round at every level, for running quiz channels that want
+    them. One waiting at a time per channel, so they keep pace with the
+    long-video slots rather than piling up. Returns the keys started."""
+    from pipeline import longform
+
+    channels = channels if channels is not None else load_channels(validate=False)
+    active = jobs.active_jobs()
+    started = []
+    for key, channel in channels.items():
+        if (channel.archived or channel.format != "quiz" or not channel.publishing.enabled
+                or not channel.quiz.longform_category_when_ready or key in active):
+            continue
+        try:
+            waiting = [v for v, data in longform._long_videos(channel)
+                       if data["series"] == longform.CATEGORY
+                       and not gallery.is_out(gallery.load_publish_info(v))]
+            ready = longform.full_ladders(channel)
+            if waiting or not ready:
+                continue
+            difficulty = longform.CATEGORY_PREFIX + ready[0]
+            request = longform.plan_request(channel, {"difficulty": difficulty})
+            jobs.start_job(key, {"type": "longform", **request,
+                                 "topic": f"Long quiz: {ready[0]}, easiest to hardest"})
+        except Exception as exc:  # noqa: BLE001 - one channel must not stop the rest
+            log.warning(f"Couldn't start a category quiz for {key}: {exc}")
+            continue
+        started.append(key)
+        log.info(f"Started {ready[0]}'s long quiz for {key}: all its levels are finished.")
+    return started
+
+
 def tick() -> None:
     """One pass of all three duties. Each is isolated from the others: a
     failed upload must not stop generation, nor either stop the stats."""
@@ -160,6 +193,7 @@ def tick() -> None:
                        ("topic plans", lambda: top_up_plans(channels)),
                        ("generation", lambda: fill_buffers(channels)),
                        ("long quizzes", lambda: fill_long_quizzes(channels)),
+                       ("category quizzes", lambda: fill_category_quizzes(channels)),
                        ("statistics", lambda: _refresh_audience(channels))):
         try:
             duty()

@@ -152,14 +152,19 @@
           <input type="number" name="quiz_longform_finish_seconds" min="0" max="120" step="5"
                  value="{{ channel.quiz.longform_finish_seconds }}">
         </label>
-        <label class="field-row"><span class="field-label">Long quizzes: a round may appear in</span>
-          <span><input type="number" name="quiz_longform_round_reuse" min="1" max="3" class="narrow-number"
-                 value="{{ channel.quiz.longform_round_reuse }}"> long video(s)</span>
+        <label class="field-row"><span class="field-label">Long quizzes: the mixed series is called</span>
+          <input type="text" name="quiz_longform_series_name" value="{{ channel.quiz.longform_series_name }}"
+                 placeholder="Quiz Night">
         </label>
-        <p class="hint">1 keeps every long video's questions its own. 2 lets a round from a mixed
-          quiz come back once in, say, a single-category one: mild overlap, but the more rounds
-          repeat, the more your long videos look alike, which is what YouTube's
-          inauthentic-content rules watch for.</p>
+        <input type="hidden" name="quiz_category_present" value="1">
+        <label class="checkbox-label">
+          <input type="checkbox" name="quiz_longform_category_when_ready"
+                 {% if channel.quiz.longform_category_when_ready %}checked{% endif %}>
+          Make a category's own long quiz (easiest to hardest) as soon as all its levels are finished
+        </label>
+        <p class="hint">Two series, each numbered: the mixed one ("{{ channel.quiz.longform_series_name }}
+          #12") and one per category ("Science Quiz #3"). A round appears at most once in each, so it
+          can be in one mixed quiz and one category quiz, never more.</p>
         <label class="field-row"><span class="field-label">Make a long quiz automatically every</span>
           <span><input type="number" name="quiz_longform_every_days" min="0" max="60" class="narrow-number"
                  value="{{ channel.quiz.longform_every_days }}"> days <span class="hint">(0: only when you ask)</span></span>
