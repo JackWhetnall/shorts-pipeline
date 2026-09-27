@@ -57,4 +57,5 @@ reason for a change stays true forever.
 | [042](042-settings-that-apply-and-the-quiz-ladder.md) | Settings that apply, paintings as a medium, the quiz ladder, one way to choose a video | Active; revises 038's paintings |
 | [043](043-plans-that-grow-and-quiz-memory.md) | Plans that grow safely, quiz memory for years, a fixed difficulty scale | Active |
 | [044](044-long-quizzes.md) | Long quizzes: finished shorts recut into widescreen videos | Active |
-| [045](045-quiz-robustness.md) | Quizzes that never run out, never clash, and say symbols right | Active |
+| [045](045-quiz-robustness.md) | Quizzes that never run out, never clash, and say symbols right | Active; reuse setting replaced by 046 |
+| [046](046-picture-rounds-and-series.md) | Picture rounds, and long quizzes as two series | Active |

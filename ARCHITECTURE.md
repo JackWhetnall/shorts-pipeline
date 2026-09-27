@@ -376,7 +376,12 @@ Difficulty is a level on a fixed 1-10 scale (`quiz.levels`). A category
 that runs out gets its next round on demand; questions that clash (same
 answer, one giving another away) are kept out of one round and one long
 video; chemical symbols are respelled for the voice by rule (decision
-[045](docs/decisions/045-quiz-robustness.md)).
+[045](docs/decisions/045-quiz-robustness.md)). A category can be a picture
+round (flags, outlines, faces, landmarks, paintings, dingbats): pictures
+come from reusable sources only and are looked at before use
+(`pipeline/pictures.py`). Long quizzes run as two series, mixed and per
+category, each using a round once
+([046](docs/decisions/046-picture-rounds-and-series.md)).
 
 **Long quizzes** (`pipeline/longform.py`) are not a pipeline run. A job
 with seed type `longform` recuts finished quiz shorts: each short saves

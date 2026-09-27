@@ -138,11 +138,22 @@ Custom thumbnails need your YouTube account verified (Studio → Settings
   one per line, `word = say it like this`. For every channel: Bible
   names on Minute Pastor, spell names on Wren's. The screen still shows
   the word as written.
-- **The Pub Quiz Round → Settings → Channel → Long quizzes: a round may
-  appear in N long videos.** 1 (the default) keeps every long video's
-  questions its own; 2 lets a round from a mixed long quiz come back once,
-  e.g. in a "Science: easiest to hardest" one (a new choice on Create
-  video once a category has two or more levels finished).
+- **The Pub Quiz Round → Settings → Channel → Long quizzes**: the mixed
+  series' name ("Quiz Night" by default, so "Quiz Night #1") and whether
+  a category's own quiz ("Science Quiz #1", easiest to hardest) is made
+  by itself once all its levels are finished (on by default). A round
+  goes into at most one of each.
+
+### 2g. Try a picture round
+On The Pub Quiz Round's **Topic plan → Add to the plan**, add a category
+with **Kind of round → Picture round** (flags, country outlines, famous
+faces, landmarks, paintings or dingbats), or switch an existing category
+with its own **Kind of round** menu. Its quizzes then show a picture per
+question. Pictures come only from sources free to reuse (not Google
+Images: "fair use" isn't permission, and it's the usual way channels get
+copyright strikes); credits go in the description automatically. Dingbats
+are the weakest kind: review those before publishing. Custom thumbnails
+and pictures aside, nothing else to set up.
 
 ## Starting to publish (Minute Pastor, Wren's, The Pub Quiz Round)
 
