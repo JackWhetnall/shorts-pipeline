@@ -547,6 +547,8 @@ def build_timeline(channel, rounds: list, sidecars: list, audios: list, links: l
         info["start"] = info["intro"][0] if info["intro"] else timeline["welcome"][1]
         for q in side["questions"]:
             item = {"question": q["question"], "answer": q["answer"]}
+            if q.get("kind"):
+                item["picture_uri"] = quiz.picture_uri(q)
             item["ask"] = track.add(cut(audio, q["ask_audio"]))
             track.gap(CLOCK_LEAD)
             item["countdown"] = track.gap(clock)
@@ -661,6 +663,13 @@ html, body {{ width: {W}px; height: {H}px; }}
 .row .q, .row .a {{ position: absolute; inset: 0; display: flex; align-items: center; overflow: hidden; }}
 .row .q {{ font-size: 31px; line-height: 1.15; color: var(--ink); }}
 .row .a {{ font-family: var(--display); font-weight: var(--dw); font-size: 38px; color: var(--a2); }}
+.row .thumb {{ position: absolute; left: 0; top: 4px; bottom: 4px; width: 120px; display: flex;
+  align-items: center; justify-content: center; }}
+.row .thumb img {{ max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; }}
+.row .a.beside {{ left: 136px; }}
+.panel .pic {{ width: 100%; height: 360px; display: flex; align-items: center; justify-content: center; }}
+.panel .pic img {{ max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; }}
+.panel .small {{ font-size: 40px; max-height: 110px; }}
 .row .line {{ position: absolute; left: 84px; right: 0; bottom: 4px; height: 3px; background: var(--soft);
   opacity: .3; border-radius: 2px; }}
 .row .now {{ position: absolute; left: -14px; right: -14px; top: 0; bottom: 0; border-radius: 16px;
@@ -763,30 +772,37 @@ def board_html(timeline: dict, style: dict, title: str, subtitle: str) -> str:
             highlights = [f"<div class='now' {_in(ask0, 'fade', 0.25, cd1 + 0.3 if variant == 'at_end' else reveal1)}></div>"]
             if variant == "at_end":
                 highlights.append(f"<div class='now' {_in(item['reask'][0], 'fade', 0.25, reveal1 + 0.4)}></div>")
+            pic = item.get("picture_uri", "")
+            if pic:
+                # A picture round: each row keeps a small copy of its
+                # picture, and the answer arrives beside it.
+                cell = (f"<div class='thumb' {_in(ask0, 'fade', 0.4)}><img src='{pic}'></div>"
+                        f"<div class='a beside' data-fit='22' {_in(reveal0, 'fade', 0.5)}>{esc(item['answer'])}</div>")
+            else:
+                cell = (f"<div class='q' data-fit='18' {_in(ask0, 'wipe', 0.6, reveal0)}>{esc(item['question'])}</div>"
+                        f"<div class='a' data-fit='22' {_in(reveal0, 'fade', 0.5)}>{esc(item['answer'])}</div>")
             rows.append(
                 f"<div class='row' style='height:{row_h:.0f}px' {_in(start + 0.1 + 0.05 * i, 'slide-left', 0.4, end - 0.2)}>"
                 + "".join(highlights) +
-                f"<div class='n'>{i + 1}.</div><div class='cell'>"
-                f"<div class='q' data-fit='18' {_in(ask0, 'wipe', 0.6, reveal0)}>{esc(item['question'])}</div>"
-                f"<div class='a' data-fit='22' {_in(reveal0, 'fade', 0.5)}>{esc(item['answer'])}</div>"
+                f"<div class='n'>{i + 1}.</div><div class='cell'>{cell}"
                 f"</div><div class='line'></div></div>")
+            shown = (f"<div class='pic'><img src='{pic}'></div>"
+                     f"<div class='big small' data-fit='26'>{esc(item['question'])}</div>" if pic else
+                     f"<div class='big' data-fit='30'>{esc(item['question'])}</div>")
             # The panel: the question and its clock; then, as it's given, the answer.
             nxt = info["questions"][i + 1]["ask"][0] if i + 1 < n else None
             if variant == "after_each":
                 q_out, a_out = reveal0, (nxt - 0.3 if nxt else end)
                 views.append(f"<div class='view with-timer' {_in(ask0, 'rise', 0.45, q_out)}>"
-                             f"<div class='label'>Question {i + 1}</div>"
-                             f"<div class='big' data-fit='30'>{esc(item['question'])}</div></div>")
+                             f"<div class='label'>Question {i + 1}</div>{shown}</div>")
             else:
                 # Gone before the next question arrives (the clock's tail
                 # is a second), so the two never overlap.
                 views.append(f"<div class='view with-timer' {_in(ask0, 'rise', 0.45, cd1 + 0.3)}>"
-                             f"<div class='label'>Question {i + 1}</div>"
-                             f"<div class='big' data-fit='30'>{esc(item['question'])}</div></div>")
+                             f"<div class='label'>Question {i + 1}</div>{shown}</div>")
                 re0 = item["reask"][0]
                 views.append(f"<div class='view' {_in(re0, 'fade', 0.4, reveal0)}>"
-                             f"<div class='label'>Question {i + 1}</div>"
-                             f"<div class='big' data-fit='30'>{esc(item['question'])}</div></div>")
+                             f"<div class='label'>Question {i + 1}</div>{shown}</div>")
                 later = [q["reask"][0] for q in info["questions"][i + 1:]]
                 a_out = later[0] - 0.3 if later else end
             views.append(f"<div class='view' {_in(reveal0, 'fade', 0.5, a_out)}>"
@@ -978,6 +994,7 @@ def make(channel, seed: dict, out_dir: Path = None):
                                      chips, f"{label} · {badge}"), 0.0, thumb, size=THUMB)
     marks = "\n".join(f"{_stamp(t)} {name}" for t, name in chapters(timeline))
     description = f"{links['description']}\n\nChapters\n{marks}\n\n{answers_list(timeline)}"
+    credits = sorted({c for s in sidecars for c in s.get("credits") or []}) + credits
     if credits:
         description += "\n\n" + "\n".join(credits)
     title = titled(label, (links["title_options"] or [title_line])[0])

@@ -524,3 +524,90 @@ def test_the_channel_pronunciation_list_is_saved_and_used(tmp_path):
     apply_channel_form(channel, MultiDict({"pronunciations": "Job = Jobe\nAu = ay you\nnonsense line\n"}))
     assert channel.pronunciations == {"Job": "Jobe", "Au": "ay you"}
     assert tts.speakable("Au, like Job said", channel.pronunciations) == "ay you, like Jobe said"
+
+
+class TestPictureRounds:
+    """Picture rounds (pipeline.pictures, decision 046). Sources faked."""
+
+    def test_a_picture_question_repeats_by_what_it_shows_not_its_wording(self):
+        france = {"question": "Whose flag is this?", "answer": "France", "kind": "flags", "subject": "France"}
+        spain = {**france, "answer": "Spain", "subject": "Spain"}
+        outline = {**france, "question": "Which country has this shape?", "kind": "outlines"}
+        assert quiz.repeats([spain, outline], "pub_quiz", among=[france]) == []
+        assert quiz.repeats([dict(france)], "pub_quiz", among=[france]) == [0]
+        assert quiz.round_clashes([france, spain]) == []
+
+    def test_a_question_whose_picture_fails_is_replaced(self, monkeypatch):
+        from pipeline import pictures
+        rounds = {"n": 0}
+
+        def call_json(system, user, schema, *, operation, **kwargs):
+            rounds["n"] += 1
+            names = ["Chile", "Nowhere", "Peru"] if rounds["n"] == 1 else ["Japan", "Italy", "Spain"]
+            return {"intro": "i", "outro": "o", "title_options": ["t"], "description_body": "",
+                    "pronunciations": [],
+                    "questions": [{"lead_in": "", "question": "Whose flag is this?", "answer": n,
+                                   "spoken_answer": n, "subject": n} for n in names]}
+
+        def fetch(kind, subject, style=None):
+            if subject == "Nowhere":
+                raise pictures.PictureError("no flag", user_message="no flag")
+            return {"path": f"{subject}.png", "credit": ""}
+
+        monkeypatch.setattr(quiz, "call_json", call_json)
+        monkeypatch.setattr(pictures, "choices", lambda kind: ["Chile", "Peru", "Japan"])
+        monkeypatch.setattr(pictures, "fetch", fetch)
+        monkeypatch.setattr(pictures, "check", lambda *a: "")
+        script = quiz._write_checked(_channel(), "Flags", "Easy", kind="flags")
+        assert [q["answer"] for q in script.quiz["questions"]] == ["Chile", "Japan", "Peru"]
+        assert script.quiz["questions"][1]["picture"]["path"] == "Japan.png"
+        assert script.quiz["unverified"] == []
+
+    def test_the_board_shows_the_picture_big_with_the_question_under_it(self, monkeypatch, tmp_path):
+        from pipeline.scenes import art
+        png = tmp_path / "f.png"
+        from PIL import Image
+        Image.new("RGB", (30, 20), "red").save(png)
+        data = {"intro": "i", "outro": "o", "questions": [
+            {"lead_in": "", "question": "Whose flag is this?", "answer": f"C{i}", "spoken_answer": "x",
+             "kind": "flags", "subject": f"C{i}", "picture": {"kind": "flags", "path": str(png)}}
+            for i in range(3)]}
+        script = quiz.to_script(data, _channel(), "Flags", "Easy")
+        for seg in script.segments:
+            seg.start, seg.end = 0.0, 1.0
+        page = quiz.board_html(script, quiz.timeline(script, []), art.resolve({}), 10.0)
+        assert "data:image/png;base64," in page and "class='qtext small'" in page
+        assert f"height: {quiz.PICTURE_CARD_H}px" in page
+
+
+def test_outlines_are_drawn_from_shapes_and_specks_are_left_out(monkeypatch):
+    from pipeline import pictures
+    square = {"type": "Polygon", "coordinates": [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]]}
+    speck = {"type": "Polygon", "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]]}
+    monkeypatch.setattr(pictures, "_shapes", lambda: {"Squareland": square, "Speck": speck})
+    assert pictures.outline_countries() == ["Squareland"]
+    svg = pictures.outline_svg("Squareland", "#123456")
+    assert svg.startswith("<svg") and "fill='#123456'" in svg and "<path d='M" in svg
+
+
+def test_only_reusable_commons_pictures_are_taken(monkeypatch):
+    from pipeline import pictures
+    assert pictures._commons_file("https://upload.wikimedia.org/wikipedia/commons/7/7e/A_b.jpg?utm_source=x") == "A_b.jpg"
+    assert pictures._commons_file("https://upload.wikimedia.org/wikipedia/en/1/1a/Poster.jpg") == ""
+    for ok in ("Public domain", "CC0", "CC BY 2.0", "CC BY-SA 4.0"):
+        assert pictures.REUSABLE.match(ok)
+    for no in ("Fair use", "", "All rights reserved"):
+        assert not pictures.REUSABLE.match(no)
+
+
+def test_a_dingbat_that_just_spells_its_answer_is_refused():
+    """Regression: TOUCH above WOOD passed the blind solve for "touch wood":
+    of course it did, it says so. The arrangement must carry a word."""
+    from pipeline import pictures
+    words = lambda *w: [{"text": x} for x in w]
+    assert pictures.dingbat_trivial(words("TOUCH", "WOOD"), "touch wood")
+    assert pictures.dingbat_trivial(words("DOWN", "TOWN"), "downtown")
+    assert pictures.dingbat_trivial(words("ALL", "4", "ONE"), "all for one")
+    assert not pictures.dingbat_trivial(words("HEAD", "HEELS"), "head over heels")
+    assert not pictures.dingbat_trivial(words("DICE", "DICE"), "paradise")
+    assert not pictures.dingbat_trivial(words("MAN", "BOARD"), "man overboard")

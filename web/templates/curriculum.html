@@ -101,7 +101,8 @@
          {% if topic.subtopics and topic.pending %}open{% endif %}>
   <summary class="summary-heading">
     {{ loop.index }}. {{ topic.title }}
-    <span class="badge">{{ topic.level }}</span>
+    {% if quiz and topic.picture %}<span class="badge">picture round: {{ topic.picture }}</span>
+    {% elif not quiz %}<span class="badge">{{ topic.level }}</span>{% endif %}
     {% if topic.subtopics %}
       <span class="meta">{{ topic.done }}/{{ topic.subtopics|length }} made</span>
     {% else %}
@@ -109,6 +110,16 @@
     {% endif %}
   </summary>
   <p class="meta">{{ topic.summary }}</p>
+  {% if quiz and not topic.placeholder %}
+  <label class="field-row picture-kind"><span class="field-label">Kind of round</span>
+    <select onchange="planPicture('{{ key }}', '{{ topic.id }}', this)">
+      <option value="" {{ 'selected' if not topic.picture }}>Ordinary questions</option>
+      {% for kind, label in picture_kinds.items() %}
+      <option value="{{ kind }}" {{ 'selected' if topic.picture == kind }}>Picture round &mdash; {{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
 
   {% if topic.subtopics %}
   {% set scripted = topic.subtopics|selectattr('script')|list|length %}
@@ -221,6 +232,14 @@
              placeholder="{{ 'e.g. Snakes, or General Knowledge 2' if quiz else 'e.g. How bridges stay up' }}">
     </label>
     {% if quiz %}
+    <label>Kind of round
+      <select id="plan-add-picture">
+        <option value="">Ordinary questions</option>
+        {% for kind, label in picture_kinds.items() %}
+        <option value="{{ kind }}">Picture round &mdash; {{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <p class="hint">A numbered category ("General Knowledge 2") shares its category's memory of
       what has been asked, and a new category is kept clear of questions other categories
       already asked about it.</p>

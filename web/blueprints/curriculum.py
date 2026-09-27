@@ -28,6 +28,11 @@ MIN_TOPICS, MAX_TOPICS = 5, 80
 MIN_SUBTOPICS, MAX_SUBTOPICS = 50, 3000
 
 
+def _picture_kinds() -> dict:
+    from pipeline import pictures
+    return pictures.KINDS
+
+
 @bp.route("/channels/<key>/curriculum")
 def page(key):
     channel = channel_or_404(key)
@@ -42,6 +47,7 @@ def page(key):
         next_topic=curriculum.next_unfilled_topic(key),
         up_next=(curriculum.load(key).get("up_next") or "") if curriculum.exists(key) else "",
         quiz=channel.format == "quiz",
+        picture_kinds=_picture_kinds(),
         noun="category" if channel.format == "quiz" else "topic",
         cost=estimate_cost(DEFAULT_TOPIC_COUNT),
         default_topics=DEFAULT_TOPIC_COUNT,
@@ -153,6 +159,9 @@ def add_topic(key):
         topic = curriculum.add_topic(key, data.get("title", ""), data.get("summary", ""))
     except PipelineError as exc:
         return jsonify({"error": exc.user_message}), 400
+    from pipeline import pictures
+    if channel.format == "quiz" and data.get("picture") in pictures.KINDS:
+        topic = curriculum.set_topic_picture(key, topic["id"], data["picture"])
     typed = _lines(data.get("subtopics"))
     try:
         if typed:
@@ -216,6 +225,21 @@ def rename_topic(key, topic_id):
     data = request.get_json(force=True, silent=True) or {}
     try:
         curriculum.rename_topic(key, topic_id, data.get("title", ""), data.get("summary"))
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 400
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/channels/<key>/curriculum/<topic_id>/picture", methods=["POST"])
+def set_picture(key, topic_id):
+    """A quiz category's kind: ordinary, or a picture round."""
+    from pipeline import pictures
+    channel_or_404(key)
+    kind = (request.get_json(force=True, silent=True) or {}).get("picture") or ""
+    if kind and kind not in pictures.KINDS:
+        return jsonify({"error": "That kind of picture round isn't known."}), 400
+    try:
+        curriculum.set_topic_picture(key, topic_id, kind)
     except PipelineError as exc:
         return jsonify({"error": exc.user_message}), 400
     return jsonify({"ok": True})

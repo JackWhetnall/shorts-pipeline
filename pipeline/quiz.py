@@ -125,7 +125,7 @@ one or two plain sentences about the round, no hashtags.
 """.strip()
 
 
-def _schema() -> dict:
+def _schema(kind: str = None) -> dict:
     question = {
         "type": "object",
         "properties": {
@@ -137,6 +137,22 @@ def _schema() -> dict:
         "required": ["lead_in", "question", "answer", "spoken_answer"],
         "additionalProperties": False,
     }
+    if kind and kind != "dingbats":
+        question["properties"]["subject"] = {"type": "string"}
+        question["required"].append("subject")
+    if kind == "dingbats":
+        question["properties"]["layout"] = {"type": "array", "items": {
+            "type": "object",
+            "properties": {"text": {"type": "string"}, "x": {"type": "number"},
+                           "y": {"type": "number"}, "size": {"type": "number"},
+                           "rotate": {"type": "number"},
+                           "flip": {"type": "string", "enum": ["none", "horizontal", "vertical"]},
+                           "strike": {"type": "boolean"},
+                           "color": {"type": "string", "enum": ["ink", "red", "blue", "green",
+                                                                "yellow", "orange", "purple"]}},
+            "required": ["text", "x", "y", "size", "rotate", "flip", "strike", "color"],
+            "additionalProperties": False}}
+        question["required"].append("layout")
     return {
         "type": "object",
         "properties": {
@@ -420,7 +436,9 @@ def remember(channel_key: str, video: str, script: Script) -> None:
     quiz = script.quiz or {}
     rounds = [r for r in bank(channel_key) if r.get("video") != video]
     rounds.append({"video": video, "category": base_category(quiz.get("category", "")),
-                   "questions": [{"question": q.get("question", ""), "answer": q.get("answer", "")}
+                   "questions": [{"question": q.get("question", ""), "answer": q.get("answer", ""),
+                                  **({"kind": q["kind"], "subject": q.get("subject", "")}
+                                     if q.get("kind") else {})}
                                  for q in quiz.get("questions") or []]})
     path = _bank_path(channel_key)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -486,19 +504,29 @@ def _norm_answer(answer: str) -> str:
     return re.sub(r"^(the|a|an)\s+", "", re.sub(r"[^a-z0-9 ]", "", (answer or "").lower())).strip()
 
 
-def repeats(questions: list, channel_key: str) -> list:
+def repeats(questions: list, channel_key: str, among: list = None) -> list:
     """Indices of questions that repeat one already asked or written on
-    this channel, in any category: the same answer to much the same
-    question, or much the same question. Local and free, so it covers the
-    whole bank however large it grows."""
+    this channel (or in `among`), in any category: the same answer to much
+    the same question, or much the same question. A picture question
+    repeats one of the same kind showing the same thing ("Whose flag is
+    this?" is asked of every flag). Local and free, so it covers the whole
+    bank however large it grows."""
+    source = among if among is not None else [q for _, q in _all_questions(channel_key)]
+    pictured = {(q["kind"], _norm_answer(q.get("subject") or q.get("answer", "")))
+                for q in source if q.get("kind")}
     past = [(_norm_answer(q.get("answer", "")), _keywords(q["question"]))
-            for _, q in _all_questions(channel_key)]
+            for q in source if not q.get("kind")]
     found = []
     for i, q in enumerate(questions):
+        if q.get("kind"):
+            if (q["kind"], _norm_answer(q.get("subject") or q["answer"])) in pictured:
+                found.append(i)
+            continue
         answer, words = _norm_answer(q["answer"]), _keywords(q["question"])
         for old_answer, old_words in past:
             overlap = len(words & old_words) / max(1, len(words | old_words))
-            if (answer and answer == old_answer and overlap >= 0.3) or overlap >= 0.6:
+            enough = len(words | old_words) >= 4     # two short questions share words by chance
+            if (answer and answer == old_answer and overlap >= 0.3) or (enough and overlap >= 0.6):
                 found.append(i)
                 break
     return found
@@ -600,7 +628,7 @@ def write_ladder_below(channel, entry: dict) -> int:
 
 # --- writing ---------------------------------------------------------------
 
-def _clean_round(data: dict, count: int) -> dict:
+def _clean_round(data: dict, count: int, kind: str = None) -> dict:
     questions = []
     for q in data.get("questions") or []:
         question = " ".join((q.get("question") or "").split())
@@ -608,9 +636,16 @@ def _clean_round(data: dict, count: int) -> dict:
         spoken = " ".join((q.get("spoken_answer") or "").split()) or answer
         if not question or not answer:
             continue
-        questions.append({"lead_in": " ".join((q.get("lead_in") or "").split()),
-                          "question": question[:QUESTION_CHARS * 2],
-                          "answer": answer, "spoken_answer": spoken})
+        row = {"lead_in": " ".join((q.get("lead_in") or "").split()),
+               "question": question[:QUESTION_CHARS * 2],
+               "answer": answer, "spoken_answer": spoken}
+        if kind:
+            row["kind"] = kind
+            row["subject"] = (q.get("subject") or "").strip()
+            if kind == "dingbats":
+                row["layout"] = [i for i in q.get("layout") or [] if (i.get("text") or "").strip()]
+                row["subject"] = " / ".join(i["text"] for i in row["layout"])
+        questions.append(row)
     if len(questions) < count:
         raise PipelineError(f"quiz came back with {len(questions)} of {count} questions",
                             user_message="The quiz came back short of questions. Try again.")
@@ -626,6 +661,7 @@ def _clean_round(data: dict, count: int) -> dict:
 
 
 WORDS_PER_SECOND = 2.5          # as pipeline.script_gen
+PICTURE_REWRITES = 3
 
 
 def word_budget(channel) -> int:
@@ -656,14 +692,72 @@ def _user(category: str, difficulty: str, count: int, channel, context: tuple, e
     return text + extra
 
 
-def _write(category, difficulty, channel, context, extra="") -> dict:
+PICTURE_GUIDE = {
+    "flags": """This is a picture round: each question shows a national flag.
+- subject: the country, written exactly as in the list below.
+- question: short (under 10 words) and varied ("Whose flag is this?",
+  "Which country flies this one?"); never name or describe the country.
+- Harder levels choose less familiar flags, not trickier wording.""",
+    "outlines": """This is a picture round: each question shows a country's outline.
+- subject: the country, written exactly as in the list below.
+- question: short (under 10 words) and varied ("Which country has this
+  shape?"); never name or describe the country.
+- Harder levels choose less familiar shapes, not trickier wording.""",
+    "faces": """This is a picture round: each question shows a photograph of a famous
+person.
+- subject: the exact title of their English Wikipedia article.
+- Choose people whose faces fit the level: at Easy, faces almost everyone
+  knows; at the hardest levels, people whose names are well known but
+  whose faces far fewer could place. Adults only; no one whose picture
+  would be sensitive or cruel to show.
+- question: "Who is this?" or a close variation, nothing more: the face is
+  the question. Only at the two hardest levels may it add a small clue,
+  and a clue must never be enough to answer without the picture ("a
+  scientist" is fine; "the physicist behind relativity" is not). Never
+  their name.""",
+    "landmarks": """This is a picture round: each question shows a photograph of a famous
+landmark, building or natural wonder.
+- subject: the exact title of its English Wikipedia article.
+- question: "Name this landmark", or "In which city is this?" (then the
+  answer is the city). Never name it in the question.""",
+    "paintings": """This is a picture round: each question shows a famous painting.
+- subject: "Title by Artist", for a work made before 1900 (public domain,
+  and likely to be in the Art Institute of Chicago's or the Met's open
+  collections, where it's fetched from).
+- question: "Who painted this?" or "What is this painting called?".""",
+    "dingbats": """This is a picture round of dingbats: each question shows words arranged
+so that their layout stands for a common phrase or saying.
+- layout: the words to draw. Each has x and y (0-100, the word's centre),
+  size (0.4-3, 1 is normal), rotate (degrees), flip, strike (crossed out)
+  and color ("ink" normally; a real colour only when the colour is part
+  of the clue, "blue" for a blue moon).
+- The arrangement must carry part of the answer: at least one of its
+  words comes from where, how big, how often, which way round or what
+  colour the words are, never from reading them (HEAD above HEELS for
+  "head over heels"; ROAD crossed with ROAD for "crossroads"). Words
+  simply stacked (TOUCH above WOOD for "touch wood") are not a dingbat.
+  Classic, fair puzzles a player can reason out, using a mix of devices
+  across the round.
+- question: "What phrase is this?" and variations.
+- answer: the phrase.""",
+}
+
+
+def _write(category, difficulty, channel, context, extra="", kind: str = None) -> dict:
     count = channel.quiz.questions
     system = [SystemBlock(SYSTEM, cacheable=True),
               SystemBlock(f"This channel's own brief for its host and its rounds:\n\n"
                           f"{channel.style_prompt}")]
-    data = call_json(system, _user(category, difficulty, count, channel, context, extra), _schema(),
+    if kind:
+        from pipeline import pictures
+        guide = PICTURE_GUIDE[kind]
+        allowed = pictures.choices(kind)
+        if allowed:
+            guide += "\n\nThe list:\n" + ", ".join(allowed)
+        system.append(SystemBlock(guide, cacheable=True))
+    data = call_json(system, _user(category, difficulty, count, channel, context, extra), _schema(kind),
                      operation="quiz_write", max_tokens=WRITE_MAX_TOKENS, effort=WRITE_EFFORT)
-    return _clean_round(data, count)
+    return _clean_round(data, count, kind)
 
 
 def verify(category: str, difficulty: str, questions: list) -> list:
@@ -731,8 +825,10 @@ def round_clashes(questions: list) -> list:
                      or (len(_norm_answer(q["answer"])) > 3 and _mentions(p["question"], q["answer"])))
             a, b = _keywords(q["question"]), _keywords(p["question"])
             # Only questions with enough words to judge: two short ones
-            # share most of their few words by chance.
-            alike = len(a | b) >= 4 and len(a & b) / len(a | b) >= 0.6
+            # share most of their few words by chance. Picture questions
+            # share their wording by design; what's pictured is what counts.
+            alike = (len(a | b) >= 4 and len(a & b) / len(a | b) >= 0.6 and not q.get("kind")
+                     or bool(q.get("kind")) and q.get("subject") == p.get("subject"))
             if same or given or alike:
                 found.append(i)
                 break
@@ -768,16 +864,51 @@ def write_round(channel, entry: dict, avoid: str = "") -> Script:
     difficulty = entry.get("angle") or round_of(SimpleNamespace(
         topic_id="", topic=entry["title"], title=entry["title"]), channel)[1]
     extra = "\n\n".join(p for p in (ladder_note(channel, entry), avoid) if p)
-    return _write_checked(channel, category, difficulty, extra)
+    return _write_checked(channel, category, difficulty, extra, topic.get("picture"))
 
 
-def _write_checked(channel, category: str, difficulty: str, extra: str = "") -> Script:
-    """Write a round, fact-check it, and check it against every question
-    the channel has asked (see the module docstring)."""
+def _check(channel, category: str, difficulty: str, questions: list, kind: str = None) -> list:
+    """A verdict per question: "ok", or why not. A text question is fact
+    checked. A picture question has its picture fetched and looked at
+    (pipeline.pictures); faces, landmarks and paintings are fact checked
+    too, since their questions may carry a clue."""
+    if not kind:
+        return verify(category, difficulty, questions)
+    from pipeline import pictures
+    from pipeline.scenes import art
+    verdicts = ["ok"] * len(questions)
+    if kind in ("faces", "landmarks", "paintings"):
+        shown = [{**q, "question": f"{q['question']} [The picture shows: {q['subject']}]"}
+                 for q in questions]
+        verdicts = verify(category, difficulty, shown)
+    style = art.resolve(channel.scenes.art)
+    for i, q in enumerate(questions):
+        if verdicts[i] != "ok":
+            continue
+        try:
+            if kind == "dingbats" and pictures.dingbat_trivial(q.get("layout"), q["answer"]):
+                raise pictures.PictureError("just spells its answer out", user_message="")
+            found = pictures.fetch(kind, q.get("layout") if kind == "dingbats" else q["subject"], style)
+            problem = pictures.check(kind, found["path"], q["question"], q["answer"])
+        except PipelineError as exc:
+            problem = str(exc)
+        if problem:
+            log.info(f"  [quiz] Q{i + 1} picture: {problem}")
+            verdicts[i] = "picture"
+        else:
+            q["picture"] = {"kind": kind, **found}
+    return verdicts
+
+
+def _write_checked(channel, category: str, difficulty: str, extra: str = "",
+                   kind: str = None) -> Script:
+    """Write a round, fact-check it (and look at its pictures), and check
+    it against every question the channel has asked (see the module
+    docstring)."""
     context = context_questions(channel.key, category)
-    data = _write(category, difficulty, channel, context, extra)
+    data = _write(category, difficulty, channel, context, extra, kind)
     questions = data["questions"]
-    verdicts = verify(category, difficulty, questions)
+    verdicts = _check(channel, category, difficulty, questions, kind)
     for i in repeats(questions, channel.key):
         log.info(f"  [quiz] Q{i + 1} repeats a question already asked on this channel")
         verdicts[i] = "repeat"
@@ -785,34 +916,47 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "") -> 
         log.info(f"  [quiz] Q{i + 1} clashes with an earlier question in this round")
         verdicts[i] = "clash"
 
-    bad = [i for i, v in enumerate(verdicts) if v != "ok"]
-    if bad:
+    # Replace what didn't pass from a fresh set of candidates, keeping those
+    # that pass. Once for a text round; up to three times for a picture
+    # round, where more candidates fall (dingbats especially).
+    failed = []
+    for _ in range(PICTURE_REWRITES if kind else 1):
+        bad = [i for i, v in enumerate(verdicts) if v != "ok"]
+        if not bad:
+            break
         log.info(f"  [quiz] replacing {len(bad)} question(s) the checks didn't pass")
         kept = [q for i, q in enumerate(questions) if i not in bad]
         keep = [q["question"] for q in kept]
+        failed += [questions[i] for i in bad]
         instead = (f"Only the questions are needed this time; the intro and sign-off "
                    f"will be discarded. These stay in the round, so no question may "
-                   f"share an answer or a subject with them:\n{_listed(kept)}")
+                   f"share an answer or a subject with them:\n{_listed(kept)}\n\n"
+                   f"These didn't work and mustn't come back:\n{_listed(failed)}")
         rewritten = _write(category, difficulty, channel,
                            (context[0] + [{"question": q} for q in keep], context[1]),
-                           "\n\n".join(p for p in (extra, instead) if p))
+                           "\n\n".join(p for p in (extra, instead) if p), kind)
         replacement = rewritten["questions"]
         data["pronunciations"] = {**rewritten.get("pronunciations", {}),
                                   **data.get("pronunciations", {})}
         # Nothing that repeats or gives away an answer already in the round
         # (a replacement "capital of Italy" beside "which country is shaped
-        # like a boot"), nor anything asked before.
+        # like a boot"), nor anything asked before or already refused.
         taken = " ".join(f"{q['question']} {q['answer']}" for q in kept)
-        again = set(repeats(replacement, channel.key))
+        again = (set(repeats(replacement, channel.key)) | set(repeats(replacement, channel.key, kept))
+                 | set(repeats(replacement, channel.key, failed)))
         fresh = [q for i, q in enumerate(replacement)
-                 if i not in again and q["question"] not in keep
+                 if i not in again and (kind or q["question"] not in keep)
                  and not _mentions(taken, q["answer"])
                  and not any(_mentions(f"{q['question']} {q['answer']}", q2["answer"])
-                             for q2 in kept)][:len(bad)]
-        fresh_verdicts = verify(category, difficulty, fresh) if fresh else []
-        for slot, q, v in zip(bad, fresh, fresh_verdicts):
-            questions[slot] = {**q, "lead_in": questions[slot]["lead_in"]}
-            verdicts[slot] = v
+                             for q2 in kept)][:len(bad) * 2]
+        fresh_verdicts = _check(channel, category, difficulty, fresh, kind) if fresh else []
+        passing = [q for q, v in zip(fresh, fresh_verdicts) if v == "ok"]
+        failed += [q for q, v in zip(fresh, fresh_verdicts) if v != "ok"]
+        for slot in bad:
+            if not passing:
+                break
+            questions[slot] = {**passing.pop(0), "lead_in": questions[slot]["lead_in"]}
+            verdicts[slot] = "ok"
         questions[0]["lead_in"] = ""
 
     unverified = [i + 1 for i, v in enumerate(verdicts) if v != "ok"]
@@ -834,8 +978,12 @@ def to_script(data: dict, channel, category: str, difficulty: str,
         segments.append(Segment(text=f"{q['lead_in']} {q['question']}".strip(),
                                 pause_after=float(quiz.countdown_seconds)))
         segments.append(Segment(text=q["spoken_answer"], pause_after=float(quiz.answer_pause)))
-        rows.append({"question": q["question"], "answer": q["answer"],
-                     "spoken_answer": q["spoken_answer"], "ask": ask, "reveal": ask + 1})
+        row = {"question": q["question"], "answer": q["answer"],
+               "spoken_answer": q["spoken_answer"], "ask": ask, "reveal": ask + 1}
+        for key in ("kind", "subject", "layout", "picture"):
+            if q.get(key):
+                row[key] = q[key]
+        rows.append(row)
     segments.append(Segment(text=data["outro"].strip()))
     titles = [t.strip() for t in data.get("title_options") or [] if t.strip()]
     return Script(segments=segments,
@@ -845,7 +993,9 @@ def to_script(data: dict, channel, category: str, difficulty: str,
                         "countdown": float(quiz.countdown_seconds),
                         "unverified": list(unverified),
                         # Respellings for the voice only (pipeline.tts.speakable).
-                        "pronunciations": dict(data.get("pronunciations") or {})})
+                        "pronunciations": dict(data.get("pronunciations") or {}),
+                        "credits": sorted({q["picture"]["credit"] for q in data["questions"]
+                                           if (q.get("picture") or {}).get("credit")})})
 
 
 # --- the board -------------------------------------------------------------
@@ -871,6 +1021,10 @@ BOARD_CSS = f"""
   letter-spacing: .1em; margin-bottom: 18px; }}
 .qtext {{ font-family: var(--display); font-weight: var(--dw); font-size: 66px; line-height: 1.15;
   color: var(--on-card); width: 100%; max-height: 300px; overflow: hidden; }}
+.qtext.small {{ font-size: 44px; max-height: 60px; white-space: nowrap; }}
+.pic {{ width: 100%; height: 270px; display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px; }}
+.pic img {{ max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; }}
 .intro-cat {{ font-family: var(--display); font-weight: var(--dw); font-size: 96px; line-height: 1.05;
   color: var(--on-card); width: 100%; max-height: 220px; overflow: hidden; }}
 .intro-sub {{ font-size: 44px; color: var(--soft); margin-top: 20px; }}
@@ -896,6 +1050,30 @@ BOARD_CSS = f"""
   font-family: var(--display); font-weight: var(--dw); font-size: 110px; color: var(--ink); }}
 .end-big {{ font-family: var(--display); font-weight: var(--dw); font-size: 82px; line-height: 1.1;
   color: var(--on-card); }}
+"""
+
+
+def picture_uri(q: dict, style: dict = None) -> str:
+    """A picture question's picture for a board page, fetched again if
+    its cached file has gone; "" for a question with none."""
+    from pipeline import pictures
+    kind = q.get("kind")
+    if not kind:
+        return ""
+    path = (q.get("picture") or {}).get("path", "")
+    if not path or not Path(path).exists():
+        subject = q.get("layout") if kind == "dingbats" else q.get("subject")
+        path = pictures.fetch(kind, subject, style)["path"]
+    return pictures.data_uri(path)
+
+
+PICTURE_CARD_H, PICTURE_LIST_TOP = 700, 950
+PICTURE_CSS = f"""
+.qcard {{ height: {PICTURE_CARD_H}px; }}
+.qcard .pic {{ height: {PICTURE_CARD_H - 240}px; }}
+.rows {{ top: {PICTURE_LIST_TOP}px; height: {LIST_BOTTOM - PICTURE_LIST_TOP}px; }}
+.row .n {{ font-size: 40px; }} .row .a {{ font-size: 40px; }}
+.timer {{ top: {PICTURE_LIST_TOP + 40}px; }}
 """
 
 
@@ -933,12 +1111,23 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
     questions, rows_t = quiz["questions"], times["questions"]
     first_ask = rows_t[0]["ask"] if rows_t else duration
     n = len(questions)
+    # A picture round needs the picture big: a taller card, and the answer
+    # list (answers only) tighter underneath.
+    pictured = bool(questions) and all(q.get("kind") for q in questions)
+    list_top = PICTURE_LIST_TOP if pictured else LIST_TOP
 
     card = [f"<div {_in(0, 'fade', 0.3, first_ask - 0.35)}>"
             f"<div class='intro-cat' data-fit='54'>{esc(quiz['category'])}</div>"
             f"<div class='intro-sub'>{n} questions &middot; keep score</div></div>"]
     for i, (q, t) in enumerate(zip(questions, rows_t)):
         leaves = rows_t[i + 1]["ask"] - 0.3 if i + 1 < n else times["outro"] - 0.3
+        pic = picture_uri(q)
+        if pic:
+            card.append(f"<div {_in(t['ask'], 'rise', 0.45, leaves)}>"
+                        f"<div class='qnum'>QUESTION {i + 1}</div>"
+                        f"<div class='pic'><img src='{pic}'></div>"
+                        f"<div class='qtext small' data-fit='28'>{esc(q['question'])}</div></div>")
+            continue
         card.append(f"<div {_in(t['ask'], 'rise', 0.45, leaves)}>"
                     f"<div class='qnum'>QUESTION {i + 1}</div>"
                     f"<div class='qtext' data-fit='34'>{esc(q['question'])}</div></div>")
@@ -949,7 +1138,7 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
     row_html = []
     for i, (q, t) in enumerate(zip(questions, rows_t)):
         row_html.append(
-            f"<div class='row' style='height:{(LIST_BOTTOM - LIST_TOP) / n - 6:.0f}px' "
+            f"<div class='row' style='height:{(LIST_BOTTOM - list_top) / n - 6:.0f}px' "
             f"{_in(0.25 + 0.07 * i, 'slide-left', 0.4)}>"
             f"<div class='now' {_in(t['ask'], 'fade', 0.25, t['done'])}></div>"
             f"<div class='n'>{i + 1}.</div>"
@@ -978,7 +1167,7 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
              f"<div class='rows'>{''.join(row_html)}</div>{''.join(timers)}</div>")
     return (
         "<!doctype html><html><head><meta charset='utf-8'><style>"
-        f"{theme.css(style)}{BOARD_CSS}"
+        f"{theme.css(style)}{BOARD_CSS}{PICTURE_CSS if pictured else ''}"
         f".bg-grain {{ background-image: url({page.GRAIN}); }}"
         # The ring drains linearly; the engine's default entrance styles
         # would fade and move it.
@@ -1032,6 +1221,8 @@ def board(plan):
                                          encoding="utf-8")
     plan.scene_clips = [{"first": 0, "last": len(script.segments) - 1, "clip": str(clip),
                          "kind": "quiz"}]
+    # A picture round's credits go in the description (run._finish).
+    plan.art_credits = list(script.quiz.get("credits") or [])
     plan.visual_plan = [{"index": 0, "medium": "quiz board", "template": "quiz",
                          "reason": "the quiz format"}]
     return plan
@@ -1108,8 +1299,10 @@ def save_round(plan) -> Path:
         "level": level_of(plan.channel, quiz.get("difficulty", "")),
         "audio": Path(plan.audio_path).name,
         "unverified": list(quiz.get("unverified") or []),
+        "credits": list(quiz.get("credits") or []),
         "questions": [{"question": q["question"], "answer": q["answer"],
                        "spoken_answer": q.get("spoken_answer", ""),
+                       **{k: q[k] for k in ("kind", "subject", "layout", "picture") if q.get(k)},
                        "ask_audio": spoken(segments[q["ask"]]),
                        "answer_audio": spoken(segments[q["reveal"]])}
                       for q in quiz.get("questions") or []],

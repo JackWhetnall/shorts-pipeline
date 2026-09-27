@@ -2941,8 +2941,10 @@ async function planAddTopic(channelKey, write, button) {
   const summary = document.getElementById("plan-add-summary");
   const subtopics = document.getElementById("plan-add-subtopics");
   const typed = subtopics ? subtopics.value : "";
+  const picture = document.getElementById("plan-add-picture");
   const data = await planPost(`/api/channels/${channelKey}/curriculum/topics`, {
     title, summary: summary ? summary.value : "", subtopics: typed, write: write && !typed.trim(),
+    picture: picture ? picture.value : "",
   }, button, status);
   if (!data) return;
   if (data.warning) alert(data.warning);
@@ -2973,6 +2975,17 @@ async function planRename(channelKey, topicId, button) {
   const data = await planPost(`/api/channels/${channelKey}/curriculum/${topicId}/rename`,
                               {title, summary: summary ? summary.value : null}, button);
   if (data) { window.location.hash = topicId; window.location.reload(); }
+}
+
+async function planPicture(channelKey, topicId, select) {
+  const res = await apiFetch(`/api/channels/${channelKey}/curriculum/${topicId}/picture`, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({picture: select.value}),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    alert(data.error || "That didn't work.");
+  }
 }
 
 async function planRemove(channelKey, topicId, button) {

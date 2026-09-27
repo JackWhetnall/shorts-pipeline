@@ -317,6 +317,20 @@ def rename_topic(channel_key: str, topic_id: str, title: str, summary: str = Non
     return topic
 
 
+def set_topic_picture(channel_key: str, topic_id: str, kind: str) -> dict:
+    """Make a quiz category a picture round of one kind (pipeline.pictures
+    .KINDS), or an ordinary one with "". Its rounds already written keep
+    what they are; the next ones follow the new kind."""
+    data = load(channel_key)
+    topic = _topic(data, topic_id)
+    if kind:
+        topic["picture"] = kind
+    else:
+        topic.pop("picture", None)
+    save(data)
+    return topic
+
+
 def remove_topic(channel_key: str, topic_id: str) -> None:
     """Only a topic with nothing in it: one with subtopics carries the
     record of what has been made, and scripts that cost money."""
