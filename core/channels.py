@@ -371,6 +371,11 @@ class Quiz(_MappingLike):
     longform_rounds: int = 6
     longform_variant: str = "alternate"
     longform_every_days: int = 0
+    # A long quiz is played along with, not scrolled past: a proper clock
+    # for each question, and time at the end of a round (answers at the
+    # end) to finish off before the answers.
+    longform_clock_seconds: float = 10.0
+    longform_finish_seconds: float = 30.0
 
 
 @dataclass

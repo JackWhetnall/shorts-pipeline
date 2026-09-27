@@ -86,6 +86,15 @@ Each question:
 - Superlatives and "only", "first", "never" questions are where quiz
   answers go wrong: ask one only when you are sure there is no second
   case, today.
+- Everything spoken is read by a voice engine exactly as written. List
+  in `pronunciations` any word in the questions or answers it might
+  misread, with how to say it in plain respelling: symbols and
+  abbreviations letter by letter ("Au" as "A U", "DNA" is fine as it is),
+  and words whose stress or spelling misleads ("aphelion" as
+  "af-EE-lee-on", "Worcestershire" as "WUSS-ter-sher"). Only what a
+  careful reader might get wrong; usually none or one or two. The board
+  shows the real word; only the voice uses the respelling. No dashes in
+  anything spoken.
 - `lead_in`: for every question after the first, the host's short move
   to it, which says its number: "Question two.", "Number three." and so
   on, with the odd bit of colour ("halfway there", "last one"). Under 7
@@ -133,11 +142,16 @@ def _schema() -> dict:
         "properties": {
             "intro": {"type": "string"},
             "questions": {"type": "array", "items": question},
+            "pronunciations": {"type": "array", "items": {
+                "type": "object",
+                "properties": {"written": {"type": "string"}, "say": {"type": "string"}},
+                "required": ["written", "say"], "additionalProperties": False}},
             "outro": {"type": "string"},
             "title_options": {"type": "array", "items": {"type": "string"}},
             "description_body": {"type": "string"},
         },
-        "required": ["intro", "questions", "outro", "title_options", "description_body"],
+        "required": ["intro", "questions", "pronunciations", "outro", "title_options",
+                     "description_body"],
         "additionalProperties": False,
     }
 
@@ -595,6 +609,9 @@ def _clean_round(data: dict, count: int) -> dict:
                             user_message="The quiz came back short of questions. Try again.")
     data["questions"] = questions[:count]
     data["questions"][0]["lead_in"] = ""
+    data["pronunciations"] = {p["written"].strip(): p["say"].strip()
+                              for p in data.get("pronunciations") or []
+                              if (p.get("written") or "").strip() and (p.get("say") or "").strip()}
     return data
 
 
@@ -715,9 +732,12 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "") -> 
         instead = (f"Only the questions are needed this time; the intro and sign-off "
                    f"will be discarded. These stay in the round, so no question may "
                    f"share an answer or a subject with them:\n{_listed(kept)}")
-        replacement = _write(category, difficulty, channel,
-                             (context[0] + [{"question": q} for q in keep], context[1]),
-                             "\n\n".join(p for p in (extra, instead) if p))["questions"]
+        rewritten = _write(category, difficulty, channel,
+                           (context[0] + [{"question": q} for q in keep], context[1]),
+                           "\n\n".join(p for p in (extra, instead) if p))
+        replacement = rewritten["questions"]
+        data["pronunciations"] = {**rewritten.get("pronunciations", {}),
+                                  **data.get("pronunciations", {})}
         # Nothing that repeats or gives away an answer already in the round
         # (a replacement "capital of Italy" beside "which country is shaped
         # like a boot"), nor anything asked before.
@@ -762,7 +782,9 @@ def to_script(data: dict, channel, category: str, difficulty: str,
                   description_body=(data.get("description_body") or "").strip(),
                   quiz={"category": category, "difficulty": difficulty, "questions": rows,
                         "countdown": float(quiz.countdown_seconds),
-                        "unverified": list(unverified)})
+                        "unverified": list(unverified),
+                        # Respellings for the voice only (pipeline.tts.speakable).
+                        "pronunciations": dict(data.get("pronunciations") or {})})
 
 
 # --- the board -------------------------------------------------------------
@@ -885,7 +907,8 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
             f"<div class='timer' {_in(t['countdown'] - 0.2, 'pop', 0.3, t['reveal'])}>"
             f"<svg width='{size}' height='{size}'><circle class='track' cx='{size / 2}' cy='{size / 2}' r='{TIMER_R}'/>"
             f"<circle class='fill' cx='{size / 2}' cy='{size / 2}' r='{TIMER_R}' "
-            f"data-in='{t['countdown']:.3f}' data-anim='none' data-dur='{span:.3f}'/></svg>{digits}</div>")
+            f"data-in='{t['countdown']:.3f}' data-anim='none' data-dur='{span:.3f}' "
+            f"data-steps='{max(10, round(span * 10))}'/></svg>{digits}</div>")
 
     stage = (f"<div class='board'>"
              f"<div class='kicker' {_in(0, 'fade', 0.3)}><span class='cat' data-fit='24'>{esc(quiz['category'])} quiz</span>"

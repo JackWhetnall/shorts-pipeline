@@ -116,15 +116,19 @@ def _laid_out(variant):
                                 "answer_audio": [i * 10.0 + 6, i * 10.0 + 7]} for i in range(3)]}
                 for _ in rows]
     audio = np.ones((40 * FPS, 2), dtype=np.float32)
-    links = [np.ones((FPS, 2), dtype=np.float32)] * (2 + 1 + (2 if variant == "at_end" else 0))
+    # welcome, one round intro, (a finish line and a pens-down per round), sign-off
+    links = [np.ones((FPS, 2), dtype=np.float32)] * (2 + 1 + (4 if variant == "at_end" else 0))
     return longform.build_timeline(channel, rows, sidecars, [audio, audio], links, variant, FPS)
 
 
 class TestTimeline:
-    def test_after_each_question_clock_answer(self):
+    def test_after_each_question_a_second_then_a_long_clock_then_the_answer(self):
+        """The long format is played along with: a second after the question,
+        ten seconds of clock (the shorts have four)."""
         track, timeline = _laid_out("after_each")
         q = timeline["rounds"][0]["questions"][0]
-        assert q["ask"][1] == q["countdown"][0] and q["countdown"][1] - q["countdown"][0] == 4.0
+        assert q["countdown"][0] == pytest.approx(q["ask"][1] + longform.CLOCK_LEAD, abs=0.002)
+        assert q["countdown"][1] - q["countdown"][0] == pytest.approx(10.0, abs=0.002)
         assert q["reveal"][0] == q["countdown"][1] and "reask" not in q
         assert len(track.samples()) / FPS == pytest.approx(timeline["end"], abs=0.01)
 
@@ -132,14 +136,21 @@ class TestTimeline:
         _, timeline = _laid_out("at_end")
         rnd = timeline["rounds"][1]
         last_clock = rnd["questions"][-1]["countdown"][1]
-        assert rnd["answers_intro"][0] > last_clock
+        # A spoken nudge, thirty seconds to finish off, then pens down.
+        assert rnd["finish"]["line"][0] >= last_clock + longform.CLOCK_TAIL - 0.002
+        c0, c1 = rnd["finish"]["clock"]
+        assert c1 - c0 == pytest.approx(30.0, abs=0.002) and rnd["answers_intro"][0] > c1
+        second = rnd["questions"][1]["ask"][0]
+        assert second - rnd["questions"][0]["countdown"][1] == pytest.approx(longform.CLOCK_TAIL, abs=0.002)
         for q in rnd["questions"]:
             assert q["reask"][0] > rnd["answers_intro"][1]
             assert q["reveal"][0] == pytest.approx(q["reask"][1] + longform.REASK_GAP, abs=0.002)
         labels = [label for _, label in longform.chapters(timeline)]
         assert labels == ["Welcome", "Round 1: Science", "Round 1 answers", "Round 2: Space",
                           "Round 2 answers", "Scores"]
-        assert [k for _, k, _ in longform.cues(timeline)].count("chime") == 6
+        cues = [k for _, k, _ in longform.cues(timeline)]
+        # Six chimes; each ten-second clock and each finish ticks its last five seconds only.
+        assert cues.count("chime") == 6 and cues.count("tock") == (6 + 2) * longform.TICKS
 
     def test_the_board_clears_each_round_and_turns_questions_into_answers(self):
         from pipeline.scenes import art
@@ -151,6 +162,9 @@ class TestTimeline:
         assert f"data-out='{reveal:.3f}'>Q0?" in page           # the question gives way...
         assert f"data-in='{reveal:.3f}' data-anim='fade' data-dur='0.5'>A0<" in page  # ...to its answer
         assert "width: 1920px; height: 1080px" in page
+        assert "Finish your answers" in page and "with-timer" in page
+        # The ring moves in tenths of a second, not every frame.
+        assert "data-steps='100'" in page and "data-steps='300'" in page
 
 
 def test_a_long_video_publishes_in_its_own_lane_youtube_only(world, monkeypatch):
@@ -267,3 +281,39 @@ def test_the_settings_form_sets_the_long_quiz_and_its_slots():
             channel.quiz.longform_every_days) == (8, "at_end", 7)
     assert channel.publishing.long_slots == ["09:00", "20:30"]
     assert channel.publishing.long_weekdays == [5, 6]
+
+
+def test_the_host_is_never_told_to_explain_the_format():
+    """Regression: told how the answers worked, the host kept saying so
+    ("question re-read before each one", "questions first each time")."""
+    system = " ".join(longform.LINKS_SYSTEM.lower().split())
+    assert "read again" not in system.split("never explain")[1].split("- welcome")[1]
+    assert "never explain the format" in system and "no dashes" in system
+    seen = {}
+    monkey_rounds = [{"category": "Science", "difficulty": "Hard"}, {"category": "Space", "difficulty": "Hard"}]
+
+    def call_json(system, user, schema, **kwargs):
+        seen["user"] = user
+        return {"welcome": "w", "round_intros": ["r"], "finish_lines": ["f1", "f2"],
+                "answers_intros": ["a1", "a2"], "signoff": "s", "title_options": ["t"],
+                "description": "d", "thumbnail_line": "l"}
+
+    original = longform.call_json
+    longform.call_json = call_json
+    try:
+        links = longform.write_links(_channel(), monkey_rounds, "at_end", "Hard")
+    finally:
+        longform.call_json = original
+    assert "read again" not in seen["user"] and "re-read" not in seen["user"]
+    assert longform.link_lines(links) == ["w", "r", "f1", "f2", "a1", "a2", "s"]
+
+
+def test_spaced_dashes_and_misread_words_are_fixed_for_the_voice_only():
+    from pipeline import tts
+    assert tts.speakable("among the stars - Space answers") == "among the stars, Space answers"
+    assert tts.speakable("a well-known one") == "a well-known one"
+    said = tts.speakable("Au. From the Latin aurum.", {"Au": "A U"})
+    assert said == "A U. From the Latin aurum."
+    # A long silence inside one line is a glitch, and is re-voiced.
+    words = [WordTiming("among", 0, 0.3), WordTiming("the", 0.35, 0.5), WordTiming("wall", 3.4, 3.8)]
+    assert tts.looks_glitched("among the stars", words)

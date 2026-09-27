@@ -54,7 +54,12 @@ RISING = "rising"
 
 LINK_PAUSE = 0.5          # after a joining line
 ROUND_GAP = 1.0           # between rounds
-REASK_GAP = 0.6           # at_end: between the question read again and its answer
+CLOCK_LEAD = 1.0          # between a question and its clock starting
+CLOCK_TAIL = 1.0          # between a clock ending and what comes next
+REASK_GAP = 1.1           # at_end: between the question read again and its answer
+TICKS = 5                 # the clock ticks audibly for its last few seconds only
+FINISH_TEXT = ("Finish your answers", "Last chance for this round", "Pens ready: final answers",
+               "Fill in the gaps", "Any last answers?")
 FADE = 0.012              # seconds of fade on every cut, so none of them clicks
 LINKS_MAX_TOKENS = 6000
 
@@ -269,19 +274,24 @@ You are the host of a pub-quiz channel, joining several rounds into one
 long widescreen video. The rounds' questions and answers are already
 recorded; you write only the lines between them, in the channel's voice
 (its brief follows). Spoken aloud, so write the way a person talks. Vary
-the phrasing: no two lines should start or end the same way.
+the phrasing: no two lines should start or end the same way. Never explain
+the format or how it works (how or when answers are given, what is read
+again, how long they have): just host it. No dashes; commas and full
+stops only.
 
-- welcome (under 50 words): welcome them to the quiz, say how many rounds
-  and questions, the difficulty, and how the answers come (see the
-  format), invite them to keep score, and lead straight into round one by
-  naming its category and ending on "question one" (the first question
-  follows immediately, with no lead-in of its own).
+- welcome (under 45 words): welcome them to the quiz, say how many rounds
+  and questions and the difficulty, invite them to keep score, and lead
+  straight into round one by naming its category and ending on "question
+  one" (the first question follows immediately).
 - round_intros: one for each round after the first (under 25 words): a
   touch of banter, the round number and its category, ending on "question
   one".
+- finish_lines (answers at the end only): one per round (under 15 words):
+  that's the round's questions done, a nudge to get their last answers
+  down. Different every round.
 - answers_intros (answers at the end only): one per round (under 20
   words): pens down, here come this round's answers, ending on "question
-  one" (each question is then read again before its answer).
+  one".
 - signoff (under 40 words): the total out of the number of questions, ask
   for their score and a category for next time in the comments, and to
   subscribe for more. Warm, not salesy.
@@ -297,11 +307,12 @@ the phrasing: no two lines should start or end the same way.
 def _links_schema() -> dict:
     strings = {"type": "array", "items": {"type": "string"}}
     return {"type": "object", "properties": {
-        "welcome": {"type": "string"}, "round_intros": strings, "answers_intros": strings,
+        "welcome": {"type": "string"}, "round_intros": strings, "finish_lines": strings,
+        "answers_intros": strings,
         "signoff": {"type": "string"}, "title_options": strings, "description": {"type": "string"},
         "thumbnail_line": {"type": "string"}},
-        "required": ["welcome", "round_intros", "answers_intros", "signoff", "title_options",
-                     "description", "thumbnail_line"],
+        "required": ["welcome", "round_intros", "finish_lines", "answers_intros", "signoff",
+                     "title_options", "description", "thumbnail_line"],
         "additionalProperties": False}
 
 
@@ -314,23 +325,26 @@ def difficulty_words(rounds: list, difficulty: str) -> str:
 def write_links(channel, rounds: list, variant: str, difficulty: str) -> dict:
     listed = "\n".join(f"Round {i + 1}: {r['category']} ({r['difficulty']})" for i, r in enumerate(rounds))
     per = channel.quiz.questions
-    fmt = ("each question is followed by the clock and then its answer" if variant == "after_each"
-           else "all ten questions of a round first, then that round's answers, each question read "
-                "again before its answer")
+    fmt = ("answers after each question" if variant == "after_each"
+           else "answers at the end of each round")
     user = (f"{len(rounds)} rounds of {per} questions, {len(rounds) * per} in total. Difficulty: "
-            f"{difficulty_words(rounds, difficulty)}.\nFormat: {fmt}.\n\n{listed}\n\n"
+            f"{difficulty_words(rounds, difficulty)}. Format: {fmt}.\n\n{listed}\n\n"
             f"Write {len(rounds) - 1} round_intros"
-            + (f" and {len(rounds)} answers_intros." if variant == "at_end" else "; answers_intros empty."))
+            + (f", {len(rounds)} finish_lines and {len(rounds)} answers_intros." if variant == "at_end"
+               else "; finish_lines and answers_intros empty."))
     data = call_json([SystemBlock(LINKS_SYSTEM, cacheable=True),
                       SystemBlock(f"The channel's brief for its host:\n\n{channel.style_prompt}")],
                      user, _links_schema(), operation="longform_links",
                      max_tokens=LINKS_MAX_TOKENS, effort="low")
     intros = [s.strip() for s in data.get("round_intros") or [] if s.strip()]
     answers = [s.strip() for s in data.get("answers_intros") or [] if s.strip()]
-    if len(intros) < len(rounds) - 1 or (variant == "at_end" and len(answers) < len(rounds)):
+    finishes = [s.strip() for s in data.get("finish_lines") or [] if s.strip()]
+    if len(intros) < len(rounds) - 1 or (variant == "at_end" and (
+            len(answers) < len(rounds) or len(finishes) < len(rounds))):
         raise LongformError("links came back short", user_message=(
             "The joining lines came back incomplete. Try again."))
     return {"welcome": data["welcome"].strip(), "round_intros": intros[:len(rounds) - 1],
+            "finish_lines": finishes[:len(rounds)] if variant == "at_end" else [],
             "answers_intros": answers[:len(rounds)] if variant == "at_end" else [],
             "signoff": data["signoff"].strip(),
             "title_options": [t.strip() for t in data.get("title_options") or [] if t.strip()],
@@ -340,7 +354,8 @@ def write_links(channel, rounds: list, variant: str, difficulty: str) -> dict:
 
 def link_lines(links: dict) -> list:
     """Every joining line, in the order they're voiced (and indexed)."""
-    return [links["welcome"], *links["round_intros"], *links["answers_intros"], links["signoff"]]
+    return [links["welcome"], *links["round_intros"], *links.get("finish_lines", []),
+            *links["answers_intros"], links["signoff"]]
 
 
 def voice_links(channel, links: dict, work: Path) -> list:
@@ -389,12 +404,14 @@ def build_timeline(channel, rounds: list, sidecars: list, audios: list, links: l
                    variant: str, fps: int) -> tuple:
     """(track, timeline): the soundtrack laid down in order, and when every
     question is asked, counted down, re-asked and answered."""
-    clock = float(channel.quiz.countdown_seconds)
+    clock = float(channel.quiz.longform_clock_seconds)
+    finish = float(channel.quiz.longform_finish_seconds)
     pause = float(channel.quiz.answer_pause)
     track = _Track(fps)
     n = len(rounds)
     welcome, intros = links[0], links[1:n]
-    answers_intros = links[n:2 * n] if variant == "at_end" else []
+    finish_lines = links[n:2 * n] if variant == "at_end" else []
+    answers_intros = links[2 * n:3 * n] if variant == "at_end" else []
     signoff = links[-1]
 
     def cut(audio, span):
@@ -404,7 +421,7 @@ def build_timeline(channel, rounds: list, sidecars: list, audios: list, links: l
     track.gap(LINK_PAUSE)
     for r, (row, side, audio) in enumerate(zip(rounds, sidecars, audios)):
         info = {"number": r + 1, "category": row["category"], "difficulty": row["difficulty"],
-                "questions": [], "intro": None, "answers_intro": None}
+                "questions": [], "intro": None, "answers_intro": None, "finish": None}
         if r:
             track.gap(ROUND_GAP)
             info["intro"] = track.add(intros[r - 1])
@@ -413,13 +430,21 @@ def build_timeline(channel, rounds: list, sidecars: list, audios: list, links: l
         for q in side["questions"]:
             item = {"question": q["question"], "answer": q["answer"]}
             item["ask"] = track.add(cut(audio, q["ask_audio"]))
+            track.gap(CLOCK_LEAD)
             item["countdown"] = track.gap(clock)
             if variant == "after_each":
                 item["reveal"] = track.add(cut(audio, q["answer_audio"]))
                 track.gap(pause)
+            else:
+                track.gap(CLOCK_TAIL)
             info["questions"].append(item)
         if variant == "at_end":
+            # Time to finish off, then pens down.
+            finish_line = track.add(finish_lines[r])
             track.gap(LINK_PAUSE)
+            info["finish"] = {"line": finish_line, "clock": track.gap(finish),
+                              "text": FINISH_TEXT[r % len(FINISH_TEXT)]}
+            track.gap(CLOCK_TAIL)
             info["answers_intro"] = track.add(answers_intros[r])
             track.gap(LINK_PAUSE)
             for q, item in zip(side["questions"], info["questions"]):
@@ -438,15 +463,23 @@ def build_timeline(channel, rounds: list, sidecars: list, audios: list, links: l
     return track, timeline
 
 
+def _ticks(start: float, end: float) -> list:
+    """A tick each of a clock's last few seconds: ten seconds of ticking,
+    sixty times a video, would wear."""
+    seconds = max(1, math.ceil(end - start - 0.05))
+    step = (end - start) / seconds
+    return [(start + k * step, "tock", 0.8) for k in range(max(0, seconds - TICKS), seconds)]
+
+
 def cues(timeline: dict) -> list:
-    """A tick each second of every clock and a chime as each answer lands."""
+    """Each clock's last seconds ticking, and a chime as each answer lands."""
     out = []
     for info in timeline["rounds"]:
         for item in info["questions"]:
-            start, end = item["countdown"]
-            seconds = max(1, math.ceil(end - start - 0.05))
-            out += [(start + k * (end - start) / seconds, "tock", 0.8) for k in range(seconds)]
+            out += _ticks(*item["countdown"])
             out.append((item["reveal"][0], "chime", 0.55))
+        if info.get("finish"):
+            out += _ticks(*info["finish"]["clock"])
     return sorted(out)
 
 
@@ -500,6 +533,8 @@ html, body {{ width: {W}px; height: {H}px; }}
 .panel {{ position: absolute; left: {PANEL_X}px; width: {PANEL_W}px; top: {TOP}px; height: {BOTTOM - TOP}px; }}
 .panel > .view {{ position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
   justify-content: center; text-align: center; padding: 40px 50px; gap: 22px; }}
+.panel > .view.with-timer {{ bottom: {2 * TIMER_R + 90}px; }}
+.view.with-timer .big {{ max-height: 400px; }}
 .label {{ font-family: var(--display); font-weight: var(--dw); font-size: 30px; letter-spacing: .12em;
   text-transform: uppercase; color: var(--soft); }}
 .big {{ font-family: var(--display); font-weight: var(--dw); font-size: 58px; line-height: 1.15;
@@ -540,7 +575,8 @@ def _timer(start: float, end: float) -> str:
     return (f"<div class='timer' {_in(start - 0.2, 'pop', 0.3, end)}>"
             f"<svg width='{size}' height='{size}'><circle class='track' cx='{size / 2}' cy='{size / 2}' r='{TIMER_R}'/>"
             f"<circle class='fill' cx='{size / 2}' cy='{size / 2}' r='{TIMER_R}' data-in='{start:.3f}' "
-            f"data-anim='none' data-dur='{span:.3f}'/></svg>{digits}</div>")
+            f"data-anim='none' data-dur='{span:.3f}' data-steps='{max(10, round(span * 10))}'/>"
+            f"</svg>{digits}</div>")
 
 
 def board_html(timeline: dict, style: dict, title: str, subtitle: str) -> str:
@@ -573,6 +609,13 @@ def board_html(timeline: dict, style: dict, title: str, subtitle: str) -> str:
             views.append(f"<div class='view' {_in(info['intro'][0], 'pop', 0.4, info['intro'][1] + 0.1)}>"
                          f"<div class='label'>Round {info['number']}</div>"
                          f"<div class='big' data-fit='34'>{esc(info['category'])}</div></div>")
+        if info.get("finish"):
+            f0 = info["finish"]["line"][0]
+            c0, c1 = info["finish"]["clock"]
+            views.append(f"<div class='view with-timer' {_in(f0, 'pop', 0.4, c1 + 0.3)}>"
+                         f"<div class='label'>Round {info['number']}</div>"
+                         f"<div class='big'>{esc(info['finish']['text'])}</div></div>")
+            views.append(_timer(c0, c1))
         if info.get("answers_intro"):
             a0, a1 = info["answers_intro"]
             views.append(f"<div class='view' {_in(a0, 'pop', 0.4, a1 + 0.1)}>"
@@ -582,7 +625,7 @@ def board_html(timeline: dict, style: dict, title: str, subtitle: str) -> str:
             ask0 = item["ask"][0]
             reveal0, reveal1 = item["reveal"]
             cd0, cd1 = item["countdown"]
-            highlights = [f"<div class='now' {_in(ask0, 'fade', 0.25, cd1 if variant == 'at_end' else reveal1)}></div>"]
+            highlights = [f"<div class='now' {_in(ask0, 'fade', 0.25, cd1 + 0.3 if variant == 'at_end' else reveal1)}></div>"]
             if variant == "at_end":
                 highlights.append(f"<div class='now' {_in(item['reask'][0], 'fade', 0.25, reveal1 + 0.4)}></div>")
             rows.append(
@@ -596,11 +639,13 @@ def board_html(timeline: dict, style: dict, title: str, subtitle: str) -> str:
             nxt = info["questions"][i + 1]["ask"][0] if i + 1 < n else None
             if variant == "after_each":
                 q_out, a_out = reveal0, (nxt - 0.3 if nxt else end)
-                views.append(f"<div class='view' {_in(ask0, 'rise', 0.45, q_out)}>"
+                views.append(f"<div class='view with-timer' {_in(ask0, 'rise', 0.45, q_out)}>"
                              f"<div class='label'>Question {i + 1}</div>"
                              f"<div class='big' data-fit='30'>{esc(item['question'])}</div></div>")
             else:
-                views.append(f"<div class='view' {_in(ask0, 'rise', 0.45, cd1 + 0.2)}>"
+                # Gone before the next question arrives (the clock's tail
+                # is a second), so the two never overlap.
+                views.append(f"<div class='view with-timer' {_in(ask0, 'rise', 0.45, cd1 + 0.3)}>"
                              f"<div class='label'>Question {i + 1}</div>"
                              f"<div class='big' data-fit='30'>{esc(item['question'])}</div></div>")
                 re0 = item["reask"][0]

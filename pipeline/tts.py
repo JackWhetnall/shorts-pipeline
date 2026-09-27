@@ -130,6 +130,21 @@ def apply_pronunciation_overrides(text: str) -> str:
     return text
 
 
+_SPACED_DASH = re.compile(r"\s+[-\u2013\u2014]+\s+|\s*\u2014\s*")
+
+
+def speakable(text: str, say_as: dict = None) -> str:
+    """The text as it's sent to the voice engine. A spaced dash becomes a
+    comma: "among the stars - Space answers" came back as "among the
+    spirit wall", then three seconds of nothing. `say_as` respells words
+    the engine misreads ("Au" -> "A U"), in the spoken text only."""
+    text = _SPACED_DASH.sub(", ", text)
+    for written, said in (say_as or {}).items():
+        if written and said:
+            text = re.sub(rf"(?<![\w-]){re.escape(written)}(?![\w-])", said, text)
+    return apply_pronunciation_overrides(text)
+
+
 def revert_pronunciation_overrides(word: str) -> str:
     """Undo a respelling, including with punctuation attached ("Jobe," ->
     "Job,").
@@ -197,6 +212,11 @@ def looks_glitched(text: str, word_timings: list) -> bool:
         return False
     for i in range(1, len(word_timings)):
         if word_timings[i].start < word_timings[i - 1].start:
+            return True
+        # A long silence inside one line is the engine losing its place
+        # (the "spirit wall" line had three seconds of it); a line's own
+        # commas and full stops never take this long.
+        if word_timings[i].start - word_timings[i - 1].end > MAX_WORD_GAP:
             return True
 
     words = [_PUNCT_STRIP.sub("", w.word.lower()) for w in word_timings]
@@ -369,9 +389,12 @@ def _billed_characters(response, tts_text: str) -> int:
         return len(tts_text)
 
 
+MAX_WORD_GAP = 1.5      # seconds between two words of one line before it counts as a glitch
+
+
 def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1.0,
                        max_attempts: int = 3, previous_text: str = "",
-                       next_text: str = "") -> tuple:
+                       next_text: str = "", say_as: dict = None) -> tuple:
     """One segment. Returns (word_timings, samples, fps).
 
     `previous_text` and `next_text` are the neighbouring lines. They are
@@ -392,7 +415,9 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
     chunk from a person talking normally. The transcript check covers
     what it was for, by comparing words rather than waveform shape.)
     """
-    tts_text = apply_pronunciation_overrides(text)
+    tts_text = speakable(text, say_as)
+    # What Whisper should hear: the words as written, not the respellings.
+    heard_text = speakable(text)
     word_timings, samples = [], None
 
     for attempt in range(max_attempts):
@@ -403,9 +428,9 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
             "voice_settings": {"speed": speed},
         }
         if previous_text:
-            payload["previous_text"] = apply_pronunciation_overrides(previous_text)
+            payload["previous_text"] = speakable(previous_text, say_as)
         if next_text:
-            payload["next_text"] = apply_pronunciation_overrides(next_text)
+            payload["next_text"] = speakable(next_text, say_as)
         response = _post_with_backoff(voice_id, payload)
         costs.record_elevenlabs("voiceover", ELEVENLABS_MODEL,
                                 _billed_characters(response, tts_text))
@@ -423,7 +448,7 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
                      f"({attempt + 2}/{max_attempts})...")
             continue
 
-        ratio = transcript_match_ratio(tts_text, out_path)
+        ratio = transcript_match_ratio(heard_text, out_path)
         if ratio < TRANSCRIPT_MATCH_THRESHOLD and not is_last:
             log.info(f"  [tts] transcript check found a mismatch ({ratio:.0%}), "
                      f"retrying ({attempt + 2}/{max_attempts})...")
@@ -540,7 +565,8 @@ def _stitch(results, segments, out_audio_path: str):
 
 
 def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: str,
-                       pacing, speed: float = 1.0, source_index: int = 0) -> Voiceover:
+                       pacing, speed: float = 1.0, source_index: int = 0,
+                       say_as: dict = None) -> Voiceover:
     """Synthesize the whole narration and fill in each segment's real
     start/end times.
 
@@ -567,7 +593,7 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
             timings, samples, _ = synthesize_segment(
                 text, voice_id, str(segment_paths[i]), speed,
                 previous_text=plan[i - 1][0] if i > 0 else "",
-                next_text=plan[i + 1][0] if i + 1 < len(plan) else "")
+                next_text=plan[i + 1][0] if i + 1 < len(plan) else "", say_as=say_as)
         except Exception:
             job_context.report_detail("tts", i, {"status": "error"})
             raise
@@ -624,6 +650,8 @@ def run(plan):
         plan.script.segments, plan.script.citation, plan.channel.voice,
         str(plan.audio_path), plan.channel.pacing, speed=plan.channel.speed,
         source_index=getattr(plan.script, "source_index", 0),
+        # A quiz's respellings for words the engine misreads (pipeline.quiz).
+        say_as=(getattr(plan.script, "quiz", None) or {}).get("pronunciations"),
     )
 
     try:

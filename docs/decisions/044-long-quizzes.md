@@ -94,3 +94,35 @@ Around it:
 - **One looped music track.** It wore thin over twenty minutes.
 - **Both variants from the same rounds.** YouTube's inauthentic-content
   rules target near-identical videos.
+
+## Revised after the first real one
+
+- **The host explained the format** ("question re-read before each one",
+  "questions first each time"), because the prompt told it how the
+  answers worked. It is now told the variant only, and never to explain
+  the format.
+- **Timing.** The shorts' four-second clock was far too quick for a long
+  video people play along with. A question now gets:
+  - a second of quiet, then ten seconds of clock
+    (`quiz.longform_clock_seconds`), then a second before the next
+    question;
+  - it fades out before the next one fades in.
+
+  With answers at the end, a round finishes with a varied spoken nudge,
+  on-screen text, and thirty seconds of clock
+  (`quiz.longform_finish_seconds`) before the pens-down line. A re-read
+  question now has 1.1 s before its answer. The clock ticks only in its
+  last five seconds.
+- **The panel** keeps a question clear of its clock.
+- **The ring draws in tenths of a second** (the runtime's `data-steps`),
+  so the longer clocks don't triple the frames drawn.
+- **A voice glitch.** ElevenLabs turned "among the stars - Space answers"
+  into "among the spirit wall" and three seconds of silence, and the
+  transcript check passed it. Now:
+  - spaced dashes become commas before voicing (`tts.speakable`);
+  - a gap of more than 1.5 s inside one line counts as a glitch and is
+    re-voiced.
+- **Mispronunciations** ("Au" read as "ow", "aphelion" as "ap-helion").
+  The quiz writer now lists words the voice might misread, with a plain
+  respelling. The respelling is used for the voice only; the board shows
+  the real word. Rounds already voiced keep their old readings.

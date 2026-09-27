@@ -10,6 +10,9 @@
  *   data-out="6.2"     (optional) when it leaves
  *   data-count-to="4322" with data-count-from / data-prefix / data-suffix /
  *                      data-decimals: a number that counts up as it enters
+ *   data-steps="100"   (optional) progress moves in this many steps, not
+ *                      continuously: a clock ring draining over ten seconds
+ *                      needs 100 frames, not 300, to look the same
  * The engine sets CSS variables the stylesheet uses: --p (0..1 linear),
  * --e (eased, with overshoot for pop), --q (exit 0..1). The page gets --t
  * and --T (time and duration) for slow whole-frame motion.
@@ -42,6 +45,7 @@ window.__start = function () {
     dur: parseFloat(el.dataset.dur) || 0.5,
     out: el.dataset.out ? parseFloat(el.dataset.out) : null,
     anim: el.dataset.anim || "rise",
+    steps: parseFloat(el.dataset.steps || "0"),
     count: el.dataset.countTo != null ? {
       from: parseFloat(el.dataset.countFrom || "0"), to: parseFloat(el.dataset.countTo),
       decimals: parseInt(el.dataset.decimals || "0", 10),
@@ -62,7 +66,8 @@ window.__start = function () {
     root.setProperty("--t", t.toFixed(4));
     root.setProperty("--T", String(T));
     for (const it of items) {
-      const p = clamp((t - it.at) / it.dur);
+      let p = clamp((t - it.at) / it.dur);
+      if (it.steps) p = Math.round(p * it.steps) / it.steps;
       const e = easeFor(it.anim)(p);
       const q = it.out == null ? 0 : clamp((t - it.out) / 0.35);
       it.el.style.setProperty("--p", p.toFixed(4));
@@ -83,7 +88,8 @@ window.__start = function () {
   // quiz board is still for most of its two minutes.
   window.__signature = window.STATIC_BACKGROUND ? function (t) {
     return items.map(it => {
-      const p = clamp((t - it.at) / it.dur);
+      let p = clamp((t - it.at) / it.dur);
+      if (it.steps) p = Math.round(p * it.steps) / it.steps;
       const q = it.out == null ? 0 : clamp((t - it.out) / 0.35);
       const c = it.count ? clamp((t - it.at) / it.count.dur) : 0;
       return p.toFixed(3) + q.toFixed(3) + c.toFixed(3);

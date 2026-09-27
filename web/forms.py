@@ -161,6 +161,10 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             quiz.longform_variant = form.get("quiz_longform_variant")
         quiz.longform_every_days = min(60, max(0, _maybe_int(
             form, "quiz_longform_every_days", quiz.longform_every_days)))
+        quiz.longform_clock_seconds = min(30.0, max(3.0, _maybe_float(
+            form, "quiz_longform_clock_seconds", quiz.longform_clock_seconds)))
+        quiz.longform_finish_seconds = min(120.0, max(0.0, _maybe_float(
+            form, "quiz_longform_finish_seconds", quiz.longform_finish_seconds)))
         levels = [line.strip() for line in (form.get("quiz_difficulties") or "").splitlines()
                   if line.strip()]
         if levels:
