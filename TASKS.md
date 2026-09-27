@@ -20,7 +20,7 @@ and long quizzes). TikTok and Instagram are one-minute manual posts the
 app sets up for you (step 15).
 
 ### 1. Send the latest work to GitHub (1 minute)
-13 commits exist only on this PC.
+The latest commits exist only on this PC (`git status` says how many).
 ```
 git push
 ```
