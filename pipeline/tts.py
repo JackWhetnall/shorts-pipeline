@@ -650,8 +650,10 @@ def run(plan):
         plan.script.segments, plan.script.citation, plan.channel.voice,
         str(plan.audio_path), plan.channel.pacing, speed=plan.channel.speed,
         source_index=getattr(plan.script, "source_index", 0),
-        # A quiz's respellings for words the engine misreads (pipeline.quiz).
-        say_as=(getattr(plan.script, "quiz", None) or {}).get("pronunciations"),
+        # The channel's own list of words the engine misreads, and a quiz
+        # round's (pipeline.quiz), the round's winning where both have one.
+        say_as={**(getattr(plan.channel, "pronunciations", None) or {}),
+                **((getattr(plan.script, "quiz", None) or {}).get("pronunciations") or {})},
     )
 
     try:

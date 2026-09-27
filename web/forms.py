@@ -136,6 +136,10 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
         "channel_display_name", channel.channel_display_name).strip()
     channel.outro_subtext = form.get("outro_subtext", channel.outro_subtext).strip()
     channel.speed = _maybe_float(form, "speed", channel.speed)
+    if "pronunciations" in form:
+        pairs = [line.split("=", 1) for line in (form.get("pronunciations") or "").splitlines()
+                 if "=" in line]
+        channel.pronunciations = {w.strip(): s.strip() for w, s in pairs if w.strip() and s.strip()}
 
     # Unchecked checkboxes submit nothing, so a marker distinguishes "off"
     # from "this form has no such field".
@@ -161,6 +165,8 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             quiz.longform_variant = form.get("quiz_longform_variant")
         quiz.longform_every_days = min(60, max(0, _maybe_int(
             form, "quiz_longform_every_days", quiz.longform_every_days)))
+        quiz.longform_round_reuse = min(3, max(1, _maybe_int(
+            form, "quiz_longform_round_reuse", quiz.longform_round_reuse)))
         quiz.longform_clock_seconds = min(30.0, max(3.0, _maybe_float(
             form, "quiz_longform_clock_seconds", quiz.longform_clock_seconds)))
         quiz.longform_finish_seconds = min(120.0, max(0.0, _maybe_float(

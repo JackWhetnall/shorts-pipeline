@@ -89,7 +89,7 @@ Each question:
 - Everything spoken is read by a voice engine exactly as written. List
   in `pronunciations` any word in the questions or answers it might
   misread, with how to say it in plain respelling: symbols and
-  abbreviations letter by letter ("Au" as "A U", "DNA" is fine as it is),
+  abbreviations as letter names ("Au" as "ay you", "DNA" is fine as it is),
   and words whose stress or spelling misleads ("aphelion" as
   "af-EE-lee-on", "Worcestershire" as "WUSS-ter-sher"). Only what a
   careful reader might get wrong; usually none or one or two. The board
@@ -321,25 +321,32 @@ def _named(topic: dict) -> bool:
     return bool((topic.get("title") or "").strip()) and not topic.get("placeholder")
 
 
-def top_up(channel) -> int:
-    """Another round for every category when the plan runs low. Returns
-    how many quizzes were added (0 when it isn't low)."""
+def next_round(channel, topic_id: str) -> int:
+    """This category's next round (Easy up to the hardest level again,
+    numbered on), free and by rule; the question bank keeps it clear of
+    everything already asked. Returns how many quizzes were added."""
+    data = curriculum.load(channel.key)
+    topic = next((t for t in data["topics"] if t["id"] == topic_id), None)
+    if topic is None or not _named(topic):
+        return 0
+    number = max([_round_number(s["title"]) for s in data["subtopics"]
+                  if s["topic"] == topic_id] or [0]) + 1
+    before = len(data["subtopics"])
+    curriculum.add_subtopics(channel.key, topic_id,
+                             subtopic_rows(topic["title"], channel.quiz.difficulties, number))
+    return len(curriculum.load(channel.key)["subtopics"]) - before
+
+
+def top_up(channel, force: bool = False) -> int:
+    """Another round for every category when the plan runs low (or,
+    `force`, now). Returns how many quizzes were added."""
     if not curriculum.exists(channel.key):
         return 0
     data = curriculum.load(channel.key)
     pending = sum(1 for s in data["subtopics"] if s["status"] == curriculum.PENDING)
-    if pending >= curriculum.LOW_WATER_MARK or not data["topics"]:
+    if (pending >= curriculum.LOW_WATER_MARK and not force) or not data["topics"]:
         return 0
-    added = 0
-    for topic in data["topics"]:
-        if not _named(topic):
-            continue
-        rounds = max([_round_number(s["title"]) for s in data["subtopics"]
-                      if s["topic"] == topic["id"]] or [0]) + 1
-        before = len(curriculum.load(channel.key)["subtopics"])
-        curriculum.add_subtopics(channel.key, topic["id"],
-                                 subtopic_rows(topic["title"], channel.quiz.difficulties, rounds))
-        added += len(curriculum.load(channel.key)["subtopics"]) - before
+    added = sum(next_round(channel, topic["id"]) for topic in data["topics"])
     log.info(f"{channel.key}: added {added} quizzes, another round of every category")
     return added
 
@@ -612,6 +619,9 @@ def _clean_round(data: dict, count: int) -> dict:
     data["pronunciations"] = {p["written"].strip(): p["say"].strip()
                               for p in data.get("pronunciations") or []
                               if (p.get("written") or "").strip() and (p.get("say") or "").strip()}
+    # Chemical symbols by rule, whatever the writer listed: they come up
+    # often and the voice gets them wrong ("Au" read as "ow").
+    data["pronunciations"].update(element_respellings(data["questions"]))
     return data
 
 
@@ -681,6 +691,54 @@ def verify(category: str, difficulty: str, questions: list) -> list:
     return verdicts
 
 
+ELEMENT_SYMBOLS = frozenset("""
+H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br
+Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho
+Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es
+Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og""".split())
+# Symbols that are also everyday words or single letters: respelling
+# every "In" or "No" in a round would wreck it, and a lone capital letter
+# is read as its name anyway.
+_WORDLIKE = frozenset({"He", "In", "As", "At", "Be", "No", "Am", "Es"})
+LETTER_NAMES = {"A": "ay", "B": "bee", "C": "see", "D": "dee", "E": "ee", "F": "eff", "G": "jee",
+                "H": "aitch", "I": "eye", "J": "jay", "K": "kay", "L": "el", "M": "em", "N": "en",
+                "O": "oh", "P": "pee", "Q": "cue", "R": "ar", "S": "ess", "T": "tee", "U": "you",
+                "V": "vee", "W": "double you", "X": "ex", "Y": "why", "Z": "zed"}
+
+
+def element_respellings(questions: list) -> dict:
+    """{symbol: its letters' names} for every two-letter chemical symbol a
+    round gives as an answer or asks about ("the symbol Fe"), so the voice
+    says "ay you" for Au rather than "ow". By rule, not left to the writer
+    to notice."""
+    found = set()
+    for q in questions:
+        candidates = re.findall(r"\b[A-Z][a-z]\b", q.get("answer", ""))
+        candidates += re.findall(r"symbols?\s+(?:is\s+|of\s+)?([A-Z][a-z])\b", q.get("question", ""))
+        found.update(c for c in candidates if c in ELEMENT_SYMBOLS and c not in _WORDLIKE)
+    return {s: " ".join(LETTER_NAMES[ch.upper()] for ch in s) for s in sorted(found)}
+
+
+def round_clashes(questions: list) -> list:
+    """Indices of questions that sit badly with an earlier one in the same
+    round: the same answer, an earlier answer given away in its wording
+    (or its answer in an earlier question's), or much the same question."""
+    found = []
+    for i, q in enumerate(questions):
+        for p in questions[:i]:
+            same = _norm_answer(q["answer"]) and _norm_answer(q["answer"]) == _norm_answer(p["answer"])
+            given = ((len(_norm_answer(p["answer"])) > 3 and _mentions(q["question"], p["answer"]))
+                     or (len(_norm_answer(q["answer"])) > 3 and _mentions(p["question"], q["answer"])))
+            a, b = _keywords(q["question"]), _keywords(p["question"])
+            # Only questions with enough words to judge: two short ones
+            # share most of their few words by chance.
+            alike = len(a | b) >= 4 and len(a & b) / len(a | b) >= 0.6
+            if same or given or alike:
+                found.append(i)
+                break
+    return found
+
+
 def _mentions(text: str, answer: str) -> bool:
     """Whether `answer` appears in `text` as whole words ("Au" is not in
     "Australia"), ignoring case and a leading "the"."""
@@ -723,6 +781,9 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "") -> 
     for i in repeats(questions, channel.key):
         log.info(f"  [quiz] Q{i + 1} repeats a question already asked on this channel")
         verdicts[i] = "repeat"
+    for i in round_clashes(questions):
+        log.info(f"  [quiz] Q{i + 1} clashes with an earlier question in this round")
+        verdicts[i] = "clash"
 
     bad = [i for i, v in enumerate(verdicts) if v != "ok"]
     if bad:

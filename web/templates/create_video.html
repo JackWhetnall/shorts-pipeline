@@ -23,6 +23,13 @@
           <option value="{{ label }}" {{ 'disabled' if longform.ready[label] < 2 }}>{{ label }} &mdash; {{ longform.ready[label] }} ready</option>
           {% endfor %}
           <option value="rising">Rising: each round harder &mdash; {{ longform.ready.rising }} categories ready</option>
+          {% if longform.singles %}
+          <optgroup label="One category, easiest to hardest">
+            {% for option, count in longform.singles %}
+            <option value="{{ option }}" {{ 'disabled' if count < 2 }}>{{ option[9:] }} &mdash; {{ count }} level{{ 's' if count != 1 }} ready</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
         </select>
       </label>
       <label>Rounds
@@ -79,6 +86,10 @@
           {% if waiting %}
           <button type="button" class="btn-ghost btn-small"
                   onclick="event.preventDefault(); chooseVideo({topic_id: '{{ topic.id }}', mode: 'random'}, 'At random from {{ topic.title|e }}')">Random from this topic</button>
+          {% elif channel.format == 'quiz' and topic.subtopics %}
+          {# A quiz category never runs out: its next round is added, free. #}
+          <button type="button" class="btn-ghost btn-small"
+                  onclick="event.preventDefault(); chooseVideo({topic_id: '{{ topic.id }}', mode: 'random'}, 'A new round of {{ topic.title|e }}')">Start its next round</button>
           {% elif not topic.subtopics %}
           <button type="button" class="btn-ghost btn-small"
                   onclick="event.preventDefault(); writeTopic('{{ key }}', '{{ topic.id }}', this)">Write its videos</button>

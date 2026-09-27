@@ -94,60 +94,131 @@ def _round_info(channel, video: Path) -> dict:
             "difficulty": difficulty, "level": quiz.level_of(channel, difficulty), "ready": False}
 
 
-def used_rounds(channel) -> set:
-    """Rounds already in a long video (a discarded one frees its rounds)."""
-    used = set()
+def used_rounds(channel) -> dict:
+    """{round stem: how many long videos it's in} (a discarded long video
+    frees its rounds)."""
+    used = {}
     for video in gallery.videos_in(_out_root(channel), long=True):
         if gallery.load_publish_info(video)["discarded"]:
             continue
         sidecar = quiz.round_sidecar(video)
         if sidecar.exists():
-            used.update(json.loads(sidecar.read_text(encoding="utf-8")).get("rounds") or [])
+            for stem in json.loads(sidecar.read_text(encoding="utf-8")).get("rounds") or []:
+                used[stem] = used.get(stem, 0) + 1
     return used
 
 
 def available_rounds(channel) -> list:
-    """Every finished, undiscarded quiz short not yet in a long video,
-    published ones first, then oldest first."""
+    """Every finished, undiscarded quiz short that hasn't reached the
+    channel's limit of long videos (`quiz.longform_round_reuse`), least
+    reused first, then published ones, then oldest."""
     root = _out_root(channel)
     if not root.exists():
         return []
     used = used_rounds(channel)
+    limit = max(1, int(channel.quiz.longform_round_reuse or 1))
     rows = []
     for video in gallery.videos_in(root, long=False):
         info = gallery.load_publish_info(video)
-        if info["discarded"] or video.stem in used:
+        if info["discarded"] or used.get(video.stem, 0) >= limit:
             continue
         row = _round_info(channel, video)
         if row:
-            row["rank"] = (0 if gallery.is_out(info) else 1 if gallery.is_queued(info) else 2,
+            row["reused"] = used.get(video.stem, 0)
+            row["rank"] = (row["reused"], 0 if gallery.is_out(info) else 1 if gallery.is_queued(info) else 2,
                            video.stat().st_mtime)
             rows.append(row)
     return sorted(rows, key=lambda r: r["rank"])
 
 
+CATEGORY_PREFIX = "category:"
+
+
 def availability(channel) -> dict:
-    """{difficulty label: rounds available, "rising": distinct categories}."""
+    """{difficulty label: rounds ready, "rising": categories ready,
+    "category:<name>": difficulty levels ready in that category}."""
     rows = available_rounds(channel)
     counts = {}
     for label in quiz.labels(channel):
         counts[label] = len({r["category"].lower() for r in rows
                              if r["difficulty"].lower() == label.lower()})
     counts[RISING] = len({r["category"].lower() for r in rows})
+    for category in sorted({r["category"] for r in rows}):
+        counts[CATEGORY_PREFIX + category] = len({r["level"] for r in rows if r["category"] == category})
     return counts
 
 
+def _questions(row: dict, channel) -> list:
+    """A round's questions and answers, for the clash check."""
+    if "questions" not in row:
+        sidecar = quiz.round_sidecar(row["video"])
+        if sidecar.exists():
+            row["questions"] = json.loads(sidecar.read_text(encoding="utf-8")).get("questions") or []
+        else:
+            found = next((r for r in quiz.bank(channel.key) if r.get("video") == row["stem"]), {})
+            row["questions"] = found.get("questions") or []
+    return row["questions"]
+
+
+def clashes(a: list, b: list) -> bool:
+    """Whether two rounds would sit badly in one video: the same answer
+    twice ("What is the capital of France?" and "What is the most
+    populous city in France?"), one round's answer given away in the
+    other's question, or much the same question."""
+    answers_a = {quiz._norm_answer(q.get("answer", "")) for q in a} - {""}
+    answers_b = {quiz._norm_answer(q.get("answer", "")) for q in b} - {""}
+    if answers_a & answers_b:
+        return True
+    for first, second in ((a, b), (b, a)):
+        text = " ".join(q.get("question", "") for q in second)
+        if any(len(quiz._norm_answer(q.get("answer", ""))) > 3 and quiz._mentions(text, q.get("answer", ""))
+               for q in first):
+            return True
+    for q in a:
+        words = quiz._keywords(q.get("question", ""))
+        for r in b:
+            other = quiz._keywords(r.get("question", ""))
+            if len(words | other) >= 4 and len(words & other) / len(words | other) >= 0.6:
+                return True
+    return False
+
+
 def choose_rounds(channel, difficulty: str, count: int) -> list:
-    """`count` rounds of different categories: all at one difficulty, or
-    for "rising" as spread across the levels as possible, easiest first."""
+    """`count` rounds that don't clash: all at one difficulty in different
+    categories; "rising", as spread across the levels as possible in
+    different categories; or "category:<name>", one category from its
+    easiest level up. Easiest first."""
     rows = available_rounds(channel)
-    picked, seen = [], set()
+    picked = []
+
+    def fits(r) -> bool:
+        return all(not clashes(_questions(r, channel), _questions(p, channel)) for p in picked)
+
+    if difficulty.startswith(CATEGORY_PREFIX):
+        category = difficulty[len(CATEGORY_PREFIX):].lower()
+        mine = sorted((r for r in rows if r["category"].lower() == category),
+                      key=lambda r: (r["level"], r["rank"]))
+        levels_done = set()
+        for pass_ in (0, 1):            # one per level first, then more of the same levels
+            for r in mine:
+                if len(picked) >= count:
+                    break
+                if r in picked or (pass_ == 0 and r["level"] in levels_done) or not fits(r):
+                    continue
+                picked.append(r)
+                levels_done.add(r["level"])
+        return sorted(picked, key=lambda r: r["level"])
+
+    seen = set()
     if difficulty != RISING:
         for r in rows:
-            if r["difficulty"].lower() == difficulty.lower() and r["category"].lower() not in seen:
+            if (r["difficulty"].lower() == difficulty.lower() and r["category"].lower() not in seen
+                    and fits(r)):
                 picked.append(r)
                 seen.add(r["category"].lower())
-        return picked[:count]
+            if len(picked) >= count:
+                break
+        return picked
     by_level = {}
     for r in rows:
         by_level.setdefault(r["level"], []).append(r)
@@ -156,7 +227,7 @@ def choose_rounds(channel, difficulty: str, count: int) -> list:
         for level in levels:
             for r in list(by_level[level]):
                 by_level[level].remove(r)
-                if r["category"].lower() not in seen:
+                if r["category"].lower() not in seen and fits(r):
                     picked.append(r)
                     seen.add(r["category"].lower())
                     break
@@ -317,13 +388,16 @@ def _links_schema() -> dict:
 
 
 def difficulty_words(rounds: list, difficulty: str) -> str:
-    if difficulty == RISING:
+    if difficulty == RISING or difficulty.startswith(CATEGORY_PREFIX):
         return f"getting harder each round, from {rounds[0]['difficulty']} to {rounds[-1]['difficulty']}"
     return rounds[0]["difficulty"]
 
 
 def write_links(channel, rounds: list, variant: str, difficulty: str) -> dict:
     listed = "\n".join(f"Round {i + 1}: {r['category']} ({r['difficulty']})" for i, r in enumerate(rounds))
+    if difficulty.startswith(CATEGORY_PREFIX):
+        listed += ("\n\nEvery round is the same category, one difficulty level harder each "
+                   "time: name the level in each round's intro rather than the category.")
     per = channel.quiz.questions
     fmt = ("answers after each question" if variant == "after_each"
            else "answers at the end of each round")
@@ -368,7 +442,8 @@ def voice_links(channel, links: dict, work: Path) -> list:
     segments = [Segment(text=line, pause_after=0.0) for line in lines]
     voice_quota.require_room(tts.narration_characters(segments, None, channel.pacing))
     voiceover = tts.generate_voiceover(segments, None, channel.voice, str(work / "links.mp3"),
-                                       channel.pacing, speed=channel.speed)
+                                       channel.pacing, speed=channel.speed,
+                                       say_as=channel.pronunciations)
     fps = voiceover.fps
     return [voiceover.samples[int(s.start * fps):int(s.end * fps)] for s in segments]
 
@@ -763,8 +838,10 @@ def make(channel, seed: dict, out_dir: Path = None):
 
     out_dir = Path(out_dir or _out_root(channel) / gallery.LONGFORM_DIR / date.today().isoformat())
     out_dir.mkdir(parents=True, exist_ok=True)
+    single = difficulty.startswith(CATEGORY_PREFIX)
+    kind = (rounds[0]["category"] if single else "rising" if difficulty == RISING else difficulty)
     stem = saved.get("stem") or unique_stem(out_dir, slugify(
-        f"{'rising' if difficulty == RISING else difficulty} quiz {count * channel.quiz.questions} "
+        f"{kind} quiz {count * channel.quiz.questions} "
         f"questions {'answers at end' if variant == 'at_end' else ''}", fallback="long_quiz"))
     work = out_dir / f"{stem}_scenes"
     work.mkdir(parents=True, exist_ok=True)
@@ -799,8 +876,9 @@ def make(channel, seed: dict, out_dir: Path = None):
     title_line = f"{count * per} Questions"
     level_words = difficulty_words(rounds, difficulty)
     subtitle = f"{count} rounds · {level_words[0].upper() + level_words[1:]}"
+    cover = f"{rounds[0]['category']} Quiz: {title_line}" if single else f"The Pub Quiz: {title_line}"
     log.info(f"[3/5] Filming the board ({timeline['end'] / 60:.1f} minutes)...")
-    board = render.render_page(board_html(timeline, style, f"The Pub Quiz: {title_line}", subtitle),
+    board = render.render_page(board_html(timeline, style, cover, subtitle),
                                timeline["end"], work / "board.mp4", fps=FPS, size=(W, H))
 
     job_context.report_stage(4)
@@ -822,11 +900,14 @@ def make(channel, seed: dict, out_dir: Path = None):
     log.info("[5/5] Thumbnail, title, chapters...")
     badge = "Answers at the end" if variant == "at_end" else "Answers as you go"
     thumb = video_path.with_name(f"{video_path.stem}_thumb.jpg")
-    short_level = (f"{rounds[0]['difficulty']} to {rounds[-1]['difficulty']}" if difficulty == RISING
-                   else difficulty)
-    render.page_frame(thumbnail_html(style, title_line, f"{short_level} pub quiz",
-                                     links.get("thumbnail_line", ""), [r["category"] for r in rounds],
-                                     badge), 0.0, thumb, size=THUMB)
+    rising_words = f"{rounds[0]['difficulty']} to {rounds[-1]['difficulty']}"
+    if single:
+        sub, chips = f"{rounds[0]['category']}: {rising_words}", [r["difficulty"] for r in rounds]
+    else:
+        sub = f"{rising_words if difficulty == RISING else difficulty} pub quiz"
+        chips = [r["category"] for r in rounds]
+    render.page_frame(thumbnail_html(style, title_line, sub, links.get("thumbnail_line", ""),
+                                     chips, badge), 0.0, thumb, size=THUMB)
     marks = "\n".join(f"{_stamp(t)} {label}" for t, label in chapters(timeline))
     description = f"{links['description']}\n\nChapters\n{marks}"
     if credits:

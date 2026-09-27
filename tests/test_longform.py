@@ -40,7 +40,7 @@ def _short(folder: Path, stem: str, category: str, difficulty: str, when: float 
     video = folder / f"{stem}.mp4"
     video.write_bytes(b"")
     (folder / f"{stem}_audio.mp3").write_bytes(b"")
-    questions = [{"question": f"{category} Q{i}?", "answer": f"A{i}", "spoken_answer": f"A{i}.",
+    questions = [{"question": f"{category} {stem} Q{i}?", "answer": f"{stem} A{i}", "spoken_answer": f"A{i}.",
                   "ask_audio": [i * 10.0, i * 10.0 + 2], "answer_audio": [i * 10.0 + 6, i * 10.0 + 7]}
                  for i in range(3)]
     quiz.round_sidecar(video).write_text(json.dumps({
@@ -90,7 +90,9 @@ class TestChoosing:
         gallery.save_publish_info(a, {"youtube_url": "https://youtu.be/x"})
         picked = longform.choose_rounds(world.channel, "Hard", 3)
         assert [r["stem"] for r in picked] == ["science_hard", "space_hard"]
-        assert longform.availability(world.channel) == {"Easy": 1, "Hard": 2, "rising": 3}
+        assert longform.availability(world.channel) == {
+            "Easy": 1, "Hard": 2, "rising": 3,
+            "category:Maths": 1, "category:Science": 1, "category:Space": 1}
 
     def test_rising_climbs_and_a_used_round_is_never_reused(self, world):
         _short(world.root, "science_hard", "Science", "Hard")
@@ -317,3 +319,49 @@ def test_spaced_dashes_and_misread_words_are_fixed_for_the_voice_only():
     # A long silence inside one line is a glitch, and is re-voiced.
     words = [WordTiming("among", 0, 0.3), WordTiming("the", 0.35, 0.5), WordTiming("wall", 3.4, 3.8)]
     assert tts.looks_glitched("among the stars", words)
+
+
+class TestNoClashes:
+    """Regression: nothing stopped one long video holding "What is the
+    capital of France?" and "What is the most populous city in France?"."""
+
+    def test_rounds_sharing_an_answer_or_giving_one_away_clash(self):
+        paris = [{"question": "What is the capital of France?", "answer": "Paris"}]
+        city = [{"question": "Which is the most populous city in France?", "answer": "Paris"}]
+        louvre = [{"question": "In which city is the Louvre?", "answer": "The Louvre's city"},
+                  {"question": "Which river flows through Paris?", "answer": "Seine"}]
+        assert longform.clashes(paris, city)
+        assert longform.clashes(paris, louvre)                     # Paris is in its question
+        assert not longform.clashes(paris, [{"question": "What is the capital of Spain?",
+                                             "answer": "Madrid"}])
+
+    def test_a_clashing_round_is_passed_over(self, world):
+        a = _short(world.root, "geo_hard", "Geography", "Hard", when=100)
+        b = _short(world.root, "history_hard", "History", "Hard", when=200)
+        _short(world.root, "art_hard", "Art", "Hard", when=300)
+        clash = json.loads(quiz.round_sidecar(b).read_text())
+        clash["questions"][0]["answer"] = json.loads(quiz.round_sidecar(a).read_text())["questions"][0]["answer"]
+        quiz.round_sidecar(b).write_text(json.dumps(clash))
+        assert [r["stem"] for r in longform.choose_rounds(world.channel, "Hard", 2)] == ["geo_hard", "art_hard"]
+
+
+def test_a_single_category_quiz_climbs_its_levels(world):
+    world.channel.quiz.difficulties = ["Easy", "Medium", "Hard"]
+    _short(world.root, "science_hard", "Science", "Hard")
+    _short(world.root, "science_easy", "Science", "Easy")
+    _short(world.root, "science_medium", "Science", "Medium")
+    _short(world.root, "space_easy", "Space", "Easy")
+    picked = longform.choose_rounds(world.channel, "category:Science", 3)
+    assert [r["difficulty"] for r in picked] == ["Easy", "Medium", "Hard"]
+    assert longform.availability(world.channel)["category:Science"] == 3
+
+
+def test_a_round_can_come_back_once_when_the_channel_allows_it(world):
+    _short(world.root, "science_easy", "Science", "Easy")
+    long_dir = world.tmp / "out" / "longform" / "2026-09-27"
+    long_dir.mkdir(parents=True)
+    (long_dir / "mixed.mp4").write_bytes(b"")
+    quiz.round_sidecar(long_dir / "mixed.mp4").write_text(json.dumps({"rounds": ["science_easy"]}))
+    assert longform.available_rounds(world.channel) == []
+    world.channel.quiz.longform_round_reuse = 2
+    assert [r["stem"] for r in longform.available_rounds(world.channel)] == ["science_easy"]

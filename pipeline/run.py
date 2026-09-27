@@ -49,6 +49,8 @@ def fetch_seed(channel, pick: dict = None) -> Seed:
         # subtopics in a deliberate order, each used once. Channels without
         # one keep drawing from their flat list exactly as before.
         if curriculum.exists(channel.key):
+            if getattr(channel, "format", "narrated") == "quiz":
+                _quiz_rounds_ready(channel, pick)
             entry = _pick_subtopic(channel, pick)
             if entry is None:
                 raise ConfigError(
@@ -73,6 +75,19 @@ def fetch_seed(channel, pick: dict = None) -> Seed:
         f"unknown content_mode {channel.content_mode!r}",
         user_message=f'Channel "{channel.key}" has an unrecognised content mode.',
     )
+
+
+def _quiz_rounds_ready(channel, pick: dict = None) -> None:
+    """A quiz channel never runs out: when it has nothing waiting, or the
+    category asked for has nothing waiting, its next round is added (free,
+    by rule; pipeline.quiz). The one side effect fetch_seed allows itself,
+    because it costs nothing and the only alternative is an error."""
+    from pipeline import quiz
+    topic_id = ((pick or {}).get("topic_id") or "").strip()
+    if topic_id and not curriculum.subtopics(channel.key, status=curriculum.PENDING, topic_id=topic_id):
+        quiz.next_round(channel, topic_id)
+    elif not curriculum.subtopics(channel.key, status=curriculum.PENDING):
+        quiz.top_up(channel, force=True)
 
 
 def _pick_subtopic(channel, pick: dict = None):

@@ -376,6 +376,10 @@ class Quiz(_MappingLike):
     # end) to finish off before the answers.
     longform_clock_seconds: float = 10.0
     longform_finish_seconds: float = 30.0
+    # How many long videos one round may appear in. 1 keeps every long
+    # video's questions its own; 2 lets a round seen in a mixed quiz come
+    # back once in a single-category one. Never twice in one video.
+    longform_round_reuse: int = 1
 
 
 @dataclass
@@ -446,6 +450,10 @@ class ChannelConfig:
     avoid_imagery: list = field(default_factory=list)
     # ElevenLabs' own voice_settings.speed. 1.0 = normal.
     speed: float = 1.0
+    # Words the voice misreads and how to say them ({"Au": "ay you"}), for
+    # every line this channel voices; pipeline.tts.speakable. A quiz adds
+    # its own per round.
+    pronunciations: dict = field(default_factory=dict)
     pacing: Pacing = field(default_factory=Pacing)
     style: Style = field(default_factory=Style)
     monetization: Monetization = field(default_factory=Monetization)

@@ -399,7 +399,10 @@ def create_video(key):
     longform = None
     if channel.format == "quiz":
         from pipeline import longform as long_quiz, quiz
-        longform = {"ready": long_quiz.availability(channel), "labels": quiz.labels(channel)}
+        ready = long_quiz.availability(channel)
+        longform = {"ready": ready, "labels": quiz.labels(channel),
+                    "singles": [(k, v) for k, v in ready.items()
+                                if k.startswith(long_quiz.CATEGORY_PREFIX)]}
     # ?subtopic_id= arrives from the plan page's "Make now".
     return render_template("create_video.html", key=key, channel=channel, plan=plan,
                            up_next=up_next, initial_subtopic=request.args.get("subtopic_id", ""),
@@ -716,7 +719,8 @@ def api_longform(key):
         return jsonify({"error": f"{len(chosen)} of {request_['rounds']} rounds are ready at "
                                  f"{request_['difficulty']}. Choose fewer rounds, another "
                                  f"difficulty, or rising."}), 400
-    label = ("rising" if request_["difficulty"] == longform.RISING else request_["difficulty"])
+    label = request_["difficulty"].replace(longform.CATEGORY_PREFIX, "") + (
+        ", easiest to hardest" if request_["difficulty"].startswith(longform.CATEGORY_PREFIX) else "")
     seed.update(request_, topic=f"Long quiz: {request_['rounds']} rounds, {label}, "
                                 f"{'answers at the end' if request_['variant'] == 'at_end' else 'answers as you go'}")
     return jsonify({"job_id": jobs.start_job(key, seed)})

@@ -471,3 +471,56 @@ def test_a_new_category_gets_its_rounds_by_rule(monkeypatch):
     channel.quiz.difficulties = ["Easy", "Hard", "Tricky"]
     rows = curriculum_gen.fill_topic(channel, {"title": "Snakes"})
     assert [r["title"] for r in rows] == ["Snakes: Easy", "Snakes: Hard", "Snakes: Tricky"]
+
+
+def test_chemical_symbols_are_respelled_by_rule():
+    """Regression: "Au" was read as "ow". Not left to the writer to notice."""
+    questions = [{"question": "What is the chemical symbol for gold?", "answer": "Au"},
+                 {"question": "Which element has the symbol Fe?", "answer": "Iron"},
+                 {"question": "What is the symbol for indium?", "answer": "In"},     # a word: left alone
+                 {"question": "Which metal is liquid at room temperature?", "answer": "Mercury"}]
+    assert quiz.element_respellings(questions) == {"Au": "ay you", "Fe": "eff ee"}
+    cleaned = quiz._clean_round({**_round(), "questions": questions + questions[:0],
+                                 "pronunciations": [{"written": "Au", "say": "A U"}]}, 3)
+    assert cleaned["pronunciations"]["Au"] == "ay you"
+
+
+def test_a_round_never_holds_two_questions_that_clash():
+    questions = [{"question": "What is the capital city of France?", "answer": "Paris"},
+                 {"question": "What is the most populous city in France?", "answer": "Paris"},
+                 {"question": "Which river flows through the city of Paris?", "answer": "Seine"},
+                 {"question": "What is the capital city of Spain?", "answer": "Madrid"}]
+    assert quiz.round_clashes(questions) == [1, 2]
+
+
+def test_a_quiz_category_that_runs_out_gets_its_next_round(tmp_path, monkeypatch):
+    """No waiting to be topped up by the scheduler, and no error: asking
+    for a category with nothing left starts its next round, free."""
+    from core import curriculum
+    from pipeline.run import fetch_seed
+    monkeypatch.setattr("core.curriculum.CURRICULA_DIR", tmp_path / "curricula")
+    channel = _channel()
+    channel.quiz.difficulties = ["Easy", "Hard"]
+    data = curriculum.start("pub_quiz", "quiz", [{"title": "Maths"}, {"title": "Art"}])
+    for topic in data["topics"]:
+        curriculum.add_subtopics("pub_quiz", topic["id"], quiz.subtopic_rows(topic["title"], ["Easy", "Hard"]))
+    maths = data["topics"][0]["id"]
+    for row in curriculum.subtopics("pub_quiz", topic_id=maths):
+        curriculum.claim("pub_quiz", row["id"])
+    seed = fetch_seed(channel, pick={"topic_id": maths, "mode": "random"})
+    assert "(round 2)" in seed.topic and seed.topic.startswith("Maths")
+    # And with nothing waiting anywhere, every category gets its next round.
+    for row in curriculum.subtopics("pub_quiz", status=curriculum.PENDING):
+        curriculum.claim("pub_quiz", row["id"])
+    fetch_seed(channel)
+    assert "Art: Easy (round 2)" in [s["title"] for s in curriculum.subtopics("pub_quiz")]
+
+
+def test_the_channel_pronunciation_list_is_saved_and_used(tmp_path):
+    from pipeline import tts
+    from web.forms import apply_channel_form
+    from werkzeug.datastructures import MultiDict
+    channel = _channel()
+    apply_channel_form(channel, MultiDict({"pronunciations": "Job = Jobe\nAu = ay you\nnonsense line\n"}))
+    assert channel.pronunciations == {"Job": "Jobe", "Au": "ay you"}
+    assert tts.speakable("Au, like Job said", channel.pronunciations) == "ay you, like Jobe said"
