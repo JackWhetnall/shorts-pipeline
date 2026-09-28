@@ -65,6 +65,17 @@ The music buttons work now: they were dead on quiz channels.
    one is *Wooden tick*) and its level, and press **Listen**. **Save
    changes**.
 
+### 4b. Fill the fact store before making more shorts (5 minutes, then it runs by itself)
+Rounds are now built on facts from Wikidata (the **Facts** page in the
+sidebar), so each answer comes from a real source and no fact is used
+twice. The app fills it by itself within the hour, but to start now:
+**Facts → Stock every quiz category now**. It maps each of the quiz's
+categories onto Wikidata (about a cent each, 15 cents in all) and gathers
+their facts, which takes a while; the page shows progress. A category
+it can't map (like Word Play) keeps being written the old way. Try adding
+one of your own there too, e.g. "Harry Potter", to see a new category
+tagged and filled.
+
 ### 5. Clear Review, then make a few new shorts (20 minutes)
 1. **Discard** the 7-minute long quiz. It has the old, quick timing.
 2. The shorts waiting now were made before the hook screen and numbers

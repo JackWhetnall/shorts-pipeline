@@ -136,7 +136,25 @@ by its difficulty's name.
 """.strip()
 
 
-def _schema(kind: str = None) -> dict:
+FACTS_GUIDE = """
+This round is built on facts from a checked source, listed with the
+request as F<number>: the fact, then [subject | property | value], then
+which way it may be asked. Every question rests on exactly one listed
+fact, named in `fact` ("F123"), and its answer is that fact's answer as
+given: the value when asked for the value, the subject when asked for the
+subject. Add no claim the fact doesn't make; the spoken answer may add a
+little context only from the fact and its descriptions. The facts were
+chosen for this level, so the difficulty is in which facts you pick, not
+in tricky wording: pick the ones that make the clearest, fairest
+questions and the most varied round, and leave the rest. Phrase each
+question naturally and differently; never "What is the X of Y?" every
+time.
+""".strip()
+
+FACT_SPARE = 6          # facts offered beyond the round's questions
+
+
+def _schema(kind: str = None, facts: bool = False) -> dict:
     question = {
         "type": "object",
         "properties": {
@@ -151,6 +169,9 @@ def _schema(kind: str = None) -> dict:
     if kind:
         question["properties"]["subject"] = {"type": "string"}
         question["required"].append("subject")
+    if facts:
+        question["properties"]["fact"] = {"type": "string"}
+        question["required"].append("fact")
     return {
         "type": "object",
         "properties": {
@@ -648,6 +669,8 @@ def _clean_round(data: dict, count: int, kind: str = None) -> dict:
         if kind:
             row["kind"] = kind
             row["subject"] = (q.get("subject") or "").strip()
+        if q.get("fact"):
+            row["fact"] = q["fact"].strip()
         questions.append(row)
     if len(questions) < count:
         raise PipelineError(f"quiz came back with {len(questions)} of {count} questions",
@@ -736,11 +759,17 @@ landmark, building or natural wonder.
 }
 
 
-def _write(category, difficulty, channel, context, extra="", kind: str = None) -> dict:
+def _write(category, difficulty, channel, context, extra="", kind: str = None,
+           facts: list = None) -> dict:
     count = channel.quiz.questions
     system = [SystemBlock(SYSTEM, cacheable=True),
               SystemBlock(f"This channel's own brief for its host and its rounds:\n\n"
                           f"{channel.style_prompt}")]
+    if facts:
+        from pipeline.facts import pick
+        system.append(SystemBlock(FACTS_GUIDE, cacheable=True))
+        extra = "\n\n".join(p for p in (extra, "The facts:\n" + "\n".join(
+            pick.describe(f) for f in facts)) if p)
     if kind:
         from pipeline import pictures
         guide = PICTURE_GUIDE[kind]
@@ -748,7 +777,8 @@ def _write(category, difficulty, channel, context, extra="", kind: str = None) -
         if allowed:
             guide += "\n\nThe list:\n" + ", ".join(allowed)
         system.append(SystemBlock(guide, cacheable=True))
-    data = call_json(system, _user(category, difficulty, count, channel, context, extra), _schema(kind),
+    data = call_json(system, _user(category, difficulty, count, channel, context, extra),
+                     _schema(kind, bool(facts)),
                      operation="quiz_write", max_tokens=WRITE_MAX_TOKENS, effort=WRITE_EFFORT)
     return _clean_round(data, count, kind)
 
@@ -893,15 +923,72 @@ def _check(channel, category: str, difficulty: str, questions: list, kind: str =
     return verdicts
 
 
+def _facts(channel, category: str, difficulty: str, count: int, exclude=()) -> list:
+    """Unused facts from the store for this round (pipeline.facts), or []
+    when the store can't supply `count`: the round is then written as
+    before, from the writer's own knowledge."""
+    try:
+        from pipeline.facts import pick, store
+        facts = pick.for_round(store.connect(), channel.key, category, level_of(channel, difficulty),
+                               count, set(exclude))
+    except Exception as exc:  # noqa: BLE001 - no store is no facts, never no round
+        log.warning(f"  [quiz] the fact store couldn't be read ({exc}); writing without it")
+        return []
+    if len(facts) < count:
+        log.info(f"  [quiz] {category} has {len(facts)} unused facts near {difficulty}; "
+                 f"writing without the fact store")
+        return []
+    return facts
+
+
+def _grounded(questions: list, facts: list, verdicts: list, taken: set) -> None:
+    """Each question built on a fact offered, once, with that fact's
+    answer; `verdicts` marks any that isn't. `taken` collects the facts
+    used."""
+    from pipeline.facts import pick
+    by_id = {f"F{f['id']}": f for f in facts}
+    for i, q in enumerate(questions):
+        fact = by_id.get((q.get("fact") or "").strip().upper())
+        if fact is None or fact["id"] in taken:
+            verdicts[i] = "ungrounded"
+            continue
+        said = _norm_answer(q["answer"])
+        if not any(_close(said, _norm_answer(a)) for a in pick.answers_for(fact)):
+            log.info(f"  [quiz] Q{i + 1}'s answer {q['answer']!r} isn't its fact's")
+            verdicts[i] = "ungrounded"
+            continue
+        taken.add(fact["id"])
+        q["fact_id"] = fact["id"]
+
+
+def _close(a: str, b: str) -> bool:
+    import difflib
+    return bool(a and b) and (a == b or a in b or b in a
+                              or difflib.SequenceMatcher(None, a, b).ratio() >= 0.8)
+
+
 def _write_checked(channel, category: str, difficulty: str, extra: str = "",
                    kind: str = None) -> Script:
     """Write a round, fact-check it (and look at its pictures), and check
     it against every question the channel has asked (see the module
-    docstring)."""
-    context = context_questions(channel.key, category)
-    data = _write(category, difficulty, channel, context, extra, kind)
+    docstring). A text round is built on facts from the store when it
+    has enough (decision 049)."""
+    count = channel.quiz.questions
+    facts = [] if kind else _facts(channel, category, difficulty, count + FACT_SPARE)
+    offered = {f["id"] for f in facts}
+    # Built on unused facts, the round needn't be shown every question
+    # asked before; the local repeat check below still runs.
+    context = ([], []) if facts else context_questions(channel.key, category)
+    data = _write(category, difficulty, channel, context, extra, kind, facts)
     questions = data["questions"]
-    verdicts = _check(channel, category, difficulty, questions, kind)
+    verdicts = ["ok"] * len(questions)
+    taken = set()
+    if facts:
+        _grounded(questions, facts, verdicts, taken)
+    checked = _check(channel, category, difficulty,
+                     [q for q, v in zip(questions, verdicts) if v == "ok"], kind)
+    it = iter(checked)
+    verdicts = [next(it) if v == "ok" else v for v in verdicts]
     for i in repeats(questions, channel.key):
         log.info(f"  [quiz] Q{i + 1} repeats a question already asked on this channel")
         verdicts[i] = "repeat"
@@ -925,10 +1012,17 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "",
                    f"will be discarded. These stay in the round, so no question may "
                    f"share an answer or a subject with them:\n{_listed(kept)}\n\n"
                    f"These didn't work and mustn't come back:\n{_listed(failed)}")
+        more = (_facts(channel, category, difficulty, len(bad) + FACT_SPARE, offered | taken)
+                if facts else [])
+        offered |= {f["id"] for f in more}
         rewritten = _write(category, difficulty, channel,
                            (context[0] + [{"question": q} for q in keep], context[1]),
-                           "\n\n".join(p for p in (extra, instead) if p), kind)
+                           "\n\n".join(p for p in (extra, instead) if p), kind, more)
         replacement = rewritten["questions"]
+        if more:
+            marks = ["ok"] * len(replacement)
+            _grounded(replacement, more, marks, taken)
+            replacement = [q for q, v in zip(replacement, marks) if v == "ok"]
         data["pronunciations"] = element_respellings(
             [q for i, q in enumerate(questions) if i not in bad] + rewritten["questions"])
         # Nothing that repeats or gives away an answer already in the round
@@ -956,6 +1050,14 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "",
     if unverified:
         log.warning(f"  [quiz] question(s) {unverified} still didn't pass the checks; "
                     f"this video will wait for a person.")
+    used = [q["fact_id"] for q in questions if q.get("fact_id")]
+    if used:
+        try:
+            from pipeline.facts import store
+            store.mark_used(store.connect(), channel.key, used, f"{category}: {difficulty}")
+            log.info(f"  [quiz] {len(used)} of {len(questions)} questions built on the fact store")
+        except Exception as exc:  # noqa: BLE001 - see _facts
+            log.warning(f"  [quiz] couldn't record the facts used ({exc})")
     return to_script(data, channel, category, difficulty, unverified)
 
 
@@ -985,7 +1087,7 @@ def to_script(data: dict, channel, category: str, difficulty: str,
         segments.append(Segment(text=q["spoken_answer"], pause_after=float(quiz.answer_pause)))
         row = {"question": q["question"], "answer": q["answer"],
                "spoken_answer": q["spoken_answer"], "ask": ask, "reveal": ask + 1}
-        for key in ("kind", "subject", "picture"):
+        for key in ("kind", "subject", "picture", "fact_id"):
             if q.get(key):
                 row[key] = q[key]
         rows.append(row)

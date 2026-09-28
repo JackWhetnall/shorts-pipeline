@@ -2221,3 +2221,11 @@ button.topic-row.selected:hover {
 .plan-add-by-hand { margin-top: var(--sp-2, 0.5rem); }
 .plan-add-by-hand textarea { width: 100%; margin: var(--sp-2, 0.5rem) 0; }
 .narrow-number { width: 5rem; }
+
+/* --- Facts page ---------------------------------------------------------- */
+.facts-table { width: 100%; border-collapse: collapse; margin-top: var(--sp-4, 1.25rem); }
+.facts-table th, .facts-table td { text-align: left; padding: var(--sp-2, 0.5rem);
+  border-bottom: 1px solid var(--border); vertical-align: top; }
+.facts-table td:nth-child(4) { max-width: 26rem; }
+.facts-runs { list-style: none; padding: 0; }
+.facts-runs li { padding: var(--sp-2, 0.5rem) 0; border-bottom: 1px solid var(--border); }

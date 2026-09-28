@@ -34,6 +34,9 @@ job_state/
 footage/library.db
 footage/library.db-wal
 footage/library.db-shm
+# The quiz fact store (pipeline.facts): harvested from Wikidata, rebuilt
+# by tools/manage_facts.py, and holds this installation's record of use.
+/facts/
 
 # Per-installation and per-run state, not shared between checkouts.
 config/cost_log.jsonl

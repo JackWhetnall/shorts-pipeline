@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Facts{% endblock %}
+{% block content %}
+{% if busy %}<meta http-equiv="refresh" content="6">{% endif %}
+<h1>Facts
+  <button type="button" class="info-dot" data-tooltip="Quiz facts from Wikidata, gathered ahead of any script. Each round is written from facts its channel hasn't used, at the round's level. The app keeps every quiz category stocked by itself, hourly.">?</button>
+</h1>
+{% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
+
+<p class="meta">{{ '{:,}'.format(totals.facts) }} facts about {{ '{:,}'.format(totals.entities) }} things,
+  in {{ totals.categories }} categories.</p>
+
+<div class="card">
+  <form method="post" action="{{ url_for('facts.add_category') }}" class="actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="name" placeholder="A new category, e.g. Harry Potter" required>
+    <button type="submit" {{ 'disabled' if busy }}>Add it</button>
+    <button type="button" class="info-dot" data-tooltip="Mapped onto Wikidata (about a cent), then every fact already here that belongs is tagged, and more are fetched. A few minutes.">?</button>
+  </form>
+  <form method="post" action="{{ url_for('facts.stock') }}" class="actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-ghost" {{ 'disabled' if busy }}>Stock every quiz category now</button>
+  </form>
+</div>
+
+{% if rows %}
+<table class="facts-table">
+  <thead><tr><th>Category</th><th>Facts</th><th>Unused</th><th>From</th><th></th></tr></thead>
+  <tbody>
+  {% for row in rows %}
+  <tr>
+    <td><strong>{{ row.name }}</strong></td>
+    <td>{{ '{:,}'.format(row.askable) }}</td>
+    <td>{% for c in row.channels %}{{ '{:,}'.format(c.unused) }}{% if rows|length > 1 and c.name %} <span class="hint">{{ c.name }}</span>{% endif %}
+      {% if c.short %}<span class="hint">short at {{ c.short|join(', ') }}</span>{% endif %}<br>{% endfor %}</td>
+    <td class="hint">{% if row.general %}every category{% else %}{{ row.sets|join(', ') }}{% endif %}</td>
+    <td>{% if not row.general %}
+      <form method="post" action="{{ url_for('facts.grow', name=row.name) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost btn-small" {{ 'disabled' if busy }}>Go deeper</button>
+      </form>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if runs %}
+<h2>Runs</h2>
+<ul class="facts-runs">
+  {% for run in runs %}
+  <li><strong>{{ run.action }}</strong> <span class="hint">{{ run.status }} &middot; {{ run.started_at[:16].replace('T', ' ') }}</span><br>
+    <span class="meta">{{ run.message }}</span></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

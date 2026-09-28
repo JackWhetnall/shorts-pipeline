@@ -23,3 +23,5 @@ def _isolated_script_history(tmp_path, monkeypatch):
                         tmp_path / "script_history.json")
     # And a quiz channel's question bank (pipeline.quiz).
     monkeypatch.setattr("pipeline.quiz.QUESTION_BANK_DIR", tmp_path / "question_banks")
+    # And the fact store (pipeline.facts): empty unless a test fills it.
+    monkeypatch.setattr("pipeline.facts.store.DB_PATH", tmp_path / "facts.db")

@@ -383,6 +383,20 @@ come from reusable sources only and are looked at before use
 category, each using a round once
 ([046](docs/decisions/046-picture-rounds-and-series.md)).
 
+**The fact store** (`pipeline/facts/`, `facts/facts.db`) supplies quiz
+rounds with facts gathered from Wikidata ahead of any script. Entities,
+facts (subject, property, value, each stored once), categories as sets of
+member entities (a fact belongs to every category its subject is in), and
+per-channel usage (a fact is asked once per channel). Levels are a fact's
+fame-based hardness ranked within its category. A category is mapped onto
+Wikidata once by a model (IDs checked), harvested a page deeper whenever
+it runs short, and kept stocked hourly in the background
+(`facts.keep`, a scheduler duty). A text round is built on unused facts
+near its level, each answer checked against its fact, and falls back to
+the writer's own knowledge when the store is short. The Facts page and
+`tools/manage_facts.py` show and drive it. See decision
+[049](docs/decisions/049-fact-store.md).
+
 **Long quizzes** (`pipeline/longform.py`) are not a pipeline run. A job
 with seed type `longform` recuts finished quiz shorts: each short saves
 where its questions and answers are in its voice track (`_quiz.json`),

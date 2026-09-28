@@ -185,6 +185,13 @@ def fill_category_quizzes(channels: dict = None) -> list:
     return started
 
 
+def _keep_facts(channels: dict) -> None:
+    """Keep quiz channels' categories stocked with facts, in the background
+    (pipeline.facts.keep; it acts at most hourly)."""
+    from pipeline.facts import keep
+    keep.keep_up(channels)
+
+
 def tick() -> None:
     """One pass of all three duties. Each is isolated from the others: a
     failed upload must not stop generation, nor either stop the stats."""
@@ -194,6 +201,7 @@ def tick() -> None:
                        ("generation", lambda: fill_buffers(channels)),
                        ("long quizzes", lambda: fill_long_quizzes(channels)),
                        ("category quizzes", lambda: fill_category_quizzes(channels)),
+                       ("fact store", lambda: _keep_facts(channels)),
                        ("statistics", lambda: _refresh_audience(channels))):
         try:
             duty()
