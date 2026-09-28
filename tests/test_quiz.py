@@ -615,3 +615,54 @@ def test_dingbats_are_not_offered():
     ones. Categories set to it before are ordinary rounds now."""
     from pipeline import pictures
     assert "dingbats" not in pictures.KINDS and "dingbats" not in quiz.PICTURE_GUIDE
+
+
+class TestHook:
+    """The owner: quiz shorts need a hook, with splash text to catch the
+    eye, varied and novel, never lifted from examples in the prompt."""
+
+    def _round(self, **extra):
+        return {"intro": "Keep score. Question one.", "outro": "Bye.", "title_options": ["t"],
+                "description_body": "", **extra,
+                "questions": [{"lead_in": "", "question": f"Q{i}?", "answer": f"A{i}",
+                               "spoken_answer": f"A{i}."} for i in range(3)]}
+
+    def test_the_hook_is_said_first_and_the_splash_is_on_the_opening_card(self):
+        channel = ChannelConfig(key="c", format="quiz")
+        channel.quiz.questions = 3
+        script = quiz.to_script(self._round(hook="Rate your rock knowledge?", splash="Rock on"),
+                                channel, "Music", "Hard")
+        assert script.segments[0].text == "Rate your rock knowledge?"
+        assert script.segments[1].text == "Keep score. Question one."
+        assert script.quiz["questions"][0]["ask"] == 2
+        assert (script.quiz["hook"], script.quiz["splash"]) == ("Rate your rock knowledge?", "Rock on")
+        t = 0.0
+        for seg in script.segments:
+            seg.start, seg.end = t, t + 2
+            t += 2 + (seg.pause_after or 0)
+        from pipeline.scenes import art
+        page = quiz.board_html(script, quiz.timeline(script, []), art.resolve({}), t)
+        assert "class='splash'" in page and "Rock on" in page
+
+    def test_a_round_written_before_hooks_still_works(self):
+        channel = ChannelConfig(key="c", format="quiz")
+        channel.quiz.questions = 3
+        script = quiz.to_script(self._round(), channel, "Music", "Hard")
+        assert script.segments[0].text == "Keep score. Question one." and not script.quiz["splash"]
+
+    def test_recent_openings_are_shown_to_the_writer_to_avoid(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(quiz, "QUESTION_BANK_DIR", tmp_path)
+        monkeypatch.setattr(quiz, "_written", lambda key: [])
+        channel = ChannelConfig(key="c", format="quiz")
+        channel.quiz.questions = 3
+        script = quiz.to_script(self._round(hook="Rate your rock knowledge?", splash="Rock on"),
+                                channel, "Music", "Hard")
+        quiz.remember("c", "music_hard", script)
+        assert quiz.recent_openings("c") == [("Rate your rock knowledge?", "Rock on")]
+        prompt = quiz._user("Science", "Hard", 3, channel, ([], []), "")
+        assert "- Rate your rock knowledge? / Rock on" in prompt
+
+    def test_the_prompt_gives_no_opening_to_copy(self):
+        system = quiz.SYSTEM.lower()
+        for stock in ("test your", "how well do you", "think you know", "only 1%"):
+            assert stock not in system

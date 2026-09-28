@@ -4,7 +4,7 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 27 Sep 2026. For now only The Pub Quiz Round publishes.*
+*Last updated: 28 Sep 2026. For now only The Pub Quiz Round publishes.*
 
 ---
 
@@ -26,19 +26,18 @@ git push
 ```
 Run it in the project folder (`C:\Users\JackW\Documents\YT`).
 
-### 2. Keep the app running, and the PC awake (5 minutes, once)
+### 2. Keep the PC awake (1 minute, once)
 The app makes and uploads videos only while it's running and the PC is
-awake.
-1. If you still start the app by hand in a terminal, close that and
-   start it the way it'll start at every login:
-   ```
-   schtasks //Run //TN "Shorts Pipeline"
-   ```
-   Then open <http://127.0.0.1:5000/>. If it doesn't load within about
-   ten seconds, send me the last lines of `cache\web.log`.
-2. **Windows Settings → System → Power → Screen, sleep & hibernate
-   timeouts**: set *When plugged in, put my device to sleep after* to
-   **Never**. The screen can still turn off.
+awake. It's running now (I started it on 28 Sep, and it starts itself at
+every login). **Windows Settings → System → Power → Screen, sleep &
+hibernate timeouts**: set *When plugged in, put my device to sleep after*
+to **Never**. The screen can still turn off.
+
+If it ever stops, start it again. In Git Bash, `/` is read as a path, so
+it needs doubling:
+```
+schtasks //Run //TN "Shorts Pipeline"
+```
 
 ### 3. Decide the voice allowance (the one real limit)
 ElevenLabs Starter gives **30,000 characters a month**. This month you've
@@ -54,22 +53,29 @@ My suggestion: start on Starter at 4 a week while you're still reviewing
 (steps 13–14), then upgrade once it runs clean, if daily looks worth it.
 The app refuses a video it can't afford rather than failing half-way.
 
-### 4. Choose the music (5 minutes)
-Its two tracks are *Cinematic Ambient* and *Drops*, which are moody for a
-pub quiz. **Settings → Music & sound → Suggest tracks**, listen, **Add**
-two or three lighter ones and remove what doesn't fit. Or untick
-**Music** and let the clock carry it. Long quizzes cycle through the same
-tracks.
+### 4. Choose the music and the clock (5 minutes)
+The music buttons work now: they were dead on quiz channels.
+1. Its two tracks are *Cinematic Ambient* and *Drops*, which are moody
+   for a pub quiz. **Settings → Music & sound → Suggest tracks**, listen,
+   **Add** two or three lighter ones and **Remove** what doesn't fit. Or
+   untick **Music** and let the clock carry it. Long quizzes cycle through
+   the same tracks. The suggestions can still lean ambient; tell me if
+   none suit.
+2. **The clock**: pick the tick (the default is now a soft knock; the old
+   one is *Wooden tick*) and its level, and press **Listen**. **Save
+   changes**.
 
 ### 5. Clear Review (15 minutes)
 1. **Discard** the 7-minute long quiz. It has the old, quick timing, and
    discarding it frees its two rounds.
-2. **Create video → A long quiz → Rising, 2 rounds, answers at the end**
-   remakes it with the new timing: about 11 minutes, a 10-second clock
-   per question and 30 seconds to finish each round. About 600
-   characters and 15 cents. It has two known flaws, because it's cut
-   from the already-voiced shorts: Science Q6 says "ow" for Au, and
-   Space Q8 says "ap-helion". Rounds voiced from now on don't have them.
+2. **Create video → A long quiz → Rising, 2 rounds**, and pick which
+   format goes to review. It now makes **both** formats from the same
+   rounds, voiced once: about 600 characters and 15 cents, and twice the
+   filming time. The other is kept under **Spares** in the gallery, and
+   **Use this one instead** swaps them. It has two known flaws, because
+   it's cut from the already-voiced shorts: Science Q6 says "ow" for Au,
+   and Space Q8 says "ap-helion". Rounds voiced from now on don't have
+   them.
 3. Watch the three waiting shorts and **Approve** (`A`) or **Discard**
    (`D`, with a reason). Judge them yourself, not by the checks' verdict.
    Approving one ticks *Make and approve a first video* on the Launch
@@ -99,8 +105,9 @@ Gmail.
    It's needed for custom thumbnails (long quizzes have their own) and
    for videos over 15 minutes. Without it YouTube picks a frame.
 5. Copy the channel's address (e.g. `https://www.youtube.com/@ThePubQuizRound`)
-   into the app: **Settings → Where this channel lives → YouTube**, then **Save
-   changes**. End cards and descriptions use it.
+   into the app: **Settings → Publishing → Where this channel lives →
+   YouTube**, then **Save changes**. It's for your reference; nothing
+   published reads it.
 
 ### 7. Check the Google consent screen is published (2 minutes)
 If it's still in Testing, Google cuts every connection off after 7 days
@@ -142,15 +149,21 @@ Studio (step 14). This is what stands between you and fully hands-off.
 4. When it's approved, mark **Pass Google's API audit** done under the
    channel's **Grow** list.
 
-### 11. Set the long-quiz settings (2 minutes)
-**Settings → Channel → Long quizzes**:
-- **Make a long quiz automatically every**: `14` days on Starter (each
-  needs six rounds not yet used in the mixed series), `7` if you
+### 11. Set the quiz settings (5 minutes)
+**Settings → Channel**, under the quiz format:
+- **Difficulty levels**: each has its number on the 1-10 scale now (Hard
+  is 5.5). Change a number to make that level easier or harder; add or
+  remove levels here.
+- **Shorts**, **Answers as you go** and **Answers at the end** each have
+  their own clock and pauses. The long ones start at a 10-second clock.
+- **Long quizzes → Make one automatically every**: `14` days on Starter
+  (each needs six rounds not yet used in the mixed series), `7` if you
   upgraded. It's off (0) now.
-- Leave *a category's own quiz when it's ready* ticked. Science Quiz #1
-  etc. will come once a category has all five levels out.
-- The mixed series name ("Quiz Night", so "Quiz Night #1") is yours to
-  change.
+- **Format for review**: *Alternate* publishes both formats over time
+  (different rounds each), so you'll see which does better. Both are
+  always made either way.
+- Leave *a category's own quiz* ticked. Science Quiz #1 etc. will come
+  once a category has all its levels out.
 
 ### 12. Turn on the publishing plan (5 minutes)
 **Settings → Publishing → When it publishes**:
@@ -194,7 +207,7 @@ post takes about a minute by hand.
    to those two accounts. It remembers them.
 3. Tick **Also post each one to TikTok / Instagram from this PC**, then
    **Save changes**.
-4. Put their addresses in **Settings → Where this channel lives**.
+4. Put their addresses in **Settings → Publishing → Where this channel lives**.
 5. To post: in Review, **Open TikTok upload**. Chrome opens as the
    channel with the video selected in Explorer. Drag it in, press Ctrl+V
    for the caption, then post.

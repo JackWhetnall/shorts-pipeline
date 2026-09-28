@@ -386,10 +386,14 @@ category, each using a round once
 **Long quizzes** (`pipeline/longform.py`) are not a pipeline run. A job
 with seed type `longform` recuts finished quiz shorts: each short saves
 where its questions and answers are in its voice track (`_quiz.json`),
-so only the host's joining lines are voiced. The long video lives under
-`output/<channel>/longform/` (`gallery.is_long`), publishes in its own
-slots, YouTube only, and always waits for review. See decision
-[044](docs/decisions/044-long-quizzes.md).
+so only the host's joining lines are voiced. Each is made in both formats
+(answers as you go, answers at the end), each timed by its own settings;
+one goes to review and the other is kept as a spare (`spare_of`), out of
+review, the counts and the queue until chosen instead. The long video
+lives under `output/<channel>/longform/` (`gallery.is_long`), publishes in
+its own slots, YouTube only, and always waits for review. See decisions
+[044](docs/decisions/044-long-quizzes.md) and
+[047](docs/decisions/047-formats-apart-and-the-quiz-hook.md).
 
 A channel without a syllabus keeps drawing from its flat `topics` list.
 See decision [018](docs/decisions/018-topic-curriculum.md).
@@ -400,14 +404,16 @@ See decision [018](docs/decisions/018-topic-curriculum.md).
 above) or `quiz` (`pipeline/quiz.py`). A quiz branches at two stages
 only:
 
-- `script_gen` writes a round: intro, then question and answer
-  segments, then a sign-off. Each question segment carries
+- `script_gen` writes a round: a hook (with a splash line for the
+  opening card, kept apart from the channel's recent openings), intro,
+  then question and answer segments, then a sign-off. Each question segment carries
   `pause_after`, the countdown. The round is fact-checked by an
   independent call that must list every correct answer before judging.
 - `visuals` films one board for the whole video.
 
 Captions are off (`style.captions_enabled`), and the clock's ticks are
-exempt from the effects limits. Its topic plan is categories ×
+exempt from the effects limits; which tick and how loud is a setting
+(`sound.clock_sound`, `pipeline.sound.CLOCK_SOUNDS`). Its topic plan is categories ×
 difficulties, written by rule, and topped up a round at a time. A
 category's rounds are written easiest first, each seeing the others
 (`quiz.write_ladder_below`), and stored until their videos are made in

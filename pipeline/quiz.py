@@ -52,17 +52,38 @@ host is chilled, fun and friendly: a good pub quizmaster, relaxed and a
 bit playful, never a game-show announcer and never corporate. It is
 spoken aloud, so write the way a person talks.
 
-The round: a short intro, then the questions in order, then a sign-off.
-Each question's full text is shown on screen while the host reads it,
-then a clock counts down for a few seconds, then the host gives the
-answer and the answer appears on a numbered board. Nothing else is on
+The round: a hook, a short intro, then the questions in order, then a
+sign-off. Each question's full text is shown on screen while the host
+reads it, then a clock counts down for a few seconds, then the host gives
+the answer and the answer appears on a numbered board. Nothing else is on
 screen: no pictures, no multiple-choice options.
 
-The intro (2-3 sentences, under 45 words): casually say today's quiz is
-all about the category and how hard this one is, invite the viewer to
-keep score, and end by leading straight into question one (so the first
-question needs no lead-in of its own). Vary the wording from video to
-video; never the same stock opener.
+The hook is the first thing heard, and the first second decides whether
+someone keeps watching. It speaks straight to the viewer and dares them
+to prove what they know about this category: their pride in knowing it,
+the fun of finding out, a friendly rivalry. Pitch it to the difficulty: a
+light, confident dare at the easy end, a proper gauntlet at the hard end.
+- `hook`: under 12 words, said by the host. Make it belong to this
+  category: draw on something from its world (a detail, a scene, a
+  feeling only its fans know), so it couldn't open a quiz on anything
+  else. A line that works for any category with the name swapped is
+  exactly what to avoid.
+- `splash`: two to five words shown big on screen while the hook is said.
+  It catches the eye and adds to the hook rather than repeating it.
+- Both honest: no statistics or claims you can't know about how people
+  score, no clickbait the round doesn't pay off, and nothing that
+  promises what isn't in it (these are questions read aloud: no clips to
+  hear, and no pictures unless it's a picture round). Welcoming, too:
+  never tell anyone to leave or scroll on.
+- Find a fresh angle every time. This channel's recent openings are
+  listed with each request; yours must not reuse their wording, their
+  sentence shape or how they begin. Nothing stock, nothing generic
+  enough to open any quiz.
+
+The intro (1-2 sentences, under 30 words), straight after the hook: how
+hard this one is and an invitation to keep score, ending by leading
+straight into question one (so the first question needs no lead-in of
+its own). Vary the wording from video to video.
 
 Each question:
 - `question`: the complete question as shown and read. One sentence,
@@ -143,6 +164,8 @@ def _schema(kind: str = None) -> dict:
     return {
         "type": "object",
         "properties": {
+            "hook": {"type": "string"},
+            "splash": {"type": "string"},
             "intro": {"type": "string"},
             "questions": {"type": "array", "items": question},
             "pronunciations": {"type": "array", "items": {
@@ -153,8 +176,8 @@ def _schema(kind: str = None) -> dict:
             "title_options": {"type": "array", "items": {"type": "string"}},
             "description_body": {"type": "string"},
         },
-        "required": ["intro", "questions", "pronunciations", "outro", "title_options",
-                     "description_body"],
+        "required": ["hook", "splash", "intro", "questions", "pronunciations", "outro",
+                     "title_options", "description_body"],
         "additionalProperties": False,
     }
 
@@ -423,6 +446,7 @@ def remember(channel_key: str, video: str, script: Script) -> None:
     quiz = script.quiz or {}
     rounds = [r for r in bank(channel_key) if r.get("video") != video]
     rounds.append({"video": video, "category": base_category(quiz.get("category", "")),
+                   **{k: quiz[k] for k in ("hook", "splash") if quiz.get(k)},
                    "questions": [{"question": q.get("question", ""), "answer": q.get("answer", ""),
                                   **({"kind": q["kind"], "subject": q.get("subject", "")}
                                      if q.get("kind") else {})}
@@ -445,6 +469,16 @@ def _written(channel_key: str) -> list:
         return []
     return [(s, s["script"]["quiz"]) for s in curriculum.subtopics(channel_key)
             if (s.get("script") or {}).get("quiz") and s["status"] == curriculum.PENDING]
+
+
+OPENINGS_SHOWN = 15
+
+
+def recent_openings(channel_key: str) -> list:
+    """This channel's latest hooks and splashes, made or written ahead,
+    newest first: what a new round's opening must not echo."""
+    rounds = [q for _, q in _written(channel_key)] + [q for _, q in _made(channel_key)]
+    return [(r["hook"], r.get("splash", "")) for r in rounds if r.get("hook")][:OPENINGS_SHOWN]
 
 
 def _keywords(text: str) -> set:
@@ -635,6 +669,8 @@ def _clean_round(data: dict, count: int, kind: str = None) -> dict:
                             user_message="The quiz came back short of questions. Try again.")
     data["questions"] = questions[:count]
     data["questions"][0]["lead_in"] = ""
+    data["hook"] = " ".join((data.get("hook") or "").split())
+    data["splash"] = " ".join((data.get("splash") or "").split()[:6])[:48]
     data["pronunciations"] = {p["written"].strip(): p["say"].strip()
                               for p in data.get("pronunciations") or []
                               if (p.get("written") or "").strip() and (p.get("say") or "").strip()}
@@ -663,7 +699,7 @@ def _user(category: str, difficulty: str, count: int, channel, context: tuple, e
     text = (f"Category: {category}\n"
             f"Difficulty: {difficulty}, level {level_of(channel, difficulty):g} on the 1-10 scale\n"
             f"Questions: exactly {count}\n"
-            f"Length: the whole round as spoken (intro, lead-ins, questions, answers, "
+            f"Length: the whole round as spoken (hook, intro, lead-ins, questions, answers, "
             f"sign-off) is at most {words} words, about {max(12, (words - 60) // count)} per "
             f"question with its answer. The clock time is extra and fixed, so this is what "
             f"keeps the video under three minutes; count as you write.\n\n")
@@ -673,6 +709,11 @@ def _user(category: str, difficulty: str, count: int, channel, context: tuple, e
     if related:
         text += (f"Asked in other categories and touching on {category}. Don't repeat these "
                  f"either:\n{_listed(related)}\n\n")
+    openings = recent_openings(channel.key)
+    if openings:
+        text += ("This channel's recent openings (hook / splash). Yours must differ from all "
+                 "of them in wording, shape and how it begins:\n"
+                 + "\n".join(f"- {hook} / {splash}" for hook, splash in openings) + "\n\n")
     return text + extra
 
 
@@ -940,7 +981,8 @@ def to_script(data: dict, channel, category: str, difficulty: str,
     """Spoken segments: intro, then question and answer for each, then
     the sign-off. The silence after each question is its countdown."""
     quiz = channel.quiz
-    segments = [Segment(text=data["intro"].strip())]
+    hook = (data.get("hook") or "").strip()
+    segments = ([Segment(text=hook)] if hook else []) + [Segment(text=data["intro"].strip())]
     rows = []
     for q in data["questions"]:
         ask = len(segments)
@@ -959,6 +1001,7 @@ def to_script(data: dict, channel, category: str, difficulty: str,
                   title_options=titles or [f"{category} quiz: {difficulty}"],
                   description_body=(data.get("description_body") or "").strip(),
                   quiz={"category": category, "difficulty": difficulty, "questions": rows,
+                        "hook": hook, "splash": (data.get("splash") or "").strip(),
                         "countdown": float(quiz.countdown_seconds),
                         "unverified": list(unverified),
                         # Respellings for the voice only (pipeline.tts.speakable).
@@ -997,6 +1040,10 @@ BOARD_CSS = f"""
 .intro-cat {{ font-family: var(--display); font-weight: var(--dw); font-size: 96px; line-height: 1.05;
   color: var(--on-card); width: 100%; max-height: 220px; overflow: hidden; }}
 .intro-sub {{ font-size: 44px; color: var(--soft); margin-top: 20px; }}
+.splash {{ display: inline-block; max-width: 880px; padding: 14px 34px; margin-bottom: 30px;
+  border-radius: 18px; background: var(--a1); color: var(--on-a1); font-family: var(--display);
+  font-weight: var(--dw); font-size: 64px; line-height: 1.08; text-transform: uppercase;
+  letter-spacing: .02em; transform: rotate(-3deg); box-shadow: 0 10px 0 rgba(0, 0, 0, .18); }}
 .rows {{ position: absolute; left: 60px; top: {LIST_TOP}px; width: {LIST_W}px;
   height: {LIST_BOTTOM - LIST_TOP}px; display: flex; flex-direction: column; justify-content: space-between; }}
 .row {{ position: relative; display: flex; align-items: center; gap: 22px; }}
@@ -1084,7 +1131,10 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
     pictured = bool(questions) and all(q.get("kind") for q in questions)
     list_top = PICTURE_LIST_TOP if pictured else LIST_TOP
 
-    card = [f"<div {_in(0, 'fade', 0.3, first_ask - 0.35)}>"
+    # Tilted inside, popped outside: the pop sets its own transform.
+    splash = (f"<div {_in(0.15, 'pop', 0.45)}><div class='splash' data-fit='36'>"
+              f"{esc(quiz['splash'])}</div></div>" if quiz.get("splash") else "")
+    card = [f"<div {_in(0, 'fade', 0.3, first_ask - 0.35)}>{splash}"
             f"<div class='intro-cat' data-fit='54'>{esc(quiz['category'])}</div>"
             f"<div class='intro-sub'>{n} questions &middot; keep score</div></div>"]
     for i, (q, t) in enumerate(zip(questions, rows_t)):
