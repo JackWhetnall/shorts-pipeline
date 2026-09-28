@@ -160,6 +160,15 @@ class TestMembersLookup:
         harvest.members(spec, 10, 10)                 # the next page goes straight there
         assert calls == ["wikidata"]
 
+    def test_qlevers_rows_below_the_fame_floor_are_dropped(self, monkeypatch):
+        """QLever answers nothing with the fame filter in, so it's applied after."""
+        def sparql(query, engine="wikidata"):
+            assert "FILTER(?sl" not in query and "P31/wdt:P279*" not in query
+            return [{"s": E + "Q2", "sLabel": "Earth", "sl": "368"}, {"s": E + "Q9", "sLabel": "Obscure", "sl": "3"}]
+        monkeypatch.setattr(wikidata, "sparql", sparql)
+        spec = {"name": "planets", "kind": "class", "classes": ["Q634"]}
+        assert [r[1] for r in harvest.members(spec, 0, 10)] == ["Earth"] and spec["method"] == "ranked"
+
     def test_a_class_too_big_for_every_way_is_skipped_for_good(self, monkeypatch):
         def sparql(query, engine="wikidata"):
             raise wikidata.QueryTimeout("Wikidata", "slow", user_message="")

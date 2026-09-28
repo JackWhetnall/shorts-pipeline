@@ -7,9 +7,11 @@ ranking a class of hundreds of thousands (films, mountains, stars) by it
 times out at 60 seconds, and timeouts spend the rate allowance. For that
 one job, `sparql(..., engine="qlever")` asks QLever (University of
 Freiburg), a public engine over the Wikidata dump that sorts every human
-by fame in seconds. It was also seen, under load, answering with empty or
-unsorted results, so the harvester checks what it gets back
-(pipeline.facts.harvest) and uses nothing else from it.
+by fame in seconds. It has quirks: it answers nothing at all to a joined
+subclass path (P31/P279*) or to a filter on fame, so its query is written
+around both, and under load it was seen answering with empty or unsorted
+results, so the harvester checks what it gets back (pipeline.facts.harvest)
+and uses nothing else from it.
 
 Wikidata is CC0, so nothing taken from it needs crediting. Requests go
 one at a time with a pause between, name themselves (User-Agent), and

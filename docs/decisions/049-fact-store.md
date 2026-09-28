@@ -82,9 +82,14 @@ git).
   mountains and stars timed out at 60 seconds, and timeouts spent the
   rate allowance.
 - For that one step, QLever (a public engine over the Wikidata dump, from
-  the University of Freiburg) is asked first. Its answer is used only if
-  it's sorted by fame with genuinely famous things at the top: under load
-  it was seen returning films in ten Wikipedias first, and empty results.
+  the University of Freiburg) is asked first. It ranks stars, galaxies,
+  planets or comets in one to two seconds.
+- It has quirks. It answers nothing at all to the joined subclass path
+  `P31/P279*` or to a filter on fame, so its query uses two steps and the
+  floor is applied afterwards.
+- Its answer is used only if it's sorted by fame with genuinely famous
+  things at the top: under load it was seen returning films in ten
+  Wikipedias first.
 - Failing that, Wikidata is asked with one level of subclasses, then
   direct members at a higher fame floor. The method that worked is kept
   per set, and a set no method can rank is skipped for good.
@@ -126,6 +131,9 @@ from the command line.
   commercial use. Game-show archives are copyrighted.
 - **QLever alone.** It's fast, but under load it returned wrong answers
   with no error.
+- **One level of subclasses on Wikidata.** Earth is an "inner planet",
+  a kind of "terrestrial planet", a kind of "planet": one level found
+  exoplanets and missed every planet in the solar system.
 - **Raising the fame floor on Wikidata until a big class sorted.** The
   cost is scanning the class, not sorting it, so no floor helped, and
   each attempt spent a minute and the rate allowance.

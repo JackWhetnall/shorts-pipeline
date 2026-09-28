@@ -61,14 +61,23 @@ def members_query(spec: dict, offset: int, limit: int, method: str = "one level"
         via = " ".join(f"wdt:{p}" for p in spec.get("via") or LINK_VIA)
         where = (f"VALUES ?a {{ {_values(spec['anchors'])} }} VALUES ?p {{ {via} }} ?s ?p ?a .")
     else:
-        path = {"one level": "wdt:P31/wdt:P279?", "ranked": "wdt:P31/wdt:P279*", "direct": "wdt:P31"}[method]
+        if method == "ranked":
+            # Two steps: QLever answers the joined path P31/P279* with
+            # nothing at all.
+            where = (f"VALUES ?root {{ {_values(spec['classes'])} }} "
+                     f"?s wdt:P31 ?c . ?c wdt:P279* ?root .")
+        else:
+            path = "wdt:P31/wdt:P279?" if method == "one level" else "wdt:P31"
+            where = f"VALUES ?c {{ {_values(spec['classes'])} }} ?s {path} ?c ."
         if method == "direct":
             floor *= 4
-        where = f"VALUES ?c {{ {_values(spec['classes'])} }} ?s {path} ?c ."
         for prop, values in (spec.get("where") or {}).items():
             where += f" ?s wdt:{prop} ?w_{prop} . VALUES ?w_{prop} {{ {_values(values)} }}"
+    # QLever answers nothing at all with the fame filter in (it's applied
+    # to its rows afterwards, in `members`); the sort does the same job.
+    fame = "" if method == "ranked" else f"FILTER(?sl >= {floor}) "
     inner = (f"{{ SELECT DISTINCT ?s ?sl WHERE {{ {where} ?s wikibase:sitelinks ?sl . "
-             f"FILTER(?sl >= {floor}) }} ORDER BY DESC(?sl) OFFSET {offset} LIMIT {limit} }}")
+             f"{fame}}} ORDER BY DESC(?sl) OFFSET {offset} LIMIT {limit} }}")
     if method == "ranked":
         return f"""SELECT ?s ?sLabel ?sDescription ?sl WHERE {{ {inner}
   ?s rdfs:label ?sLabel . FILTER(LANG(?sLabel) = "en")
@@ -117,9 +126,12 @@ def members(spec: dict, offset: int, limit: int) -> list:
                     raise
                 log.info(f"  [facts] {spec.get('name')}: QLever didn't help ({exc})")
                 continue
-            if engine == "qlever" and not _sane(found, offset):
-                log.info(f"  [facts] {spec.get('name')}: QLever's answer didn't look right; not used")
-                continue
+            if engine == "qlever":
+                if not _sane(found, offset):
+                    log.info(f"  [facts] {spec.get('name')}: QLever's answer didn't look right; not used")
+                    continue
+                floor = int(spec.get("min_sitelinks", MIN_SITELINKS["class"]))
+                found = [r for r in found if int(float(r.get("sl") or 0)) >= floor]
             spec["method"], rows = method, found
             break
         if rows is None:
@@ -277,7 +289,7 @@ def harvest(conn, name: str, grow: bool = False, progress=None) -> dict:
             continue
         say(f"{name}: finding {entity_set.get('name', 'members')} ({done + 1}-{done + page})")
         rows = members(entity_set, done, page)
-        if not rows and not done:
+        if not rows and not done and entity_set.get("method") != "skipped":
             # Mapped onto something with no famous members: never again.
             entity_set["method"] = "skipped"
             say(f"{name}: {entity_set.get('name')} finds nothing on Wikidata; skipped")
