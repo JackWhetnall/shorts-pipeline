@@ -36,7 +36,10 @@ the category's questions are about. Each set is one of:
   "country", "chemical element", "film", "painting"), optionally narrowed
   by one property's values: `where_property` a property ID and
   `where_values` its values. People are always the class "human"
-  narrowed by occupation (P106), e.g. human with occupation "physicist".
+  narrowed by occupation (P106), e.g. human with occupation "physicist",
+  or by an award received (P166) for winners, e.g. human with award
+  "Nobel Prize in Physics". A class item is a kind of thing ("invention",
+  "spacecraft"), never an example of one or a prize.
 - kind "linked": items tied to anchor items (a franchise, a series, a
   fictional universe, a big event) by "from narrative universe", "part of
   the series", "part of", "present in work" or "media franchise". Use
@@ -91,21 +94,26 @@ def _same(a: str, b: str) -> bool:
     return " ".join((a or "").lower().split()) == " ".join((b or "").lower().split())
 
 
-def resolve(items: list) -> list:
+def resolve(items: list, classes: bool = False) -> list:
     """QIDs for [{label, qid}]: the guess where Wikidata's label agrees,
-    otherwise the best search match for the label."""
+    otherwise the best search match for the label. For `classes`, a match
+    must be a class (a subclass of something): searching "Discovery" for
+    the class found Daft Punk's album."""
     guesses = [i.get("qid", "").strip() for i in items if i.get("qid", "").strip().startswith("Q")]
     known = wikidata.labels(guesses) if guesses else {}
     out = []
     for item in items:
         label, guess = item.get("label", "").strip(), item.get("qid", "").strip()
-        if guess in known and _same(known[guess][0], label):
+        if guess in known and _same(known[guess][0], label) and (not classes or wikidata.is_class(guess)):
             out.append(guess)
             continue
         found = wikidata.search(label) if label else []
         exact = [f["id"] for f in found if _same(f["label"], label)]
-        if exact or found:
-            out.append((exact or [found[0]["id"]])[0])
+        ranked = exact + [f["id"] for f in found if f["id"] not in exact]
+        if classes:
+            ranked = [q for q in ranked[:5] if wikidata.is_class(q)]
+        if ranked:
+            out.append(ranked[0])
         else:
             log.warning(f"  [facts] couldn't find {label!r} on Wikidata")
     return list(dict.fromkeys(out))
@@ -129,7 +137,7 @@ def define(conn, name: str, note: str = "") -> dict:
         return spec
     sets = []
     for raw in proposal.get("sets") or []:
-        qids = resolve(raw.get("items") or [])
+        qids = resolve(raw.get("items") or [], classes=raw.get("kind") != "linked")
         if not qids:
             continue
         entity_set = {"name": raw.get("name", ""), "kind": raw.get("kind", "class"),

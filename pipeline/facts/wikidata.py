@@ -188,6 +188,12 @@ def yearly_views(titles: dict) -> dict:
     return out
 
 
+def is_class(qid: str) -> bool:
+    """Whether an item is a class: a subclass of something."""
+    data = _get(API_URL, {"action": "wbgetclaims", "entity": qid, "property": "P279", "format": "json"})
+    return bool((data.get("claims") or {}).get("P279"))
+
+
 def labels(qids: list) -> dict:
     """{qid: (label, description)} in English, for up to 50 at a time."""
     out = {}

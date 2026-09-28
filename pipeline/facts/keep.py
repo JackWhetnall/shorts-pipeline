@@ -122,7 +122,10 @@ def _stock_one(conn, channel, name: str, say) -> bool:
         record = store.category(conn, name)
     if record["spec"].get("general"):
         return False
-    if not record["harvested_at"]:
+    # Never harvested, or a set added or fixed since that hasn't been.
+    unfetched = any(not s.get("fetched") and s.get("method") != "skipped"
+                    for s in record["spec"].get("sets", []))
+    if not record["harvested_at"] or unfetched:
         harvest.harvest(conn, name, progress=say)
         fetched = True
     short = short_levels(conn, channel, name)

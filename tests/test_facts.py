@@ -279,6 +279,7 @@ class TestDefining:
             {"kind": "class", "name": "Nothing", "items": [{"label": "nothing at all", "qid": "Q1"}],
              "where_property": "", "where_values": [], "size": "small"}]})
         monkeypatch.setattr(wikidata, "labels", lambda qids: {"Q111": ("Mars", ""), "Q1": ("universe", "")})
+        monkeypatch.setattr(wikidata, "is_class", lambda qid: qid == "Q634")
         monkeypatch.setattr(wikidata, "search", lambda name, limit=7: (
             [{"id": "Q634", "label": "planet", "description": ""}] if name == "planet" else []))
         spec = categories.define(conn, "Space")
@@ -286,6 +287,16 @@ class TestDefining:
         # one with no match at all is left out.
         assert [s["classes"] for s in spec["sets"]] == [["Q634"]]
         assert store.category(conn, "space")["spec"] == spec
+
+    def test_a_class_must_be_a_class_not_a_same_named_thing(self, monkeypatch):
+        """Regression: "Discovery" (the class) resolved to Daft Punk's album."""
+        monkeypatch.setattr(wikidata, "labels", lambda qids: {})
+        monkeypatch.setattr(wikidata, "search", lambda name, limit=7: [
+            {"id": "Q1901313", "label": "Discovery", "description": "2001 album by Daft Punk"},
+            {"id": "Q12772819", "label": "discovery", "description": "act of detecting something new"}])
+        monkeypatch.setattr(wikidata, "is_class", lambda qid: qid == "Q12772819")
+        assert categories.resolve([{"label": "Discovery", "qid": ""}], classes=True) == ["Q12772819"]
+        assert categories.resolve([{"label": "Discovery", "qid": ""}]) == ["Q1901313"]
 
     def test_general_knowledge_is_every_fact_and_costs_nothing(self, monkeypatch, tmp_path):
         conn = store.connect(tmp_path / "f.db")
@@ -462,3 +473,17 @@ class TestQuality:
         store.save_category(conn, "Geography", {"sets": [{"name": "countries", "kind": "class",
                                                             "classes": ["Q6256"]}]})
         assert harvest.harvest(conn, "Geography")["fetched"] == 2
+
+
+def test_a_set_added_to_a_harvested_category_is_fetched(monkeypatch, tmp_path):
+    from core.channels import ChannelConfig
+    from pipeline.facts import keep
+    conn = store.connect(tmp_path / "f.db")
+    store.save_category(conn, "Science", {"sets": [{"name": "elements", "fetched": 118},
+                                                    {"name": "Nobel laureates"}]})
+    store.mark_harvested(conn, "Science", 0)
+    harvested = []
+    monkeypatch.setattr(harvest, "harvest", lambda conn, name, grow=False, progress=None: harvested.append(grow))
+    monkeypatch.setattr(keep, "short_levels", lambda conn, channel, name: [])
+    keep.stock(conn, ChannelConfig(key="q", format="quiz"), names=["Science"])
+    assert harvested == [False]
