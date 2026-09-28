@@ -65,21 +65,20 @@ The music buttons work now: they were dead on quiz channels.
    one is *Wooden tick*) and its level, and press **Listen**. **Save
    changes**.
 
-### 5. Clear Review (15 minutes)
-1. **Discard** the 7-minute long quiz. It has the old, quick timing, and
-   discarding it frees its two rounds.
-2. **Create video → A long quiz → Rising, 2 rounds**, and pick which
-   format goes to review. It now makes **both** formats from the same
-   rounds, voiced once: about 600 characters and 15 cents, and twice the
-   filming time. The other is kept under **Spares** in the gallery, and
-   **Use this one instead** swaps them. It has two known flaws, because
-   it's cut from the already-voiced shorts: Science Q6 says "ow" for Au,
-   and Space Q8 says "ap-helion". Rounds voiced from now on don't have
-   them.
-3. Watch the three waiting shorts and **Approve** (`A`) or **Discard**
-   (`D`, with a reason). Judge them yourself, not by the checks' verdict.
-   Approving one ticks *Make and approve a first video* on the Launch
-   card, and each decision counts towards step 13.
+### 5. Clear Review, then make a few new shorts (20 minutes)
+1. **Discard** the 7-minute long quiz. It has the old, quick timing.
+2. The shorts waiting now were made before the hook screen and numbers
+   (and the Impossible one's "failed" checks were the checks' mistakes,
+   fixed on 28 Sep). Approve or discard them as you'd judge them; they
+   have no number on the board. Each decision counts towards step 13.
+3. Make two or three new shorts from **Create video**: the first is **#1**
+   (the number box is prefilled; change it only to remake a discarded
+   number). Watch the opening: the hook appears word by word, then the
+   category is stamped under it. Tell me what you think before more are
+   made.
+4. The **long quiz** option appears on Create video once there are
+   enough *approved* shorts for one (six by default). It makes both
+   formats, and both come to Review: publish the one you prefer.
 
 ### 6. Create the YouTube channel (10 minutes)
 Make it a second channel on the same Google account as Minute Pastor.

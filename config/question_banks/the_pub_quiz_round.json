@@ -1,0 +1,180 @@
+[
+ {
+  "video": "science_medium",
+  "category": "Science",
+  "questions": [
+   {
+    "question": "What gas do plants absorb during photosynthesis?"
+   },
+   {
+    "question": "What is the hardest naturally occurring substance on Earth?"
+   },
+   {
+    "question": "Which planet is known as the Red Planet?"
+   },
+   {
+    "question": "What part of a cell contains its genetic material?"
+   },
+   {
+    "question": "What force pulls objects toward the centre of the Earth?"
+   },
+   {
+    "question": "What is the chemical symbol for gold?"
+   },
+   {
+    "question": "What type of animal is a Komodo dragon?"
+   },
+   {
+    "question": "What is the freezing point of water in Celsius?"
+   },
+   {
+    "question": "What structure is often called the powerhouse of the cell?"
+   },
+   {
+    "question": "What is the scientific study of earthquakes called?"
+   }
+  ]
+ },
+ {
+  "video": "space_hard",
+  "category": "Space",
+  "questions": [
+   {
+    "question": "Which space telescope, launched in 1990, orbits Earth taking deep images of the universe?",
+    "answer": "Hubble"
+   },
+   {
+    "question": "Which spacecraft became the first human-made object to leave the solar system?",
+    "answer": "Voyager 1"
+   },
+   {
+    "question": "Who became the first person to walk in space?",
+    "answer": "Alexei Leonov"
+   },
+   {
+    "question": "Which of Saturn's moons has lakes and seas of liquid methane?",
+    "answer": "Titan"
+   },
+   {
+    "question": "Which planet has the shortest day of any planet in the solar system?",
+    "answer": "Jupiter"
+   },
+   {
+    "question": "What do astronomers call a star that suddenly brightens due to surface explosions, without destroying itself?",
+    "answer": "Nova"
+   },
+   {
+    "question": "What is the name for the theorised cloud of icy bodies surrounding our solar system?",
+    "answer": "Oort Cloud"
+   },
+   {
+    "question": "What do we call the closest point in a planet's orbit to the Sun?",
+    "answer": "Perihelion"
+   },
+   {
+    "question": "Which Apollo mission was the first to send astronauts around the Moon without landing?",
+    "answer": "Apollo 8"
+   },
+   {
+    "question": "What was the first spacecraft to successfully land on a comet?",
+    "answer": "Philae"
+   }
+  ]
+ },
+ {
+  "video": "general_knowledge_easy",
+  "category": "General Knowledge",
+  "hook": "Every pub quiz starts somewhere, so let's start here.",
+  "splash": "Know It All?",
+  "questions": [
+   {
+    "question": "How many days are there in a week?",
+    "answer": "Seven"
+   },
+   {
+    "question": "What colour do you get when you mix blue and yellow paint?",
+    "answer": "Green"
+   },
+   {
+    "question": "At what temperature in Celsius does water freeze?",
+    "answer": "Zero"
+   },
+   {
+    "question": "How many legs does a spider have?",
+    "answer": "Eight"
+   },
+   {
+    "question": "What is the closest star to Earth?",
+    "answer": "Sun"
+   },
+   {
+    "question": "What is the name of a shape with three sides?",
+    "answer": "Triangle"
+   },
+   {
+    "question": "What is the opposite of hot?",
+    "answer": "Cold"
+   },
+   {
+    "question": "How many months are there in a year?",
+    "answer": "Twelve"
+   },
+   {
+    "question": "What do you call a baby dog?",
+    "answer": "Puppy"
+   },
+   {
+    "question": "What is the currency used in the United Kingdom?",
+    "answer": "Pound"
+   }
+  ]
+ },
+ {
+  "video": "general_knowledge_impossible",
+  "category": "General Knowledge",
+  "hook": "Every fact you've hoarded is about to get audited.",
+  "splash": "The Audit Begins",
+  "questions": [
+   {
+    "question": "Which country was first to grant women the national right to vote?",
+    "answer": "New Zealand"
+   },
+   {
+    "question": "What's the chemical symbol for antimony?",
+    "answer": "Sb"
+   },
+   {
+    "question": "What's a group of crows called?",
+    "answer": "Murder"
+   },
+   {
+    "question": "What's the deepest known point in the ocean called?",
+    "answer": "Challenger Deep"
+   },
+   {
+    "question": "Which explorer led the first expedition to reach the South Pole?",
+    "answer": "Roald Amundsen"
+   },
+   {
+    "question": "What's the chemical symbol for tungsten?",
+    "answer": "W"
+   },
+   {
+    "question": "What's the fear of long words technically called?",
+    "answer": "Hippopotomonstrosesquippedaliophobia"
+   },
+   {
+    "question": "Which two countries share the longest land border on Earth?",
+    "answer": "Canada and USA"
+   },
+   {
+    "question": "Which number's letters are in alphabetical order when spelled out?",
+    "answer": "Forty"
+   },
+   {
+    "question": "Who was the last Tsar of Russia?",
+    "answer": "Nicholas II"
+   }
+  ]
+ }
+]

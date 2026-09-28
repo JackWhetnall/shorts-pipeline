@@ -14,6 +14,7 @@ reimplementing what the other does.
 
 from __future__ import annotations
 
+import dataclasses
 import random
 from datetime import date
 from pathlib import Path
@@ -306,7 +307,7 @@ def _claim_topic(channel, seed: Seed) -> Seed:
     if claimed["id"] != seed.topic_id:
         log.info(f"{channel.key}: topic {seed.topic_id or '(none)'} was already "
                  f"taken; using {claimed['id']} instead")
-    return Seed(type="topic", topic=claimed["title"], topic_id=claimed["id"])
+    return dataclasses.replace(seed, topic=claimed["title"], topic_id=claimed["id"])
 
 
 def generate(channel, seed: Seed, interactive: bool = True) -> RenderPlan:

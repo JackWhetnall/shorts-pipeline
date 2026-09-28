@@ -163,10 +163,15 @@ def check_script(script, channel) -> CheckResult:
         lines.append(f"[THE WRITER'S PLAN] Opening loop: {script.hook_promise}. "
                      f"Closed by: {script.payoff}")
     if getattr(script, "quiz", None):
+        # The answers have already passed a stronger, systematic fact check
+        # (pipeline.quiz.verify). Judged again here by a quicker model, a
+        # right answer was blocked: "FORTY" called out of alphabetical order.
         lines.append("[FORMAT] This is a quiz round read by a host. After each question, "
-                     "the next line gives its answer. Check every answer: a wrong or "
-                     "doubtful one is a block. The host's patter (the intro, 'question "
-                     "two') is the format; don't report the opening for not hooking.")
+                     "the next line gives its answer. Every question and answer has already "
+                     "been fact-checked independently: do not judge whether answers are "
+                     "right, and do not report spellings of names or long words. The host's "
+                     "patter (the intro, 'question two') is the format; don't report the "
+                     "opening for not hooking.")
     avoid = ", ".join(channel.avoid_imagery) or "(none)"
     user = (f"The channel's writing rules:\n{channel.style_prompt}\n\n"
             f"Subjects this channel avoids: {avoid}\n\n"
@@ -203,12 +208,17 @@ def check_frames(video_path: Path, plan) -> CheckResult:
 
     content = []
     if getattr(plan.script, "quiz", None):
+        # The board's timing is set by the program, not judged: asked to
+        # match answers to questions, the checker read the list of earlier
+        # answers as "a leftover answer" and blocked a correct video.
         content.append({"type": "text", "text": (
-            "This video is a quiz board, not footage: the question being read is shown in "
-            "full at the top, a clock counts down after it, and the answers fill a numbered "
-            "list as they're given. Empty numbered rows are answers still to come, by "
-            "design. Check that the question on screen is the one being read, that a spoken "
-            "answer appears on its row, and that everything is readable.")})
+            "This video is a quiz board, not footage. The card at the top shows the current "
+            "question, and keeps showing it while its answer is spoken. The numbered list "
+            "below keeps every answer given so far on its own row (row 1 is question 1's "
+            "answer), so earlier answers stay on screen by design, and empty rows are answers "
+            "still to come. Which question or answer is on screen is set by the program: do "
+            "not report it. Report only text that is too small, cut off or overlapping to "
+            "read on a phone, or anything unsuitable.")})
     for n, (shot, data, moment) in enumerate(zip(picked, images, moments), 1):
         # An animated scene's shot spans several segments: judge the frame
         # against the words actually being spoken at that moment.

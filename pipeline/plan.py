@@ -48,6 +48,8 @@ class Seed:
     # this came from, so generating can claim that exact one rather than
     # whatever happens to be next by the time the job runs.
     topic_id: str = ""
+    # A quiz short's number on screen ("#4"); 0 means the next one.
+    number: int = 0
 
     @property
     def title(self) -> str:
@@ -64,13 +66,13 @@ class Seed:
     def to_jsonable(self) -> dict:
         return {"type": self.type, "text": self.text,
                 "reference": self.reference, "topic": self.topic,
-                "topic_id": self.topic_id}
+                "topic_id": self.topic_id, "number": self.number}
 
     @classmethod
     def from_jsonable(cls, data: dict) -> "Seed":
         return cls(type=data["type"], text=data.get("text", ""),
                    reference=data.get("reference", ""), topic=data.get("topic", ""),
-                   topic_id=data.get("topic_id", ""))
+                   topic_id=data.get("topic_id", ""), number=int(data.get("number") or 0))
 
 
 @dataclass

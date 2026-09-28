@@ -58,27 +58,20 @@ reads it, then a clock counts down for a few seconds, then the host gives
 the answer and the answer appears on a numbered board. Nothing else is on
 screen: no pictures, no multiple-choice options.
 
-The hook is the first thing heard, and the first second decides whether
-someone keeps watching. It speaks straight to the viewer and dares them
-to prove what they know about this category: their pride in knowing it,
-the fun of finding out, a friendly rivalry. Pitch it to the difficulty: a
-light, confident dare at the easy end, a proper gauntlet at the hard end.
-- `hook`: under 12 words, said by the host. Make it belong to this
-  category: draw on something from its world (a detail, a scene, a
-  feeling only its fans know), so it couldn't open a quiz on anything
-  else. A line that works for any category with the name swapped is
-  exactly what to avoid.
-- `splash`: two to five words shown big on screen while the hook is said.
-  It catches the eye and adds to the hook rather than repeating it.
-- Both honest: no statistics or claims you can't know about how people
-  score, no clickbait the round doesn't pay off, and nothing that
-  promises what isn't in it (these are questions read aloud: no clips to
-  hear, and no pictures unless it's a picture round). Welcoming, too:
-  never tell anyone to leave or scroll on.
-- Find a fresh angle every time. This channel's recent openings are
-  listed with each request; yours must not reuse their wording, their
-  sentence shape or how they begin. Nothing stock, nothing generic
-  enough to open any quiz.
+The hook is the first thing heard, and it's shown on screen word by word
+as it's said: the first second decides whether someone keeps watching.
+- `hook`: 3 to 8 words. A plain, punchy challenge to the viewer about
+  this category: usually a question, sometimes a dare. It names the
+  category plainly, in everyday words, so anyone scrolling knows at once
+  what this quiz is and that it's aimed at them. Short and clear beats
+  clever: no wordplay, jargon, in-group slang or metaphors to decode.
+- Familiar is fine; identical isn't. This channel's recent openings are
+  listed with each request: don't repeat one, or begin the way the last
+  few began.
+- Honest and welcoming: no statistics or claims you can't know about how
+  people score, nothing the round doesn't have (these are questions read
+  aloud: no clips, no pictures unless it's a picture round), and never
+  telling anyone to leave or scroll on.
 
 The intro (1-2 sentences, under 30 words), straight after the hook: how
 hard this one is and an invitation to keep score, ending by leading
@@ -107,15 +100,8 @@ Each question:
 - Superlatives and "only", "first", "never" questions are where quiz
   answers go wrong: ask one only when you are sure there is no second
   case, today.
-- Everything spoken is read by a voice engine exactly as written. List
-  in `pronunciations` any word in the questions or answers it might
-  misread, with how to say it in plain respelling: symbols and
-  abbreviations as letter names ("Au" as "ay you", "DNA" is fine as it is),
-  and words whose stress or spelling misleads ("aphelion" as
-  "af-EE-lee-on", "Worcestershire" as "WUSS-ter-sher"). Only what a
-  careful reader might get wrong; usually none or one or two. The board
-  shows the real word; only the voice uses the respelling. No dashes in
-  anything spoken.
+- Everything spoken is read by a voice engine exactly as written. No
+  dashes in anything spoken.
 - `lead_in`: for every question after the first, the host's short move
   to it, which says its number: "Question two.", "Number three." and so
   on, with the odd bit of colour ("halfway there", "last one"). Under 7
@@ -143,6 +129,10 @@ to see how they do. Vary it.
 Titles: short (under 60 characters), naming the category and the
 difficulty, inviting the viewer to test themselves. The description body:
 one or two plain sentences about the round, no hashtags.
+
+The level number is for you alone. Never write it anywhere: not in a
+title, the description or anything spoken. Say how hard a round is only
+by its difficulty's name.
 """.strip()
 
 
@@ -165,18 +155,13 @@ def _schema(kind: str = None) -> dict:
         "type": "object",
         "properties": {
             "hook": {"type": "string"},
-            "splash": {"type": "string"},
             "intro": {"type": "string"},
             "questions": {"type": "array", "items": question},
-            "pronunciations": {"type": "array", "items": {
-                "type": "object",
-                "properties": {"written": {"type": "string"}, "say": {"type": "string"}},
-                "required": ["written", "say"], "additionalProperties": False}},
             "outro": {"type": "string"},
             "title_options": {"type": "array", "items": {"type": "string"}},
             "description_body": {"type": "string"},
         },
-        "required": ["hook", "splash", "intro", "questions", "pronunciations", "outro",
+        "required": ["hook", "intro", "questions", "outro",
                      "title_options", "description_body"],
         "additionalProperties": False,
     }
@@ -446,7 +431,7 @@ def remember(channel_key: str, video: str, script: Script) -> None:
     quiz = script.quiz or {}
     rounds = [r for r in bank(channel_key) if r.get("video") != video]
     rounds.append({"video": video, "category": base_category(quiz.get("category", "")),
-                   **{k: quiz[k] for k in ("hook", "splash") if quiz.get(k)},
+                   **({"hook": quiz["hook"]} if quiz.get("hook") else {}),
                    "questions": [{"question": q.get("question", ""), "answer": q.get("answer", ""),
                                   **({"kind": q["kind"], "subject": q.get("subject", "")}
                                      if q.get("kind") else {})}
@@ -475,10 +460,10 @@ OPENINGS_SHOWN = 15
 
 
 def recent_openings(channel_key: str) -> list:
-    """This channel's latest hooks and splashes, made or written ahead,
-    newest first: what a new round's opening must not echo."""
+    """This channel's latest hooks, made or written ahead, newest first:
+    what a new round's opening mustn't repeat."""
     rounds = [q for _, q in _written(channel_key)] + [q for _, q in _made(channel_key)]
-    return [(r["hook"], r.get("splash", "")) for r in rounds if r.get("hook")][:OPENINGS_SHOWN]
+    return [r["hook"] for r in rounds if r.get("hook")][:OPENINGS_SHOWN]
 
 
 def _keywords(text: str) -> set:
@@ -669,14 +654,12 @@ def _clean_round(data: dict, count: int, kind: str = None) -> dict:
                             user_message="The quiz came back short of questions. Try again.")
     data["questions"] = questions[:count]
     data["questions"][0]["lead_in"] = ""
-    data["hook"] = " ".join((data.get("hook") or "").split())
-    data["splash"] = " ".join((data.get("splash") or "").split()[:6])[:48]
-    data["pronunciations"] = {p["written"].strip(): p["say"].strip()
-                              for p in data.get("pronunciations") or []
-                              if (p.get("written") or "").strip() and (p.get("say") or "").strip()}
-    # Chemical symbols by rule, whatever the writer listed: they come up
-    # often and the voice gets them wrong ("Au" read as "ow").
-    data["pronunciations"].update(element_respellings(data["questions"]))
+    data["hook"] = " ".join((data.get("hook") or "").split()[:12])
+    # Chemical symbols by rule: they come up often and the voice gets them
+    # wrong ("Au" read as "ow"). Respellings the writer suggested for
+    # ordinary words were dropped: the voice reads those well, and a
+    # coached "KAN-bruh" came out worse than "Canberra" (decision 048).
+    data["pronunciations"] = element_respellings(data["questions"])
     return data
 
 
@@ -711,9 +694,9 @@ def _user(category: str, difficulty: str, count: int, channel, context: tuple, e
                  f"either:\n{_listed(related)}\n\n")
     openings = recent_openings(channel.key)
     if openings:
-        text += ("This channel's recent openings (hook / splash). Yours must differ from all "
-                 "of them in wording, shape and how it begins:\n"
-                 + "\n".join(f"- {hook} / {splash}" for hook, splash in openings) + "\n\n")
+        text += ("This channel's recent hooks, newest first. Don't repeat one, or begin "
+                 "the way the first few begin:\n"
+                 + "\n".join(f"- {hook}" for hook in openings) + "\n\n")
     return text + extra
 
 
@@ -946,8 +929,8 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "",
                            (context[0] + [{"question": q} for q in keep], context[1]),
                            "\n\n".join(p for p in (extra, instead) if p), kind)
         replacement = rewritten["questions"]
-        data["pronunciations"] = {**rewritten.get("pronunciations", {}),
-                                  **data.get("pronunciations", {})}
+        data["pronunciations"] = element_respellings(
+            [q for i, q in enumerate(questions) if i not in bad] + rewritten["questions"])
         # Nothing that repeats or gives away an answer already in the round
         # (a replacement "capital of Italy" beside "which country is shaped
         # like a boot"), nor anything asked before or already refused.
@@ -976,6 +959,17 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "",
     return to_script(data, channel, category, difficulty, unverified)
 
 
+_LEVEL_MENTION = re.compile(r"\s*[:(\-,]?\s*\blevel\s+\d+(?:\.\d+)?\b\)?(?:\s*(?:/|out of|of)\s*10\b)?",
+                            re.IGNORECASE)
+
+
+def no_level(text: str) -> str:
+    """Text with any mention of the 1-10 level taken out ("Impossible
+    General Knowledge: Level 9"): the level is a setting behind the
+    scenes, never something a viewer sees."""
+    return " ".join(_LEVEL_MENTION.sub("", text or "").split()).strip(" :-,")
+
+
 def to_script(data: dict, channel, category: str, difficulty: str,
               unverified: list = ()) -> Script:
     """Spoken segments: intro, then question and answer for each, then
@@ -996,12 +990,12 @@ def to_script(data: dict, channel, category: str, difficulty: str,
                 row[key] = q[key]
         rows.append(row)
     segments.append(Segment(text=data["outro"].strip()))
-    titles = [t.strip() for t in data.get("title_options") or [] if t.strip()]
+    titles = [no_level(t) for t in data.get("title_options") or [] if no_level(t)]
     return Script(segments=segments,
                   title_options=titles or [f"{category} quiz: {difficulty}"],
-                  description_body=(data.get("description_body") or "").strip(),
+                  description_body=no_level(data.get("description_body") or ""),
                   quiz={"category": category, "difficulty": difficulty, "questions": rows,
-                        "hook": hook, "splash": (data.get("splash") or "").strip(),
+                        "hook": hook,
                         "countdown": float(quiz.countdown_seconds),
                         "unverified": list(unverified),
                         # Respellings for the voice only (pipeline.tts.speakable).
@@ -1040,10 +1034,24 @@ BOARD_CSS = f"""
 .intro-cat {{ font-family: var(--display); font-weight: var(--dw); font-size: 96px; line-height: 1.05;
   color: var(--on-card); width: 100%; max-height: 220px; overflow: hidden; }}
 .intro-sub {{ font-size: 44px; color: var(--soft); margin-top: 20px; }}
-.splash {{ display: inline-block; max-width: 880px; padding: 14px 34px; margin-bottom: 30px;
-  border-radius: 18px; background: var(--a1); color: var(--on-a1); font-family: var(--display);
-  font-weight: var(--dw); font-size: 64px; line-height: 1.08; text-transform: uppercase;
-  letter-spacing: .02em; transform: rotate(-3deg); box-shadow: 0 10px 0 rgba(0, 0, 0, .18); }}
+.kicker .num {{ flex: none; padding: 6px 22px; border-radius: 999px; background: #D7263D;
+  color: #fff; font-family: var(--display); font-weight: var(--dw); font-size: 38px; }}
+.hook-screen {{ position: absolute; inset: 0; z-index: 10; background: var(--bg); display: flex;
+  flex-direction: column; align-items: center; justify-content: center; padding: 0 70px 260px; }}
+.hook-words {{ display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline;
+  gap: 6px 30px; max-width: 940px; }}
+.hook-words span {{ display: inline-block; font-family: var(--display); font-weight: var(--dw);
+  font-size: 124px; line-height: 1.04; color: var(--ink); }}
+.stamp-wrap {{ margin-top: 90px; }}
+.stamp {{ display: flex; flex-direction: column; align-items: center; gap: 8px;
+  max-width: 820px; padding: 22px 50px 24px; border-radius: 30px; background: var(--a1);
+  color: var(--on-a1); border: 7px solid var(--ink); font-family: var(--display);
+  font-weight: var(--dw); text-transform: uppercase; text-align: center; transform: rotate(-6deg);
+  box-shadow: 0 12px 0 rgba(0, 0, 0, .2); }}
+.stamp .scat {{ font-size: 60px; line-height: 1.05; letter-spacing: .03em; max-width: 720px;
+  white-space: nowrap; overflow: hidden; }}
+.stamp .slvl {{ font-size: 42px; letter-spacing: .14em; padding-top: 8px;
+  border-top: 4px solid currentColor; opacity: .92; }}
 .rows {{ position: absolute; left: 60px; top: {LIST_TOP}px; width: {LIST_W}px;
   height: {LIST_BOTTOM - LIST_TOP}px; display: flex; flex-direction: column; justify-content: space-between; }}
 .row {{ position: relative; display: flex; align-items: center; gap: 22px; }}
@@ -1109,7 +1117,34 @@ def timeline(script: Script, word_timings: list) -> dict:
         countdown_start = max(spoken_end, countdown_end - quiz["countdown"])
         rows.append({"ask": ask.start, "countdown": countdown_start, "reveal": countdown_end,
                      "done": reveal.end})
-    return {"questions": rows, "outro": segments[-1].start, "end": segments[-1].end}
+    out = {"questions": rows, "outro": segments[-1].start, "end": segments[-1].end}
+    if quiz.get("hook") and len(segments) > 1 and segments[0].text.strip() == quiz["hook"].strip():
+        out["hook"] = _hook_times(quiz["hook"], segments[0], word_timings,
+                                  rows[0]["ask"] if rows else segments[-1].start)
+    return out
+
+
+HOOK_STAMP_AFTER = 0.15    # after the hook's last word, the stamp lands
+HOOK_HOLD = 1.1            # then the screen stays this long before clearing
+
+
+def _hook_times(hook: str, segment, word_timings: list, first_ask: float) -> dict:
+    """Each hook word with when it's said (evenly spread when the voice's
+    words don't line up with the text's), when the stamp lands and when
+    the hook screen clears: before the first question, whatever happens."""
+    words = hook.split()
+    spoken = _words_between(word_timings, segment.start, segment.end)
+    if len(spoken) == len(words):
+        starts = [w.start for w in spoken]
+        said_by = spoken[-1].end
+    else:
+        said_by = segment.end - float(segment.pause_after or 0)
+        step = max(0.1, said_by - segment.start) / max(1, len(words))
+        starts = [segment.start + i * step for i in range(len(words))]
+    stamp = said_by + HOOK_STAMP_AFTER
+    leave = max(stamp + 0.5, min(stamp + HOOK_HOLD, first_ask - 1.2))
+    return {"words": [(w, max(0.0, t - 0.05)) for w, t in zip(words, starts)],
+            "stamp": round(stamp, 3), "leave": round(leave, 3)}
 
 
 def _in(t, anim="fade", dur=0.35, out=None) -> str:
@@ -1131,12 +1166,24 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
     pictured = bool(questions) and all(q.get("kind") for q in questions)
     list_top = PICTURE_LIST_TOP if pictured else LIST_TOP
 
-    # Tilted inside, popped outside: the pop sets its own transform.
-    splash = (f"<div {_in(0.15, 'pop', 0.45)}><div class='splash' data-fit='36'>"
-              f"{esc(quiz['splash'])}</div></div>" if quiz.get("splash") else "")
-    card = [f"<div {_in(0, 'fade', 0.3, first_ask - 0.35)}>{splash}"
+    # The hook on a screen of its own, each word arriving as it's said and
+    # staying; then the category and difficulty stamped under it; then it
+    # clears to the board, which builds itself from there.
+    hook, hook_screen, start = times.get("hook"), "", 0.0
+    if hook:
+        words = "".join(f"<span data-in='{at:.3f}' data-anim='spring' data-dur='0.5'>{esc(word)}</span>"
+                        for word, at in hook["words"])
+        # Tilted inside, stamped outside: the stamp sets its own transform.
+        hook_screen = (
+            f"<div class='hook-screen' data-in='-1' data-dur='0.1' data-anim='fade' "
+            f"data-out='{hook['leave']:.3f}'><div class='hook-words'>{words}</div>"
+            f"<div class='stamp-wrap' data-in='{hook['stamp']:.3f}' data-anim='stamp' data-dur='0.4'>"
+            f"<div class='stamp'><div class='scat' data-fit='30'>{esc(quiz['category'])}</div>"
+            f"<div class='slvl'>{esc(quiz['difficulty'])}</div></div></div></div>")
+        start = hook["leave"]
+    card = [f"<div {_in(start, 'fade', 0.3, first_ask - 0.35)}>"
             f"<div class='intro-cat' data-fit='54'>{esc(quiz['category'])}</div>"
-            f"<div class='intro-sub'>{n} questions &middot; keep score</div></div>"]
+            f"<div class='intro-sub'>{n} questions</div></div>"]
     for i, (q, t) in enumerate(zip(questions, rows_t)):
         leaves = rows_t[i + 1]["ask"] - 0.3 if i + 1 < n else times["outro"] - 0.3
         pic = picture_uri(q)
@@ -1157,7 +1204,7 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
     for i, (q, t) in enumerate(zip(questions, rows_t)):
         row_html.append(
             f"<div class='row' style='height:{(LIST_BOTTOM - list_top) / n - 6:.0f}px' "
-            f"{_in(0.25 + 0.07 * i, 'slide-left', 0.4)}>"
+            f"{_in(start + 0.25 + 0.07 * i, 'slide-left', 0.4)}>"
             f"<div class='now' {_in(t['ask'], 'fade', 0.25, t['done'])}></div>"
             f"<div class='n'>{i + 1}.</div>"
             f"<div class='a' data-fit='26' {_in(t['reveal'], 'wipe', 0.45)}>{esc(q['answer'])}</div>"
@@ -1179,7 +1226,9 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
             f"data-steps='{max(10, round(span * 10))}'/></svg>{digits}</div>")
 
     stage = (f"<div class='board'>"
-             f"<div class='kicker' {_in(0, 'fade', 0.3)}><span class='cat' data-fit='24'>{esc(quiz['category'])} quiz</span>"
+             f"<div class='kicker' {_in(start, 'fade', 0.3)}>"
+             + (f"<span class='num'>#{int(quiz['number'])}</span>" if quiz.get("number") else "")
+             + f"<span class='cat' data-fit='24'>{esc(quiz['category'])}</span>"
              f"<span class='chip filled a2 lvl'>{esc(quiz['difficulty'])}</span></div>"
              f"<div class='card qcard'>{''.join(card)}</div>"
              f"<div class='rows'>{''.join(row_html)}</div>{''.join(timers)}</div>")
@@ -1194,7 +1243,7 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
         "</style></head><body>"
         "<div class='bg'><div class='bg-pattern'></div><div class='bg-grain'></div>"
         "<div class='bg-vignette'></div></div>"
-        f"{stage}"
+        f"{stage}{hook_screen}"
         f"<script>window.TEMPLATE_DURATION = {json.dumps(duration)};"
         # Still between moments, so unchanged frames are reused (render.encode).
         "window.STATIC_BACKGROUND = true;</script>"
@@ -1214,6 +1263,9 @@ def timer_cues(times: dict, tick=("tock", 0.8)) -> list:
         if tick:
             cues += [(t["countdown"] + k * span / seconds, *tick) for k in range(seconds)]
         cues.append((t["reveal"], "chime", 0.55))
+    if times.get("hook"):
+        # The stamp's thump as it lands (the stamp entrance's low point).
+        cues.append((times["hook"]["stamp"] + 0.18, "thud", 0.9))
     return cues
 
 
@@ -1229,6 +1281,8 @@ def board(plan):
     duration = len(plan.voiceover.samples) / plan.voiceover.fps
     times = timeline(script, plan.voiceover.word_timings)
     style = art.resolve(plan.channel.scenes.art)
+    # The number asked for when it was started, or the next one.
+    script.quiz["number"] = int(getattr(plan.seed, "number", 0) or 0) or next_number(plan.channel)
     page_html = board_html(script, times, style, duration)
 
     # In the render's working folder, removed once the video is finished
@@ -1302,6 +1356,24 @@ def round_sidecar(video_path) -> Path:
     return video_path.with_name(f"{video_path.stem}_quiz.json")
 
 
+def next_number(channel) -> int:
+    """The next quiz short's number: one more than the highest number on
+    a short not discarded. A discarded #2 can be remade by asking for 2."""
+    from core import gallery
+    directory = gallery.resolve_output_dir(channel.output_dir)
+    numbers = [0]
+    if directory.exists():
+        for video in gallery.videos_in(directory, long=False):
+            sidecar = round_sidecar(video)
+            if not sidecar.exists() or gallery.load_publish_info(video)["discarded"]:
+                continue
+            try:
+                numbers.append(int(json.loads(sidecar.read_text(encoding="utf-8")).get("number") or 0))
+            except (OSError, ValueError):
+                continue
+    return max(numbers) + 1
+
+
 def save_round(plan) -> Path:
     """Where each question and answer sits in this short's voice track,
     beside the video: a long quiz (pipeline.longform) cuts them from it
@@ -1317,6 +1389,7 @@ def save_round(plan) -> Path:
         "version": 1,
         "category": quiz.get("category", ""),
         "difficulty": quiz.get("difficulty", ""),
+        "number": int(quiz.get("number") or 0),
         "level": level_of(plan.channel, quiz.get("difficulty", "")),
         "audio": Path(plan.audio_path).name,
         "unverified": list(quiz.get("unverified") or []),

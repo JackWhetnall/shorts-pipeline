@@ -81,6 +81,12 @@ def _raw(kind: str, fps: int) -> np.ndarray:
         n = int(0.1 * fps); t = np.arange(n) / fps
         wave = np.sin(2 * np.pi * 480 * t) + 0.2 * np.sin(2 * np.pi * 960 * t)
         return wave * _envelope(n, fps, 0.004, 0.022)
+    if kind == "thud":
+        # A rubber stamp landing: a low knock with a short papery slap.
+        n = int(0.22 * fps); t = np.arange(n) / fps
+        body = np.sin(2 * np.pi * (70 + 60 * np.exp(-t * 30)) * t) * _envelope(n, fps, 0.002, 0.07)
+        slap = rng.standard_normal(n) * _envelope(n, fps, 0.0005, 0.012)
+        return body + 0.35 * slap
     if kind == "blip":
         # A soft round beep, like a kitchen timer heard from the next room.
         n = int(0.12 * fps); t = np.arange(n) / fps

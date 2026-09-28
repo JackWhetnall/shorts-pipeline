@@ -2108,3 +2108,17 @@ class TestGrowingThePlan:
         client.post("/channels/c/settings", data={"csrf_token": token, "plan_topic_count": "6"})
         assert len(curriculum.load("c")["topics"]) == 6
         assert len(curriculum.subtopics("c")) == 5
+
+
+def test_a_quiz_categorys_rounds_are_listed_easiest_first(monkeypatch):
+    """Regression: "Tricky", added after the others, listed below Impossible."""
+    from core.channels import ChannelConfig
+    from web.blueprints.curriculum import _in_order
+    channel = ChannelConfig(key="q", format="quiz")
+    channel.quiz.difficulties = ["Easy", "Hard", "Tricky (6.5)", "Impossible"]
+    topics = [{"subtopics": [{"title": f"Music: {d}", "angle": d} for d in
+                             ("Easy", "Hard", "Impossible", "Tricky")]
+               + [{"title": "Music: Easy (round 2)", "angle": "Easy"}]}]
+    ordered = [s["title"] for s in _in_order(channel, topics)[0]["subtopics"]]
+    assert ordered == ["Music: Easy", "Music: Hard", "Music: Tricky", "Music: Impossible",
+                       "Music: Easy (round 2)"]

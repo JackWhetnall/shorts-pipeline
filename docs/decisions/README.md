@@ -59,4 +59,5 @@ reason for a change stays true forever.
 | [044](044-long-quizzes.md) | Long quizzes: finished shorts recut into widescreen videos | Active |
 | [045](045-quiz-robustness.md) | Quizzes that never run out, never clash, and say symbols right | Active; reuse setting replaced by 046 |
 | [046](046-picture-rounds-and-series.md) | Picture rounds, and long quizzes as two series | Active |
-| [047](047-formats-apart-and-the-quiz-hook.md) | Each quiz format timed on its own, both long formats every time, a hook with splash text, gentler ticks | Active; revises 044's variant choice |
+| [047](047-formats-apart-and-the-quiz-hook.md) | Each quiz format timed on its own, both long formats every time, a hook with splash text, gentler ticks | Active; hook and spares revised by 048 |
+| [048](048-plain-hooks-and-honest-checks.md) | Plain hooks on their own screen, numbered shorts, no pronunciation coaching, checks that know the board | Active |

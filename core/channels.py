@@ -369,14 +369,11 @@ class Quiz(_MappingLike):
     answer_pause: float = 1.2
     difficulties: list = field(default_factory=lambda: [
         "Easy", "Medium", "Hard", "Very hard", "Impossible"])
-    # Long widescreen quizzes made from finished shorts (pipeline.longform):
+    # Long widescreen quizzes made from approved shorts (pipeline.longform):
     # how many rounds, and how often the scheduler makes one (0 is only
     # when you ask). Both formats are made from the same rounds every
-    # time; `longform_variant` is the one that goes to review
-    # ("after_each", "at_end", or "alternate" by episode), and the other
-    # is kept as a spare.
+    # time, and both go to review.
     longform_rounds: int = 6
-    longform_variant: str = "alternate"
     longform_every_days: int = 0
     # Each long format timed on its own. A long quiz is played along with,
     # not scrolled past: a proper clock for each question. Answers as you

@@ -10,49 +10,6 @@
 <div id="create-video-page" data-channel-key="{{ key }}"></div>
 
 <div id="seed-idle">
-{% if longform %}
-  <div class="card" id="longform-card" data-channel-key="{{ key }}">
-    <h2>A long quiz <span class="hint">widescreen, from finished shorts</span></h2>
-    <p class="meta">Rounds that are already shorts, recut into one widescreen video with the host
-      joining them: only those joining lines are voiced (about 1,000 ElevenLabs characters), and
-      each round goes into one long video only, so two never share questions.</p>
-    <div class="channel-form">
-      <label>Difficulty
-        <select id="longform-difficulty">
-          {% for label in longform.labels %}
-          <option value="{{ label }}" {{ 'disabled' if longform.ready[label] < 2 }}>{{ label }} &mdash; {{ longform.ready[label] }} ready</option>
-          {% endfor %}
-          <option value="rising">Rising: each round harder &mdash; {{ longform.ready.rising }} categories ready</option>
-          {% if longform.singles %}
-          <optgroup label="One category, easiest to hardest">
-            {% for option, count in longform.singles %}
-            <option value="{{ option }}" {{ 'disabled' if count < 2 }}>{{ option[9:] }} &mdash; {{ count }} of {{ longform.labels|length }} levels ready</option>
-            {% endfor %}
-          </optgroup>
-          {% endif %}
-        </select>
-      </label>
-      <label>Rounds
-        <input type="number" id="longform-rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}" class="narrow-number">
-      </label>
-      <fieldset>
-        <legend>For review
-          <button type="button" class="info-dot" data-tooltip="Both formats are always made from the same rounds. This is the one that goes to review; the other is kept in the gallery as a spare.">?</button>
-        </legend>
-        <label class="checkbox-label"><input type="radio" name="longform-variant" value="alternate"
-          {{ 'checked' if channel.quiz.longform_variant not in ('after_each', 'at_end') }}> Alternate</label>
-        <label class="checkbox-label"><input type="radio" name="longform-variant" value="after_each"
-          {{ 'checked' if channel.quiz.longform_variant == 'after_each' }}> Answers as you go</label>
-        <label class="checkbox-label"><input type="radio" name="longform-variant" value="at_end"
-          {{ 'checked' if channel.quiz.longform_variant == 'at_end' }}> Answers at the end of each round</label>
-      </fieldset>
-      <div class="actions">
-        <button type="button" onclick="startLongform('{{ key }}', this)">Make the long quiz</button>
-        <span class="hint" id="longform-status">Films both formats: about three minutes per minute of video.</span>
-      </div>
-    </div>
-  </div>
-{% endif %}
 {% if plan %}
   {# One video is always chosen, shown here with the button that makes it.
      Everything below changes which one; nothing below starts anything.
@@ -64,6 +21,12 @@
     <p class="kicker-label" id="chosen-why">Next up</p>
     <h2 id="chosen-title">&hellip;</h2>
     <p class="meta" id="chosen-meta"></p>
+    {% if next_number %}
+    <label class="field-row"><span class="field-label">Video number
+      <button type="button" class="info-dot" data-tooltip="Shown on the board as #{{ next_number }}. The next one not yet made; to remake a discarded number, type it here.">?</button></span>
+      <input type="number" id="video-number" min="1" value="{{ next_number }}" class="narrow-number">
+    </label>
+    {% endif %}
     <div class="actions">
       <button type="button" id="chosen-make-btn" onclick="startGenerate('{{ key }}')" disabled>Make this video</button>
       <button type="button" class="btn-ghost" onclick="chooseVideo({mode: 'random'}, 'Picked at random')">Pick another at random</button>
@@ -118,10 +81,40 @@
   </div>
 {% else %}
   <div class="card">
-  <p class="meta">Fetch a candidate {{ 'quote' if channel.content_mode == 'static_corpus' else 'topic' }} to review before generating.</p>
   <button onclick="getSeed('{{ key }}')">
     Get a candidate {{ 'quote' if channel.content_mode == 'static_corpus' else 'topic' }}
   </button>
+  </div>
+{% endif %}
+{% if longform %}
+  <div class="card" id="longform-card" data-channel-key="{{ key }}">
+    <h2>A long quiz
+      <button type="button" class="info-dot" data-tooltip="Widescreen, recut from approved shorts; only the host's joining lines are voiced. Made in both formats, answers as you go and answers at the end, and both go to review.">?</button>
+    </h2>
+    <div class="channel-form">
+      <label>Difficulty
+        <select id="longform-difficulty">
+          {% for label in longform.labels %}
+          <option value="{{ label }}" {{ 'disabled' if longform.ready[label] < 2 }}>{{ label }} &mdash; {{ longform.ready[label] }} ready</option>
+          {% endfor %}
+          <option value="rising">Rising &mdash; {{ longform.ready.rising }} categories ready</option>
+          {% if longform.singles %}
+          <optgroup label="One category, easiest to hardest">
+            {% for option, count in longform.singles %}
+            <option value="{{ option }}" {{ 'disabled' if count < longform.labels|length }}>{{ option[9:] }} &mdash; {{ count }} of {{ longform.labels|length }} levels</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+        </select>
+      </label>
+      <label>Rounds
+        <input type="number" id="longform-rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}" class="narrow-number">
+      </label>
+      <div class="actions">
+        <button type="button" onclick="startLongform('{{ key }}', this)">Make the long quiz</button>
+        <span class="hint" id="longform-status"></span>
+      </div>
+    </div>
   </div>
 {% endif %}
 </div>

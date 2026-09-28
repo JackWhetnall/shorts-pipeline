@@ -16,9 +16,8 @@ Two variants from the same machinery, each timed by its own settings:
   read again and its row turning smoothly into the answer as it's given.
 
 Every long quiz is made in both, from the same rounds and the same
-joining lines (voiced once). The channel's choice goes to review; the
-other is kept as a spare, so whichever format does better later is
-already there. See decision 047.
+joining lines (voiced once), and both go to review: the owner decides
+which to publish (decisions 047, 048).
 
 The board is widescreen: the numbers 1-10 down the left, each question
 appearing in its row as it's read, and a large panel on the right with
@@ -55,7 +54,6 @@ W, H = 1920, 1080
 THUMB = (1280, 720)
 FPS = 30
 VARIANTS = ("after_each", "at_end")
-ALTERNATE = "alternate"
 RISING = "rising"
 
 LINK_PAUSE = 0.5          # after a joining line
@@ -110,16 +108,14 @@ def series_of(difficulty: str) -> str:
 
 
 def _long_videos(channel) -> list:
-    """[(video, its sidecar)] for every undiscarded long video, not
-    counting spares (the same rounds as the version that went to review)."""
+    """[(video, its sidecar)] for every undiscarded long video."""
     out = []
     root = _out_root(channel)
     if not root.exists():
         return out
     for video in gallery.videos_in(root, long=True):
         sidecar = quiz.round_sidecar(video)
-        info = gallery.load_publish_info(video)
-        if info["discarded"] or gallery.is_spare(info) or not sidecar.exists():
+        if gallery.load_publish_info(video)["discarded"] or not sidecar.exists():
             continue
         data = json.loads(sidecar.read_text(encoding="utf-8"))
         data.setdefault("series", series_of(data.get("difficulty", "")))
@@ -135,8 +131,9 @@ def used_rounds(channel, series: str = MIXED) -> set:
 
 
 def available_rounds(channel, series: str = MIXED) -> list:
-    """Every finished, undiscarded quiz short not yet in a long video of
-    this series, published ones first, then oldest."""
+    """Every approved quiz short (published, or queued to be) not yet in a
+    long video of this series, published ones first, then oldest. A short
+    still waiting for review isn't a round anyone has passed yet."""
     root = _out_root(channel)
     if not root.exists():
         return []
@@ -144,7 +141,7 @@ def available_rounds(channel, series: str = MIXED) -> list:
     rows = []
     for video in gallery.videos_in(root, long=False):
         info = gallery.load_publish_info(video)
-        if info["discarded"] or video.stem in used:
+        if info["discarded"] or video.stem in used or not (gallery.is_out(info) or gallery.is_queued(info)):
             continue
         row = _round_info(channel, video)
         if row:
@@ -159,7 +156,10 @@ def episode(channel, series: str, category: str = "") -> int:
     category's quizzes count on their own."""
     mine = [data for _, data in _long_videos(channel) if data["series"] == series
             and (series == MIXED or (data.get("category") or "").lower() == category.lower())]
-    return max([int(d.get("episode") or 0) for d in mine] + [len(mine)]) + 1
+    # Both formats of one quiz share its number.
+    numbered = {int(d["episode"]) for d in mine if d.get("episode")}
+    unnumbered = sum(1 for d in mine if not d.get("episode"))
+    return max(max(numbered, default=0), len(numbered) + unnumbered) + 1
 
 
 def series_label(channel, series: str, number: int, category: str = "") -> str:
@@ -878,12 +878,7 @@ def thumbnail_html(style: dict, headline: str, subtitle: str, line: str, categor
 # --- making one --------------------------------------------------------------------
 
 def plan_request(channel, seed: dict) -> dict:
-    """The request with its choices resolved: difficulty, rounds, and
-    which variant goes to review ("alternate" is settled by the episode
-    number, in make)."""
-    variant = seed.get("variant") or channel.quiz.longform_variant
-    if variant not in VARIANTS:
-        variant = ALTERNATE
+    """The request with its choices resolved: difficulty and rounds."""
     difficulty = seed.get("difficulty") or ""
     default = (len(quiz.labels(channel)) if difficulty.startswith(CATEGORY_PREFIX)
                else channel.quiz.longform_rounds)
@@ -892,22 +887,13 @@ def plan_request(channel, seed: dict) -> dict:
         counts = availability(channel)
         ready = [label for label in quiz.labels(channel) if counts.get(label, 0) >= count]
         difficulty = ready[0] if ready else RISING
-    return {"variant": variant, "rounds": count, "difficulty": difficulty}
-
-
-def reviewed_variant(choice: str, number: int) -> str:
-    """Which variant goes to review: the choice, or for "alternate", odd
-    episodes answers as you go and even ones answers at the end, so each
-    series keeps both in front of an audience."""
-    if choice in VARIANTS:
-        return choice
-    return VARIANTS[0] if number % 2 else VARIANTS[1]
+    return {"rounds": count, "difficulty": difficulty}
 
 
 def make(channel, seed: dict, out_dir: Path = None):
-    """Make a long quiz, in both variants. `seed`: {"type": "longform",
-    "difficulty": a label or "rising", "variant" (the one for review),
-    "rounds"}. Returns an object with video_path (the one for review).
+    """Make a long quiz, in both variants, both for review. `seed`:
+    {"type": "longform", "difficulty": a label or "rising", "rounds"}.
+    Returns an object with video_path (answers as you go).
     `out_dir` is for trying one out without it reaching the review queue."""
     from pipeline.scenes import art
 
@@ -937,14 +923,11 @@ def make(channel, seed: dict, out_dir: Path = None):
     single = series == CATEGORY
     number = saved.get("episode") or episode(channel, series, rounds[0]["category"] if single else "")
     label = series_label(channel, series, number, rounds[0]["category"] if single else "")
-    reviewed = reviewed_variant(request["variant"], number)
-    log.info(f"[1/5] Long quiz: {count} rounds, {difficulty}, both formats "
-             f"({reviewed.replace('_', ' ')} for review): {', '.join(r['category'] for r in rounds)}")
+    log.info(f"[1/5] Long quiz: {count} rounds, {difficulty}, both formats: "
+             f"{', '.join(r['category'] for r in rounds)}")
     links = saved.get("links") or write_links(channel, rounds, difficulty, label)
     # A checkpoint from before both were made may lack the answers-at-the-end lines.
     variants = [v for v in VARIANTS if v == "after_each" or links.get("finish_lines")]
-    if reviewed not in variants:
-        reviewed = variants[0]
 
     out_dir = Path(out_dir or _out_root(channel) / gallery.LONGFORM_DIR / date.today().isoformat())
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -981,27 +964,22 @@ def make(channel, seed: dict, out_dir: Path = None):
                           series=series, single=single, difficulty=difficulty,
                           style=art.resolve(channel.scenes.art), work=work)
     made = {}
-    # The one for review first: if the spare then fails, the job still has
-    # its video.
-    for variant in sorted(variants, key=lambda v: v != reviewed):
+    for variant in variants:
         name = stem if variant == "after_each" else f"{stem}_answers_at_end"
         made[variant] = out_dir / f"{name}.mp4"
         if made[variant].exists():                  # made before a retry
             continue
         _make_variant(job, variant, made[variant])
-    for variant, path in made.items():
-        if variant != reviewed:
-            gallery.set_spare(path, made[reviewed])
+    first = made[variants[0]]
 
     from core import costs
     job_id = job_context.get_job_id()
     summary = (costs.summary_for_job(job_id) if job_id
                else costs.summary_between(started, time.time(), channel.key))
-    gallery.save_cost_summary(made[reviewed], summary)
+    gallery.save_cost_summary(first, summary)
     shutil.rmtree(work, ignore_errors=True)
-    log.info(f"Done: {made[reviewed]} ({costs.format_usd(summary['total_usd'])}), "
-             f"with its spare in the other format")
-    return SimpleNamespace(video_path=made[reviewed], warnings=[], similarity=None)
+    log.info(f"Done: {', '.join(p.name for p in made.values())} ({costs.format_usd(summary['total_usd'])})")
+    return SimpleNamespace(video_path=first, warnings=[], similarity=None)
 
 
 def _make_variant(job, variant: str, video_path: Path) -> None:

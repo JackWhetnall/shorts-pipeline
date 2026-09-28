@@ -63,9 +63,6 @@ def enqueue(video_path: Path, approved_by: str) -> dict:
     if info["discarded"] or gallery.is_out(info):
         raise PipelineError(f"{video_path} can't be queued",
                             user_message="That video is already published or discarded.")
-    if gallery.is_spare(info):
-        raise PipelineError(f"{video_path} is a spare", user_message=(
-            "That's the spare version. Choose it instead of the other one first."))
     return gallery.save_queue_state(video_path,
                                     queued_at=info["queued_at"] or _now().isoformat(),
                                     approved_by=approved_by)

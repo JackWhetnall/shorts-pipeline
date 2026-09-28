@@ -130,6 +130,9 @@ body { font-family: var(--text); font-weight: var(--tw); color: var(--ink); }
 [data-in] { opacity: calc(min(1, var(--p, 0) * 3) * (1 - var(--q, 0))); }
 [data-anim="rise"] { transform: translateY(calc((1 - var(--e, 0)) * 70px)); }
 [data-anim="pop"] { transform: scale(calc(0.4 + 0.6 * var(--e, 0))); }
+[data-anim="spring"] { transform: translateY(calc((1 - var(--e, 0)) * 90px))
+  rotate(calc((1 - var(--e, 0)) * -10deg)) scale(calc(0.55 + 0.45 * var(--e, 0))); }
+[data-anim="stamp"] { transform: scale(calc(1 + (1 - var(--e, 0)) * 1.3)); }
 [data-anim="slide-left"] { transform: translateX(calc((1 - var(--e, 0)) * -160px)); }
 [data-anim="slide-right"] { transform: translateX(calc((1 - var(--e, 0)) * 160px)); }
 [data-anim="fade"] { opacity: calc(var(--e, 0) * (1 - var(--q, 0))); }

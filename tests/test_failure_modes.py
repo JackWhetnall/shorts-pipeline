@@ -21,8 +21,10 @@ problem.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 from core.errors import ExternalServiceError, MissingCredentialError, PipelineError
@@ -706,3 +708,50 @@ class TestOrphanDetection:
     def test_no_output_directory_is_not_an_error(self, tmp_path):
         from core import gallery
         assert gallery.orphaned_files(str(tmp_path / "nope")) == []
+
+
+class TestPronunciation:
+    """The owner: "Mariana" came out oddly, and the pronunciation coaching
+    looked to blame. It wasn't coached: Whisper spelled it "Marianna", a
+    word-for-word check called that a mismatch, and the line was re-voiced
+    three times with the last take kept, paid for each time."""
+
+    def test_a_heard_spelling_of_the_same_word_is_not_a_mismatch(self, monkeypatch):
+        from pipeline import tts
+        model = MagicMock()
+        model.transcribe.return_value = (
+            [SimpleNamespace(text=" The Challenger Deep, in the Marianna Trench.")], None)
+        monkeypatch.setattr(tts, "_get_whisper", lambda: model)
+        assert tts.transcript_match_ratio("The Challenger Deep, in the Mariana Trench.", "x.mp3") == 1.0
+        model.transcribe.return_value = ([SimpleNamespace(text=" The Challenger Deep, in the Pacific.")], None)
+        assert tts.transcript_match_ratio("The Challenger Deep, in the Mariana Trench.", "x.mp3") < 0.85
+
+    def test_the_closest_take_is_kept_not_the_last(self, monkeypatch, tmp_path):
+        import base64
+        from pipeline import tts
+        takes = iter([b"first", b"second", b"third"])
+        ratios = iter([0.8, 0.5, 0.6])
+
+        def post(voice_id, payload):
+            return SimpleNamespace(json=lambda: {"audio_base64": base64.b64encode(next(takes)).decode(),
+                                                 "alignment": {"characters": [], "character_start_times_seconds": [],
+                                                               "character_end_times_seconds": []}})
+        monkeypatch.setattr(tts, "_post_with_backoff", post)
+        monkeypatch.setattr(tts, "_billed_characters", lambda response, text: 0)
+        monkeypatch.setattr(tts, "decode_audio_file", lambda path, fps=0: np.ones((10, 2), dtype=np.float32))
+        monkeypatch.setattr(tts, "looks_glitched", lambda text, words: False)
+        monkeypatch.setattr(tts, "transcript_match_ratio", lambda text, path: next(ratios))
+        out = tmp_path / "seg.mp3"
+        tts.synthesize_segment("A line.", "voice", str(out))
+        assert out.read_bytes() == b"first"
+
+    def test_only_the_channels_list_and_chemical_symbols_are_respelled(self):
+        """A round stored with the writer's old respellings ("Canberra" as
+        "KAN-bruh") must not use them."""
+        from pipeline import tts
+        script = SimpleNamespace(quiz={"pronunciations": {"Canberra": "KAN-bruh"}, "questions": [
+            {"question": "What is the capital of Australia?", "answer": "Canberra"},
+            {"question": "What is gold's chemical symbol?", "answer": "Au"}]})
+        assert tts._symbol_respellings(script) == {"Au": "ay you"}
+        from pipeline import quiz
+        assert "pronunciations" not in quiz._schema()["properties"]

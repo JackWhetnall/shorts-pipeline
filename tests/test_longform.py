@@ -34,8 +34,10 @@ def _channel():
     return channel
 
 
-def _short(folder: Path, stem: str, category: str, difficulty: str, when: float = 0) -> Path:
-    """A finished quiz short with its sidecar, as pipeline.run leaves it."""
+def _short(folder: Path, stem: str, category: str, difficulty: str, when: float = 0,
+           approved: bool = True) -> Path:
+    """A finished quiz short with its sidecar, as pipeline.run leaves it,
+    approved to go out unless said otherwise."""
     folder.mkdir(parents=True, exist_ok=True)
     video = folder / f"{stem}.mp4"
     video.write_bytes(b"")
@@ -46,6 +48,8 @@ def _short(folder: Path, stem: str, category: str, difficulty: str, when: float 
     quiz.round_sidecar(video).write_text(json.dumps({
         "category": category, "difficulty": difficulty, "level": quiz.level_of(_channel(), difficulty),
         "audio": f"{stem}_audio.mp3", "questions": questions}), encoding="utf-8")
+    if approved:
+        gallery.save_queue_state(video, queued_at="2026-09-26T00:00:00+00:00", approved_by="you")
     if when:
         import os
         os.utime(video, (when, when))
@@ -237,7 +241,8 @@ def test_starting_one_needs_enough_rounds(world, monkeypatch):
     _short(world.root, "science_hard", "Science", "Hard")
     client = create_app().test_client()
     page = client.get("/channels/pub_quiz/create").get_data(as_text=True)
-    assert "A long quiz" in page and "Hard &mdash; 1 ready" in page
+    # Not offered until enough approved rounds are ready for one.
+    assert "longform-card" not in page
     token = page.split('name="csrf-token" content="')[1].split('"')[0]
     response = client.post("/api/channels/pub_quiz/longform", headers={"X-CSRF-Token": token},
                            json={"difficulty": "Hard", "rounds": 2, "variant": "at_end"})
@@ -277,13 +282,12 @@ def test_the_settings_form_sets_the_long_quiz_and_its_slots():
     channel = _channel()
     apply_channel_form(channel, MultiDict([
         ("quiz_present", "1"), ("format", "quiz"), ("quiz_longform_rounds", "8"),
-        ("quiz_longform_variant", "at_end"), ("quiz_longform_every_days", "7"),
+        ("quiz_longform_every_days", "7"),
         ("quiz_after_each_clock_seconds", "7"), ("quiz_at_end_clock_seconds", "12"),
         ("quiz_at_end_reveal_gap", "0.6"), ("quiz_at_end_answer_pause", "99"),
         ("publishing_plan_present", "1"), ("long_slots", "20:30, 9:00, noon"),
         ("long_weekdays", "5"), ("long_weekdays", "6")]))
-    assert (channel.quiz.longform_rounds, channel.quiz.longform_variant,
-            channel.quiz.longform_every_days) == (8, "at_end", 7)
+    assert (channel.quiz.longform_rounds, channel.quiz.longform_every_days) == (8, 7)
     assert (channel.quiz.after_each_clock_seconds, channel.quiz.at_end_clock_seconds,
             channel.quiz.at_end_reveal_gap, channel.quiz.at_end_answer_pause) == (7, 12, 0.6, 5)
     assert channel.publishing.long_slots == ["09:00", "20:30"]
@@ -457,7 +461,7 @@ class TestFormatsTimedApart:
                 channel.quiz.at_end_finish_seconds) == (8, 8, 20)
 
 
-def _make_both(world, monkeypatch, variant="alternate"):
+def _make_both(world, monkeypatch):
     """Run make() with the model, the voice and the filming faked."""
     monkeypatch.setattr("core.gallery.OUTPUT_DIR", world.tmp)
     _short(world.root, "science_hard", "Science", "Hard")
@@ -479,48 +483,31 @@ def _make_both(world, monkeypatch, variant="alternate"):
             "episode": job.number, "rounds": [r["stem"] for r in job.rounds]}), encoding="utf-8")
     monkeypatch.setattr(longform, "_make_variant", filmed)
     out = world.tmp / "out" / "longform" / "2026-09-28"
-    made = longform.make(world.channel, {"type": "longform", "difficulty": "Hard", "rounds": 2,
-                                         "variant": variant}, out_dir=out)
+    made = longform.make(world.channel, {"type": "longform", "difficulty": "Hard", "rounds": 2},
+                         out_dir=out)
     return made.video_path, sorted(out.glob("*.mp4")), voiced
 
 
 class TestBothFormats:
-    """The owner: make both long formats every time, even when only one is
-    published, so whichever does better later is already there."""
+    """The owner: make both long formats every time "and let me review
+    them both"."""
 
-    def test_both_are_made_from_one_voicing_and_the_other_kept_as_a_spare(self, world, monkeypatch):
-        reviewed, videos, voiced = _make_both(world, monkeypatch)
+    def test_both_are_made_from_one_voicing_and_both_go_to_review(self, world, monkeypatch):
+        first, videos, voiced = _make_both(world, monkeypatch)
         assert len(videos) == 2 and voiced == [1]
-        spare = next(v for v in videos if v != reviewed)
-        # Episode 1 of "alternate" goes to review answering as it goes.
-        assert "answers_at_end" in spare.name and "answers_at_end" not in reviewed.name
-        assert gallery.load_publish_info(spare)["spare_of"] == reviewed.name
-        assert not gallery.is_spare(gallery.load_publish_info(reviewed))
-        # A spare is kept out of review, the counts, the queue and the series.
-        listed = [v["name"] for v in gallery.list_videos(world.channel.output_dir)]
-        assert reviewed.name in listed and spare.name not in listed
-        assert spare.name in [v["name"] for v in gallery.list_videos(world.channel.output_dir, spares=True)]
-        assert gallery.video_state_counts(world.channel.output_dir, long=True)["waiting"] == 1
-        from core import publish_queue
-        from core.errors import PipelineError
-        with pytest.raises(PipelineError):
-            publish_queue.enqueue(spare, "you")
+        assert "answers_at_end" not in first.name
+        listed = {v["name"] for v in gallery.list_videos(world.channel.output_dir)}
+        assert {v.name for v in videos} <= listed
+        assert gallery.video_state_counts(world.channel.output_dir, long=True)["waiting"] == 2
+        # One episode, whichever of the two goes out.
         assert longform.episode(world.channel, longform.MIXED) == 2
 
-    def test_the_choice_decides_which_goes_to_review(self, world, monkeypatch):
-        reviewed, _, _ = _make_both(world, monkeypatch, variant="at_end")
-        assert "answers_at_end" in reviewed.name
 
-    def test_choosing_the_spare_swaps_them_and_discarding_takes_both(self, world, monkeypatch):
-        reviewed, videos, _ = _make_both(world, monkeypatch)
-        spare = next(v for v in videos if v != reviewed)
-        gallery.use_spare(spare)
-        assert not gallery.is_spare(gallery.load_publish_info(spare))
-        assert gallery.load_publish_info(reviewed)["spare_of"] == spare.name
-        gallery.set_discarded(spare, True, "other")
-        assert gallery.load_publish_info(reviewed)["discarded"]
-        # And the rounds are free again.
-        assert len(longform.available_rounds(world.channel)) == 2
+def test_only_approved_shorts_are_rounds(world):
+    """The owner: a long quiz needs rounds "made and approved"."""
+    _short(world.root, "science_hard", "Science", "Hard")
+    _short(world.root, "space_hard", "Space", "Hard", approved=False)
+    assert [r["stem"] for r in longform.available_rounds(world.channel)] == ["science_hard"]
 
 
 def test_the_clock_tick_is_a_setting():

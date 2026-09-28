@@ -106,10 +106,12 @@ async function getSeed(channelKey) {
 async function startGenerate(channelKey) {
   if (!currentSeed) return;
   await withButtonLoading(event.target.closest("button"), "Starting…", async () => {
+    // A quiz short's number on screen, when the page offers one.
+    const number = Number(document.getElementById("video-number")?.value || 0);
     const res = await apiFetch(`/api/channels/${channelKey}/generate`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({seed: currentSeed}),
+      body: JSON.stringify({seed: number ? {...currentSeed, number} : currentSeed}),
     });
     const data = await res.json();
     if (res.status === 409) {
@@ -3055,7 +3057,6 @@ async function planRemove(channelKey, topicId, button) {
 
 async function startLongform(channelKey, button) {
   const status = document.getElementById("longform-status");
-  const variant = document.querySelector('input[name="longform-variant"]:checked');
   await withButtonLoading(button, "Starting…", async () => {
     const res = await apiFetch(`/api/channels/${channelKey}/longform`, {
       method: "POST",
@@ -3063,7 +3064,6 @@ async function startLongform(channelKey, button) {
       body: JSON.stringify({
         difficulty: document.getElementById("longform-difficulty").value,
         rounds: Number(document.getElementById("longform-rounds").value),
-        variant: variant ? variant.value : "",
       }),
     });
     const data = await res.json();

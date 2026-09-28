@@ -235,10 +235,38 @@ def looks_glitched(text: str, word_timings: list) -> bool:
     return expected > 4 and len(word_timings) > expected * 1.15 + 2
 
 
+def _symbol_respellings(script) -> dict:
+    quiz = getattr(script, "quiz", None) or {}
+    if not quiz.get("questions"):
+        return {}
+    from pipeline.quiz import element_respellings
+    return element_respellings(quiz["questions"])
+
+
+# How alike a heard word must be to the written one to count as the same
+# word spelled differently ("Marianna" for "Mariana"), not a wrong word.
+SAME_WORD = 0.75
+
+
+def _as_expected(heard: list, expected: list) -> list:
+    """The heard words, each replaced by the expected word it's a spelling
+    of. Whisper spells names its own way, and on a short line one such
+    word read as a mismatch and paid for a retry of good audio."""
+    vocabulary = set(expected)
+    out = []
+    for word in heard:
+        if word not in vocabulary:
+            close = difflib.get_close_matches(word, vocabulary, n=1, cutoff=SAME_WORD)
+            word = close[0] if close else word
+        out.append(word)
+    return out
+
+
 def transcript_match_ratio(expected_text: str, audio_path: str) -> float:
     """Word-level similarity between the intended text and what the
     rendered audio actually says. Both sides go through the same
-    normalisation, so a respelling isn't penalised either way."""
+    normalisation, so a respelling isn't penalised either way, and a
+    heard word that is a spelling of an expected one counts as it."""
     model = _get_whisper()
     if model is None:
         # No verification available: report a pass so the caller doesn't
@@ -255,7 +283,8 @@ def transcript_match_ratio(expected_text: str, audio_path: str) -> float:
     expected = normalize_words(expected_text)
     if not expected:
         return 1.0
-    return difflib.SequenceMatcher(None, expected, normalize_words(transcribed)).ratio()
+    heard = _as_expected(normalize_words(transcribed), expected)
+    return difflib.SequenceMatcher(None, expected, heard).ratio()
 
 
 def words_from_alignment(alignment: dict) -> list:
@@ -419,6 +448,9 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
     # What Whisper should hear: the words as written, not the respellings.
     heard_text = speakable(text)
     word_timings, samples = [], None
+    # The best take so far: when every attempt falls short, the closest
+    # one is kept, not whichever came last.
+    best = None
 
     for attempt in range(max_attempts):
         payload = {
@@ -449,10 +481,16 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
             continue
 
         ratio = transcript_match_ratio(heard_text, out_path)
+        if best is None or ratio > best[0]:
+            best = (ratio, word_timings, samples, Path(out_path).read_bytes())
         if ratio < TRANSCRIPT_MATCH_THRESHOLD and not is_last:
             log.info(f"  [tts] transcript check found a mismatch ({ratio:.0%}), "
                      f"retrying ({attempt + 2}/{max_attempts})...")
             continue
+        if ratio < TRANSCRIPT_MATCH_THRESHOLD and best[0] > ratio:
+            ratio, word_timings, samples, audio = best
+            Path(out_path).write_bytes(audio)
+            log.info(f"  [tts] keeping the closest take ({ratio:.0%})")
         if ratio < TRANSCRIPT_MATCH_THRESHOLD:
             log.warning(f"  [tts] transcript still mismatched after {max_attempts} attempts "
                         f"({ratio:.0%}). This segment may have an audible artifact — "
@@ -651,10 +689,10 @@ def run(plan):
         str(plan.audio_path), plan.channel.pacing, speed=plan.channel.speed,
         source_index=getattr(plan.script, "source_index", 0),
         # The channel's own list of words the engine misreads, and a quiz
-        # round's (pipeline.quiz), the round's winning where both have one.
-        say_as={**(getattr(plan.channel, "pronunciations", None) or {}),
-                **(getattr(plan.script, "pronunciations", None) or {}),
-                **((getattr(plan.script, "quiz", None) or {}).get("pronunciations") or {})},
+        # round's chemical symbols, worked out again here so a round stored
+        # with the writer's old respellings doesn't use them (decision 048).
+        say_as={**_symbol_respellings(plan.script),
+                **(getattr(plan.channel, "pronunciations", None) or {})},
     )
 
     try:

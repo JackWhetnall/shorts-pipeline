@@ -401,13 +401,22 @@ def create_video(key):
     if channel.format == "quiz":
         from pipeline import longform as long_quiz, quiz
         ready = long_quiz.availability(channel)
-        longform = {"ready": ready, "labels": quiz.labels(channel),
-                    "singles": [(k, v) for k, v in ready.items()
-                                if k.startswith(long_quiz.CATEGORY_PREFIX)]}
+        labels = quiz.labels(channel)
+        singles = [(k, v) for k, v in ready.items() if k.startswith(long_quiz.CATEGORY_PREFIX)]
+        rounds = channel.quiz.longform_rounds
+        # Only offered once one can actually be made: enough approved
+        # rounds at a difficulty (or rising), or a category's full ladder.
+        if (any(ready.get(label, 0) >= rounds for label in labels) or ready[long_quiz.RISING] >= rounds
+                or any(v >= len(labels) for _, v in singles)):
+            longform = {"ready": ready, "labels": labels, "singles": singles}
     # ?subtopic_id= arrives from the plan page's "Make now".
+    number = 0
+    if channel.format == "quiz":
+        from pipeline import quiz as quiz_format
+        number = quiz_format.next_number(channel)
     return render_template("create_video.html", key=key, channel=channel, plan=plan,
                            up_next=up_next, initial_subtopic=request.args.get("subtopic_id", ""),
-                           cost=estimate_cost(), longform=longform)
+                           cost=estimate_cost(), longform=longform, next_number=number)
 
 
 @bp.route("/api/channels/<key>/ordering-preview", methods=["POST"])
@@ -710,7 +719,7 @@ def api_longform(key):
     from pipeline import longform
     data = request.get_json(force=True, silent=True) or {}
     seed = {"type": "longform", "difficulty": data.get("difficulty") or "best",
-            "variant": data.get("variant") or "", "rounds": data.get("rounds") or ""}
+            "rounds": data.get("rounds") or ""}
     try:
         request_ = longform.plan_request(channel, seed)
     except (TypeError, ValueError):

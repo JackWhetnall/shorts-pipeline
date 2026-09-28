@@ -618,8 +618,9 @@ def test_dingbats_are_not_offered():
 
 
 class TestHook:
-    """The owner: quiz shorts need a hook, with splash text to catch the
-    eye, varied and novel, never lifted from examples in the prompt."""
+    """The owner: quiz shorts open on a hook, shown on a screen of its own
+    word by word as it's said, then the category and difficulty stamped
+    underneath. Plain and punchy; familiar is fine, identical isn't."""
 
     def _round(self, **extra):
         return {"intro": "Keep score. Question one.", "outro": "Bye.", "title_options": ["t"],
@@ -627,42 +628,95 @@ class TestHook:
                 "questions": [{"lead_in": "", "question": f"Q{i}?", "answer": f"A{i}",
                                "spoken_answer": f"A{i}."} for i in range(3)]}
 
-    def test_the_hook_is_said_first_and_the_splash_is_on_the_opening_card(self):
+    def _timed(self, script, words=True):
+        t, timings = 0.0, []
+        for seg in script.segments:
+            seg.start = t
+            if words:
+                timings += [WordTiming(w, t + 0.3 * i, t + 0.3 * i + 0.25) for i, w in enumerate(seg.text.split())]
+            seg.end = t + 0.3 * len(seg.text.split()) + (seg.pause_after or 0.4)
+            t = seg.end
+        return timings, t
+
+    def test_the_hook_is_said_first_then_the_board_builds_after_its_screen(self):
+        from pipeline.scenes import art
         channel = ChannelConfig(key="c", format="quiz")
         channel.quiz.questions = 3
-        script = quiz.to_script(self._round(hook="Rate your rock knowledge?", splash="Rock on"),
-                                channel, "Music", "Hard")
-        assert script.segments[0].text == "Rate your rock knowledge?"
-        assert script.segments[1].text == "Keep score. Question one."
+        script = quiz.to_script(self._round(hook="Think you know your rock?"), channel, "Music", "Hard")
+        assert script.segments[0].text == "Think you know your rock?"
         assert script.quiz["questions"][0]["ask"] == 2
-        assert (script.quiz["hook"], script.quiz["splash"]) == ("Rate your rock knowledge?", "Rock on")
-        t = 0.0
-        for seg in script.segments:
-            seg.start, seg.end = t, t + 2
-            t += 2 + (seg.pause_after or 0)
-        from pipeline.scenes import art
-        page = quiz.board_html(script, quiz.timeline(script, []), art.resolve({}), t)
-        assert "class='splash'" in page and "Rock on" in page
+        timings, end = self._timed(script)
+        times = quiz.timeline(script, timings)
+        hook = times["hook"]
+        # Each word arrives as it's said, and stays.
+        assert [w for w, _ in hook["words"]] == ["Think", "you", "know", "your", "rock?"]
+        assert hook["words"][1][1] == pytest.approx(0.25, abs=0.01)
+        assert hook["stamp"] > hook["words"][-1][1] and hook["leave"] > hook["stamp"]
+        assert hook["leave"] < times["questions"][0]["ask"]
+        script.quiz["number"] = 4
+        page = quiz.board_html(script, times, art.resolve({}), end)
+        assert "class='hook-screen'" in page and "data-anim='spring'" in page
+        assert "class='stamp'" in page and "#4</span>" in page
+        # No "quiz" after the category, and no "keep score" on the card.
+        assert "Music quiz" not in page and "keep score" not in page
+        cues = quiz.timer_cues(times, None)
+        assert [k for _, k, _ in cues].count("thud") == 1
 
-    def test_a_round_written_before_hooks_still_works(self):
+    def test_a_round_written_before_hooks_has_no_hook_screen(self):
         channel = ChannelConfig(key="c", format="quiz")
         channel.quiz.questions = 3
         script = quiz.to_script(self._round(), channel, "Music", "Hard")
-        assert script.segments[0].text == "Keep score. Question one." and not script.quiz["splash"]
+        assert script.segments[0].text == "Keep score. Question one."
+        timings, _ = self._timed(script)
+        assert "hook" not in quiz.timeline(script, timings)
 
-    def test_recent_openings_are_shown_to_the_writer_to_avoid(self, tmp_path, monkeypatch):
+    def test_recent_hooks_are_shown_to_the_writer_to_avoid(self, tmp_path, monkeypatch):
         monkeypatch.setattr(quiz, "QUESTION_BANK_DIR", tmp_path)
         monkeypatch.setattr(quiz, "_written", lambda key: [])
         channel = ChannelConfig(key="c", format="quiz")
         channel.quiz.questions = 3
-        script = quiz.to_script(self._round(hook="Rate your rock knowledge?", splash="Rock on"),
-                                channel, "Music", "Hard")
+        script = quiz.to_script(self._round(hook="Think you know your rock?"), channel, "Music", "Hard")
         quiz.remember("c", "music_hard", script)
-        assert quiz.recent_openings("c") == [("Rate your rock knowledge?", "Rock on")]
-        prompt = quiz._user("Science", "Hard", 3, channel, ([], []), "")
-        assert "- Rate your rock knowledge? / Rock on" in prompt
+        assert quiz.recent_openings("c") == ["Think you know your rock?"]
+        assert "- Think you know your rock?" in quiz._user("Science", "Hard", 3, channel, ([], []), "")
 
     def test_the_prompt_gives_no_opening_to_copy(self):
         system = quiz.SYSTEM.lower()
         for stock in ("test your", "how well do you", "think you know", "only 1%"):
             assert stock not in system
+
+
+class TestLevelsStayBehindTheScenes:
+    """Regression: "Impossible General Knowledge: Level 9" as a title."""
+
+    def test_the_level_is_taken_out_of_titles_and_descriptions(self):
+        assert quiz.no_level("Impossible General Knowledge: Level 9") == "Impossible General Knowledge"
+        assert quiz.no_level("General Knowledge Level 9: The Brutal Round") == "General Knowledge: The Brutal Round"
+        assert quiz.no_level("Science (level 7.5)") == "Science"
+        assert quiz.no_level("Top-level trivia") == "Top-level trivia"
+        channel = ChannelConfig(key="c", format="quiz")
+        channel.quiz.questions = 3
+        script = quiz.to_script({**TestHook()._round(), "title_options": ["Hard Music: Level 5.5"],
+                                 "description_body": "A level 5.5 round of music."},
+                                channel, "Music", "Hard")
+        assert script.title_options == ["Hard Music"] and "5.5" not in script.description_body
+
+    def test_the_writer_is_told_the_number_is_private(self):
+        assert "never write it anywhere" in " ".join(quiz.SYSTEM.lower().split())
+
+
+def test_a_shorts_number_is_the_next_not_yet_made(tmp_path, monkeypatch):
+    """#1 published, #2 and #3 in review: the next is #4. Discard #3 and it's 3 again."""
+    import json
+    from core import gallery
+    monkeypatch.setattr("core.gallery.PROJECT_ROOT", tmp_path)
+    channel = ChannelConfig(key="c", format="quiz", output_dir="out")
+    folder = tmp_path / "out" / "2026-09-28"
+    folder.mkdir(parents=True)
+    assert quiz.next_number(channel) == 1
+    for n in (1, 2, 3):
+        (folder / f"v{n}.mp4").write_bytes(b"")
+        quiz.round_sidecar(folder / f"v{n}.mp4").write_text(json.dumps({"number": n}))
+    assert quiz.next_number(channel) == 4
+    gallery.set_discarded(folder / "v3.mp4", True, "other")
+    assert quiz.next_number(channel) == 3

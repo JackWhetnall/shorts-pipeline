@@ -33,6 +33,18 @@ def _picture_kinds() -> dict:
     return pictures.KINDS
 
 
+def _in_order(channel, topics: list) -> list:
+    """A quiz category's rounds easiest first, by level: the plan keeps
+    them in the order they were added, so a level added later ("Tricky")
+    listed after Impossible."""
+    if channel.format == "quiz":
+        from pipeline import quiz
+        for topic in topics:
+            topic["subtopics"] = sorted(topic["subtopics"], key=lambda s: (
+                quiz._round_number(s["title"]), quiz.level_of(channel, s.get("angle") or "")))
+    return topics
+
+
 @bp.route("/channels/<key>/curriculum")
 def page(key):
     channel = channel_or_404(key)
@@ -43,7 +55,7 @@ def page(key):
         "curriculum.html",
         key=key, channel=channel,
         progress=curriculum.progress(key),
-        topics=curriculum.topics_with_subtopics(key),
+        topics=_in_order(channel, curriculum.topics_with_subtopics(key)),
         next_topic=curriculum.next_unfilled_topic(key),
         up_next=(curriculum.load(key).get("up_next") or "") if curriculum.exists(key) else "",
         quiz=channel.format == "quiz",

@@ -153,17 +153,10 @@
         </label>
 
         <h3 class="settings-subhead">Long quizzes
-          <button type="button" class="info-dot" data-tooltip="Widescreen, made from rounds that are already shorts: only the host's joining lines are voiced. Each is made in both formats; the other is kept in the gallery as a spare. They always wait in review.">?</button>
+          <button type="button" class="info-dot" data-tooltip="Widescreen, made from approved shorts: only the host's joining lines are voiced. Each is made in both formats, and both wait in review.">?</button>
         </h3>
         <label class="field-row"><span class="field-label">Rounds</span>
           <input type="number" name="quiz_longform_rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}">
-        </label>
-        <label class="field-row"><span class="field-label">Format for review</span>
-          <select name="quiz_longform_variant">
-            <option value="alternate" {{ 'selected' if channel.quiz.longform_variant == 'alternate' }}>Alternate</option>
-            <option value="after_each" {{ 'selected' if channel.quiz.longform_variant == 'after_each' }}>Answers as you go</option>
-            <option value="at_end" {{ 'selected' if channel.quiz.longform_variant == 'at_end' }}>Answers at the end of each round</option>
-          </select>
         </label>
         <label class="field-row"><span class="field-label">Make one automatically every</span>
           <span><input type="number" name="quiz_longform_every_days" min="0" max="60" class="narrow-number"

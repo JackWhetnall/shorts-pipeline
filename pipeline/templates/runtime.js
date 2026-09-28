@@ -6,7 +6,8 @@
  * An element animates by declaring, in data attributes:
  *   data-in="1.8"      when it enters (seconds)
  *   data-dur="0.5"     how long the entrance takes
- *   data-anim="rise"   rise | pop | fade | wipe | draw | grow | slide-left | slide-right | strike
+ *   data-anim="rise"   rise | pop | spring | stamp | fade | wipe | draw | grow | slide-left |
+ *                      slide-right | strike
  *   data-out="6.2"     (optional) when it leaves
  *   data-count-to="4322" with data-count-from / data-prefix / data-suffix /
  *                      data-decimals: a number that counts up as it enters
@@ -26,7 +27,8 @@ window.__start = function () {
     inout: t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
     back: t => { const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
   };
-  const easeFor = anim => (anim === "pop" ? EASE.back : anim === "draw" || anim === "grow" ? EASE.inout : EASE.out);
+  const BOUNCY = new Set(["pop", "spring", "stamp"]);
+  const easeFor = anim => (BOUNCY.has(anim) ? EASE.back : anim === "draw" || anim === "grow" ? EASE.inout : EASE.out);
 
   // Text that must fit its box shrinks until it does, once, before any
   // frame: nothing can overflow or run into its neighbour.

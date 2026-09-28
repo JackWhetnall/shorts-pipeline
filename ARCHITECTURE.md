@@ -386,14 +386,14 @@ category, each using a round once
 **Long quizzes** (`pipeline/longform.py`) are not a pipeline run. A job
 with seed type `longform` recuts finished quiz shorts: each short saves
 where its questions and answers are in its voice track (`_quiz.json`),
-so only the host's joining lines are voiced. Each is made in both formats
-(answers as you go, answers at the end), each timed by its own settings;
-one goes to review and the other is kept as a spare (`spare_of`), out of
-review, the counts and the queue until chosen instead. The long video
-lives under `output/<channel>/longform/` (`gallery.is_long`), publishes in
-its own slots, YouTube only, and always waits for review. See decisions
-[044](docs/decisions/044-long-quizzes.md) and
-[047](docs/decisions/047-formats-apart-and-the-quiz-hook.md).
+so only the host's joining lines are voiced. Only approved shorts are
+rounds. Each is made in both formats (answers as you go, answers at the
+end), each timed by its own settings, and both go to review. The long
+video lives under `output/<channel>/longform/` (`gallery.is_long`),
+publishes in its own slots, YouTube only, and always waits for review.
+See decisions [044](docs/decisions/044-long-quizzes.md),
+[047](docs/decisions/047-formats-apart-and-the-quiz-hook.md) and
+[048](docs/decisions/048-plain-hooks-and-honest-checks.md).
 
 A channel without a syllabus keeps drawing from its flat `topics` list.
 See decision [018](docs/decisions/018-topic-curriculum.md).
@@ -404,9 +404,11 @@ See decision [018](docs/decisions/018-topic-curriculum.md).
 above) or `quiz` (`pipeline/quiz.py`). A quiz branches at two stages
 only:
 
-- `script_gen` writes a round: a hook (with a splash line for the
-  opening card, kept apart from the channel's recent openings), intro,
-  then question and answer segments, then a sign-off. Each question segment carries
+- `script_gen` writes a round: a hook (plain, kept apart from the
+  channel's recent hooks, shown on its own screen word by word with the
+  category stamped under it), intro, then question and answer segments,
+  then a sign-off. Each short is numbered on the board
+  (`quiz.next_number`). Each question segment carries
   `pause_after`, the countdown. The round is fact-checked by an
   independent call that must list every correct answer before judging.
 - `visuals` films one board for the whole video.
