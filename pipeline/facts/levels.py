@@ -7,9 +7,11 @@ a numbered asteroid a few thousand). The number of Wikipedias covering it
 was tried first and misled: bots have written asteroids into dozens of
 them, so "221 Eos orbits the Sun" came out as easy as anything.
 
-A question names one thing and asks for another. How well known the
-thing named is decides most of it; the answer's fame (how many
-Wikipedias cover it, which is fine for answers) the rest. `hardness` is
+A question names one thing and asks for another, and both matter: the
+thing named has to be recognised, and the answer recalled (its fame is
+how many Wikipedias cover it, which is fine for answers). Weighting the
+thing named alone rated "Who discovered Proxima Centauri?" (Robert
+Innes) as easy as anything. `hardness` is
 that, in doublings of obscurity, plus the property's own adjustment (a
 capital is easier than its country's fame suggests; a discoverer harder).
 Anything read fewer than MIN_VIEWS times a year is too obscure to ask
@@ -37,7 +39,7 @@ def hardness(pid: str, subject_views: int, value_sitelinks: int = None) -> float
     named = math.log2(TOP_VIEWS / max(1, subject_views or 1))
     answer = math.log2(TOP_SITELINKS / max(1, value_sitelinks)) if value_sitelinks else named
     prop = PROPERTIES.get(pid)
-    return round(0.75 * named + 0.25 * answer + (prop.adjust if prop else 0.0), 3)
+    return round(0.55 * named + 0.45 * answer + (prop.adjust if prop else 0.0), 3)
 
 
 def levels_for(hardnesses: list) -> list:

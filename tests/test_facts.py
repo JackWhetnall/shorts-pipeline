@@ -341,6 +341,12 @@ class TestRoundsFromFacts:
         assert "Someone Made Up" not in [q["answer"] for q in script.quiz["questions"]]
         assert not script.quiz["unverified"]
 
+    def test_an_abbreviated_answer_is_its_facts(self):
+        from pipeline import quiz
+        assert quiz._close("dart", "double asteroid redirection test")
+        assert quiz._close("cnsa", "china national space administration")
+        assert not quiz._close("nasa", "china national space administration")
+
     def test_a_category_the_store_cant_supply_is_written_as_before(self, monkeypatch):
         from pipeline import quiz
         seen = self._fake_writer(monkeypatch, lambda fid: "x")
@@ -413,6 +419,22 @@ class TestQuality:
         facts += [self._fact(q, "P397", f"Q9{i}", f"Planet {chr(65 + i)}") for i, (q, *_) in enumerate(things[10:])]
         store.replace_facts(conn, [q for q, *_ in things], facts)
         assert "Sun" not in {f["value_label"] for f in pick.pool(conn, "Space", False)}
+
+    def test_a_parent_or_home_town_nobody_has_heard_of_is_not_asked(self, tmp_path):
+        """Regression: "The mother of John Glenn is Clara Sproat" came out easy."""
+        conn = store.connect(tmp_path / "f.db")
+        store.upsert_entities(conn, [("Q1", "John Glenn", "", 90), ("Q2", "Zeus", "", 150)])
+        _read(conn, {"Q1": 500_000, "Q2": 900_000})
+        store.save_category(conn, "People", {"sets": []})
+        store.add_members(conn, "People", ["Q1", "Q2"])
+        store.replace_facts(conn, ["Q1", "Q2"], [self._fact("Q1", "P25", "Q3", "Clara Sproat", sitelinks=1),
+                                                 self._fact("Q2", "P22", "Q4", "Cronus", sitelinks=80)])
+        assert [f["value_label"] for f in pick.pool(conn, "People", False)] == ["Cronus"]
+
+    def test_an_answer_holding_the_name_asked_about_is_not_asked(self):
+        assert pick._contains_name("Fred Wallace Haise Jr.", "Fred Haise")
+        assert pick._contains_name("Cerro Paranal", "Paranal Observatory")
+        assert not pick._contains_name("Farrokh Bulsara", "Freddie Mercury")
 
     def test_numbered_sequences_are_not_asked(self, tmp_path):
         conn = store.connect(tmp_path / "f.db")

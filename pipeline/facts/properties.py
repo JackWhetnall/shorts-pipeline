@@ -19,6 +19,9 @@ Each property says:
 - `reverse`: whether it can also be asked backwards ("Paris is the
   capital of which country?"), which needs the value to belong to one
   subject only;
+- `known_answer`: how many Wikipedias the answer must be in to be worth
+  asking at all: an astronaut's mother or home town is only a question
+  when it's someone or somewhere people have heard of;
 - `plural_ok`: rarely, a property whose several values can be asked as
   one answer. Not used yet; every fact here has one value.
 """
@@ -35,6 +38,7 @@ class Prop:
     kind: str = "item"
     adjust: float = 0.0
     reverse: bool = False
+    known_answer: int = 0
 
 
 PROPERTIES = {
@@ -44,7 +48,7 @@ PROPERTIES = {
     "P37": Prop("official language", "The official language of {s} is {o}.", adjust=-0.3),
     "P30": Prop("continent", "{s} is in {o}.", adjust=-1.0),
     "P17": Prop("country", "{s} is in {o}.", adjust=0.3),
-    "P131": Prop("located in", "{s} is in {o}.", adjust=0.8),
+    "P131": Prop("located in", "{s} is in {o}.", adjust=0.8, known_answer=30),
     "P206": Prop("next to body of water", "{s} lies on {o}.", adjust=1.0),
     "P403": Prop("mouth of the watercourse", "{s} flows into {o}.", adjust=1.2),
     "P610": Prop("highest point", "The highest point of {s} is {o}.", adjust=1.2, reverse=True),
@@ -54,16 +58,14 @@ PROPERTIES = {
     "P474": Prop("calling code", "The international calling code of {s} is {o}.", kind="string",
                  adjust=2.5, reverse=True),
     # People
-    "P19": Prop("place of birth", "{s} was born in {o}.", adjust=1.6),
-    "P20": Prop("place of death", "{s} died in {o}.", adjust=2.0),
+    "P19": Prop("place of birth", "{s} was born in {o}.", adjust=2.5, known_answer=40),
     "P27": Prop("country of citizenship", "{s} was a citizen of {o}.", adjust=0.3),
-    "P569": Prop("year of birth", "{s} was born in {o}.", kind="year", adjust=2.2),
-    "P570": Prop("year of death", "{s} died in {o}.", kind="year", adjust=2.4),
-    "P22": Prop("father", "The father of {s} is {o}.", adjust=1.2),
-    "P25": Prop("mother", "The mother of {s} is {o}.", adjust=1.4),
-    "P1477": Prop("birth name", "{s} was born with the name {o}.", kind="string", adjust=1.8),
+    "P569": Prop("year of birth", "{s} was born in {o}.", kind="year", adjust=3.0),
+    "P22": Prop("father", "The father of {s} is {o}.", adjust=1.2, known_answer=25),
+    "P25": Prop("mother", "The mother of {s} is {o}.", adjust=1.4, known_answer=25),
+    "P1477": Prop("birth name", "{s} was born with the name {o}.", kind="string", adjust=2.5),
     "P641": Prop("sport", "{s} is known for {o}.", adjust=-0.5),
-    "P463": Prop("member of", "{s} was a member of {o}.", adjust=0.5),
+    "P463": Prop("member of", "{s} was a member of {o}.", adjust=0.5, known_answer=60),
     "P1303": Prop("instrument", "{s} played the {o}.", adjust=1.0),
     # Works
     "P50": Prop("author", "{s} was written by {o}.", adjust=0.0),

@@ -38,9 +38,13 @@ def pool(conn, category: str, general: bool) -> list:
     every asteroid "orbits the Sun"); a sequence of numbered things
     ("19 Fortuna came after 18 Melpomene")."""
     rows = [dict(r) for r in store.category_facts(conn, None if general else category)]
-    rows = [r for r in rows if r["subject_label"] and not _QID.match(r["subject_label"])
+    # (A property taken off the list since its facts were stored is out too.)
+    rows = [r for r in rows if r["property"] in PROPERTIES
+            and r["subject_label"] and not _QID.match(r["subject_label"])
             and (r["subject_views"] or 0) >= MIN_VIEWS
+            and (r["value_sitelinks"] or 0) >= _known_answer(r["property"])
             and r["value_label"].lower() not in r["subject_label"].lower()
+            and not _contains_name(r["value_label"], r["subject_label"])
             and not (r["property"] in SEQUENCES
                      and (_NUMBERED.search(r["subject_label"]) or _NUMBERED.search(r["value_label"])))]
     per_property = Counter(r["property"] for r in rows)
@@ -62,6 +66,21 @@ def pool(conn, category: str, general: bool) -> list:
     for r, level in zip(askable, levels_for([r["hardness"] for r in askable])):
         r["level"] = level
     return askable
+
+
+def _contains_name(answer: str, name: str) -> bool:
+    """An answer that shares the thing asked about's name gives itself
+    away: every word of it ("Fred Haise" was born "Fred Wallace Haise
+    Jr."), or any long word ("Paranal Observatory" is on "Cerro
+    Paranal")."""
+    asked = set(re.findall(r"\w+", name.lower()))
+    given = set(re.findall(r"\w+", answer.lower()))
+    return bool(asked) and (asked <= given or any(len(w) >= 5 for w in asked & given))
+
+
+def _known_answer(pid: str) -> int:
+    prop = PROPERTIES.get(pid)
+    return prop.known_answer if prop else 0
 
 
 def for_round(conn, channel_key: str, category: str, level: float, count: int,

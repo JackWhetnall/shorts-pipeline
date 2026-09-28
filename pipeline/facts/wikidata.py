@@ -41,7 +41,8 @@ PREFIX schema: <http://schema.org/>
 API_URL = "https://www.wikidata.org/w/api.php"
 USER_AGENT = ("ShortsPipelineQuizFacts/1.0 (https://github.com/JackWhetnall/shorts-pipeline; "
               "a personal quiz-video tool)")
-PAUSE = 1.0                 # between requests: well inside both services' limits
+PAUSE = 1.0                 # between queries: well inside both query services' limits
+API_PAUSE = 0.2             # between calls to Wikidata's API, which is built for lookups
 TIMEOUT = 70
 ATTEMPTS = 4
 
@@ -52,11 +53,11 @@ class QueryTimeout(ExternalServiceError):
     """The query service gave up on a query: ask for less."""
 
 
-def _wait():
+def _wait(pause: float):
     global _last
     gap = time.time() - _last
-    if gap < PAUSE:
-        time.sleep(PAUSE - gap)
+    if gap < pause:
+        time.sleep(pause - gap)
     _last = time.time()
 
 
@@ -65,7 +66,7 @@ def _get(url: str, params: dict) -> dict:
     # caller moves on rather than waiting for it.
     attempts = 1 if url == QLEVER_URL else ATTEMPTS
     for attempt in range(attempts):
-        _wait()
+        _wait(API_PAUSE if url == API_URL else WIKIPEDIA_PAUSE if url == WIKIPEDIA_API else PAUSE)
         try:
             accept = "application/sparql-results+json" if url in (SPARQL_URL, QLEVER_URL) else "application/json"
             response = requests.get(url, params=params, headers={"User-Agent": USER_AGENT,
@@ -139,8 +140,9 @@ def search(name: str, limit: int = 7) -> list:
             for r in data.get("search", [])]
 
 
-VIEWS_URL = ("https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/"
-             "all-access/user/{title}/monthly/{start}/{end}")
+WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
+WIKIPEDIA_PAUSE = 0.5
+VIEW_DAYS = 60              # the most Wikipedia's API gives; scaled up to a year
 
 
 def enwiki_titles(qids: list) -> dict:
@@ -159,37 +161,31 @@ def enwiki_titles(qids: list) -> dict:
     return out
 
 
-def yearly_views(titles: dict, workers: int = 6) -> dict:
-    """{qid: English Wikipedia views by people (not bots) over the last
-    twelve full months}, for {qid: title}. An article with no record reads
-    as 0. Wikimedia's API takes many requests a second; these go six at a
-    time."""
-    from concurrent.futures import ThreadPoolExecutor
-    from datetime import date
-
-    today = date.today()
-    end = date(today.year, today.month, 1)
-    start = date(end.year - 1, end.month, 1)
-    span = {"start": start.strftime("%Y%m%d00"), "end": end.strftime("%Y%m%d00")}
-
-    def one(item):
-        qid, title = item
-        url = VIEWS_URL.format(title=requests.utils.quote(title.replace(" ", "_"), safe=""), **span)
-        for attempt in range(3):
-            try:
-                response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
-            except requests.RequestException:
-                time.sleep(2 * (attempt + 1))
-                continue
-            if response.status_code == 200:
-                return qid, sum(i.get("views", 0) for i in response.json().get("items", []))
-            if response.status_code == 404:
-                return qid, 0
-            time.sleep(2 * (attempt + 1))
-        return qid, None                      # unknown: measured again next time
-
-    with ThreadPoolExecutor(workers) as pool:
-        return {q: v for q, v in pool.map(one, titles.items()) if v is not None}
+def yearly_views(titles: dict) -> dict:
+    """{qid: English Wikipedia views by people over a year}, for {qid:
+    title}: the last VIEW_DAYS days, scaled up. Fifty articles a request,
+    one request at a time: asked an article at a time, Wikimedia's rate
+    limits turned measuring one category into hours. A title Wikipedia
+    doesn't have reads as 0."""
+    out = {}
+    items = list(titles.items())
+    for start in range(0, len(items), 50):
+        chunk = dict(items[start:start + 50])
+        data = _get(WIKIPEDIA_API, {"action": "query", "prop": "pageviews", "pvipdays": VIEW_DAYS,
+                                    "titles": "|".join(chunk.values()), "redirects": 1,
+                                    "format": "json", "formatversion": 2})
+        query = data.get("query") or {}
+        # Wikipedia answers under the title it normalises or redirects to.
+        final = {t: t for t in chunk.values()}
+        for step in (query.get("normalized") or []) + (query.get("redirects") or []):
+            for asked, now in final.items():
+                if now == step.get("from"):
+                    final[asked] = step.get("to")
+        views = {p.get("title"): sum(v or 0 for v in (p.get("pageviews") or {}).values())
+                 for p in query.get("pages") or []}
+        for qid, title in chunk.items():
+            out[qid] = int(views.get(final[title], 0) * 365 / VIEW_DAYS)
+    return out
 
 
 def labels(qids: list) -> dict:

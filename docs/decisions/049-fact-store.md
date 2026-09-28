@@ -45,9 +45,31 @@ git).
   are dropped.
 
 **Difficulty is measured** (`levels.py`):
-- A fact's hardness comes from its subject's and answer's fame, plus the
-  property's own adjustment (a capital is easier than its country's fame
-  suggests; a discoverer harder).
+- Fame is how often people read about a thing: a year of English
+  Wikipedia views (Wikimedia's pageviews API), measured for each member
+  as it's tagged. Earth gets 3.5 million, Mars 1.3 million, a numbered
+  asteroid a few thousand.
+- Counting Wikipedias was tried first and misled. Bots have written
+  asteroids into dozens of them, so "221 Eos orbits the Sun" came out as
+  easy as anything.
+- A fact's hardness is mostly the fame of the thing its question names,
+  partly its answer's, plus the property's own adjustment (a capital is
+  easier than its country's fame suggests; a discoverer harder). It's
+  worked out when a round is picked, from the latest views.
+- **Not asked at all:**
+  - things read fewer than about 15,000 times a year (their facts aren't
+    even fetched);
+  - an answer most of a property's facts in the category share, which
+    gives itself away (nearly every asteroid orbits the Sun);
+  - sequences of numbered things ("19 Fortuna came after 18
+    Melpomene");
+  - an answer that shares the name asked about ("Paranal Observatory" is
+    on "Cerro Paranal");
+  - a parent, home town or membership nobody has heard of (these
+    properties need a well-known answer), and anything about deaths.
+- Views are fetched fifty articles at a time from Wikipedia's API.
+  Asking an article at a time ran into Wikimedia's rate limits, and one
+  category's measuring took hours.
 - Levels are ranks within a category, spread over the 1-10 scale. In
   Harry Potter, Easy is what every fan knows; general knowledge ranks
   every fact together.
@@ -122,6 +144,29 @@ Nothing is fetched while a round waits.
 quiz channel hasn't used, and where it's short. It can add a category,
 go deeper and stock everything now. `tools/manage_facts.py` does the same
 from the command line.
+
+## Measured
+
+Space, first page (from a trial store):
+- 12 sets and 7,165 things tagged; facts fetched in about 7 minutes.
+- Views measured in 2 minutes.
+- 501 things are read enough to ask about, giving about 620 askable
+  facts.
+- A real Medium round was built 10 of 10 on stored facts and passed the
+  fact check, for 4 cents (writing and checking).
+- The fact check caught one incomplete Wikidata fact: a moon credited to
+  one of its two discoverers.
+
+## Known limit
+
+Wikidata holds who, where and when (discoverers, makers, capitals,
+authors, dates), not superlatives or descriptions ("the largest planet",
+"the planet with the Great Red Spot"). So a category's easiest stored
+facts can be harder than a pub's easy questions: Space's Medium round
+asked where astronauts were born. Levels are ranks within a category, so
+this eases as a category deepens, but the easy end of fact-poor
+categories may want the writer's own well-known questions mixed in (still
+fact-checked and kept from repeating). Not done; for the owner to decide.
 
 ## Tried and rejected
 

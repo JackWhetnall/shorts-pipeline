@@ -961,10 +961,15 @@ def _grounded(questions: list, facts: list, verdicts: list, taken: set) -> None:
         q["fact_id"] = fact["id"]
 
 
-def _close(a: str, b: str) -> bool:
+def _close(said: str, fact: str) -> bool:
+    """The same answer: near enough the same words, or the fact's name
+    abbreviated ("DART" for Double Asteroid Redirection Test)."""
     import difflib
-    return bool(a and b) and (a == b or a in b or b in a
-                              or difflib.SequenceMatcher(None, a, b).ratio() >= 0.8)
+    if not (said and fact):
+        return False
+    initials = "".join(w[0] for w in fact.split() if w not in ("of", "the", "and", "for"))
+    return (said == fact or said in fact or fact in said or said.replace(" ", "") == initials
+            or difflib.SequenceMatcher(None, said, fact).ratio() >= 0.8)
 
 
 def _write_checked(channel, category: str, difficulty: str, extra: str = "",
@@ -1012,7 +1017,9 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "",
                    f"will be discarded. These stay in the round, so no question may "
                    f"share an answer or a subject with them:\n{_listed(kept)}\n\n"
                    f"These didn't work and mustn't come back:\n{_listed(failed)}")
-        more = (_facts(channel, category, difficulty, len(bad) + FACT_SPARE, offered | taken)
+        # The writer returns a whole round each time, so it needs a round's
+        # worth of facts; only the replacements are kept.
+        more = (_facts(channel, category, difficulty, count + FACT_SPARE, offered | taken)
                 if facts else [])
         offered |= {f["id"] for f in more}
         rewritten = _write(category, difficulty, channel,
