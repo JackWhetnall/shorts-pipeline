@@ -123,17 +123,20 @@ def load_publish_info(video_path: Path) -> dict:
         "queued_at": data.get("queued_at"),
         "approved_by": data.get("approved_by"),
         "handoff": data.get("handoff") or {},
+        "spare_of": data.get("spare_of") or "",
     }
 
 
 # Publishing-queue state (core.publish_queue), kept in the same sidecar:
 # when the video was approved to go out and by whom ("you" or "checks"),
-# and which platforms it has been handed off to for posting by hand.
-QUEUE_FIELDS = ("queued_at", "approved_by", "handoff")
+# which platforms it has been handed off to for posting by hand, and, for
+# a spare, the video it's the other version of (a long quiz is made in
+# both formats and only one goes to review; decision 047).
+QUEUE_FIELDS = ("queued_at", "approved_by", "handoff", "spare_of")
 
 
 def _queue_blank() -> dict:
-    return {"queued_at": None, "approved_by": None, "handoff": {}}
+    return {"queued_at": None, "approved_by": None, "handoff": {}, "spare_of": ""}
 
 
 def _queue_state(info: dict) -> dict:
@@ -153,6 +156,39 @@ def is_queued(info: dict) -> bool:
 
 def is_published(info: dict) -> bool:
     return any(info.get(f) for f in PUBLISH_LINK_FIELDS)
+
+
+def is_spare(info: dict) -> bool:
+    """The other version of a video, kept but not in line to go out: it
+    never reaches review or the counts until it's chosen instead."""
+    return bool(info.get("spare_of")) and not is_out(info)
+
+
+def set_spare(video_path: Path, of: Path) -> None:
+    """Keep `video_path` as the spare version of `of`."""
+    save_queue_state(video_path, spare_of=Path(of).name, queued_at=None, approved_by=None)
+
+
+def use_spare(video_path: Path) -> None:
+    """Choose a spare instead of the version that went to review: it goes
+    to review, and that one becomes its spare, unless it's already gone
+    out or been approved (then both stand)."""
+    info = load_publish_info(video_path)
+    if not info["spare_of"]:
+        return
+    other = Path(video_path).with_name(info["spare_of"])
+    save_queue_state(video_path, spare_of="")
+    if other.exists():
+        theirs = load_publish_info(other)
+        if not (is_out(theirs) or is_queued(theirs) or theirs["discarded"]):
+            set_spare(other, video_path)
+
+
+def spares_of(video_path: Path) -> list:
+    """The spare versions kept beside a video."""
+    video_path = Path(video_path)
+    return [p for p in video_path.parent.glob("*.mp4") if p != video_path
+            and load_publish_info(p)["spare_of"] == video_path.name]
 
 
 def _write_publish(video_path: Path, data: dict) -> None:
@@ -270,6 +306,12 @@ def set_discarded(video_path: Path, discarded: bool, reason: str = None) -> None
         info["discard_reason"] = None
         info["discarded_at"] = None
     _write_publish(video_path, info)
+    # Its spare goes with it: a spare of a discarded video would otherwise
+    # hold its rounds' questions for a video that will never go out.
+    if discarded:
+        for spare in spares_of(video_path):
+            if not load_publish_info(spare)["discarded"]:
+                set_discarded(spare, True, info["discard_reason"])
 
     # Feed the judgement back. Only for footage rejections — discarding a
     # video for a weak script says nothing about the clips in it — and
@@ -423,8 +465,10 @@ def video_state_counts(output_dir: str, long: bool = None) -> dict:
 
     total = discarded = published = queued = 0
     for path in videos_in(directory, long=long):
-        total += 1
         info = load_publish_info(path)
+        if is_spare(info):
+            continue
+        total += 1
         if info["discarded"]:
             discarded += 1
         elif is_out(info):
@@ -466,8 +510,9 @@ def video_title(filename: str) -> str:
     return Path(filename).stem.replace("_", " ").replace("-", " ")
 
 
-def list_videos(output_dir: str) -> list:
-    """Newest first, with everything a listing page needs."""
+def list_videos(output_dir: str, spares: bool = False) -> list:
+    """Newest first, with everything a listing page needs. Spare versions
+    only when asked for: nothing but the gallery should see them."""
     directory = resolve_output_dir(output_dir)
     if not directory.exists():
         return []
@@ -476,6 +521,8 @@ def list_videos(output_dir: str) -> list:
     for path in videos_in(directory):
         meta_path = _sidecar(path, "meta.txt")
         links = load_publish_info(path)
+        if is_spare(links) and not spares:
+            continue
         videos.append({
             "relpath": str(path.relative_to(OUTPUT_DIR)).replace("\\", "/"),
             "name": path.name,
@@ -489,6 +536,7 @@ def list_videos(output_dir: str) -> list:
             "out": is_out(links),
             "queued": is_queued(links),
             "discarded": links["discarded"],
+            "spare": is_spare(links),
             "cost": load_cost_summary(path),
             "report": load_report(path),
             "stats": load_stats(path),

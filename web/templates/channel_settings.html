@@ -32,30 +32,4 @@
 </p>
 {% endif %}
 {% include "_channel_form.html" %}
-
-<div class="card danger-zone">
-  <h2>Danger zone</h2>
-  {% if channel.archived %}
-  <p class="meta">This channel is archived &mdash; it won't show as
-    Live/Setting up/Future on the home page.</p>
-  <form method="post" action="{{ url_for('channels.unarchive', key=channel.key) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="btn-ghost">Unarchive channel</button>
-  </form>
-  {% else %}
-  <p class="meta">Archiving hides this channel from the normal sections
-    without deleting anything &mdash; use it for a channel that's stopped
-    getting new videos.</p>
-  <form method="post" action="{{ url_for('channels.archive', key=channel.key) }}"
-        onsubmit="return confirm('Archive this channel? You can unarchive it from here again any time.');">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="btn-ghost">Archive channel</button>
-  </form>
-  {% endif %}
-  <p class="meta danger-zone-delete-note">Deleting is permanent &mdash;
-    all generated videos and logo/merch assets are removed (a backup is
-    saved first, but restoring from it is a manual process this app
-    doesn't automate).</p>
-  <a class="btn btn-danger" href="{{ url_for('channels.delete_confirm', key=channel.key) }}">Delete channel&hellip;</a>
-</div>
 {% endblock %}

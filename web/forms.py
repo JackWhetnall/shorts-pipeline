@@ -82,6 +82,30 @@ def _maybe_int(form, name, current):
     return current if value is None else int(value)
 
 
+def quiz_levels_from(form) -> list:
+    """A quiz's difficulty levels from the settings rows, easiest first:
+    ["Hard (5.5)", ...]. Each row is a name and a level on the 1-10 scale;
+    a row with no level gets one between its neighbours (pipeline.quiz.
+    levels). Ordered by level, so a row added at the bottom slots in."""
+    getlist = getattr(form, "getlist", None)
+    if getlist is None:
+        return []
+    rows = []
+    for position, (name, level) in enumerate(zip(getlist("quiz_level_name"), getlist("quiz_level_value"))):
+        name = " ".join((name or "").split())[:30]
+        if not name or name.lower() in {r[1].lower() for r in rows}:
+            continue
+        try:
+            value = max(1.0, min(10.0, round(float(level) * 2) / 2))
+        except (TypeError, ValueError):
+            value = None
+        rows.append((position, name, value))
+    ordered = sorted(rows, key=lambda r: (r[2] if r[2] is not None else 99, r[0]))
+    if any(r[2] is None for r in rows):
+        ordered = rows                      # can't place unnumbered ones; keep the order given
+    return [f"{name} ({value:g})" if value is not None else name for _, name, value in ordered]
+
+
 def _apply_publishing_plan(plan, form) -> None:
     """When the channel publishes and how many videos it keeps ready
     (core.publish_queue, core.scheduler). Times that aren't HH:MM are
@@ -169,14 +193,16 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             quiz.longform_series_name = form.get("quiz_longform_series_name").strip()[:40]
         if "quiz_category_present" in form:
             quiz.longform_category_when_ready = bool(form.get("quiz_longform_category_when_ready"))
-        quiz.longform_clock_seconds = min(30.0, max(3.0, _maybe_float(
-            form, "quiz_longform_clock_seconds", quiz.longform_clock_seconds)))
-        quiz.longform_finish_seconds = min(120.0, max(0.0, _maybe_float(
-            form, "quiz_longform_finish_seconds", quiz.longform_finish_seconds)))
-        levels = [line.strip() for line in (form.get("quiz_difficulties") or "").splitlines()
-                  if line.strip()]
+        for name, low, high in (("after_each_clock_seconds", 3.0, 30.0),
+                                ("after_each_answer_pause", 0.0, 5.0),
+                                ("at_end_clock_seconds", 3.0, 30.0),
+                                ("at_end_finish_seconds", 0.0, 120.0),
+                                ("at_end_reveal_gap", 0.0, 5.0),
+                                ("at_end_answer_pause", 0.0, 5.0)):
+            setattr(quiz, name, min(high, max(low, _maybe_float(form, f"quiz_{name}", getattr(quiz, name)))))
+        levels = quiz_levels_from(form)
         if levels:
-            quiz.difficulties = list(dict.fromkeys(levels))
+            quiz.difficulties = levels
 
     if "artwork_present" in form:
         channel.artwork.mode = "allowed" if form.get("artwork_allowed") else "off"
@@ -188,6 +214,11 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             form, "sound_music_level", channel.sound.music_level)))
         channel.sound.effects_level = min(0.8, max(0.0, _maybe_float(
             form, "sound_effects_level", channel.sound.effects_level)))
+        from pipeline.sound import CLOCK_LABELS
+        if form.get("sound_clock_sound") in CLOCK_LABELS:
+            channel.sound.clock_sound = form.get("sound_clock_sound")
+        channel.sound.clock_level = min(2.0, max(0.0, _maybe_float(
+            form, "sound_clock_level", channel.sound.clock_level)))
 
     if "continuity_present" in form:
         channel.build_on_previous = bool(form.get("build_on_previous"))

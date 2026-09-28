@@ -146,7 +146,8 @@ class TestTimeline:
         assert second - rnd["questions"][0]["countdown"][1] == pytest.approx(longform.CLOCK_TAIL, abs=0.002)
         for q in rnd["questions"]:
             assert q["reask"][0] > rnd["answers_intro"][1]
-            assert q["reveal"][0] == pytest.approx(q["reask"][1] + longform.REASK_GAP, abs=0.002)
+            assert q["reveal"][0] == pytest.approx(q["reask"][1] + _channel().quiz.at_end_reveal_gap,
+                                                   abs=0.002)
         labels = [label for _, label in longform.chapters(timeline)]
         assert labels == ["Welcome", "Round 1: Science", "Round 1 answers", "Round 2: Space",
                           "Round 2 answers", "Scores"]
@@ -277,10 +278,14 @@ def test_the_settings_form_sets_the_long_quiz_and_its_slots():
     apply_channel_form(channel, MultiDict([
         ("quiz_present", "1"), ("format", "quiz"), ("quiz_longform_rounds", "8"),
         ("quiz_longform_variant", "at_end"), ("quiz_longform_every_days", "7"),
+        ("quiz_after_each_clock_seconds", "7"), ("quiz_at_end_clock_seconds", "12"),
+        ("quiz_at_end_reveal_gap", "0.6"), ("quiz_at_end_answer_pause", "99"),
         ("publishing_plan_present", "1"), ("long_slots", "20:30, 9:00, noon"),
         ("long_weekdays", "5"), ("long_weekdays", "6")]))
     assert (channel.quiz.longform_rounds, channel.quiz.longform_variant,
             channel.quiz.longform_every_days) == (8, "at_end", 7)
+    assert (channel.quiz.after_each_clock_seconds, channel.quiz.at_end_clock_seconds,
+            channel.quiz.at_end_reveal_gap, channel.quiz.at_end_answer_pause) == (7, 12, 0.6, 5)
     assert channel.publishing.long_slots == ["09:00", "20:30"]
     assert channel.publishing.long_weekdays == [5, 6]
 
@@ -303,7 +308,7 @@ def test_the_host_is_never_told_to_explain_the_format():
     original = longform.call_json
     longform.call_json = call_json
     try:
-        links = longform.write_links(_channel(), monkey_rounds, "at_end", "Hard")
+        links = longform.write_links(_channel(), monkey_rounds, "Hard")
     finally:
         longform.call_json = original
     assert "read again" not in seen["user"] and "re-read" not in seen["user"]
@@ -415,3 +420,125 @@ def test_the_description_lists_the_answers_with_when_they_come():
     assert "Round 2: Space (Hard)" in text and "1. A0 (" in text
     assert longform.titled("Quiz Night #3", "Sixty questions") == "Quiz Night #3: Sixty questions"
     assert longform.titled("Quiz Night #3", "Quiz Night #3: Sixty") == "Quiz Night #3: Sixty"
+
+
+class TestFormatsTimedApart:
+    """The owner: the gap between question and answer "shouldn't affect both
+    shorts and long videos equally"; each format has its own settings."""
+
+    def test_each_long_format_uses_its_own_clock_and_pauses(self):
+        channel = _channel()
+        channel.quiz.countdown_seconds = 3          # the shorts' own, untouched
+        channel.quiz.after_each_clock_seconds, channel.quiz.after_each_answer_pause = 7, 0.5
+        channel.quiz.at_end_clock_seconds, channel.quiz.at_end_answer_pause = 12, 2.0
+        channel.quiz.at_end_finish_seconds, channel.quiz.at_end_reveal_gap = 20, 0.6
+        rows = [{"category": "Science", "difficulty": "Hard"}]
+        side = [{"questions": [{"question": f"Q{i}?", "answer": f"A{i}", "ask_audio": [i * 10.0, i * 10.0 + 2],
+                                "answer_audio": [i * 10.0 + 6, i * 10.0 + 7]} for i in range(3)]}]
+        audio = [np.ones((40 * FPS, 2), dtype=np.float32)]
+        links = [np.ones((FPS, 2), dtype=np.float32)] * 4
+        _, go = longform.build_timeline(channel, rows, side, audio, links, "after_each", FPS)
+        q0, q1 = go["rounds"][0]["questions"][:2]
+        assert q0["countdown"][1] - q0["countdown"][0] == pytest.approx(7, abs=0.002)
+        assert q1["ask"][0] - q0["reveal"][1] == pytest.approx(0.5, abs=0.002)
+        _, end = longform.build_timeline(channel, rows, side, audio, links, "at_end", FPS)
+        rnd = end["rounds"][0]
+        q0, q1 = rnd["questions"][:2]
+        assert q0["countdown"][1] - q0["countdown"][0] == pytest.approx(12, abs=0.002)
+        assert rnd["finish"]["clock"][1] - rnd["finish"]["clock"][0] == pytest.approx(20, abs=0.002)
+        assert q0["reveal"][0] - q0["reask"][1] == pytest.approx(0.6, abs=0.002)
+        assert q1["reask"][0] - q0["reveal"][1] == pytest.approx(2.0, abs=0.002)
+
+    def test_the_old_shared_settings_carry_over_to_both_formats(self):
+        from core.channels import channel_from_dict
+        channel = channel_from_dict("q", {"format": "quiz", "quiz": {
+            "longform_clock_seconds": 8, "longform_finish_seconds": 20}})
+        assert (channel.quiz.after_each_clock_seconds, channel.quiz.at_end_clock_seconds,
+                channel.quiz.at_end_finish_seconds) == (8, 8, 20)
+
+
+def _make_both(world, monkeypatch, variant="alternate"):
+    """Run make() with the model, the voice and the filming faked."""
+    monkeypatch.setattr("core.gallery.OUTPUT_DIR", world.tmp)
+    _short(world.root, "science_hard", "Science", "Hard")
+    _short(world.root, "space_hard", "Space", "Hard")
+    monkeypatch.setattr(longform, "write_links", lambda *a, **k: {
+        "welcome": "w", "round_intros": ["r"], "finish_lines": ["f1", "f2"],
+        "answers_intros": ["a1", "a2"], "signoff": "s", "title_options": ["t"],
+        "description": "d", "thumbnail_line": "l"})
+    voiced = []
+    monkeypatch.setattr(longform, "voice_links", lambda channel, links, work: voiced.append(1) or
+                        [np.ones((10, 2), dtype=np.float32)] * len(longform.link_lines(links)))
+    monkeypatch.setattr("pipeline.audio.decode_audio_file",
+                        lambda path, fps=0, nchannels=2: np.ones((40, 2), dtype=np.float32))
+
+    def filmed(job, variant, path):
+        path.write_bytes(b"video")
+        quiz.round_sidecar(path).write_text(json.dumps({
+            "longform": True, "variant": variant, "difficulty": job.difficulty, "series": job.series,
+            "episode": job.number, "rounds": [r["stem"] for r in job.rounds]}), encoding="utf-8")
+    monkeypatch.setattr(longform, "_make_variant", filmed)
+    out = world.tmp / "out" / "longform" / "2026-09-28"
+    made = longform.make(world.channel, {"type": "longform", "difficulty": "Hard", "rounds": 2,
+                                         "variant": variant}, out_dir=out)
+    return made.video_path, sorted(out.glob("*.mp4")), voiced
+
+
+class TestBothFormats:
+    """The owner: make both long formats every time, even when only one is
+    published, so whichever does better later is already there."""
+
+    def test_both_are_made_from_one_voicing_and_the_other_kept_as_a_spare(self, world, monkeypatch):
+        reviewed, videos, voiced = _make_both(world, monkeypatch)
+        assert len(videos) == 2 and voiced == [1]
+        spare = next(v for v in videos if v != reviewed)
+        # Episode 1 of "alternate" goes to review answering as it goes.
+        assert "answers_at_end" in spare.name and "answers_at_end" not in reviewed.name
+        assert gallery.load_publish_info(spare)["spare_of"] == reviewed.name
+        assert not gallery.is_spare(gallery.load_publish_info(reviewed))
+        # A spare is kept out of review, the counts, the queue and the series.
+        listed = [v["name"] for v in gallery.list_videos(world.channel.output_dir)]
+        assert reviewed.name in listed and spare.name not in listed
+        assert spare.name in [v["name"] for v in gallery.list_videos(world.channel.output_dir, spares=True)]
+        assert gallery.video_state_counts(world.channel.output_dir, long=True)["waiting"] == 1
+        from core import publish_queue
+        from core.errors import PipelineError
+        with pytest.raises(PipelineError):
+            publish_queue.enqueue(spare, "you")
+        assert longform.episode(world.channel, longform.MIXED) == 2
+
+    def test_the_choice_decides_which_goes_to_review(self, world, monkeypatch):
+        reviewed, _, _ = _make_both(world, monkeypatch, variant="at_end")
+        assert "answers_at_end" in reviewed.name
+
+    def test_choosing_the_spare_swaps_them_and_discarding_takes_both(self, world, monkeypatch):
+        reviewed, videos, _ = _make_both(world, monkeypatch)
+        spare = next(v for v in videos if v != reviewed)
+        gallery.use_spare(spare)
+        assert not gallery.is_spare(gallery.load_publish_info(spare))
+        assert gallery.load_publish_info(reviewed)["spare_of"] == spare.name
+        gallery.set_discarded(spare, True, "other")
+        assert gallery.load_publish_info(reviewed)["discarded"]
+        # And the rounds are free again.
+        assert len(longform.available_rounds(world.channel)) == 2
+
+
+def test_the_clock_tick_is_a_setting():
+    """The owner found the ticks "a bit harsh"; which tick, how loud, or none."""
+    from pipeline import sound
+    channel = _channel()
+    assert sound.clock_tick(channel.sound)[0] == "soft_tock"
+    channel.sound.clock_sound, channel.sound.clock_level = "wood", 0.5
+    assert sound.clock_tick(channel.sound) == ("tock", 0.4)
+    channel.sound.clock_sound = "off"
+    assert sound.clock_tick(channel.sound) is None
+    _, timeline = _laid_out("after_each")
+    kinds = {k for _, k, _ in longform.cues(timeline, None)}
+    assert kinds == {"chime"}
+    times = {"questions": [{"countdown": 1.0, "reveal": 5.0}]}
+    assert [k for _, k, _ in quiz.timer_cues(times, None)] == ["chime"]
+    assert quiz.timer_cues(times, ("blip", 0.7))[0][1:] == ("blip", 0.7)
+    for name, (kind, _) in sound.CLOCK_SOUNDS.items():
+        wave = sound.synth(kind, 44100)
+        assert np.abs(wave).max() == pytest.approx(1.0)
+    assert len(sound.clock_sample(channel.sound)) > 44100

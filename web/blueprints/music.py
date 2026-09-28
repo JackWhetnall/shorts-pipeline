@@ -6,7 +6,7 @@ decision 039.
 
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, Response, jsonify, request, send_file
 
 from core import drafts, music_library
 from core.channels import save_channel
@@ -76,6 +76,42 @@ def remove(key):
     except (PipelineError, ValueError) as exc:
         return jsonify({"error": getattr(exc, "user_message", "Couldn't remove that.")}), 400
     return jsonify({"tracks": music_library.tracks(key)})
+
+
+@bp.route("/channels/<key>/sound/clock-preview")
+def clock_preview(key):
+    """A few seconds of the quiz clock with the tick and levels given (or
+    the channel's own), as a WAV to play on the settings page."""
+    import io
+    import wave
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from pipeline import sound
+
+    channel = channel_or_404(key)
+
+    def number(name, current, high):
+        try:
+            return min(high, max(0.0, float(request.args.get(name, current))))
+        except ValueError:
+            return current
+
+    settings = SimpleNamespace(
+        clock_sound=request.args.get("sound") if request.args.get("sound") in sound.CLOCK_LABELS
+        else channel.sound.clock_sound,
+        clock_level=number("level", channel.sound.clock_level, 2.0),
+        effects_level=number("effects", channel.sound.effects_level, 0.8))
+    fps = 44100
+    samples = np.clip(sound.clock_sample(settings, fps), -1, 1)
+    out = io.BytesIO()
+    with wave.open(out, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(fps)
+        w.writeframes((samples * 32767).astype("<i2").tobytes())
+    return Response(out.getvalue(), mimetype="audio/wav", headers={"Cache-Control": "no-store"})
 
 
 @bp.route("/channels/<key>/music/file/<path:name>")

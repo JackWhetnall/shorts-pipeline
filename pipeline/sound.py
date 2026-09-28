@@ -75,6 +75,16 @@ def _raw(kind: str, fps: int) -> np.ndarray:
         n = int(0.09 * fps); t = np.arange(n) / fps
         wave = np.sin(2 * np.pi * 950 * t) + 0.5 * np.sin(2 * np.pi * 1900 * t)
         return (wave + 0.3 * rng.standard_normal(n)) * _envelope(n, fps, 0.001, 0.018)
+    if kind == "soft_tock":
+        # A muffled knock: low, no noise, a slower attack than "tock", so
+        # sixty of them in a video don't grate.
+        n = int(0.1 * fps); t = np.arange(n) / fps
+        wave = np.sin(2 * np.pi * 480 * t) + 0.2 * np.sin(2 * np.pi * 960 * t)
+        return wave * _envelope(n, fps, 0.004, 0.022)
+    if kind == "blip":
+        # A soft round beep, like a kitchen timer heard from the next room.
+        n = int(0.12 * fps); t = np.arange(n) / fps
+        return np.sin(2 * np.pi * 740 * t) * _envelope(n, fps, 0.008, 0.035)
     if kind == "chime":
         n = int(0.9 * fps); t = np.arange(n) / fps
         wave = sum(a * np.sin(2 * np.pi * f * t) for f, a in ((1320, 1.0), (1980, 0.4), (2640, 0.2)))
@@ -84,6 +94,35 @@ def _raw(kind: str, fps: int) -> np.ndarray:
         wave = np.sin(2 * np.pi * 2400 * t) + 0.6 * np.sin(2 * np.pi * 3700 * t)
         return wave / 1.6 * _envelope(n, fps, 0.001, 0.05)
     raise ValueError(kind)
+
+
+# A quiz clock's tick, by the name the settings use: {name: (effect, gain)}.
+# "soft" is the default; "wood" was the only one until people found it
+# harsh over a whole round.
+CLOCK_SOUNDS = {"soft": ("soft_tock", 1.0), "wood": ("tock", 0.8), "click": ("tick", 0.6),
+                "blip": ("blip", 0.7)}
+CLOCK_LABELS = {"soft": "Soft knock", "wood": "Wooden tick", "click": "Sharp click",
+                "blip": "Soft beep", "off": "No ticking"}
+
+
+def clock_tick(settings) -> tuple:
+    """(effect, gain) for a quiz clock's tick with these Sound settings, or
+    None when the clock is silent."""
+    choice = CLOCK_SOUNDS.get(getattr(settings, "clock_sound", "soft"))
+    if choice is None:
+        return None
+    return choice[0], choice[1] * max(0.0, float(getattr(settings, "clock_level", 1.0)))
+
+
+def clock_sample(settings, fps: int = 44100) -> np.ndarray:
+    """Four seconds of a clock ticking down and the answer's chime, at
+    these settings' levels: what the settings page plays."""
+    track = np.zeros((int(4.6 * fps), 1), dtype=np.float64)
+    tick = clock_tick(settings)
+    cues = [(0.2 + k, *tick) for k in range(4)] if tick else []
+    cues.append((4.2 - 0.05, "chime", 0.55))
+    add_effects(track, fps, cues, max(float(settings.effects_level), 0.05))
+    return track[:, 0]
 
 
 # Which free-form diagram moves make a sound. Only the moments that land:

@@ -1152,16 +1152,17 @@ def board_html(script: Script, times: dict, style: dict, duration: float) -> str
         "</body></html>")
 
 
-def timer_cues(times: dict) -> list:
+def timer_cues(times: dict, tick=("tock", 0.8)) -> list:
     """[(narration seconds, effect, gain)]: a tick each second of every
     countdown and a chime as the answer lands. Exempt from the sparse
     limits other effects keep to (pipeline.sound): the clock is the
-    point here."""
+    point here. `tick` is (effect, gain), or None for a silent clock."""
     cues = []
     for t in times["questions"]:
         span = max(0.5, t["reveal"] - t["countdown"])
         seconds = max(1, math.ceil(span - 0.05))
-        cues += [(t["countdown"] + k * span / seconds, "tock", 0.8) for k in range(seconds)]
+        if tick:
+            cues += [(t["countdown"] + k * span / seconds, *tick) for k in range(seconds)]
         cues.append((t["reveal"], "chime", 0.55))
     return cues
 
@@ -1185,7 +1186,9 @@ def board(plan):
     clip = Path(plan.out_dir) / f"{plan.stem}_scenes" / "board.mp4"
     log.info(f"[3/5] Filming the quiz board ({duration:.0f} seconds)...")
     render.render_page(page_html, duration, clip, fps=BOARD_FPS)
-    clip.with_suffix(".json").write_text(json.dumps({"timer_cues": timer_cues(times)}),
+    from pipeline import sound
+    tick = sound.clock_tick(plan.channel.sound)
+    clip.with_suffix(".json").write_text(json.dumps({"timer_cues": timer_cues(times, tick)}),
                                          encoding="utf-8")
     plan.scene_clips = [{"first": 0, "last": len(script.segments) - 1, "clip": str(clip),
                          "kind": "quiz"}]

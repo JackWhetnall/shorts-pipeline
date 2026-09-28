@@ -230,12 +230,20 @@ class TestChannel:
         from web.forms import apply_channel_form
         from werkzeug.datastructures import MultiDict
         channel = ChannelConfig(key="c")
-        apply_channel_form(channel, MultiDict({
-            "quiz_present": "1", "format": "quiz", "quiz_questions": "99",
-            "quiz_countdown_seconds": "5", "quiz_difficulties": "Easy\nEasy\nFiendish\n",
-            "style_flags_present": "1"}))
+        apply_channel_form(channel, MultiDict([
+            ("quiz_present", "1"), ("format", "quiz"), ("quiz_questions", "99"),
+            ("quiz_countdown_seconds", "5"), ("style_flags_present", "1"),
+            ("quiz_level_name", "Easy"), ("quiz_level_value", "2"),
+            ("quiz_level_name", "easy"), ("quiz_level_value", "3"),
+            ("quiz_level_name", "Fiendish"), ("quiz_level_value", "8"),
+            ("quiz_level_name", "Hard"), ("quiz_level_value", "5.4"),
+            ("quiz_level_name", ""), ("quiz_level_value", "9")]))
         assert channel.format == "quiz" and channel.quiz.questions == 15
-        assert channel.quiz.countdown_seconds == 5 and channel.quiz.difficulties == ["Easy", "Fiendish"]
+        # Duplicates and blank rows dropped, ordered by level, the number kept.
+        assert channel.quiz.countdown_seconds == 5
+        assert channel.quiz.difficulties == ["Easy (2)", "Hard (5.5)", "Fiendish (8)"]
+        assert quiz.labels(channel) == ["Easy", "Hard", "Fiendish"]
+        assert quiz.level_of(channel, "Hard") == 5.5
         assert channel.style.captions_enabled is False
 
 

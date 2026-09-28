@@ -317,6 +317,10 @@ class Sound(_MappingLike):
     effects: bool = True
     # A third of what it was: the first videos' effects were intrusive.
     effects_level: float = 0.1
+    # A quiz's clock: which tick (pipeline.sound.CLOCK_SOUNDS, or "off"),
+    # and how loud against the other effects (1 is as loud).
+    clock_sound: str = "soft"
+    clock_level: float = 1.0
 
 
 @dataclass
@@ -354,9 +358,10 @@ class Quiz(_MappingLike):
     the channel's format is "quiz".
 
     Each video is one quiz: a category (the topic plan's topic) at one
-    difficulty (its subtopic), `questions` long. Every question is read
-    with its text on screen, then `countdown_seconds` of clock, then the
-    answer, then `answer_pause` before the next.
+    difficulty (its subtopic), `questions` long. In a short, every
+    question is read with its text on screen, then `countdown_seconds` of
+    clock, then the answer, then `answer_pause` before the next. Long
+    quizzes are timed on their own, per format (decision 047).
     """
 
     questions: int = 10
@@ -365,17 +370,25 @@ class Quiz(_MappingLike):
     difficulties: list = field(default_factory=lambda: [
         "Easy", "Medium", "Hard", "Very hard", "Impossible"])
     # Long widescreen quizzes made from finished shorts (pipeline.longform):
-    # how many rounds, which variant ("after_each", "at_end", or
-    # "alternate" between them), and how often the scheduler makes one
-    # (0 is only when you ask).
+    # how many rounds, and how often the scheduler makes one (0 is only
+    # when you ask). Both formats are made from the same rounds every
+    # time; `longform_variant` is the one that goes to review
+    # ("after_each", "at_end", or "alternate" by episode), and the other
+    # is kept as a spare.
     longform_rounds: int = 6
     longform_variant: str = "alternate"
     longform_every_days: int = 0
-    # A long quiz is played along with, not scrolled past: a proper clock
-    # for each question, and time at the end of a round (answers at the
-    # end) to finish off before the answers.
-    longform_clock_seconds: float = 10.0
-    longform_finish_seconds: float = 30.0
+    # Each long format timed on its own. A long quiz is played along with,
+    # not scrolled past: a proper clock for each question. Answers as you
+    # go: question, clock, answer, pause. Answers at the end: a round's
+    # questions with their clocks, time to finish off, then each question
+    # read again, a gap, its answer, a pause.
+    after_each_clock_seconds: float = 10.0
+    after_each_answer_pause: float = 1.2
+    at_end_clock_seconds: float = 10.0
+    at_end_finish_seconds: float = 30.0
+    at_end_reveal_gap: float = 1.1
+    at_end_answer_pause: float = 1.2
     # Long quizzes come in two series, each using a round at most once: a
     # mixed one ("Quiz Night #12": several categories) and one per category
     # ("Science Quiz #3": easiest to hardest), so a round can appear once
@@ -637,7 +650,18 @@ _NESTED = {
 }
 
 
+# Settings that were renamed, as {class: {old name: [new names]}}: an old
+# value carries over to each new one not already set.
+_RENAMED = {
+    "Quiz": {"longform_clock_seconds": ["after_each_clock_seconds", "at_end_clock_seconds"],
+             "longform_finish_seconds": ["at_end_finish_seconds"]},
+}
+
+
 def _build_nested(cls, raw: dict):
+    for old, new in _RENAMED.get(cls.__name__, {}).items():
+        if old in raw:
+            raw = {**{name: raw[old] for name in new}, **raw}
     if cls is EndScreen:
         return EndScreen(
             enabled=bool(raw.get("enabled", False)),

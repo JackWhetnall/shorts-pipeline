@@ -22,19 +22,20 @@ bp = Blueprint("gallery", __name__)
 @bp.route("/channels/<key>/gallery")
 def channel_gallery(key):
     channel = channel_or_404(key)
-    videos = gallery_core.list_videos(channel.output_dir)
+    videos = gallery_core.list_videos(channel.output_dir, spares=True)
     for video in videos:
         if video["published"] and video["links"]["published_at"]:
             video["date_label"] = f"Published {format_iso_date(video['links']['published_at'])}"
         else:
             video["date_label"] = f"Created {format_date(video['mtime'])}"
 
-    active = [v for v in videos if not v["discarded"]]
+    active = [v for v in videos if not v["discarded"] and not v["spare"]]
     discarded = [v for v in videos if v["discarded"]]
     return render_template(
         "gallery.html", key=key, channel=channel,
         unpublished=[v for v in active if not v["published"]],
         published=[v for v in active if v["published"]],
+        spares=[v for v in videos if v["spare"] and not v["discarded"]],
         discarded=discarded,
         # Shown on the delete button, because "delete 19 videos" is a
         # different decision from "reclaim 416 MB" and the second one is
@@ -77,6 +78,7 @@ def video_detail(key, relpath):
         "video_detail.html", key=key, channel=channel, relpath=relpath,
         name=target.name, title=gallery_core.video_title(target.name),
         links=links, published=gallery_core.is_published(links),
+        spare=gallery_core.is_spare(links),
         discarded=links["discarded"], discard_reasons=gallery_core.DISCARD_REASONS,
         created_label=format_date(target.stat().st_mtime),
         published_label=format_iso_date(links["published_at"]),
@@ -84,6 +86,15 @@ def video_detail(key, relpath):
                    if meta_path.exists() else None),
         cost=gallery_core.load_cost_summary(target),
     )
+
+
+@bp.route("/channels/<key>/videos/<path:relpath>/use-spare", methods=["POST"])
+def use_spare(key, relpath):
+    """Send a spare version to review in place of the one that went."""
+    channel_or_404(key)
+    target = video_or_404(relpath)
+    gallery_core.use_spare(target)
+    return redirect(url_for("gallery.video_detail", key=key, relpath=relpath))
 
 
 @bp.route("/channels/<key>/videos/<path:relpath>/discard-one", methods=["POST"])

@@ -14,12 +14,23 @@
       {% if links.youtube_url %}<a class="btn btn-ghost" href="{{ links.youtube_url }}" target="_blank" rel="noopener">YouTube</a>{% endif %}
       {% if links.tiktok_url %}<a class="btn btn-ghost" href="{{ links.tiktok_url }}" target="_blank" rel="noopener">TikTok</a>{% endif %}
       {% if links.instagram_url %}<a class="btn btn-ghost" href="{{ links.instagram_url }}" target="_blank" rel="noopener">Instagram</a>{% endif %}
-      {% if not published and not discarded %}<a class="btn btn-primary" href="#publish-form">Publish video</a>{% endif %}
+      {% if not published and not discarded and not spare %}<a class="btn btn-primary" href="#publish-form">Publish video</a>{% endif %}
       {% if not discarded %}<a class="btn-ghost" href="#discard-form">Discard</a>{% endif %}
     </div>
 
     <p class="meta">Created {{ created_label }}</p>
     {% if published_label %}<p class="meta">Published {{ published_label }}</p>{% endif %}
+
+    {% if spare and not discarded %}
+    <div class="card discarded-banner">
+      <p class="meta">The spare version of <strong>{{ links.spare_of }}</strong>: the same rounds in
+        the other format, kept out of review.</p>
+      <form method="post" action="{{ url_for('gallery.use_spare', key=key, relpath=relpath) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost">Use this one instead</button>
+      </form>
+    </div>
+    {% endif %}
 
     {% if discarded %}
     <div class="card discarded-banner">

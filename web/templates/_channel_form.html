@@ -46,6 +46,10 @@
     <strong>Money</strong>
     <span>Patreon, merch, affiliates, end screen</span>
   </a>
+  <a href="#section-danger" class="settings-nav-link settings-nav-danger">
+    <strong>Danger zone</strong>
+    <span>Archive or delete this channel</span>
+  </a>
 </nav>
 
 <form method="post" class="channel-form settings-body" id="settings-form">
@@ -117,11 +121,28 @@
         </select>
       </label>
       <div data-show-when="format=quiz" class="field-group">
-        <p class="hint">Each video is one category (a topic on the topic plan) at one
-          difficulty (its subtopic). Every answer is fact-checked before it's voiced.</p>
         <label class="field-row"><span class="field-label">Questions a quiz</span>
           <input type="number" name="quiz_questions" min="3" max="15" value="{{ channel.quiz.questions }}">
         </label>
+
+        <h3 class="settings-subhead">Difficulty levels
+          <button type="button" class="info-dot" data-tooltip="On a 1-10 scale: 1 is what almost everyone knows, 10 is for specialists. The writer is held to the number, not the name. A new level is added to every category straight away; categories are on the topic plan.">?</button>
+        </h3>
+        <div class="level-editor" data-level-editor>
+          <div class="level-rows" data-level-rows>
+            {% for label, level in quiz_levels %}
+            <div class="level-row">
+              <input type="text" name="quiz_level_name" value="{{ label }}" aria-label="Level name">
+              <input type="number" name="quiz_level_value" min="1" max="10" step="0.5" value="{{ level }}"
+                     class="narrow-number" aria-label="Level, 1 to 10">
+              <button type="button" class="btn-ghost danger-text" data-level-remove>Remove</button>
+            </div>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn-ghost" data-level-add>Add a level</button>
+        </div>
+
+        <h3 class="settings-subhead">Shorts</h3>
         <label class="field-row"><span class="field-label">Countdown after each question (seconds)</span>
           <input type="number" name="quiz_countdown_seconds" min="1" max="10" step="0.1"
                  value="{{ channel.quiz.countdown_seconds }}">
@@ -130,29 +151,26 @@
           <input type="number" name="quiz_answer_pause" min="0" max="5" step="0.1"
                  value="{{ channel.quiz.answer_pause }}">
         </label>
-        <label>Difficulty levels, easiest first, one per line
-          <textarea name="quiz_difficulties" rows="5">{{ channel.quiz.difficulties|join('
-') }}</textarea>
-        </label>
-        <label class="field-row"><span class="field-label">Long quizzes: rounds</span>
+
+        <h3 class="settings-subhead">Long quizzes
+          <button type="button" class="info-dot" data-tooltip="Widescreen, made from rounds that are already shorts: only the host's joining lines are voiced. Each is made in both formats; the other is kept in the gallery as a spare. They always wait in review.">?</button>
+        </h3>
+        <label class="field-row"><span class="field-label">Rounds</span>
           <input type="number" name="quiz_longform_rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}">
         </label>
-        <label class="field-row"><span class="field-label">Long quizzes: answers</span>
+        <label class="field-row"><span class="field-label">Format for review</span>
           <select name="quiz_longform_variant">
-            <option value="alternate" {{ 'selected' if channel.quiz.longform_variant == 'alternate' }}>Alternate between the two</option>
-            <option value="after_each" {{ 'selected' if channel.quiz.longform_variant == 'after_each' }}>After each question</option>
-            <option value="at_end" {{ 'selected' if channel.quiz.longform_variant == 'at_end' }}>At the end of each round</option>
+            <option value="alternate" {{ 'selected' if channel.quiz.longform_variant == 'alternate' }}>Alternate</option>
+            <option value="after_each" {{ 'selected' if channel.quiz.longform_variant == 'after_each' }}>Answers as you go</option>
+            <option value="at_end" {{ 'selected' if channel.quiz.longform_variant == 'at_end' }}>Answers at the end of each round</option>
           </select>
         </label>
-        <label class="field-row"><span class="field-label">Long quizzes: clock for each question (seconds)</span>
-          <input type="number" name="quiz_longform_clock_seconds" min="3" max="30" step="0.5"
-                 value="{{ channel.quiz.longform_clock_seconds }}">
+        <label class="field-row"><span class="field-label">Make one automatically every</span>
+          <span><input type="number" name="quiz_longform_every_days" min="0" max="60" class="narrow-number"
+                 value="{{ channel.quiz.longform_every_days }}"> days
+            <button type="button" class="info-dot" data-tooltip="0 means only when you ask. Needs the publishing plan on.">?</button></span>
         </label>
-        <label class="field-row"><span class="field-label">Long quizzes: time to finish off a round (seconds, answers at the end)</span>
-          <input type="number" name="quiz_longform_finish_seconds" min="0" max="120" step="5"
-                 value="{{ channel.quiz.longform_finish_seconds }}">
-        </label>
-        <label class="field-row"><span class="field-label">Long quizzes: the mixed series is called</span>
+        <label class="field-row"><span class="field-label">Mixed series name</span>
           <input type="text" name="quiz_longform_series_name" value="{{ channel.quiz.longform_series_name }}"
                  placeholder="Quiz Night">
         </label>
@@ -160,23 +178,37 @@
         <label class="checkbox-label">
           <input type="checkbox" name="quiz_longform_category_when_ready"
                  {% if channel.quiz.longform_category_when_ready %}checked{% endif %}>
-          Make a category's own long quiz (easiest to hardest) as soon as all its levels are finished
+          Make a category's own quiz (easiest to hardest) once all its levels are done
+          <button type="button" class="info-dot" data-tooltip="Two numbered series: the mixed one ({{ channel.quiz.longform_series_name }} #12) and one per category (Science Quiz #3). A round appears at most once in each.">?</button>
         </label>
-        <p class="hint">Two series, each numbered: the mixed one ("{{ channel.quiz.longform_series_name }}
-          #12") and one per category ("Science Quiz #3"). A round appears at most once in each, so it
-          can be in one mixed quiz and one category quiz, never more.</p>
-        <label class="field-row"><span class="field-label">Make a long quiz automatically every</span>
-          <span><input type="number" name="quiz_longform_every_days" min="0" max="60" class="narrow-number"
-                 value="{{ channel.quiz.longform_every_days }}"> days <span class="hint">(0: only when you ask)</span></span>
+
+        <h4 class="settings-subhead">Answers as you go</h4>
+        <label class="field-row"><span class="field-label">Clock for each question (seconds)</span>
+          <input type="number" name="quiz_after_each_clock_seconds" min="3" max="30" step="0.5"
+                 value="{{ channel.quiz.after_each_clock_seconds }}">
         </label>
-        <p class="hint">A long quiz is widescreen, made from rounds that are already shorts (only the
-          host's joining lines are voiced), and waits in review; Publishing sets when they go out.</p>
-        <p class="hint">Each level sits on one fixed 1-10 scale, and the number is what the
-          writer is held to: {% for label, level in quiz_levels %}{{ label }} {{ level }}{{ ', ' if not loop.last }}{% endfor %}.
-          Add a level anywhere and it slots in between its neighbours without moving the others
-          ("Tricky" between Hard and Fiendish is 6.5), or give it a number: <code>Tricky (7)</code>.
-          A new level is added to every category's rounds straight away. Categories are edited on
-          the <a href="{{ url_for('curriculum.page', key=channel.key) }}">topic plan</a>.</p>
+        <label class="field-row"><span class="field-label">Pause after each answer (seconds)</span>
+          <input type="number" name="quiz_after_each_answer_pause" min="0" max="5" step="0.1"
+                 value="{{ channel.quiz.after_each_answer_pause }}">
+        </label>
+
+        <h4 class="settings-subhead">Answers at the end</h4>
+        <label class="field-row"><span class="field-label">Clock for each question (seconds)</span>
+          <input type="number" name="quiz_at_end_clock_seconds" min="3" max="30" step="0.5"
+                 value="{{ channel.quiz.at_end_clock_seconds }}">
+        </label>
+        <label class="field-row"><span class="field-label">Time to finish off a round (seconds)</span>
+          <input type="number" name="quiz_at_end_finish_seconds" min="0" max="120" step="5"
+                 value="{{ channel.quiz.at_end_finish_seconds }}">
+        </label>
+        <label class="field-row"><span class="field-label">Gap between a question read again and its answer (seconds)</span>
+          <input type="number" name="quiz_at_end_reveal_gap" min="0" max="5" step="0.1"
+                 value="{{ channel.quiz.at_end_reveal_gap }}">
+        </label>
+        <label class="field-row"><span class="field-label">Pause after each answer (seconds)</span>
+          <input type="number" name="quiz_at_end_answer_pause" min="0" max="5" step="0.1"
+                 value="{{ channel.quiz.at_end_answer_pause }}">
+        </label>
       </div>
     </fieldset>
 
@@ -189,9 +221,6 @@
                onchange="showWordsFrom(this.value)">
         <span>
           <strong>Written from scratch, on a topic</strong>
-          <span class="hint">Every word is generated. Explainers, jokes,
-            facts, history &mdash; the format lives in the style prompt
-            above.</span>
         </span>
       </label>
 
@@ -201,8 +230,6 @@
                onchange="showWordsFrom(this.value)">
         <span>
           <strong>Your own list of quotes</strong>
-          <span class="hint">Paste in the passages yourself. Each video
-            reads one aloud and reflects on it.</span>
         </span>
       </label>
 
@@ -212,33 +239,24 @@
                onchange="showWordsFrom(this.value)">
         <span>
           <strong>A built-in library</strong>
-          <span class="hint">The Bible or Shakespeare, fetched for you.
-            Both are public domain, which is why these two are the ones
-            included.</span>
+          <span class="hint">The Bible or Shakespeare</span>
         </span>
       </label>
 
       <div class="words-from-fields" data-words-from="original">
         {% if topic_plan and topic_plan.has_curriculum %}
         <p class="meta">
-          Working through a plan of {{ topic_plan.total }} subtopics
-          &mdash; {{ topic_plan.pending }} still to make.
-          <a href="{{ url_for('curriculum.page', key=channel.key) }}">Open the topic plan &rarr;</a>
+          {{ topic_plan.pending }} of {{ topic_plan.total }} still to make.
+          <a href="{{ url_for('curriculum.page', key=channel.key) }}">Topic plan &rarr;</a>
         </p>
         <label class="field-row">
-          <span class="field-label">{{ 'Categories' if channel.format == 'quiz' else 'Topics' }} in its plan</span>
+          <span class="field-label">{{ 'Categories' if channel.format == 'quiz' else 'Topics' }} in its plan
+            <button type="button" class="info-dot" data-tooltip="Raising it adds empty ones at the end of the topic plan to fill there. Lowering it removes only empty ones.">?</button>
+          </span>
           <input type="number" name="plan_topic_count" min="1" max="200" value="{{ topic_plan.topic_count }}">
-          <span class="hint">Raise it and that many new, empty {{ 'categories' if channel.format == 'quiz' else 'topics' }}
-            appear at the end of the topic plan, to name and fill there (by hand, or written for you).
-            Lower it and only empty ones at the end are removed: nothing with videos or scripts
-            in it is ever touched.</span>
         </label>
         {% else %}
-        <p class="checklist-box">
-          <strong>A topic plan is better than a list.</strong> It designs an
-          ordered syllabus so topics never repeat and never start somewhere
-          obscure. <a href="{{ url_for('curriculum.page', key=channel.key) }}">Build one &rarr;</a>
-        </p>
+        <p class="meta"><a href="{{ url_for('curriculum.page', key=channel.key) }}">Build a topic plan &rarr;</a></p>
         {% endif %}
         <input type="hidden" name="continuity_present" value="1">
         <label class="checkbox-label" data-show-when="format=narrated">
@@ -351,18 +369,11 @@
 
       <div class="words-from-fields" data-words-from="own_quotes">
         <label>Your quotes &mdash; one per line
+          <button type="button" class="info-dot" data-tooltip="Read aloud verbatim, so the rights are yours to check. Attribution after an em dash, a hyphen or a vertical bar.">?</button>
           <textarea name="quotes" rows="10" spellcheck="false"
                     placeholder="The unexamined life is not worth living. &#8212; Socrates&#10;Nothing is at last sacred but the integrity of your own mind. | Emerson">{{ quotes_text }}</textarea>
-          <span class="hint">
-            Attribution after an em dash, a hyphen, or a vertical bar.
-            {% if quote_count %}<strong>{{ quote_count }}</strong> usable at the moment.{% endif %}
-          </span>
+          {% if quote_count %}<span class="hint">{{ quote_count }} usable.</span>{% endif %}
         </label>
-        <p class="checklist-box">
-          <strong>These are read aloud verbatim, so the rights are yours to
-          check.</strong> The built-in libraries are public domain; anything
-          you paste here is your responsibility.
-        </p>
       </div>
 
       <div class="words-from-fields" data-words-from="built_in">
@@ -399,9 +410,8 @@
       {% if voice_name %}<strong>{{ voice_name }}</strong>
       {% elif channel.voice %}<code>{{ channel.voice }}</code>
       {% else %}<strong>no voice chosen</strong>{% endif %}.
-      Previews below are ElevenLabs' own recordings &mdash; free to play.
-      <a href="{{ url_for('voice_lab.page') }}">Voice Lab</a> auditions one
-      on your actual script.
+      <a href="{{ url_for('voice_lab.page') }}">Voice Lab</a>
+      <button type="button" class="info-dot" data-tooltip="The previews below are free to play. Voice Lab tries a voice on your own script.">?</button>
     </p>
 
     {% if voices %}
@@ -424,11 +434,9 @@
 
     <details class="card">
       <summary class="summary-heading">Paste an ID instead</summary>
-      <label>ElevenLabs voice ID
+      <label>ElevenLabs voice ID, for a cloned or custom voice
         <input type="text" name="voice_id_manual" spellcheck="false"
                placeholder="{{ channel.voice or '21m00Tcm4TlvDq8ikWAM' }}">
-        <span class="hint">Only needed for a cloned or custom voice &mdash;
-          the premade ones are all listed above.</span>
       </label>
     </details>
 
@@ -461,10 +469,9 @@
       </label>
 
       <label>How to say words the voice gets wrong, one per line: <code>word = say it like this</code>
+        <button type="button" class="info-dot" data-tooltip="The screen still shows the word as written. Quiz rounds add their own automatically.">?</button>
         <textarea name="pronunciations" rows="3" placeholder="Job = Jobe">{% for word, said in (channel.pronunciations or {}).items() %}{{ word }} = {{ said }}
 {% endfor %}</textarea>
-        <span class="hint">Used whenever this channel speaks; the screen still shows the word as
-          written. Quiz rounds add their own automatically (chemical symbols always).</span>
       </label>
 
       <label class="field-row">
@@ -604,8 +611,6 @@
               <output class="slider-value">{{ background.get('dim', 0) }}</output>
             </span>
           </label>
-          <p class="hint">Dragging shows up live in the title/outro
-            preview &mdash; Apply saves it as the picture itself.</p>
           <div class="actions">
             <button type="button" class="btn-ghost" id="background-apply-btn"
                     onclick="applyBackgroundEdits('{{ channel.key }}')">Apply</button>
@@ -836,10 +841,6 @@
         <span class="preview-spinner" data-preview-spinner="outro" hidden></span>
       </div>
 
-      <p class="hint" data-preview-note="caption">
-        A real frame, over a bright clip from your library &mdash; the
-        hardest case for white captions.
-      </p>
     </div>
     </div>
   </section>
@@ -848,17 +849,8 @@
   <section id="section-graphics" class="settings-section">
     {% if channel.format == 'quiz' %}
     <h2>Board look</h2>
-    <p class="subtitle">
-      A quiz is its board: these colours and fonts, and nothing else. (Footage,
-      graphics and paintings belong to narrated channels; the format is set under
-      <a href="#section-content">Channel</a>.)
-    </p>
     {% else %}
     <h2>Pictures</h2>
-    <p class="subtitle">
-      Each segment gets real footage, a museum painting, an illustration in this
-      channel's look, or a designed motion graphic, timed to the words.
-    </p>
     {% endif %}
     <fieldset>
       <legend>{{ 'The look' if channel.format == 'quiz' else 'Footage or graphics' }}</legend>
@@ -872,12 +864,8 @@
       <label class="checkbox-label">
         <input type="checkbox" name="artwork_allowed" {% if channel.artwork.mode in ('allowed', 'passage') %}checked{% endif %}>
         Use a public-domain painting or engraving where one shows what's being said
+        <button type="button" class="info-dot" data-tooltip="From the Art Institute of Chicago's and the Met's open collections, credited in the description. The slider doesn't limit it.">?</button>
       </label>
-      <p class="hint">For segments about history, myths, scripture, literature or art: the
-        director can choose a real work from the Art Institute of Chicago's and the Met's open
-        collections instead of footage, slowly panned and credited in the description. It's
-        a real picture, like footage, so the slider above doesn't limit it. When nothing fits,
-        the segment keeps its footage. Free apart from a fraction of a cent to pick the work.</p>
     </fieldset>
     {% endif %}
 
@@ -917,6 +905,31 @@
       </label>
     </fieldset>
 
+    {% if channel.format == 'quiz' %}
+    <fieldset data-clock-sound data-preview-url="{{ url_for('music.clock_preview', key=channel.key) }}">
+      <legend>The clock</legend>
+      <label class="field-row"><span class="field-label">Tick</span>
+        <select name="sound_clock_sound">
+          {% for value, label in clock_labels.items() %}
+          <option value="{{ value }}" {{ 'selected' if channel.sound.clock_sound == value }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field-row"><span class="field-label">Tick level</span>
+        <span class="slider-row">
+          <input type="range" name="sound_clock_level" min="0" max="2" step="0.1"
+                 value="{{ channel.sound.clock_level }}"
+                 oninput="this.nextElementSibling.value = Math.round(this.value * 100) + '%'">
+          <output class="slider-value">{{ (channel.sound.clock_level * 100)|round|int }}%</output>
+        </span>
+      </label>
+      <div class="actions">
+        <button type="button" class="btn-ghost" data-clock-listen>Listen</button>
+        <audio data-clock-audio preload="none"></audio>
+      </div>
+    </fieldset>
+    {% endif %}
+
     <fieldset>
       <legend>Tracks</legend>
       {% include "_music_picker.html" %}
@@ -928,13 +941,10 @@
     <h2>Publishing</h2>
 
     <fieldset id="publishing-plan">
-      <legend>When it publishes</legend>
+      <legend>When it publishes
+        <button type="button" class="info-dot" data-tooltip="Approved videos (by you, or by the checks) go out at these times. The app makes new ones in the background to keep this many ready, and stops if too many are waiting for a look.">?</button>
+      </legend>
       <input type="hidden" name="publishing_plan_present" value="1">
-      <p class="hint">
-        Approved videos (by you, or by the checks under automatic publishing below) queue
-        up and go out at these times. The app makes new ones in the background to keep
-        the queue full, and stops if too many are waiting for a look.
-      </p>
       <label class="checkbox-label">
         <input type="checkbox" name="plan_enabled" {% if channel.publishing.enabled %}checked{% endif %}>
         Run this channel on its own: keep videos ready, publish on time
@@ -963,7 +973,9 @@
 
     {% if channel.format == 'quiz' %}
     <fieldset>
-      <legend>Long quizzes</legend>
+      <legend>Long quizzes
+        <button type="button" class="info-dot" data-tooltip="Their own slots, YouTube only.">?</button>
+      </legend>
       <label>Publish at (24-hour; several separated by commas)
         <input type="text" name="long_slots" value="{{ channel.publishing.long_slots|join(', ') }}" placeholder="19:00">
       </label>
@@ -976,13 +988,13 @@
         </label>
         {% endfor %}
       </fieldset>
-      <p class="hint">Their own slots, separate from the shorts', and YouTube only: they never go
-        to TikTok or Instagram. A long video you approve waits for the next of these.</p>
     </fieldset>
     {% endif %}
 
     <fieldset>
-      <legend>TikTok and Instagram</legend>
+      <legend>TikTok and Instagram
+        <button type="button" class="info-dot" data-tooltip="As each video goes out it's listed under To post: one click opens this channel's browser profile at the upload page, with the video ready to drag in and the caption on your clipboard. They only let reviewed apps post for you.">?</button>
+      </legend>
       <label class="checkbox-label">
         <input type="checkbox" name="post_tiktok" {% if channel.publishing.post_tiktok %}checked{% endif %}>
         Also post each one to TikTok from this PC
@@ -999,25 +1011,14 @@
           {% endfor %}
         </select>
       </label>
-      <p class="hint">
-        As each video goes out it's added to <a href="{{ url_for('review.handoff_page') }}">To post</a>,
-        where one click opens this browser profile at the upload page, shows the
-        video in Explorer ready to drag in, and puts the caption on your
-        clipboard. TikTok and Instagram only let reviewed apps post for you, so
-        the drag, paste and Post are yours.
-      </p>
       {% if posting_error %}<p class="error">{{ posting_error }}</p>{% endif %}
       {% if posting_ready %}
       <p class="meta info-banner">A new {{ channel.publishing.posting_browser|capitalize }} window opened
         on TikTok's and Instagram's login pages. Sign in to <strong>this channel's</strong> accounts
         there; the profile remembers them from now on.</p>
       {% endif %}
-      <p class="hint">
-        A profile of its own keeps this channel's TikTok and Instagram signed in
-        without mixing with your personal accounts or another channel's.
-        {% if channel.publishing.posting_profile %}This channel posts from
-        <strong>{{ channel.publishing.posting_browser|capitalize }}: {{ channel.publishing.posting_profile }}</strong>.{% endif %}
-      </p>
+      {% if channel.publishing.posting_profile %}<p class="meta">Posts from
+        <strong>{{ channel.publishing.posting_browser|capitalize }}: {{ channel.publishing.posting_profile }}</strong>.</p>{% endif %}
       {# Submits the whole form to its own endpoint, which saves the other
          changes too: a nested form isn't allowed, and a button that threw
          away unsaved edits would be worse. #}
@@ -1049,11 +1050,9 @@
     <fieldset>
       <legend>Automatic YouTube uploads</legend>
       {% if youtube_upload.connected %}
-        <p class="meta">Connected as <strong>{{ youtube_upload.account or 'a Google account' }}</strong>.
-          The review queue can upload straight to this channel.</p>
+        <p class="meta">Connected as <strong>{{ youtube_upload.account or 'a Google account' }}</strong>.</p>
       {% elif youtube_upload.configured %}
-        <p class="meta">Not connected. Sign in to the Google account that owns
-          this YouTube channel and the review queue gains an upload button.</p>
+        <p class="meta">Not connected.</p>
       {% else %}
         <p class="meta">Uploading needs a Google OAuth client for this
           installation &mdash; one, shared by every channel.</p>
@@ -1080,18 +1079,12 @@
       </label>
       <div data-show-when="autopilot_mode=when_clean" class="field-group">
         <label class="field-row">
-          <span class="field-label">Hold every Nth clean video for me anyway</span>
+          <span class="field-label">Hold every Nth clean video for me anyway
+            <button type="button" class="info-dot" data-tooltip="A spot check on the checks: 5 means one in five still waits for you; 0 means never. Anything flagged always waits.">?</button>
+          </span>
           <input type="number" name="autopilot_spot_check_every" min="0" step="1"
                  value="{{ channel.autopilot.spot_check_every }}">
         </label>
-        <p class="hint">5 means one in five still waits for you, as a spot check on the
-          checks themselves. 0 means never.</p>
-        <p class="hint">
-          Anything flagged always waits: repeated or unscored footage, wording close to an
-          earlier video, or a problem the script or picture check calls blocking. Uploads
-          need this channel connected above. Until your Google project is audited, YouTube
-          makes them private, and you make them public in Studio.
-        </p>
       </div>
     </fieldset>
   </section>
@@ -1102,14 +1095,10 @@
 
     <fieldset>
       <legend>Links</legend>
-      <p class="checklist-box">
-        These are created externally; paste the resulting URL in once you
-        have it. Nothing here is created on your behalf.
-      <ul>
-        <li><a href="https://www.patreon.com/portal/registration/register-become-creator" target="_blank" rel="noopener">Create a Patreon page &rarr;</a></li>
-        <li><a href="https://printify.com/" target="_blank" rel="noopener">Set up a merch store (Printify) &rarr;</a></li>
-        <li><a href="https://affiliate-program.amazon.com/" target="_blank" rel="noopener">Get an Amazon Associates tag &rarr;</a></li>
-      </ul>
+      <p class="meta">
+        <a href="https://www.patreon.com/portal/registration/register-become-creator" target="_blank" rel="noopener">Patreon</a> &middot;
+        <a href="https://printify.com/" target="_blank" rel="noopener">Printify</a> &middot;
+        <a href="https://affiliate-program.amazon.com/" target="_blank" rel="noopener">Amazon Associates</a>
       </p>
 
       <label>Patreon URL
@@ -1167,6 +1156,31 @@
             onclick="return confirmSettingsSave()">Save changes</button>
   </div>
 </form>
+
+{# Outside the settings form: archiving and deleting are actions of their
+   own, not settings to save, and a form can't hold another. #}
+<section id="section-danger" class="settings-section settings-body settings-outside" hidden>
+  <h2>Danger zone</h2>
+  <div class="card danger-zone">
+    {% if channel.archived %}
+    <form method="post" action="{{ url_for('channels.unarchive', key=channel.key) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-ghost">Unarchive channel</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ url_for('channels.archive', key=channel.key) }}"
+          onsubmit="return confirm('Archive this channel? You can unarchive it from here again any time.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-ghost">Archive channel</button>
+      <button type="button" class="info-dot" data-tooltip="Hides it from the home page's sections without deleting anything.">?</button>
+    </form>
+    {% endif %}
+    <p>
+      <a class="btn btn-danger" href="{{ url_for('channels.delete_confirm', key=channel.key) }}">Delete channel&hellip;</a>
+      <button type="button" class="info-dot" data-tooltip="Removes every video and its logo and merch files. A backup is saved first, but restoring it is by hand.">?</button>
+    </p>
+  </div>
+</section>
 
 </div>
 

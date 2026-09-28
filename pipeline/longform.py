@@ -9,11 +9,16 @@ a welcome, a line into each round, "pens down" before each set of answers,
 and a sign-off. That is about a thousand characters for twenty minutes of
 video, where six new rounds would have cost about seven thousand.
 
-Two variants from the same machinery:
+Two variants from the same machinery, each timed by its own settings:
 
 - "after_each": question, clock, answer, as in the shorts;
 - "at_end": a round's ten questions with their clocks, then each question
   read again and its row turning smoothly into the answer as it's given.
+
+Every long quiz is made in both, from the same rounds and the same
+joining lines (voiced once). The channel's choice goes to review; the
+other is kept as a spare, so whichever format does better later is
+already there. See decision 047.
 
 The board is widescreen: the numbers 1-10 down the left, each question
 appearing in its row as it's read, and a large panel on the right with
@@ -50,13 +55,13 @@ W, H = 1920, 1080
 THUMB = (1280, 720)
 FPS = 30
 VARIANTS = ("after_each", "at_end")
+ALTERNATE = "alternate"
 RISING = "rising"
 
 LINK_PAUSE = 0.5          # after a joining line
 ROUND_GAP = 1.0           # between rounds
 CLOCK_LEAD = 1.0          # between a question and its clock starting
 CLOCK_TAIL = 1.0          # between a clock ending and what comes next
-REASK_GAP = 1.1           # at_end: between the question read again and its answer
 TICKS = 5                 # the clock ticks audibly for its last few seconds only
 FINISH_TEXT = ("Finish your answers", "Last chance for this round", "Pens ready: final answers",
                "Fill in the gaps", "Any last answers?")
@@ -105,14 +110,16 @@ def series_of(difficulty: str) -> str:
 
 
 def _long_videos(channel) -> list:
-    """[(video, its sidecar)] for every undiscarded long video."""
+    """[(video, its sidecar)] for every undiscarded long video, not
+    counting spares (the same rounds as the version that went to review)."""
     out = []
     root = _out_root(channel)
     if not root.exists():
         return out
     for video in gallery.videos_in(root, long=True):
         sidecar = quiz.round_sidecar(video)
-        if gallery.load_publish_info(video)["discarded"] or not sidecar.exists():
+        info = gallery.load_publish_info(video)
+        if info["discarded"] or gallery.is_spare(info) or not sidecar.exists():
             continue
         data = json.loads(sidecar.read_text(encoding="utf-8"))
         data.setdefault("series", series_of(data.get("difficulty", "")))
@@ -388,8 +395,11 @@ recorded; you write only the lines between them, in the channel's voice
 (its brief follows). Spoken aloud, so write the way a person talks. Vary
 the phrasing: no two lines should start or end the same way. Never explain
 the format or how it works (how or when answers are given, what is read
-again, how long they have): just host it. No dashes; commas and full
-stops only.
+again, how long they have): just host it. The video is made twice, once
+with each answer straight after its question and once with a round's
+answers at its end, and every line except the finish_lines and
+answers_intros is used in both, so none of the others may depend on when
+the answers come. No dashes; commas and full stops only.
 
 - welcome (under 45 words): welcome them to the quiz, say how many rounds
   and questions and the difficulty, invite them to keep score, and lead
@@ -398,12 +408,12 @@ stops only.
 - round_intros: one for each round after the first (under 25 words): a
   touch of banter, the round number and its category, ending on "question
   one".
-- finish_lines (answers at the end only): one per round (under 15 words):
-  that's the round's questions done, a nudge to get their last answers
-  down. Different every round.
-- answers_intros (answers at the end only): one per round (under 20
-  words): pens down, here come this round's answers, ending on "question
-  one".
+- finish_lines: one per round (under 15 words): that's the round's
+  questions done, a nudge to get their last answers down. Different every
+  round. (Used only where the answers come at the end.)
+- answers_intros: one per round (under 20 words): pens down, here come
+  this round's answers, ending on "question one". (Used only where the
+  answers come at the end.)
 - signoff (under 40 words): the total out of the number of questions, ask
   for their score and a category for next time in the comments, and to
   subscribe for more. Warm, not salesy.
@@ -434,21 +444,18 @@ def difficulty_words(rounds: list, difficulty: str) -> str:
     return rounds[0]["difficulty"]
 
 
-def write_links(channel, rounds: list, variant: str, difficulty: str, label: str = "") -> dict:
+def write_links(channel, rounds: list, difficulty: str, label: str = "") -> dict:
     listed = "\n".join(f"Round {i + 1}: {r['category']} ({r['difficulty']})" for i, r in enumerate(rounds))
     if difficulty.startswith(CATEGORY_PREFIX):
         listed += ("\n\nEvery round is the same category, one difficulty level harder each "
                    "time: name the level in each round's intro rather than the category.")
     per = channel.quiz.questions
-    fmt = ("answers after each question" if variant == "after_each"
-           else "answers at the end of each round")
     user = (f"This is {label}. Every title starts with \"{label}: \"; the welcome may name "
             f"it once, naturally.\n" if label else "")
     user += (f"{len(rounds)} rounds of {per} questions, {len(rounds) * per} in total. Difficulty: "
-            f"{difficulty_words(rounds, difficulty)}. Format: {fmt}.\n\n{listed}\n\n"
-            f"Write {len(rounds) - 1} round_intros"
-            + (f", {len(rounds)} finish_lines and {len(rounds)} answers_intros." if variant == "at_end"
-               else "; finish_lines and answers_intros empty."))
+            f"{difficulty_words(rounds, difficulty)}.\n\n{listed}\n\n"
+            f"Write {len(rounds) - 1} round_intros, {len(rounds)} finish_lines and "
+            f"{len(rounds)} answers_intros.")
     data = call_json([SystemBlock(LINKS_SYSTEM, cacheable=True),
                       SystemBlock(f"The channel's brief for its host:\n\n{channel.style_prompt}")],
                      user, _links_schema(), operation="longform_links",
@@ -456,13 +463,12 @@ def write_links(channel, rounds: list, variant: str, difficulty: str, label: str
     intros = [s.strip() for s in data.get("round_intros") or [] if s.strip()]
     answers = [s.strip() for s in data.get("answers_intros") or [] if s.strip()]
     finishes = [s.strip() for s in data.get("finish_lines") or [] if s.strip()]
-    if len(intros) < len(rounds) - 1 or (variant == "at_end" and (
-            len(answers) < len(rounds) or len(finishes) < len(rounds))):
+    if len(intros) < len(rounds) - 1 or len(answers) < len(rounds) or len(finishes) < len(rounds):
         raise LongformError("links came back short", user_message=(
             "The joining lines came back incomplete. Try again."))
     return {"welcome": data["welcome"].strip(), "round_intros": intros[:len(rounds) - 1],
-            "finish_lines": finishes[:len(rounds)] if variant == "at_end" else [],
-            "answers_intros": answers[:len(rounds)] if variant == "at_end" else [],
+            "finish_lines": finishes[:len(rounds)],
+            "answers_intros": answers[:len(rounds)],
             "signoff": data["signoff"].strip(),
             "title_options": [t.strip() for t in data.get("title_options") or [] if t.strip()],
             "description": (data.get("description") or "").strip(),
@@ -521,10 +527,15 @@ class _Track:
 def build_timeline(channel, rounds: list, sidecars: list, audios: list, links: list,
                    variant: str, fps: int) -> tuple:
     """(track, timeline): the soundtrack laid down in order, and when every
-    question is asked, counted down, re-asked and answered."""
-    clock = float(channel.quiz.longform_clock_seconds)
-    finish = float(channel.quiz.longform_finish_seconds)
-    pause = float(channel.quiz.answer_pause)
+    question is asked, counted down, re-asked and answered. `links` is
+    every joining line voiced (link_lines' order); a variant uses what it
+    needs of them, timed by its own settings."""
+    q = channel.quiz
+    if variant == "at_end":
+        clock, pause = float(q.at_end_clock_seconds), float(q.at_end_answer_pause)
+    else:
+        clock, pause = float(q.after_each_clock_seconds), float(q.after_each_answer_pause)
+    finish, reveal_gap = float(q.at_end_finish_seconds), float(q.at_end_reveal_gap)
     track = _Track(fps)
     n = len(rounds)
     welcome, intros = links[0], links[1:n]
@@ -569,7 +580,7 @@ def build_timeline(channel, rounds: list, sidecars: list, audios: list, links: l
             track.gap(LINK_PAUSE)
             for q, item in zip(side["questions"], info["questions"]):
                 item["reask"] = track.add(cut(audio, q["ask_audio"]))
-                track.gap(REASK_GAP)
+                track.gap(reveal_gap)
                 item["reveal"] = track.add(cut(audio, q["answer_audio"]))
                 track.gap(pause)
         timeline["rounds"].append(info)
@@ -583,23 +594,26 @@ def build_timeline(channel, rounds: list, sidecars: list, audios: list, links: l
     return track, timeline
 
 
-def _ticks(start: float, end: float) -> list:
+def _ticks(start: float, end: float, tick) -> list:
     """A tick each of a clock's last few seconds: ten seconds of ticking,
-    sixty times a video, would wear."""
+    sixty times a video, would wear. `tick` is (effect, gain), or None for
+    a silent clock (pipeline.sound.clock_tick)."""
+    if not tick:
+        return []
     seconds = max(1, math.ceil(end - start - 0.05))
     step = (end - start) / seconds
-    return [(start + k * step, "tock", 0.8) for k in range(max(0, seconds - TICKS), seconds)]
+    return [(start + k * step, *tick) for k in range(max(0, seconds - TICKS), seconds)]
 
 
-def cues(timeline: dict) -> list:
+def cues(timeline: dict, tick=("tock", 0.8)) -> list:
     """Each clock's last seconds ticking, and a chime as each answer lands."""
     out = []
     for info in timeline["rounds"]:
         for item in info["questions"]:
-            out += _ticks(*item["countdown"])
+            out += _ticks(*item["countdown"], tick)
             out.append((item["reveal"][0], "chime", 0.55))
         if info.get("finish"):
-            out += _ticks(*info["finish"]["clock"])
+            out += _ticks(*info["finish"]["clock"], tick)
     return sorted(out)
 
 
@@ -864,14 +878,12 @@ def thumbnail_html(style: dict, headline: str, subtitle: str, line: str, categor
 # --- making one --------------------------------------------------------------------
 
 def plan_request(channel, seed: dict) -> dict:
-    """The request with its choices resolved: difficulty, variant, rounds."""
+    """The request with its choices resolved: difficulty, rounds, and
+    which variant goes to review ("alternate" is settled by the episode
+    number, in make)."""
     variant = seed.get("variant") or channel.quiz.longform_variant
     if variant not in VARIANTS:
-        # "alternate": whichever this channel made less recently.
-        made = sorted(((v.stat().st_mtime, json.loads(quiz.round_sidecar(v).read_text(encoding="utf-8")).get("variant"))
-                       for v in gallery.videos_in(_out_root(channel), long=True)
-                       if quiz.round_sidecar(v).exists()), reverse=True)
-        variant = "at_end" if made and made[0][1] == "after_each" else "after_each"
+        variant = ALTERNATE
     difficulty = seed.get("difficulty") or ""
     default = (len(quiz.labels(channel)) if difficulty.startswith(CATEGORY_PREFIX)
                else channel.quiz.longform_rounds)
@@ -883,18 +895,25 @@ def plan_request(channel, seed: dict) -> dict:
     return {"variant": variant, "rounds": count, "difficulty": difficulty}
 
 
+def reviewed_variant(choice: str, number: int) -> str:
+    """Which variant goes to review: the choice, or for "alternate", odd
+    episodes answers as you go and even ones answers at the end, so each
+    series keeps both in front of an audience."""
+    if choice in VARIANTS:
+        return choice
+    return VARIANTS[0] if number % 2 else VARIANTS[1]
+
+
 def make(channel, seed: dict, out_dir: Path = None):
-    """Make a long quiz. `seed`: {"type": "longform", "difficulty": a label
-    or "rising", "variant", "rounds"}. Returns an object with video_path.
+    """Make a long quiz, in both variants. `seed`: {"type": "longform",
+    "difficulty": a label or "rising", "variant" (the one for review),
+    "rounds"}. Returns an object with video_path (the one for review).
     `out_dir` is for trying one out without it reaching the review queue."""
-    from core import costs
-    from pipeline import sound, tts
-    from pipeline.audio import decode_audio_file
-    from pipeline.scenes import art, render
+    from pipeline.scenes import art
 
     started = time.time()
     request = plan_request(channel, seed)
-    variant, count, difficulty = request["variant"], request["rounds"], request["difficulty"]
+    count, difficulty = request["rounds"], request["difficulty"]
 
     job_context.report_stage(1)
     saved = job_context.load_json_checkpoint("longform") or {}
@@ -914,18 +933,22 @@ def make(channel, seed: dict, out_dir: Path = None):
             f"A long quiz of {count} rounds at {difficulty} needs {count} finished quiz shorts "
             f"in different categories; {len(rounds)} are ready. Make more shorts at that "
             f"difficulty, choose fewer rounds, or choose \"rising\"."))
-    log.info(f"[1/5] Long quiz: {count} rounds, {variant.replace('_', ' ')}, "
-             f"{difficulty}: {', '.join(r['category'] for r in rounds)}")
     sidecars = [load_round(channel, r) for r in rounds]
     single = series == CATEGORY
     number = saved.get("episode") or episode(channel, series, rounds[0]["category"] if single else "")
     label = series_label(channel, series, number, rounds[0]["category"] if single else "")
-    links = saved.get("links") or write_links(channel, rounds, variant, difficulty, label)
+    reviewed = reviewed_variant(request["variant"], number)
+    log.info(f"[1/5] Long quiz: {count} rounds, {difficulty}, both formats "
+             f"({reviewed.replace('_', ' ')} for review): {', '.join(r['category'] for r in rounds)}")
+    links = saved.get("links") or write_links(channel, rounds, difficulty, label)
+    # A checkpoint from before both were made may lack the answers-at-the-end lines.
+    variants = [v for v in VARIANTS if v == "after_each" or links.get("finish_lines")]
+    if reviewed not in variants:
+        reviewed = variants[0]
 
     out_dir = Path(out_dir or _out_root(channel) / gallery.LONGFORM_DIR / date.today().isoformat())
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = saved.get("stem") or unique_stem(out_dir, slugify(
-        f"{label} {'answers at end' if variant == 'at_end' else ''}", fallback="long_quiz"))
+    stem = saved.get("stem") or unique_stem(out_dir, slugify(label, fallback="long_quiz"))
     work = out_dir / f"{stem}_scenes"
     work.mkdir(parents=True, exist_ok=True)
     try:
@@ -948,65 +971,105 @@ def make(channel, seed: dict, out_dir: Path = None):
         except Exception:  # noqa: BLE001 - checkpointing is best-effort
             pass
 
+    from pipeline import tts
+    from pipeline.audio import decode_audio_file
     fps = tts.SAMPLE_RATE
     audios = [decode_audio_file(str(r["video"].with_name(s["audio"])), fps=fps)
               for r, s in zip(rounds, sidecars)]
-    track, timeline = build_timeline(channel, rounds, sidecars, audios, pieces, variant, fps)
-    log.info(f"      {timeline['end'] / 60:.1f} minutes")
+    job = SimpleNamespace(channel=channel, rounds=rounds, sidecars=sidecars, audios=audios,
+                          pieces=pieces, links=links, fps=fps, label=label, number=number,
+                          series=series, single=single, difficulty=difficulty,
+                          style=art.resolve(channel.scenes.art), work=work)
+    made = {}
+    # The one for review first: if the spare then fails, the job still has
+    # its video.
+    for variant in sorted(variants, key=lambda v: v != reviewed):
+        name = stem if variant == "after_each" else f"{stem}_answers_at_end"
+        made[variant] = out_dir / f"{name}.mp4"
+        if made[variant].exists():                  # made before a retry
+            continue
+        _make_variant(job, variant, made[variant])
+    for variant, path in made.items():
+        if variant != reviewed:
+            gallery.set_spare(path, made[reviewed])
+
+    from core import costs
+    job_id = job_context.get_job_id()
+    summary = (costs.summary_for_job(job_id) if job_id
+               else costs.summary_between(started, time.time(), channel.key))
+    gallery.save_cost_summary(made[reviewed], summary)
+    shutil.rmtree(work, ignore_errors=True)
+    log.info(f"Done: {made[reviewed]} ({costs.format_usd(summary['total_usd'])}), "
+             f"with its spare in the other format")
+    return SimpleNamespace(video_path=made[reviewed], warnings=[], similarity=None)
+
+
+def _make_variant(job, variant: str, video_path: Path) -> None:
+    """Film, mix and describe one variant of a long quiz."""
+    from pipeline import sound
+    from pipeline.scenes import render
+
+    channel, rounds, sidecars = job.channel, job.rounds, job.sidecars
+    stem, work = video_path.stem, job.work
+    track, timeline = build_timeline(channel, rounds, sidecars, job.audios, job.pieces,
+                                     variant, job.fps)
+    badge = "Answers at the end" if variant == "at_end" else "Answers as you go"
+    count, per = len(rounds), channel.quiz.questions
+    title_line = f"{count * per} Questions"
+    level_words = difficulty_words(rounds, job.difficulty)
+    subtitle = f"{count} rounds · {level_words[0].upper() + level_words[1:]}"
+    cover = f"{job.label}: {title_line}"
 
     job_context.report_stage(3)
-    style = art.resolve(channel.scenes.art)
-    per = channel.quiz.questions
-    title_line = f"{count * per} Questions"
-    level_words = difficulty_words(rounds, difficulty)
-    subtitle = f"{count} rounds · {level_words[0].upper() + level_words[1:]}"
-    cover = f"{label}: {title_line}"
-    log.info(f"[3/5] Filming the board ({timeline['end'] / 60:.1f} minutes)...")
-    board = render.render_page(board_html(timeline, style, cover, subtitle),
-                               timeline["end"], work / "board.mp4", fps=FPS, size=(W, H))
+    log.info(f"[3/5] {badge}: filming the board ({timeline['end'] / 60:.1f} minutes)...")
+    board = render.render_page(board_html(timeline, job.style, cover, subtitle),
+                               timeline["end"], work / f"board_{variant}.mp4", fps=FPS, size=(W, H))
 
     job_context.report_stage(4)
-    log.info("[4/5] Mixing the sound and assembling...")
+    log.info(f"[4/5] {badge}: mixing the sound and assembling...")
     voice = track.samples()
     audio = voice.copy()
     if channel.sound.effects:
-        audio = sound.add_effects(audio, fps, cues(timeline), channel.sound.effects_level)
+        audio = sound.add_effects(audio, job.fps, cues(timeline, sound.clock_tick(channel.sound)),
+                                  channel.sound.effects_level)
     credits = []
     if channel.sound.music:
-        audio += music_bed(channel, voice, fps, stem, credits)
+        audio += music_bed(channel, voice, job.fps, stem, credits)
     peak = float(np.abs(audio).max() or 1.0)
     if peak > 0.98:
         audio *= 0.98 / peak
-    video_path = out_dir / f"{stem}.mp4"
-    _mux(board, audio, fps, video_path, work)
+    _mux(board, audio, job.fps, video_path, work)
 
     job_context.report_stage(5)
-    log.info("[5/5] Thumbnail, title, chapters...")
-    badge = "Answers at the end" if variant == "at_end" else "Answers as you go"
-    thumb = video_path.with_name(f"{video_path.stem}_thumb.jpg")
+    log.info(f"[5/5] {badge}: thumbnail, title, chapters...")
+    links = job.links
+    thumb = video_path.with_name(f"{stem}_thumb.jpg")
     rising_words = f"{rounds[0]['difficulty']} to {rounds[-1]['difficulty']}"
-    if single:
+    if job.single:
         sub, chips = f"{rounds[0]['category']}: {rising_words}", [r["difficulty"] for r in rounds]
     else:
-        sub = f"{rising_words if difficulty == RISING else difficulty} pub quiz"
+        sub = f"{rising_words if job.difficulty == RISING else job.difficulty} pub quiz"
         chips = [r["category"] for r in rounds]
-    render.page_frame(thumbnail_html(style, title_line, sub, links.get("thumbnail_line", ""),
-                                     chips, f"{label} · {badge}"), 0.0, thumb, size=THUMB)
+    render.page_frame(thumbnail_html(job.style, title_line, sub, links.get("thumbnail_line", ""),
+                                     chips, f"{job.label} · {badge}"), 0.0, thumb, size=THUMB)
     marks = "\n".join(f"{_stamp(t)} {name}" for t, name in chapters(timeline))
     description = f"{links['description']}\n\nChapters\n{marks}\n\n{answers_list(timeline)}"
     credits = sorted({c for s in sidecars for c in s.get("credits") or []}) + credits
     if credits:
         description += "\n\n" + "\n".join(credits)
-    title = titled(label, (links["title_options"] or [title_line])[0])
+    title = titled(job.label, (links["title_options"] or [title_line])[0])
     gallery.save_title_and_description(video_path, title, description)
+    lines = link_lines({**links, "finish_lines": links["finish_lines"] if variant == "at_end" else [],
+                        "answers_intros": links["answers_intros"] if variant == "at_end" else []})
     video_path.with_name(f"{stem}_meta.txt").write_text(
-        "Title options:\n" + "\n".join(f"  - {t}" for t in links["title_options"]) +
+        f"{badge}\n\nTitle options:\n" + "\n".join(f"  - {t}" for t in links["title_options"]) +
         "\n\nRounds:\n" + "\n".join(f"  - {r['category']} ({r['difficulty']}): {r['stem']}" for r in rounds) +
-        "\n\nJoining lines:\n" + "\n".join(f"  - {line}" for line in link_lines(links)) + "\n",
+        "\n\nJoining lines:\n" + "\n".join(f"  - {line}" for line in lines) + "\n",
         encoding="utf-8")
     quiz.round_sidecar(video_path).write_text(json.dumps({
-        "longform": True, "variant": variant, "difficulty": difficulty, "series": series,
-        "episode": number, "label": label, "category": rounds[0]["category"] if single else "",
+        "longform": True, "variant": variant, "difficulty": job.difficulty, "series": job.series,
+        "episode": job.number, "label": job.label,
+        "category": rounds[0]["category"] if job.single else "",
         "rounds": [r["stem"] for r in rounds], "chapters": chapters(timeline)}, indent=1), encoding="utf-8")
     unverified = [f"{r['category']} question {n}" for r, s in zip(rounds, sidecars)
                   for n in s.get("unverified") or []]
@@ -1014,17 +1077,10 @@ def make(channel, seed: dict, out_dir: Path = None):
     if unverified:
         reasons.append("Answers the fact check couldn't confirm: " + ", ".join(unverified) + ".")
     gallery.save_report(video_path, {
-        "longform": True, "variant": variant, "difficulty": difficulty,
+        "longform": True, "variant": variant, "difficulty": job.difficulty,
         "rounds": [r["stem"] for r in rounds], "video_seconds": round(timeline["end"], 1),
         "quiz_unverified": unverified, "title_options": links["title_options"],
         "gate": {"passed": False, "reasons": reasons}})
-    job_id = job_context.get_job_id()
-    summary = (costs.summary_for_job(job_id) if job_id
-               else costs.summary_between(started, time.time(), channel.key))
-    gallery.save_cost_summary(video_path, summary)
-    shutil.rmtree(work, ignore_errors=True)
-    log.info(f"Done: {video_path} ({costs.format_usd(summary['total_usd'])})")
-    return SimpleNamespace(video_path=video_path, warnings=[], similarity=None)
 
 
 def music_bed(channel, voice: np.ndarray, fps: int, stem: str, credits: list) -> np.ndarray:

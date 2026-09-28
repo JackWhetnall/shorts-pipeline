@@ -16,8 +16,7 @@
       <button type="button" class="btn-ghost danger-text" data-music-remove="{{ t.file }}">Remove</button>
     </li>
     {% else %}
-    <li class="hint">None yet. The best few suggestions are fetched automatically at the next
-      video, or choose your own below.</li>
+    <li class="hint">None yet: the best few suggestions are fetched at the next video.</li>
     {% endfor %}
   </ul>
   {% endif %}
@@ -26,7 +25,4 @@
     <span class="hint" data-music-status></span>
   </div>
   <ul class="music-list" data-music-suggestions></ul>
-  <p class="hint">Openly licensed tracks (CC0, public domain, or CC BY credited in the
-    description) that suit this channel, never one another channel uses. Listen before you
-    choose: titles and tags can mislead.</p>
 </div>

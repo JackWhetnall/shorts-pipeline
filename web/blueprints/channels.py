@@ -263,6 +263,7 @@ def _settings_context(channel, error: str = None) -> dict:
         # here rather than scattered over the dashboard.
         "weekday_names": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
         "quiz_levels": [(label, f"{level:g}") for label, level in _quiz_levels(channel)],
+        "clock_labels": _clock_labels(),
         "posting_choices": posting.profile_choices(),
         "posting_error": request.args.get("posting_error"),
         "posting_ready": request.args.get("posting_ready"),
@@ -721,8 +722,7 @@ def api_longform(key):
                                  f"difficulty, or rising."}), 400
     label = request_["difficulty"].replace(longform.CATEGORY_PREFIX, "") + (
         ", easiest to hardest" if request_["difficulty"].startswith(longform.CATEGORY_PREFIX) else "")
-    seed.update(request_, topic=f"Long quiz: {request_['rounds']} rounds, {label}, "
-                                f"{'answers at the end' if request_['variant'] == 'at_end' else 'answers as you go'}")
+    seed.update(request_, topic=f"Long quiz: {request_['rounds']} rounds, {label}")
     return jsonify({"job_id": jobs.start_job(key, seed)})
 
 
@@ -879,6 +879,11 @@ def card_preview_image(key):
         log.exception("Card preview failed")
         return jsonify({"error": "Could not render a preview."}), 500
     return Response(png, mimetype="image/png", headers={"Cache-Control": "no-store"})
+
+
+def _clock_labels() -> dict:
+    from pipeline.sound import CLOCK_LABELS
+    return CLOCK_LABELS
 
 
 def _quiz_levels(channel) -> list:

@@ -36,15 +36,19 @@
         <input type="number" id="longform-rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}" class="narrow-number">
       </label>
       <fieldset>
-        <legend>Answers</legend>
+        <legend>For review
+          <button type="button" class="info-dot" data-tooltip="Both formats are always made from the same rounds. This is the one that goes to review; the other is kept in the gallery as a spare.">?</button>
+        </legend>
+        <label class="checkbox-label"><input type="radio" name="longform-variant" value="alternate"
+          {{ 'checked' if channel.quiz.longform_variant not in ('after_each', 'at_end') }}> Alternate</label>
         <label class="checkbox-label"><input type="radio" name="longform-variant" value="after_each"
-          {{ 'checked' if channel.quiz.longform_variant != 'at_end' }}> After each question, like the shorts</label>
+          {{ 'checked' if channel.quiz.longform_variant == 'after_each' }}> Answers as you go</label>
         <label class="checkbox-label"><input type="radio" name="longform-variant" value="at_end"
-          {{ 'checked' if channel.quiz.longform_variant == 'at_end' }}> At the end of each round: every question again, then its answer</label>
+          {{ 'checked' if channel.quiz.longform_variant == 'at_end' }}> Answers at the end of each round</label>
       </fieldset>
       <div class="actions">
         <button type="button" onclick="startLongform('{{ key }}', this)">Make the long quiz</button>
-        <span class="hint" id="longform-status">Takes about a minute and a half per minute of video to film.</span>
+        <span class="hint" id="longform-status">Films both formats: about three minutes per minute of video.</span>
       </div>
     </div>
   </div>

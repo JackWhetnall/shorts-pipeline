@@ -1885,12 +1885,17 @@ document.addEventListener("DOMContentLoaded", () => {
 // everything, and the confirmation says so.
 
 function showSettingsSection(id) {
-  let matched = false;
+  let matched = false, outside = false;
   for (const section of document.querySelectorAll(".settings-section")) {
     const on = section.id === id;
     section.hidden = !on;
     matched = matched || on;
+    outside = outside || (on && section.classList.contains("settings-outside"));
   }
+  // The danger zone sits outside the settings form, and Save has nothing
+  // to do with it, so the form (and its Save bar) steps aside.
+  const form = document.getElementById("settings-form");
+  if (form && matched) form.hidden = outside;
   for (const link of document.querySelectorAll(".settings-nav-link")) {
     link.classList.toggle("active", link.getAttribute("href") === `#${id}`);
   }
@@ -2922,6 +2927,48 @@ function initMusicPicker(root) {
 }
 
 initEach("[data-music-picker]", initMusicPicker);
+
+// --- Quiz difficulty levels (_channel_form.html) -------------------------
+// A row per level: its name and where it sits on the 1-10 scale. Saving
+// orders them by level (web.forms.quiz_levels_from).
+function initLevelEditor(root) {
+  const rows = root.querySelector("[data-level-rows]");
+  root.querySelector("[data-level-add]").addEventListener("click", () => {
+    const last = rows.querySelector(".level-row:last-child");
+    const row = last.cloneNode(true);
+    const [name, level] = row.querySelectorAll("input");
+    name.value = "";
+    level.value = Math.min(10, Number(last.querySelectorAll("input")[1].value || 5) + 0.5);
+    rows.appendChild(row);
+    name.focus();
+    root.closest("form").dispatchEvent(new Event("input", {bubbles: true}));
+  });
+  rows.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-level-remove]")) return;
+    if (rows.querySelectorAll(".level-row").length <= 1) return;
+    event.target.closest(".level-row").remove();
+    root.closest("form").dispatchEvent(new Event("input", {bubbles: true}));
+  });
+}
+
+initEach("[data-level-editor]", initLevelEditor);
+
+// --- A quiz clock's tick (_channel_form.html) ----------------------------
+// Plays the tick and level as chosen, before saving.
+function initClockSound(root) {
+  const audio = root.querySelector("[data-clock-audio]");
+  root.querySelector("[data-clock-listen]").addEventListener("click", () => {
+    const params = new URLSearchParams({
+      sound: root.querySelector('[name="sound_clock_sound"]').value,
+      level: root.querySelector('[name="sound_clock_level"]').value,
+      effects: document.querySelector('[name="sound_effects_level"]')?.value || "",
+    });
+    audio.src = `${root.dataset.previewUrl}?${params}`;
+    audio.play();
+  });
+}
+
+initEach("[data-clock-sound]", initClockSound);
 
 // --- Topic plan: growing it -------------------------------------------------
 //
