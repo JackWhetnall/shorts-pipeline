@@ -2798,9 +2798,11 @@ function initSceneSettings(root) {
   const fields = [...root.querySelectorAll("[data-scene-field]")];
   let timer = null;
 
-  const showShare = () => { shareLabel.value = sceneShareLabel(share.value); };
-  share.addEventListener("input", showShare);
-  showShare();
+  if (share) {                     // a quiz channel has no graphics slider
+    const showShare = () => { shareLabel.value = sceneShareLabel(share.value); };
+    share.addEventListener("input", showShare);
+    showShare();
+  }
 
   const refresh = () => {
     clearTimeout(timer);
@@ -2836,7 +2838,15 @@ function initSceneSettings(root) {
   }
 }
 
-document.querySelectorAll("[data-scene-settings]").forEach(initSceneSettings);
+// Each part of a page is set up on its own, so one that fails can't leave
+// the rest (the music picker, say) dead.
+function initEach(selector, init) {
+  document.querySelectorAll(selector).forEach(root => {
+    try { init(root); } catch (err) { console.error(`Couldn't set up ${selector}:`, err); }
+  });
+}
+
+initEach("[data-scene-settings]", initSceneSettings);
 
 // --- Music (_music_picker.html) ------------------------------------------
 // Suggestions arrive with players; on a dashboard "Add" downloads a track
@@ -2911,7 +2921,7 @@ function initMusicPicker(root) {
   if (isDraft) root.querySelector("[data-music-find]").click();   // a draft shows its options straight away
 }
 
-document.querySelectorAll("[data-music-picker]").forEach(initMusicPicker);
+initEach("[data-music-picker]", initMusicPicker);
 
 // --- Topic plan: growing it -------------------------------------------------
 //

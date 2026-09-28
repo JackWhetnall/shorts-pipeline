@@ -32,7 +32,7 @@ awake.
 1. If you still start the app by hand in a terminal, close that and
    start it the way it'll start at every login:
    ```
-   schtasks /Run /TN "Shorts Pipeline"
+   schtasks //Run //TN "Shorts Pipeline"
    ```
    Then open <http://127.0.0.1:5000/>. If it doesn't load within about
    ten seconds, send me the last lines of `cache\web.log`.
