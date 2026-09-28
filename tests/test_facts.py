@@ -77,6 +77,9 @@ class FakeWikidata:
 def world(monkeypatch, tmp_path):
     fake = FakeWikidata()
     monkeypatch.setattr(wikidata, "sparql", fake.sparql)
+    # Every entity has an English article read 100,000 times a year.
+    monkeypatch.setattr(wikidata, "enwiki_titles", lambda qids: {q: f"Title {q}" for q in qids})
+    monkeypatch.setattr(wikidata, "yearly_views", lambda titles: {q: 100_000 for q in titles})
     conn = store.connect(tmp_path / "facts.db")
     return fake, conn
 
@@ -177,9 +180,16 @@ class TestMembersLookup:
         assert harvest.members(spec, 0, 10) == [] and spec["method"] == "skipped"
 
 
+def _read(conn, views: dict) -> None:
+    """How many times a year each entity's article is read."""
+    conn.executemany("UPDATE entities SET views = ? WHERE qid = ?", [(v, q) for q, v in views.items()])
+    conn.commit()
+
+
 def _stocked(conn, n=40):
     """A category of n subjects, each with one fact, fame falling."""
     store.upsert_entities(conn, [(f"Q{i}", f"Thing {i}", "", 400 - i * 9) for i in range(n)])
+    _read(conn, {f"Q{i}": 2_000_000 // (i + 1) for i in range(n)})
     store.save_category(conn, "Things", {"sets": []})
     store.add_members(conn, "Things", [f"Q{i}" for i in range(n)])
     store.replace_facts(conn, [f"Q{i}" for i in range(n)], [
@@ -211,6 +221,7 @@ class TestPicking:
     def test_one_subject_and_one_answer_per_round(self, tmp_path):
         conn = store.connect(tmp_path / "f.db")
         store.upsert_entities(conn, [("Q1", "Hamlet", "", 200), ("Q2", "Macbeth", "", 190)])
+        _read(conn, {"Q1": 900_000, "Q2": 800_000})
         store.save_category(conn, "Plays", {"sets": []})
         store.add_members(conn, "Plays", ["Q1", "Q2"])
         make = lambda s, p, v, label: {"subject": s, "property": p, "value": v, "value_label": label,
@@ -226,6 +237,7 @@ class TestPicking:
     def test_a_fact_stated_both_ways_is_one_fact(self, tmp_path):
         conn = store.connect(tmp_path / "f.db")
         store.upsert_entities(conn, [("Q1", "Film One", "", 100), ("Q2", "Film Two", "", 90)])
+        _read(conn, {"Q1": 300_000, "Q2": 200_000})
         make = lambda s, p, v, label: {"subject": s, "property": p, "value": v, "value_label": label,
                                        "value_description": "", "value_sitelinks": 90, "kind": "item",
                                        "values_for_subject": 1, "hardness": 1.0}
@@ -238,6 +250,7 @@ class TestPicking:
     def test_backwards_only_when_nobody_else_has_the_value(self, tmp_path):
         conn = store.connect(tmp_path / "f.db")
         store.upsert_entities(conn, [("Q750", "Bolivia", "", 300)])
+        _read(conn, {"Q750": 1_500_000})
         store.save_category(conn, "Geo", {"sets": []})
         store.add_members(conn, "Geo", ["Q750"])
         make = lambda v, label: {"subject": "Q750", "property": "P36", "value": v, "value_label": label,
@@ -367,3 +380,55 @@ def test_one_category_wikidata_wont_answer_doesnt_stop_the_rest(monkeypatch, tmp
     result = keep.stock(conn, ChannelConfig(key="q", format="quiz"), names=["Science", "Space"])
     assert tried == ["Science", "Space"]
     assert "Stocked Space." in result and "Science" in result
+
+
+class TestQuality:
+    """Regression: the first real harvest of Space rated "221 Eos orbits
+    the Sun" as easy as it gets, and offered "19 Fortuna came after 18
+    Melpomene". Asteroids are in dozens of Wikipedias by bot, but hardly
+    anyone reads about them."""
+
+    def _fact(self, s, p, v, label, sitelinks=300):
+        return {"subject": s, "property": p, "value": v, "value_label": label, "value_description": "",
+                "value_sitelinks": sitelinks, "kind": "item", "values_for_subject": 1, "hardness": 0.0}
+
+    def test_things_hardly_anyone_reads_about_are_not_asked(self, tmp_path):
+        conn = store.connect(tmp_path / "f.db")
+        store.upsert_entities(conn, [("Q1", "Mars", "", 290), ("Q2", "221 Eos", "", 60)])
+        _read(conn, {"Q1": 1_300_000, "Q2": 4_000})
+        store.save_category(conn, "Space", {"sets": []})
+        store.add_members(conn, "Space", ["Q1", "Q2"])
+        store.replace_facts(conn, ["Q1", "Q2"], [self._fact("Q1", "P61", "Q9", "Galileo"),
+                                                 self._fact("Q2", "P61", "Q8", "Johann Palisa")])
+        assert [f["subject_label"] for f in pick.pool(conn, "Space", False)] == ["Mars"]
+
+    def test_an_answer_most_of_the_category_shares_gives_itself_away(self, tmp_path):
+        conn = store.connect(tmp_path / "f.db")
+        things = [(f"Q{i}", f"Body {chr(65 + i)}", "", 100) for i in range(14)]
+        store.upsert_entities(conn, things)
+        _read(conn, {q: 200_000 for q, *_ in things})
+        store.save_category(conn, "Space", {"sets": []})
+        store.add_members(conn, "Space", [q for q, *_ in things])
+        facts = [self._fact(q, "P397", "Q525", "Sun") for q, *_ in things[:10]]
+        facts += [self._fact(q, "P397", f"Q9{i}", f"Planet {chr(65 + i)}") for i, (q, *_) in enumerate(things[10:])]
+        store.replace_facts(conn, [q for q, *_ in things], facts)
+        assert "Sun" not in {f["value_label"] for f in pick.pool(conn, "Space", False)}
+
+    def test_numbered_sequences_are_not_asked(self, tmp_path):
+        conn = store.connect(tmp_path / "f.db")
+        store.upsert_entities(conn, [("Q1", "19 Fortuna", "", 60), ("Q2", "The Two Towers", "", 90)])
+        _read(conn, {"Q1": 50_000, "Q2": 900_000})
+        store.save_category(conn, "Mixed", {"sets": []})
+        store.add_members(conn, "Mixed", ["Q1", "Q2"])
+        store.replace_facts(conn, ["Q1", "Q2"], [self._fact("Q1", "P155", "Q3", "18 Melpomene"),
+                                                 self._fact("Q2", "P155", "Q4", "The Fellowship of the Ring")])
+        assert [f["subject_label"] for f in pick.pool(conn, "Mixed", False)] == ["The Two Towers"]
+
+    def test_facts_are_only_fetched_for_things_people_read_about(self, world, monkeypatch):
+        fake, conn = world
+        _countries(fake)
+        monkeypatch.setattr(wikidata, "yearly_views", lambda titles: {q: (100_000 if q != "Q34" else 50)
+                                                                      for q in titles})
+        store.save_category(conn, "Geography", {"sets": [{"name": "countries", "kind": "class",
+                                                            "classes": ["Q6256"]}]})
+        assert harvest.harvest(conn, "Geography")["fetched"] == 2

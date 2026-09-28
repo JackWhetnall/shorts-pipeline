@@ -232,8 +232,6 @@ def parse_years(rows: list) -> list:
 
 def facts_for(conn, qids: list) -> int:
     """Pull and store the facts of these entities. Returns how many new."""
-    fame = {r["qid"]: r["sitelinks"] for r in conn.execute(
-        f"SELECT qid, sitelinks FROM entities WHERE qid IN ({','.join('?' * len(qids))})", qids)}
     added = 0
     for start in range(0, len(qids), CHUNK):
         chunk = qids[start:start + CHUNK]
@@ -250,11 +248,11 @@ def facts_for(conn, qids: list) -> int:
                         continue
                     half = len(part) // 2
                     parts += [part[:half], part[half:]]
-        added += store.replace_facts(conn, chunk, _as_facts(rows, fame))
+        added += store.replace_facts(conn, chunk, _as_facts(rows))
     return added
 
 
-def _as_facts(rows: list, fame: dict) -> list:
+def _as_facts(rows: list) -> list:
     by_pair = defaultdict(set)
     for subject, pid, value, *_ in rows:
         by_pair[(subject, pid)].add(value)
@@ -266,7 +264,7 @@ def _as_facts(rows: list, fame: dict) -> list:
         out.append({"subject": subject, "property": pid, "value": value, "value_label": label,
                     "value_description": description or "", "value_sitelinks": value_fame,
                     "kind": kind, "values_for_subject": len(by_pair[(subject, pid)]),
-                    "hardness": levels.hardness(pid, fame.get(subject, 1), value_fame)})
+                    "hardness": 0.0})
     return out
 
 
@@ -298,8 +296,13 @@ def harvest(conn, name: str, grow: bool = False, progress=None) -> dict:
         entity_set["fetched"] = done + len(rows)
         tagged += len(rows)
     store.save_category(conn, record["name"], spec)
-    todo = store.unharvested(conn, [r["qid"] for r in conn.execute(
-        "SELECT qid FROM members WHERE category = ?", (record["name"],))])
+    everyone = [r["qid"] for r in conn.execute("SELECT qid FROM members WHERE category = ?",
+                                               (record["name"],))]
+    measure(conn, everyone, say)
+    # Facts only for members people actually read about.
+    todo = [q for q in store.unharvested(conn, everyone)
+            if (conn.execute("SELECT views FROM entities WHERE qid = ?", (q,)).fetchone()[0] or 0)
+            >= levels.MIN_VIEWS]
     added = 0
     for start in range(0, len(todo), CHUNK * 5):
         say(f"{name}: fetching facts, {start + 1}-{min(len(todo), start + CHUNK * 5)} of {len(todo)} entities")
@@ -307,6 +310,17 @@ def harvest(conn, name: str, grow: bool = False, progress=None) -> dict:
     store.mark_harvested(conn, record["name"], record["depth"] + (1 if grow else 0))
     say(f"{name}: {tagged} members tagged, {len(todo)} fetched, {added} new facts")
     return {"members": tagged, "fetched": len(todo), "new_facts": added}
+
+
+def measure(conn, qids: list, say=None) -> None:
+    """Views for entities not measured yet (pipeline.facts.levels)."""
+    todo = store.unmeasured(conn, qids)
+    for start in range(0, len(todo), 500):
+        chunk = todo[start:start + 500]
+        if say:
+            say(f"measuring how often people read about {start + 1}-{start + len(chunk)} of {len(todo)}")
+        titles = wikidata.enwiki_titles(chunk)
+        store.save_views(conn, titles, wikidata.yearly_views(titles), chunk)
 
 
 def refresh(conn, days: int = 180, limit: int = 3000, progress=None) -> int:

@@ -2,13 +2,16 @@
 The fact store: facts/facts.db, one SQLite file.
 
 - `entities`: Wikidata items the store knows (label, description, how
-  many Wikipedias cover it: `sitelinks`, the measure of fame), and when
+  many Wikipedias cover it, its English Wikipedia article and that
+  article's `views` over the last year, the measure of fame), and when
   their facts were last pulled.
 - `facts`: one statement each, subject + property + value, with the
   value's label and fame, how many values the subject has for that
-  property (a question needs exactly one), and `hardness`
-  (pipeline.facts.levels). Never deleted: a fact Wikidata no longer
-  states is `retired`, so what was asked stays on record.
+  property (a question needs exactly one). How hard it is is worked out
+  when a round is picked (pipeline.facts.levels) from the latest views;
+  the `hardness` column is left over from the first stores. Never
+  deleted: a fact Wikidata no longer states is `retired`, so what was
+  asked stays on record.
 - `categories`: a quiz category's definition (`spec`, see
   pipeline.facts.categories) and when it was last harvested.
 - `members`: which entities belong to which category. A fact is in every
@@ -37,7 +40,10 @@ CREATE TABLE IF NOT EXISTS entities (
     label TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     sitelinks INTEGER NOT NULL DEFAULT 0,
-    harvested_at TEXT
+    harvested_at TEXT,
+    enwiki TEXT,
+    views INTEGER,
+    views_at TEXT
 );
 CREATE TABLE IF NOT EXISTS facts (
     id INTEGER PRIMARY KEY,
@@ -100,6 +106,11 @@ def connect(path: Path = None) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)
+    # Columns added since the first stores were made.
+    have = {r[1] for r in conn.execute("PRAGMA table_info(entities)")}
+    for column, kind in (("enwiki", "TEXT"), ("views", "INTEGER"), ("views_at", "TEXT")):
+        if column not in have:
+            conn.execute(f"ALTER TABLE entities ADD COLUMN {column} {kind}")
     return conn
 
 
@@ -112,6 +123,26 @@ def upsert_entities(conn, rows: list) -> None:
             "INSERT INTO entities (qid, label, description, sitelinks) VALUES (?, ?, ?, ?) "
             "ON CONFLICT (qid) DO UPDATE SET label = excluded.label, "
             "description = excluded.description, sitelinks = excluded.sitelinks", rows)
+
+
+def unmeasured(conn, qids: list) -> list:
+    """Which of these entities have no views measured yet."""
+    out = []
+    for start in range(0, len(qids), 500):
+        chunk = qids[start:start + 500]
+        marks = ",".join("?" * len(chunk))
+        out += [r[0] for r in conn.execute(
+            f"SELECT qid FROM entities WHERE qid IN ({marks}) AND views IS NULL", chunk)]
+    return out
+
+
+def save_views(conn, titles: dict, views: dict, qids: list) -> None:
+    """Record views for these entities: 0 for one with no English article."""
+    stamp = now()
+    with _lock, conn:
+        conn.executemany("UPDATE entities SET enwiki = ?, views = ?, views_at = ? WHERE qid = ?",
+                         [(titles.get(q), views.get(q, 0 if q not in titles else None), stamp, q)
+                          for q in qids if q not in titles or q in views])
 
 
 def unharvested(conn, qids: list, older_than: str = None) -> list:
@@ -199,7 +230,8 @@ def category_facts(conn, name: str = None) -> list:
     """Every live fact in a category (every fact at all, for None), with
     its subject's label, description and fame."""
     base = ("SELECT f.*, e.label AS subject_label, e.description AS subject_description, "
-            "e.sitelinks AS subject_sitelinks FROM facts f JOIN entities e ON e.qid = f.subject ")
+            "e.sitelinks AS subject_sitelinks, e.views AS subject_views "
+            "FROM facts f JOIN entities e ON e.qid = f.subject ")
     if name is None:
         return list(conn.execute(base + "WHERE f.retired = 0"))
     return list(conn.execute(base + "JOIN members m ON m.qid = f.subject AND m.category = ? "

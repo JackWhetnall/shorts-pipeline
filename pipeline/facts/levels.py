@@ -1,13 +1,19 @@
 """
 How hard a fact is, measured rather than guessed.
 
-Fame is how many Wikipedias have an article on a thing (Wikidata's
-"sitelinks"): France has over 400, a mid-table footballer 15. A question
-asks the player to get from what it names to its answer, so a fact is as
-well known as the less famous of the two, pulled a little towards the
-more famous. Its `hardness` is that fame in doublings of obscurity below
-a thousand Wikipedias, plus the property's own adjustment (a capital is
-easier than its country's fame suggests; a discoverer harder).
+Fame is how often people read about a thing: its English Wikipedia
+article's views over the last year (Earth 3.5 million, Mars 1.3 million,
+a numbered asteroid a few thousand). The number of Wikipedias covering it
+was tried first and misled: bots have written asteroids into dozens of
+them, so "221 Eos orbits the Sun" came out as easy as anything.
+
+A question names one thing and asks for another. How well known the
+thing named is decides most of it; the answer's fame (how many
+Wikipedias cover it, which is fine for answers) the rest. `hardness` is
+that, in doublings of obscurity, plus the property's own adjustment (a
+capital is easier than its country's fame suggests; a discoverer harder).
+Anything read fewer than MIN_VIEWS times a year is too obscure to ask
+about at all.
 
 Hardness is absolute. Levels are relative to a category: within
 "Harry Potter", Easy is what every fan knows, not what everyone knows.
@@ -22,18 +28,16 @@ import math
 
 from pipeline.facts.properties import PROPERTIES
 
-TOP = 1000
+TOP_VIEWS = 5_000_000          # a year's views of about the best-known things
+TOP_SITELINKS = 400
+MIN_VIEWS = 15_000             # about 40 readers a day: below this, too obscure to ask
 
 
-def hardness(pid: str, subject_sitelinks: int, value_sitelinks: int = None) -> float:
-    s = max(1, subject_sitelinks or 1)
-    if value_sitelinks:
-        low, high = sorted((s, max(1, value_sitelinks)))
-        fame = math.exp(0.65 * math.log(low) + 0.35 * math.log(high))
-    else:
-        fame = s
+def hardness(pid: str, subject_views: int, value_sitelinks: int = None) -> float:
+    named = math.log2(TOP_VIEWS / max(1, subject_views or 1))
+    answer = math.log2(TOP_SITELINKS / max(1, value_sitelinks)) if value_sitelinks else named
     prop = PROPERTIES.get(pid)
-    return round(math.log2(TOP / fame) + (prop.adjust if prop else 0.0), 3)
+    return round(0.75 * named + 0.25 * answer + (prop.adjust if prop else 0.0), 3)
 
 
 def levels_for(hardnesses: list) -> list:

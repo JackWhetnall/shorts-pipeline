@@ -139,6 +139,59 @@ def search(name: str, limit: int = 7) -> list:
             for r in data.get("search", [])]
 
 
+VIEWS_URL = ("https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/"
+             "all-access/user/{title}/monthly/{start}/{end}")
+
+
+def enwiki_titles(qids: list) -> dict:
+    """{qid: its English Wikipedia article's title} for those that have one."""
+    out = {}
+    for start in range(0, len(qids), 50):
+        chunk = [q for q in qids[start:start + 50] if q]
+        if not chunk:
+            continue
+        data = _get(API_URL, {"action": "wbgetentities", "ids": "|".join(chunk), "props": "sitelinks",
+                              "sitefilter": "enwiki", "format": "json"})
+        for q, entity in (data.get("entities") or {}).items():
+            title = ((entity.get("sitelinks") or {}).get("enwiki") or {}).get("title")
+            if title:
+                out[q] = title
+    return out
+
+
+def yearly_views(titles: dict, workers: int = 6) -> dict:
+    """{qid: English Wikipedia views by people (not bots) over the last
+    twelve full months}, for {qid: title}. An article with no record reads
+    as 0. Wikimedia's API takes many requests a second; these go six at a
+    time."""
+    from concurrent.futures import ThreadPoolExecutor
+    from datetime import date
+
+    today = date.today()
+    end = date(today.year, today.month, 1)
+    start = date(end.year - 1, end.month, 1)
+    span = {"start": start.strftime("%Y%m%d00"), "end": end.strftime("%Y%m%d00")}
+
+    def one(item):
+        qid, title = item
+        url = VIEWS_URL.format(title=requests.utils.quote(title.replace(" ", "_"), safe=""), **span)
+        for attempt in range(3):
+            try:
+                response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
+            except requests.RequestException:
+                time.sleep(2 * (attempt + 1))
+                continue
+            if response.status_code == 200:
+                return qid, sum(i.get("views", 0) for i in response.json().get("items", []))
+            if response.status_code == 404:
+                return qid, 0
+            time.sleep(2 * (attempt + 1))
+        return qid, None                      # unknown: measured again next time
+
+    with ThreadPoolExecutor(workers) as pool:
+        return {q: v for q, v in pool.map(one, titles.items()) if v is not None}
+
+
 def labels(qids: list) -> dict:
     """{qid: (label, description)} in English, for up to 50 at a time."""
     out = {}

@@ -16,19 +16,40 @@ from __future__ import annotations
 import random
 import re
 
+from collections import Counter
+
 from pipeline.facts import store
-from pipeline.facts.levels import levels_for
+from pipeline.facts.levels import MIN_VIEWS, hardness, levels_for
 from pipeline.facts.properties import PROPERTIES, phrase
 
 WINDOWS = (0.75, 1.25, 2.0)       # how far from the level to look, widening
+GIVEAWAY = 0.25                    # a value shared by this share of a property's facts...
+GIVEAWAY_MIN = 12                  # ...among at least this many is a guess, not a question
+SEQUENCES = {"P155", "P156"}
 _QID = re.compile(r"^Q\d+$")
+_NUMBERED = re.compile(r"\d")
 
 
 def pool(conn, category: str, general: bool) -> list:
-    """Every askable fact in a category, each with its level there."""
+    """Every askable fact in a category, each with its level there.
+
+    Not askable: a subject too few people read about; an answer that
+    gives itself away because most of the category shares it (nearly
+    every asteroid "orbits the Sun"); a sequence of numbered things
+    ("19 Fortuna came after 18 Melpomene")."""
     rows = [dict(r) for r in store.category_facts(conn, None if general else category)]
     rows = [r for r in rows if r["subject_label"] and not _QID.match(r["subject_label"])
-            and r["value_label"].lower() not in r["subject_label"].lower()]
+            and (r["subject_views"] or 0) >= MIN_VIEWS
+            and r["value_label"].lower() not in r["subject_label"].lower()
+            and not (r["property"] in SEQUENCES
+                     and (_NUMBERED.search(r["subject_label"]) or _NUMBERED.search(r["value_label"])))]
+    per_property = Counter(r["property"] for r in rows)
+    per_value = Counter((r["property"], r["value"]) for r in rows)
+    rows = [r for r in rows if not (per_property[r["property"]] >= GIVEAWAY_MIN
+                                    and per_value[(r["property"], r["value"])]
+                                    > GIVEAWAY * per_property[r["property"]])]
+    for r in rows:
+        r["hardness"] = hardness(r["property"], r["subject_views"], r["value_sitelinks"])
     reverse = [p for p, prop in PROPERTIES.items() if prop.reverse]
     counts = store.value_counts(conn, reverse)
     askable = []
