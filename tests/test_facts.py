@@ -172,12 +172,20 @@ class TestMembersLookup:
         spec = {"name": "planets", "kind": "class", "classes": ["Q634"]}
         assert [r[1] for r in harvest.members(spec, 0, 10)] == ["Earth"] and spec["method"] == "ranked"
 
-    def test_a_class_too_big_for_every_way_is_skipped_for_good(self, monkeypatch):
+    def test_a_class_too_big_for_every_way_is_skipped_for_a_week(self, monkeypatch):
         def sparql(query, engine="wikidata"):
             raise wikidata.QueryTimeout("Wikidata", "slow", user_message="")
         monkeypatch.setattr(wikidata, "sparql", sparql)
         spec = {"name": "stars", "kind": "class", "classes": ["Q523"]}
         assert harvest.members(spec, 0, 10) == [] and spec["method"] == "skipped"
+        # Not tried again the next time...
+        monkeypatch.setattr(wikidata, "sparql", lambda q, engine="wikidata": pytest.fail("asked again"))
+        assert harvest.members(spec, 0, 10) == []
+        # ...but after a week it is.
+        spec["skipped_at"] -= harvest.RETRY_SKIPPED + 1
+        monkeypatch.setattr(wikidata, "sparql", lambda q, engine="wikidata": [
+            {"s": E + "Q1", "sLabel": "Sun", "sl": "362"}])
+        assert [r[1] for r in harvest.members(spec, 0, 10)] == ["Sun"]
 
 
 def _read(conn, views: dict) -> None:

@@ -23,6 +23,7 @@ and a round is written from them later (pipeline.quiz).
 from __future__ import annotations
 
 import re
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -36,6 +37,7 @@ LINK_VIA = ["P1080", "P179", "P361", "P1441", "P8345"]
 DEFAULT_PAGE = {"small": 300, "medium": 1200, "large": 3000}
 MIN_SITELINKS = {"class": 8, "linked": 1}
 CHUNK = 120                     # entities per facts query
+RETRY_SKIPPED = 7 * 86400       # seconds before a skipped set is tried again
 _QID = re.compile(r"^Q\d+$")
 
 
@@ -102,7 +104,9 @@ def members(spec: dict, offset: int, limit: int) -> list:
     """[(qid, label, description, sitelinks)] for a page of the set, most
     famous first. A class set tries each of METHODS from the one that
     last worked; `spec["method"]` records it, or "skipped" when none did,
-    so a class too big for any is only ever tried once."""
+    so a class too big for any isn't tried at every harvest. A skip is
+    tried again after RETRY_SKIPPED: a bad hour on both services isn't a
+    verdict on the set."""
     rows = None
     if spec.get("kind") == "linked":
         try:
@@ -112,7 +116,9 @@ def members(spec: dict, offset: int, limit: int) -> list:
             return []
     else:
         if spec.get("method") == "skipped":
-            return []
+            if time.time() - float(spec.get("skipped_at") or 0) < RETRY_SKIPPED:
+                return []
+            spec.pop("method")
         start = METHODS.index(spec["method"]) if spec.get("method") in METHODS else 0
         for method in METHODS[start:]:
             engine = "qlever" if method == "ranked" else "wikidata"
@@ -135,7 +141,7 @@ def members(spec: dict, offset: int, limit: int) -> list:
             spec["method"], rows = method, found
             break
         if rows is None:
-            spec["method"] = "skipped"
+            spec["method"], spec["skipped_at"] = "skipped", time.time()
             log.warning(f"  [facts] {spec.get('name')}: couldn't rank it any way; skipped")
             return []
     out = []
@@ -288,8 +294,8 @@ def harvest(conn, name: str, grow: bool = False, progress=None) -> dict:
         say(f"{name}: finding {entity_set.get('name', 'members')} ({done + 1}-{done + page})")
         rows = members(entity_set, done, page)
         if not rows and not done and entity_set.get("method") != "skipped":
-            # Mapped onto something with no famous members: never again.
-            entity_set["method"] = "skipped"
+            # Mapped onto something with no famous members: not for a while.
+            entity_set["method"], entity_set["skipped_at"] = "skipped", time.time()
             say(f"{name}: {entity_set.get('name')} finds nothing on Wikidata; skipped")
         store.upsert_entities(conn, rows)
         store.add_members(conn, record["name"], [r[0] for r in rows])
