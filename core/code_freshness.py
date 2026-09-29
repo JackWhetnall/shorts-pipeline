@@ -48,10 +48,12 @@ def fingerprint() -> tuple:
     return tuple(entries)
 
 
-def remember() -> None:
-    """Called once, as the app starts."""
+def remember(taken: tuple = None) -> None:
+    """Called once, as the app starts. `taken` is a fingerprint from
+    before the app's modules were imported (web.__main__), so an edit made
+    while it was starting still counts as a change."""
     global _started_with
-    _started_with = fingerprint()
+    _started_with = taken if taken is not None else fingerprint()
 
 
 def is_stale() -> bool:

@@ -1,0 +1,28 @@
+{
+  "key": "graphic_noir",
+  "label": "Graphic novel noir",
+  "description": "High-contrast inked panels: deep blacks, hard shadows, rain and neon, one accent colour carrying the mood.",
+  "suits": "mystery, true stories, crime, tension, the darker corners of history",
+  "image": "graphic-novel illustration in heavy black ink, dramatic chiaroscuro with large areas of solid black, cross-hatched shadows, stark white highlights, a single saturated accent colour, cinematic noir staging",
+  "light": "a hard single light source, venetian-blind shadows, silhouettes, a glowing accent colour",
+  "camera": "tense: slow creeping push-ins, canted angles, looming low angles, reveals out of shadow",
+  "motion": "moody limited animation: smoke, rain and light move while figures shift with deliberate weight; the ink stays crisp",
+  "palette": [
+    "#0B0B0C",
+    "#F2F2F2",
+    "#C1121F",
+    "#3A3A3C",
+    "#8D99AE",
+    "#FDF0D5"
+  ],
+  "avoid": "photorealism, 3D render, pastel colour, soft cheerful lighting",
+  "cadence": "twos",
+  "grade": {
+    "contrast": 1.1,
+    "saturation": 0.95,
+    "warmth": -0.05,
+    "grain": 0.35,
+    "vignette": 0.35,
+    "sharpen": 0.3
+  }
+}

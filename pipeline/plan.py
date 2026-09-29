@@ -306,6 +306,9 @@ class RenderPlan:
     art_credits: list = field(default_factory=list)
     # The director's choice for each segment (pipeline.director), for review.
     visual_plan: list = field(default_factory=list)
+    # What the animation stage made (pipeline.animation.stage): look, model,
+    # shots, seconds generated, the film's concept. Empty when none.
+    animation: dict = field(default_factory=dict)
     # The publish gate's verdict for this render (core.publish_gate).
     gate: dict = None
     # The offending text when a segment reads like a description of a line

@@ -2183,6 +2183,34 @@ button.topic-row.selected:hover {
 .scene-share-value { flex-basis: 9rem; }
 @media (max-width: 700px) { .scene-settings { grid-template-columns: 1fr; } .scene-preview img { max-width: 14rem; } }
 
+/* --- Generated animation settings ------------------------------------------ */
+.warning-text { color: var(--warning, #d9a441); }
+.anim-settings div.field-row { margin-bottom: var(--sp-3, 0.85rem); }
+.anim-settings div.field-row > .hint { display: block; }
+.anim-looks { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--sp-2, 0.5rem);
+  margin-bottom: var(--sp-3, 0.85rem); }
+.anim-look { margin-bottom: 0; }
+/* The form's fieldset labels sit two to a row; these are grid cells. */
+.channel-form fieldset label.anim-look { display: flex; width: auto; margin: 0; }
+.channel-form fieldset .anim-palette label { width: auto; margin: 0; }
+.anim-suits { font-style: italic; margin-top: 0.2rem; }
+.anim-palette { margin-top: var(--sp-2, 0.5rem); }
+.anim-palette input:disabled { opacity: 0.55; }
+.anim-frames { display: flex; gap: var(--sp-3, 0.75rem); flex-wrap: wrap; margin: var(--sp-2, 0.5rem) 0; }
+.anim-frame { padding: 0; border: 2px solid var(--border); border-radius: 10px; background: none; cursor: pointer;
+  width: 9.5rem; overflow: hidden; }
+.anim-frame img { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; }
+.anim-frame.chosen { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.anim-cast { display: flex; flex-direction: column; gap: var(--sp-2, 0.5rem); margin: var(--sp-2, 0.5rem) 0; }
+.anim-cast-row { display: grid; grid-template-columns: minmax(8rem, 12rem) 1fr 12rem; gap: var(--sp-2, 0.5rem); align-items: start; }
+.anim-sheet img { width: 100%; border-radius: 8px; border: 1px solid var(--border); display: block; }
+.anim-try { display: flex; gap: var(--sp-2, 0.5rem); flex-wrap: wrap; align-items: center; }
+.anim-try select { max-width: 22rem; }
+.anim-previews { display: flex; gap: var(--sp-3, 0.75rem); flex-wrap: wrap; margin-top: var(--sp-3, 0.75rem); }
+.anim-previews figure { margin: 0; width: 12rem; }
+.anim-previews video { width: 100%; aspect-ratio: 9 / 16; border-radius: 10px; background: #000; }
+@media (max-width: 700px) { .anim-cast-row { grid-template-columns: 1fr; } }
+
 /* --- Music picker --------------------------------------------------------- */
 .music-list { list-style: none; padding: 0; margin: var(--sp-3, 0.75rem) 0; display: flex; flex-direction: column; gap: var(--sp-2, 0.5rem); }
 .music-row { display: grid; grid-template-columns: 1fr minmax(12rem, 18rem) auto; gap: var(--sp-3, 0.75rem); align-items: center; }

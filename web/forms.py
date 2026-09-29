@@ -170,6 +170,10 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
     if "publishing_plan_present" in form:
         _apply_publishing_plan(channel.publishing, form)
 
+    if "anim_present" in form:
+        from web.blueprints.animation import apply_form
+        apply_form(channel.animation, form)
+
     if "scene_share" in form:
         from web.blueprints.scenes import art_from
         channel.scenes.share = min(100, max(0, _maybe_int(form, "scene_share", channel.scenes.share)))

@@ -12,9 +12,18 @@ from __future__ import annotations
 
 import argparse
 
-from core import jobs, scheduler
-from core.logging_setup import get_logger
-from web import create_app
+from core import code_freshness
+
+# The code as it was before any of the app was imported. Taken after
+# startup instead, an edit landing in the seconds the app spends importing
+# was already in the fingerprint while the old code ran: the app never
+# noticed, and served a new template with old code behind it until someone
+# restarted it by hand.
+_CODE_AT_START = code_freshness.fingerprint()
+
+from core import jobs, scheduler                    # noqa: E402
+from core.logging_setup import get_logger           # noqa: E402
+from web import create_app                          # noqa: E402
 
 log = get_logger(__name__)
 
@@ -63,8 +72,7 @@ def main() -> None:
         scheduler.start_background()
     # Restart onto new code after an update, once nothing is running.
     if not args.debug:
-        from core import code_freshness
-        code_freshness.remember()
+        code_freshness.remember(_CODE_AT_START)
         code_freshness.watch(lambda: jobs.busy() or scheduler.busy())
 
     log.info(f"Open http://{args.host}:{args.port}/")

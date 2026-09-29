@@ -63,3 +63,4 @@ reason for a change stays true forever.
 | [048](048-plain-hooks-and-honest-checks.md) | Plain hooks on their own screen, numbered shorts, no pronunciation coaching, checks that know the board | Active |
 | [049](049-fact-store.md) | A fact store from Wikidata, gathered ahead of any script, levels measured from fame | Active; now the fallback to 050 |
 | [050](050-question-bank.md) | A question bank of classic pub-quiz questions, written and checked ahead; rounds come from it first | Active |
+| [051](051-generated-animation.md) | Generated animation: a look, a bible of style frames and cast, a storyboard, keyframes checked before a video model animates them | Active; replaces illustrations where switched on |

@@ -132,6 +132,8 @@ class TestEveryServiceIsUsable:
         costs.record_claude("script", "claude-sonnet-5", _Usage())
         costs.record_elevenlabs("tts", "eleven", 10)
         costs.record_openai_images("logo", "gpt-image-1", 1, "low")
+        costs.record_openai_image_usage("keyframe", "gpt-image-2.5-flare", {}, 0.02)
+        costs.record_fal("animation_shot", "h3_max", 0.4, seconds=5)
 
         written = {r["service"] for r in costs.read_records()}
         for service in services.SERVICES:

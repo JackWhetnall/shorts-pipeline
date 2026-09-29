@@ -4,7 +4,9 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 28 Sep 2026. For now only The Pub Quiz Round publishes.*
+*Last updated: 29 Sep 2026. For now only The Pub Quiz Round publishes.
+New: generated animation for narrated channels (its own section below
+the quiz list).*
 
 ---
 
@@ -228,6 +230,71 @@ post takes about a minute by hand.
 5. To post: in Review, **Open TikTok upload**. Chrome opens as the
    channel with the video selected in Explorer. Drag it in, press Ctrl+V
    for the caption, then post.
+
+## Generated animation (new, 29 Sep)
+
+Narrated channels can now be real animation in their own look instead of
+sprites on a board: a storyboard, each shot's first frame drawn and
+checked, then animated by a video model (decision 051). Nothing changes
+on any channel until you switch it on.
+
+### A. Watch the test animatic (2 minutes)
+I ran Curiosity Leak's "why yawns are contagious" through it in the
+**Clean 2D cel** look, as an animatic: the storyboard's frames held and
+cut to the narration, with no video model yet. It cost $0.21. Open
+**Curiosity Leak → Settings → Animation** and play it under *Try it on
+one of this channel's videos*. It's also at
+`cache\animation_previews\curiosity_leak\why_yawns_are_contagious_animatic.mp4`.
+Compare it with the video that decision 040 called a car crash. Tell me
+what you think of the look and the shot choices.
+
+### B. Make a fal account and key (10 minutes)
+The video models run on fal (one key for all of them). OpenAI's Sora was
+shut down on 24 Sep, so the OpenAI key can't do video any more.
+1. <https://fal.ai> → **Sign in** (Google or GitHub).
+2. **Dashboard → Billing**: add credit. $20 is enough for several test
+   videos. A fully animated 50-second video costs about $4 at the default
+   settings.
+3. **Dashboard → Keys → Create key** (scope: API). Copy it.
+4. Save it as a Windows user variable: **Start → "Edit environment
+   variables for your account" → New**. Name `FAL_KEY`, value the key.
+   **OK**.
+5. Restart the app so it sees the key: sign out of Windows and back in (the
+   app starts itself at login). **APIs** should then show fal as set.
+
+### C. Choose a look for one channel (10 minutes, about 5 cents)
+**Settings → Animation** on the channel:
+1. Pick a **look**. Each card says what it suits.
+2. Optional: **style notes** ("muted autumn colours, always misty") and
+   your own **palette**.
+3. **Draw style frames**, then click the one that feels most like the
+   channel. That frame sets the hand every future frame is drawn in.
+4. Optional: a **cast**, meaning recurring characters with a precise
+   description (for Wren's Guide, Wren herself). **Draw their model
+   sheets** to check them.
+5. **Save changes.**
+
+### D. Try it on a real video (animatic 25 cents; animated about $3-4)
+Same page, *Try it on one of this channel's videos*: pick a video, then
+**Make an animatic**. Check it on **Activity**; it appears on the settings
+page when done. If the look is right, **Animate it** makes the real thing
+with motion, at the price shown under *Quality and cost*. This is the
+first real test of the video model, so tell me how the motion looks.
+Worth trying the same video with **Video model → Veo 3.1 Lite** too: it
+costs about half, but moves more plainly.
+
+### E. Switch it on
+**Animate this channel's pictures in its own look** (top of Animation).
+Then, in **Pictures**, set the slider to **Always** for a fully animated
+channel, or leave it lower to animate only the segments that need a
+picture. Set **Most per video** to what you're happy to spend; anything
+beyond it uses other pictures and is noted in Review.
+Suggested starting points:
+- **Curiosity Leak**: Clean 2D cel, pace in the middle.
+- **Wren's Guide**: Storybook gouache or Ink and watercolour, with Wren
+  as a cast member.
+- **Minute Pastor**: Engraving and woodcut, or Storybook gouache: calm
+  energy, lingering pace.
 
 ## Other channels (on hold while the quiz launches)
 

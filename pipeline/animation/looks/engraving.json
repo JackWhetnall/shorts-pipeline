@@ -1,0 +1,28 @@
+{
+  "key": "engraving",
+  "label": "Engraving and woodcut",
+  "description": "Old-print illustration: fine engraved hatching or bold woodcut marks, sepia and ink on aged paper, brought to life.",
+  "suits": "history, scripture, the classics, the history of science, myths and legends",
+  "image": "antique engraving illustration with fine cross-hatched linework and stippling, or bold woodcut carving marks, dark ink on warm aged paper, occasional muted hand-tinted colour, the look of a plate from an old printed book",
+  "light": "light and shade built entirely from the density of hatching, strong chiaroscuro",
+  "camera": "stately: slow pans across the plate, measured push-ins onto detail",
+  "motion": "the engraving comes alive: hatched water ripples, smoke curls, figures move with dignity, the line texture stays consistent and printed",
+  "palette": [
+    "#2B2118",
+    "#EADFC5",
+    "#8C2F39",
+    "#6B5B48",
+    "#B4652E",
+    "#3A5A78"
+  ],
+  "avoid": "photorealism, 3D render, smooth gradients, bright modern colour",
+  "cadence": "twos",
+  "grade": {
+    "contrast": 1.04,
+    "saturation": 0.85,
+    "warmth": 0.3,
+    "grain": 0.3,
+    "vignette": 0.35,
+    "sharpen": 0.3
+  }
+}

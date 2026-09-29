@@ -220,6 +220,9 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
         # (nothing was made yet).
         _refuse_if_stale()
         channel = load_channels()[channel_key]
+        if seed.get("type") == "animation_preview":
+            _animation_preview(job_id, channel, seed)
+            return
         if seed.get("type") == "longform":
             # A long quiz recut from finished shorts (pipeline.longform).
             from pipeline import longform
@@ -266,6 +269,28 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
         _persist(job_id)
     finally:
         _advance_queue()
+
+
+def _animation_preview(job_id: str, channel, seed: dict) -> None:
+    """A finished video's script and narration made into an animatic (or
+    animated film) in the channel's look, for judging the look before it's
+    used (pipeline.animation.preview). Not a video: it lands in the cache,
+    never in review, and nothing publishes it. Raises like a render does;
+    _run records the failure."""
+    from core.paths import OUTPUT_DIR, safe_join
+    from pipeline.animation import preview
+
+    video = safe_join(OUTPUT_DIR, seed.get("video") or "")
+    path = preview.run(channel, video, animate=bool(seed.get("animate")))
+    with _lock:
+        job = _jobs[job_id]
+        job.status = "done"
+        job.stage = job_context.STAGE_COUNT
+        job.finished_at = time.time()
+        job.progress_percent = None
+        job.notes.append(f"{'Animated preview' if seed.get('animate') else 'Animatic'} ready: "
+                         f"watch it under Animation in the channel's settings ({path.name}).")
+    _persist(job_id)
 
 
 def _spawn(job_id: str, channel_key: str, seed: dict) -> None:

@@ -62,6 +62,8 @@ def _durations(job: dict) -> dict:
     """
     if job.get("status") != "done" or job.get("retried"):
         return {}
+    if (job.get("seed") or {}).get("type") == "animation_preview":
+        return {}               # not a video; its timings describe nothing a video does
     finished = job.get("finished_at")
     entered = job.get("stage_entered") or {}
     if not finished or not entered:

@@ -202,7 +202,7 @@ def _call(request: dict, operation: str, model: str):
 
 def call_json(system, user_msg: str, schema: dict, *, operation: str,
               model: str = DEFAULT_MODEL, max_tokens: int = DEFAULT_MAX_TOKENS,
-              effort: str = DEFAULT_EFFORT) -> dict:
+              effort: str = DEFAULT_EFFORT, images: list = None) -> dict:
     """Ask Claude for JSON matching `schema` and return it parsed.
 
     `system` is either a plain string or a list of SystemBlock, stable
@@ -216,6 +216,9 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
     rich for structured outputs (which allow at most 24 optional fields
     per schema). The caller must then validate what comes back; the scene
     writer does, field by field.
+
+    `images`: pictures to look at, before the text, as (media_type,
+    base64) pairs or ("text", caption) pairs to label the one after.
     """
     budget = min(max_tokens, MAX_NONSTREAMING_TOKENS)
     last_error = None
@@ -226,7 +229,7 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
             "model": model,
             "max_tokens": budget,
             "system": _render_system(system),
-            "messages": [{"role": "user", "content": user_msg}],
+            "messages": [{"role": "user", "content": _content(user_msg, images)}],
             "output_config": ({"format": {"type": "json_schema", "schema": schema}}
                               if schema is not None else {}),
         }
@@ -283,6 +286,20 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
 
     raise last_error or ExternalServiceError(
         "The AI service (Claude)", f"{operation}: exhausted attempts")
+
+
+def _content(text: str, images: list = None):
+    if not images:
+        return text
+    content = []
+    for media_type, data in images:
+        if media_type == "text":
+            content.append({"type": "text", "text": data})
+        else:
+            content.append({"type": "image",
+                            "source": {"type": "base64", "media_type": media_type, "data": data}})
+    content.append({"type": "text", "text": text})
+    return content
 
 
 def _json_part(text: str) -> str:

@@ -72,6 +72,17 @@ ELEVENLABS_USD_PER_MILLION_CHARS = 165.0
 OPENAI_IMAGE_PRICES = {"low": 0.011, "medium": 0.042, "high": 0.167, "auto": 0.042}
 OPENAI_PORTRAIT_PRICES = {"low": 0.016, "medium": 0.063, "high": 0.25, "auto": 0.063}
 
+# The newer image models bill tokens, and report them: USD per million
+# (text in, image in, image out). A generation with reference pictures
+# pays for the pictures it reads, which a flat per-image price hides.
+OPENAI_IMAGE_TOKEN_PRICES = {
+    "gpt-image-2.5-flare": (5.00, 8.00, 30.00),
+    "gpt-image-2.5-sunburst": (5.00, 8.00, 30.00),
+    "gpt-image-2": (5.00, 8.00, 30.00),
+    "gpt-image-1.5": (5.00, 8.00, 32.00),
+    "gpt-image-1": (5.00, 10.00, 40.00),
+}
+
 _lock = threading.Lock()
 _warned_unwritable = False
 
@@ -79,7 +90,7 @@ _warned_unwritable = False
 @dataclass
 class CostRecord:
     ts: float
-    service: str            # "claude" | "elevenlabs" | "openai-image"
+    service: str            # "claude" | "elevenlabs" | "openai-image" | "fal"
     operation: str          # "script" | "footage_match" | "describe_clip" | ...
     model: str
     cost_usd: float | None  # None when the price for this model isn't known
@@ -91,6 +102,7 @@ class CostRecord:
     cache_write_tokens: int = 0
     characters: int = 0
     images: int = 0
+    seconds: float = 0.0    # of generated video
 
 
 def _write(record: CostRecord) -> None:
@@ -167,6 +179,53 @@ def record_openai_images(operation: str, model: str, count: int, quality: str,
         cost_usd=unit * count, job_id=job_context.get_job_id(),
         channel_key=channel_key or job_context.get_channel_key(), images=count,
     )
+    _write(record)
+    return record
+
+
+def openai_image_usage_cost(model: str, usage: dict):
+    """What one image call cost from the usage it reported, or None when
+    the model's price or the usage is unknown."""
+    price = OPENAI_IMAGE_TOKEN_PRICES.get(model)
+    if not price or not isinstance(usage, dict):
+        return None
+    details = usage.get("input_tokens_details") or {}
+    image_in = details.get("image_tokens", 0) or 0
+    text_in = details.get("text_tokens")
+    if text_in is None:
+        text_in = max(0, (usage.get("input_tokens") or 0) - image_in)
+    out = usage.get("output_tokens") or 0
+    return (text_in * price[0] + image_in * price[1] + out * price[2]) / 1_000_000
+
+
+def record_openai_image_usage(operation: str, model: str, usage: dict, fallback_usd: float,
+                              channel_key: str = None) -> CostRecord:
+    """One image from a token-billed model, costed from what it reported
+    (or `fallback_usd`, the registry's estimate, when it reported
+    nothing)."""
+    from core import job_context
+    cost = openai_image_usage_cost(model, usage)
+    usage = usage if isinstance(usage, dict) else {}
+    record = CostRecord(
+        ts=time.time(), service="openai-image", operation=operation, model=model,
+        cost_usd=fallback_usd if cost is None else cost, job_id=job_context.get_job_id(),
+        channel_key=channel_key or job_context.get_channel_key(), images=1,
+        input_tokens=usage.get("input_tokens") or 0, output_tokens=usage.get("output_tokens") or 0)
+    _write(record)
+    return record
+
+
+def record_fal(operation: str, model: str, cost_usd: float, seconds: float = 0.0,
+               images: int = 0, channel_key: str = None) -> CostRecord:
+    """A generation on fal. fal bills by the second of video (or per
+    image) and doesn't return the bill, so the cost is the model's
+    declared price for what was asked (pipeline.animation.models)."""
+    from core import job_context
+    record = CostRecord(
+        ts=time.time(), service="fal", operation=operation, model=model,
+        cost_usd=cost_usd, job_id=job_context.get_job_id(),
+        channel_key=channel_key or job_context.get_channel_key(),
+        seconds=round(float(seconds), 3), images=images)
     _write(record)
     return record
 

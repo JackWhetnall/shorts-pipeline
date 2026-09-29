@@ -1,0 +1,28 @@
+{
+  "key": "clean_cel",
+  "label": "Clean 2D cel",
+  "description": "Modern 2D cel animation: crisp, confident linework, flat colour with one shadow tone, bold readable shapes and expressive characters.",
+  "suits": "explainers, science, curiosity, comedy, anything that must read instantly",
+  "image": "modern 2D cel-animation frame, crisp even-weight dark linework, flat colour fills with a single cel-shadow tone, bold simple shapes, expressive stylised characters with clear silhouettes, clean graphic backgrounds with soft painted gradients",
+  "light": "a clear key light with a single hard-edged cel shadow",
+  "camera": "punchy: snap zooms, quick pans, graphic compositions, confident framing",
+  "motion": "clean 2D character animation with strong poses, squash and stretch, anticipation and follow-through; lines stay crisp and consistent",
+  "palette": [
+    "#FF6B4A",
+    "#2EC4B6",
+    "#FFB627",
+    "#1F2233",
+    "#FFF7EA",
+    "#6C63FF"
+  ],
+  "avoid": "photorealism, 3D render, painterly texture, blur, muddy colour",
+  "cadence": "twos",
+  "grade": {
+    "contrast": 1.04,
+    "saturation": 1.05,
+    "warmth": 0.0,
+    "grain": 0.0,
+    "vignette": 0.1,
+    "sharpen": 0.35
+  }
+}

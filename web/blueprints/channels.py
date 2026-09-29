@@ -26,6 +26,7 @@ from core.paths import PROJECT_ROOT, slugify
 from pipeline import quote_source
 from pipeline.run import fetch_seed
 from web.blueprints.curriculum import channels_running_low
+from web.blueprints.animation import form_context as animation_form_context
 from web.blueprints.scenes import form_context as scene_form_context
 from pipeline.scenes import art
 from core import music_library
@@ -268,6 +269,7 @@ def _settings_context(channel, error: str = None) -> dict:
         "posting_error": request.args.get("posting_error"),
         "posting_ready": request.args.get("posting_ready"),
         "plan_estimate": _plan_estimate(channel.key, channel),
+        **animation_form_context(channel),
         **scene_form_context(channel.scenes.art, channel.scenes.share,
                              board_only=channel.format == "quiz"),
         "music_channel_key": channel.key, "music_tracks": music_library.tracks(channel.key),

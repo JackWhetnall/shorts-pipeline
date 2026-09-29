@@ -24,9 +24,19 @@ Then set the keys you need:
 | `ELEVENLABS_API_KEY` | Voiceover | [elevenlabs.io](https://elevenlabs.io/) |
 | `PEXELS_API_KEY` | Fetching footage automatically | [pexels.com/api](https://www.pexels.com/api/) |
 | `PIXABAY_API_KEY` | Fetching footage automatically | [pixabay.com/api/docs](https://pixabay.com/api/docs/) |
-| `OPENAI_API_KEY` | Generating channel logos | [platform.openai.com](https://platform.openai.com/) |
+| `OPENAI_API_KEY` | Channel logos, illustrations, animation's style frames and keyframes | [platform.openai.com](https://platform.openai.com/) |
+| `FAL_KEY` | Generated animation: the video models | [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) |
 
-Only the first two are required to make a video. Without the footage
+Only the first two are required to make a video. Animation (a channel's
+settings → Animation) needs both of the last two. Without `FAL_KEY` it can
+still make animatics, the storyboard's frames cut to a video's narration,
+to judge a look:
+
+```bash
+python tools/animate.py looks
+python tools/animate.py estimate curiosity_leak --seconds 50
+python tools/animate.py animatic curiosity_leak output/curiosity_leak/<date>/<video>.mp4 --look clean_cel
+``` Without the footage
 keys, generation falls back to clips already in the library.
 
 **`/apis`** shows which of these are actually set, what this installation

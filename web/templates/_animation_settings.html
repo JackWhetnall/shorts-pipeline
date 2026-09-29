@@ -1,0 +1,210 @@
+{# Generated animation (pipeline.animation, decision 051). Part of the
+   channel's settings form, saved with it; the buttons act on the form as
+   it stands. Context from web.blueprints.animation.form_context. #}
+<input type="hidden" name="anim_present" value="1">
+<div class="anim-settings" data-animation-settings data-channel="{{ channel.key }}">
+  <script type="application/json" data-anim-presets>{{ anim_presets|tojson }}</script>
+
+  <fieldset>
+    <legend>Generated animation</legend>
+    <label class="checkbox-label">
+      <input type="checkbox" name="anim_enabled" {% if anim.enabled %}checked{% endif %}>
+      Animate this channel's pictures in its own look
+      <button type="button" class="info-dot" data-tooltip="Where the Pictures slider gives a segment a graphic, it becomes real animation instead of a still illustration: storyboarded as one film, each shot's first frame drawn and checked, then animated by a video model. Numbers, lists and diagrams still use the motion graphics. At 'Always' on the slider, the whole video is animated.">?</button>
+    </label>
+    {% if not anim_fal_ready %}
+    <p class="hint warning-text">The video models need <code>FAL_KEY</code>, which isn't set (see
+      <a href="{{ url_for('services.page') }}">APIs</a>). Until it is, videos use still
+      illustrations and only animatics can be made below.</p>
+    {% endif %}
+  </fieldset>
+
+  <fieldset>
+    <legend>The look</legend>
+    <div class="anim-looks">
+      {% for key, p in anim_presets.items() %}
+      <label class="choice anim-look">
+        <input type="radio" name="anim_look" value="{{ key }}" {% if key == anim_look.key %}checked{% endif %}>
+        <span>
+          <strong>{{ p.label }}</strong>
+          <span class="hint">{{ p.description }}</span>
+          <span class="hint anim-suits">Suits {{ p.suits }}.</span>
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+
+    <label class="field-row">
+      <span class="field-label">Style notes for this channel</span>
+      <textarea name="anim_style_notes" rows="2" maxlength="600" data-anim-bible-field
+                placeholder="e.g. muted autumn colours, thicker outlines, always a little misty">{{ anim.style_notes }}</textarea>
+      <span class="hint">Added to every picture. Changing the look or these notes draws new style frames.</span>
+    </label>
+
+    <div class="field-row">
+      <label class="checkbox-label">
+        <input type="checkbox" name="anim_palette_custom" data-anim-palette-custom data-anim-bible-field
+               {% if anim_custom_palette %}checked{% endif %}>
+        Use my own palette instead of the look's
+      </label>
+      <div class="scene-colours anim-palette">
+        {% for i in range(6) %}
+        <label class="scene-colour">
+          <input type="color" name="anim_palette_{{ i }}" value="{{ anim_palette[i] if i < anim_palette|length else '#888888' }}"
+                 data-anim-palette data-anim-bible-field {% if not anim_custom_palette %}disabled{% endif %}>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="field-row" data-anim-frames-block>
+      <span class="field-label">Style frames</span>
+      <span class="hint">Three pictures of the channel's world in this look. The chosen one sets the
+        hand every frame is drawn in. Drawn by themselves the first time a video needs them;
+        draw them now to see the look (about 3 cents).</span>
+      <div class="anim-frames" data-anim-frames>
+        {% for f in anim_bible.frames %}
+        <button type="button" class="anim-frame {% if f.index == anim_bible.chosen %}chosen{% endif %}"
+                data-anim-choose="{{ f.index }}" title="Use this one">
+          <img src="{{ f.url }}" alt="Style frame {{ f.index + 1 }}" loading="lazy">
+        </button>
+        {% else %}
+        <p class="hint">{{ "The look has changed since its frames were drawn." if anim_bible.stale else "Not drawn yet." }}</p>
+        {% endfor %}
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-ghost" data-anim-draw-frames>Draw style frames</button>
+        <span class="hint" data-anim-frames-status></span>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Cast</legend>
+    <p class="hint">Recurring characters: a host, a mascot, the same family in every story. Each is
+      drawn once as a model sheet in this look and kept on-model in every video. Leave empty and
+      each video invents the people it needs.</p>
+    <div class="anim-cast">
+      {% for c in anim_cast %}
+      <div class="anim-cast-row" data-anim-cast-row>
+        <input type="text" name="anim_cast_name_{{ loop.index0 }}" value="{{ c.name }}" maxlength="60"
+               placeholder="Name" data-anim-cast-name>
+        <textarea name="anim_cast_desc_{{ loop.index0 }}" rows="2" maxlength="500" data-anim-cast-desc
+                  placeholder="Age, build, face, hair, clothes and their colours, one distinctive feature">{{ c.description }}</textarea>
+        <span class="anim-sheet" data-anim-sheet-for="{{ c.name }}">
+          {% if c.name and anim_bible.cast.get(c.name) %}<img src="{{ anim_bible.cast[c.name] }}" alt="{{ c.name }}'s model sheet" loading="lazy">{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="actions">
+      <button type="button" class="btn-ghost" data-anim-draw-cast>Draw their model sheets</button>
+      <span class="hint" data-anim-cast-status>Save to add another row.</span>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Motion and cutting</legend>
+    <label class="field-row"><span class="field-label">Energy</span>
+      <span class="slider-row">
+        <span class="hint">Calm</span>
+        <input type="range" name="anim_energy" min="0" max="100" step="5" value="{{ anim.energy }}">
+        <span class="hint">Lively</span>
+      </span>
+      <span class="hint">How much moves, and how boldly the camera moves.</span>
+    </label>
+    <label class="field-row"><span class="field-label">Pace</span>
+      <span class="slider-row">
+        <span class="hint">Lingering</span>
+        <input type="range" name="anim_pace" min="0" max="100" step="5" value="{{ anim.pace }}" data-anim-estimate-field>
+        <span class="hint">Quick cuts</span>
+      </span>
+      <span class="hint">Average shot length, from about 7.5 seconds down to 3.5. Every shot costs at
+        least the video model's shortest length, so quicker cutting costs more.</span>
+    </label>
+    <label class="field-row"><span class="field-label">Frame rate feel</span>
+      <select name="anim_cadence">
+        {% for value, label in anim_cadences.items() %}
+        <option value="{{ value }}" {% if value == anim.cadence %}selected{% endif %} {% if not value %}data-anim-own-cadence{% endif %}>{{ label }}{% if not value %} ({{ anim_cadence_default[anim_look.key] }}){% endif %}</option>
+        {% endfor %}
+      </select>
+      <span class="hint">On twos or threes, drawings are held as an animator holds them. It reads as
+        hand-made and hides the shimmer video models leave between frames.</span>
+    </label>
+    <label class="field-row"><span class="field-label">Finish</span>
+      <span class="slider-row">
+        <span class="hint">Raw</span>
+        <input type="range" name="anim_finish" min="0" max="100" step="5" value="{{ anim.finish }}">
+        <span class="hint">Full</span>
+      </span>
+      <span class="hint">How much of the look's grade, vignette and paper or film grain is laid over
+        every shot. It's what makes shots from separate generations one film.</span>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Quality and cost</legend>
+    <div class="scene-row">
+      <label class="field-row"><span class="field-label">Quality</span>
+        <select name="anim_quality" data-anim-estimate-field>
+          {% for value, label in anim_qualities.items() %}
+          <option value="{{ value }}" {% if value == anim.quality %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field-row"><span class="field-label">Most per video ($)</span>
+        <input type="number" name="anim_budget" min="0" max="50" step="0.25" value="{{ '%.2f'|format(anim.budget) }}"
+               class="narrow-number" data-anim-estimate-field>
+      </label>
+    </div>
+    <div class="scene-row">
+      <label class="field-row"><span class="field-label">Video model</span>
+        <select name="anim_video_model" data-anim-estimate-field>
+          {% for key, m in anim_video_models.items() %}
+          <option value="{{ key }}" {% if key == anim.video_model %}selected{% endif %}>{{ m.label }}: {{ m.note }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field-row"><span class="field-label">Picture model</span>
+        <select name="anim_image_model" data-anim-estimate-field>
+          {% for key, m in anim_image_models.items() %}
+          <option value="{{ key }}" {% if key == anim.image_model %}selected{% endif %}>{{ m.label }}: {{ m.note }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <p class="hint {% if anim_estimate.over %}warning-text{% endif %}" data-anim-estimate>
+      {{ anim_estimate.text }}{% if anim_estimate.over %} That's over the most per video: the end of a long video will use other pictures.{% endif %}
+    </p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Try it on one of this channel's videos</legend>
+    {% if anim_videos %}
+    <p class="hint">Uses its script and narration with the <strong>saved</strong> settings (save
+      first). An animatic is the storyboard's first frames held and cut to the narration: the way to
+      judge a look, for about 25 cents. Animating it costs what a real video would. Runs in the
+      background; see Activity.</p>
+    <div class="actions anim-try">
+      <select data-anim-video>
+        {% for v in anim_videos %}<option value="{{ v.rel }}">{{ v.label }}</option>{% endfor %}
+      </select>
+      <button type="button" class="btn-ghost" data-anim-preview="0">Make an animatic</button>
+      <button type="button" class="btn-ghost" data-anim-preview="1" {% if not anim_fal_ready %}disabled title="Needs FAL_KEY"{% endif %}>Animate it</button>
+      <span class="hint" data-anim-preview-status></span>
+    </div>
+    {% else %}
+    <p class="hint">Once the channel has a finished video, you can try the look on it here.</p>
+    {% endif %}
+    {% if anim_previews %}
+    <div class="anim-previews">
+      {% for p in anim_previews %}
+      <figure>
+        <video controls preload="none" src="{{ p.url }}"></video>
+        <figcaption class="hint">{{ p.name }}</figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </fieldset>
+</div>

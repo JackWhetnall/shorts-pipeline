@@ -3,7 +3,9 @@ The visual director: for each segment, the kind of picture that fits.
 
     footage       real people, animals, places, objects and actions (stock)
     illustration  something that can't be filmed, drawn in the channel's style
-    template      a designed motion graphic: a number, a comparison, a list, a
+    animation     on a channel with generated animation (pipeline.animation), in
+                  place of illustration: a moving shot in the channel's own look
+    template     a designed motion graphic: a number, a comparison, a list, a
                   process, a timeline, a definition, an equation... (pipeline.templates)
     diagram       a free-form constructed drawing, for geometry and plots only
     artwork       a public-domain painting or engraving (pipeline.artwork), when
@@ -28,8 +30,8 @@ from pipeline.templates import library
 
 log = get_logger(__name__)
 
-MEDIA = ("footage", "illustration", "template", "diagram", "artwork")
-GRAPHICS = ("illustration", "template", "diagram")
+MEDIA = ("footage", "illustration", "animation", "template", "diagram", "artwork")
+GRAPHICS = ("illustration", "animation", "template", "diagram")
 MAX_TOKENS = 5000
 EFFORT = "low"
 
@@ -50,10 +52,21 @@ ARTWORK = """
   Trafalgar", "Ophelia").
 """.strip()
 
-GRAPHICS_GUIDE = """
+ILLUSTRATION = """
 - illustration: one image drawn in the channel's style, slowly pushed in.
   For what can't be filmed: inside the body, the past, a metaphor, a
   scene from a story or scripture.
+""".strip()
+
+ANIMATION = """
+- animation: real animation in the channel's own look: characters acting,
+  places, journeys, metaphors, the inside of things, moments from history
+  or a story, anything that can be pictured in its world. The channel's
+  main medium; it is directed as a whole film afterwards, so give the
+  feeling or idea to show rather than a literal illustration of the words.
+""".strip()
+
+GRAPHICS_GUIDE = """
 - template: a designed motion graphic, filled with the segment's words and
   numbers. For structure the viewer should see: a number, a comparison, a
   list, steps, a timeline, a definition, a quote, an equation, a
@@ -76,7 +89,7 @@ striking picture you can get. Everything must match what the words say.
 
 For each segment give: medium, template (name, when medium is template),
 brief (for footage: what to film; for illustration: the image to draw,
-concretely; for template: what it shows, with the words' actual numbers;
+concretely; for animation: what to show and the feeling; for template: what it shows, with the words' actual numbers;
 for diagram: the construction; for artwork: the museum search), need, and
 reason (a few words).
 """.strip()
@@ -86,6 +99,10 @@ def _guide(media: list) -> str:
     parts = [INTRO]
     if "artwork" in media:
         parts.append(ARTWORK)
+    if "illustration" in media:
+        parts.append(ILLUSTRATION)
+    if "animation" in media:
+        parts.append(ANIMATION)
     if "template" in media:
         parts.append(GRAPHICS_GUIDE.format(catalogue=library.catalogue()))
     return "\n".join(parts) + "\n\n" + OUTRO
@@ -108,14 +125,17 @@ def _schema(media: list = MEDIA) -> dict:
 
 
 def direct(segments: list, subject: str, share: int, skip: set = frozenset(),
-           artwork: bool = False) -> list:
+           artwork: bool = False, animation: bool = False) -> list:
     """[{index, medium, template, brief, need, reason}] for every segment
     not in `skip` (already pictured), with the channel's bar applied to
     graphics: below it, footage. `artwork` offers museum paintings too,
-    which are real pictures and so are never held to the bar."""
+    which are real pictures and so are never held to the bar. `animation`
+    offers generated animation in place of illustrations (decision 051)."""
     bar = need_threshold(share)
     todo = [i for i in range(len(segments)) if i not in skip]
-    media = ["footage", *(["artwork"] if artwork else []), *(GRAPHICS if bar is not None else [])]
+    drawn = "animation" if animation else "illustration"
+    graphics = [m for m in GRAPHICS if m in (drawn, "template", "diagram")]
+    media = ["footage", *(["artwork"] if artwork else []), *(graphics if bar is not None else [])]
     if media == ["footage"] or not todo:
         return [{"index": i, "medium": "footage", "template": "", "brief": segments[i].shot_brief,
                  "need": 0, "reason": "the channel uses footage"} for i in todo]
@@ -134,13 +154,13 @@ def direct(segments: list, subject: str, share: int, skip: set = frozenset(),
         if r.get("medium") not in media:
             r["medium"] = "footage"
         if r["medium"] == "template" and r.get("template") not in library.TEMPLATES:
-            r["medium"] = "illustration"
+            r["medium"] = drawn
         if r["medium"] in GRAPHICS and int(r.get("need") or 0) < bar:
             log.info(f"  [director] segment {i}: {r['medium']} scores {r.get('need')} < {bar:g}; footage")
             r["medium"] = "footage"
             r["brief"] = segments[i].shot_brief or r["brief"]
         if r["medium"] == "footage" and bar == 0:
             # All the way to "always animated": never footage.
-            r["medium"] = "illustration"
+            r["medium"] = drawn
         out.append(r)
     return out

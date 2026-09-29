@@ -1,0 +1,28 @@
+{
+  "key": "ink_watercolour",
+  "label": "Ink and watercolour",
+  "description": "A loose ink line over bleeding watercolour washes: airy and elegant, with the white of the paper breathing through.",
+  "suits": "reflection, nature, travel, literature, calm channels",
+  "image": "loose ink-line drawing with transparent watercolour washes, pigment blooming and bleeding at the edges, plenty of white paper showing through, expressive varied line weight, elegant economy of detail",
+  "light": "airy natural daylight suggested by untouched white paper",
+  "camera": "calm and floating: slow drifts, gentle tilts, lingering holds",
+  "motion": "delicate hand-drawn animation: washes gently shimmer and bloom, the ink line boils very slightly, soft natural movement",
+  "palette": [
+    "#3A5A78",
+    "#A7C4BC",
+    "#E9D8A6",
+    "#BB3E03",
+    "#FDFCF8",
+    "#264653"
+  ],
+  "avoid": "photorealism, 3D render, heavy opaque colour, hard vector shapes",
+  "cadence": "twos",
+  "grade": {
+    "contrast": 0.98,
+    "saturation": 0.95,
+    "warmth": 0.05,
+    "grain": 0.25,
+    "vignette": 0.12,
+    "sharpen": 0.2
+  }
+}

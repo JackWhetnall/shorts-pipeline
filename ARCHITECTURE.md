@@ -103,10 +103,24 @@ pipeline/     The generation stages. No web dependency at all.
                 the hook text and cards over it.
   sound         Music bed ducked under speech, synthesised scene effects.
   artwork       Public-domain paintings under the passage (AIC, the Met).
-  director      Per segment: footage, illustration, template or diagram, with
-                the channel's slider as the bar (decision 040).
+  director      Per segment: footage, illustration (or animation), template or
+                diagram, with the channel's slider as the bar (decision 040).
   visuals       Carries out the director's plan; failures fall back to footage.
   illustrate    One image in the channel's style, pushed in.
+  animation/    Generated animation in a channel's own look (decision 051).
+    looks/        Ten art directions: medium, light, camera, motion, cadence, grade.
+    look          A channel's look: preset + notes, palette and sliders.
+    models        The picture and video models, their prices, request shapes, and
+                  the arithmetic of fitting generated seconds to narration.
+    fal, images   The two generation clients (fal's queue; OpenAI's reference edits).
+    bible         Style frames, the style sheet drawn from the chosen one, and the
+                  cast's model sheets, per channel and look.
+    storyboard    One call directs the film; `settle` makes it safe and affordable.
+    keyframes     First frames with their references, checked before animating.
+    motion        Keyframes animated on fal, checked, a broken shot made again once.
+    finish        Retime, cadence, upscale, grade, grain; shots cut together.
+    stage         Budget, bible, board, frames, motion, finish; resumable, degrading.
+    preview       Animatics and animated previews of a finished video's script.
   templates/    Designed motion-graphics templates (HTML/CSS, a seekable
                 engine, per-channel theme), filled by one small model call.
   description   The paste-ready description and the meta sidecar.
@@ -201,10 +215,11 @@ tts.run(plan)                -> plan.voiceover, and each Segment's real start/en
                                  (refused up front if the voice quota
                                  can't cover it)
 visuals.run(plan)            -> plan.scene_clips: templates, illustrations
-                                 and diagrams where the director's score
-                                 clears the channel's bar (none at 0), and
-                                 museum paintings where allowed and fitting;
-                                 for a quiz, one board for the whole video
+                                 (or generated animation, storyboarded as
+                                 one film) and diagrams where the director's
+                                 score clears the channel's bar (none at 0),
+                                 and museum paintings where allowed and
+                                 fitting; for a quiz, one board for the video
 assemble.run(plan)           -> plan.shots (one per scene; stock footage
                                  matched for the rest), the video file
 _finish(plan)                -> meta, description, script history, cost, render
@@ -279,6 +294,42 @@ it used, which adds a small ranking penalty — a nudge, not a ban. Per-channel 
 out before the call, and the list is stated in the prompt as a hard
 disqualifier. The deterministic filter catches the literal case; the
 prompt instruction is the backstop for imagery a keyword wouldn't catch.
+
+## Animation
+
+A channel with `animation.enabled` (and `FAL_KEY` set) gets generated
+animation wherever the director would have drawn a still illustration;
+at the slider's "Always", everything but numbers, structure and geometry
+is animated. It works like a small studio (`pipeline/animation/`,
+decision [051](docs/decisions/051-generated-animation.md)):
+
+- **Look.** One of ten art directions plus the channel's notes, palette
+  and sliders (energy, pace, cadence, finish).
+- **Bible.** Drawn once per channel and look: three style frames (one
+  chosen), a style sheet of unrelated studies drawn from the chosen frame,
+  and a model sheet per cast member. The style sheet, not the frame, is
+  the reference every picture is drawn with: a scene given as a style
+  reference gets its content copied too.
+- **Storyboard.** One Sonnet call directs every animated stretch of the
+  video as one film, cut on spoken words. `settle` makes it safe, and
+  fits it to the per-video budget.
+- **Keyframes.** GPT Image 2.5, with the style sheet and the relevant
+  sheets as references. Checked together by vision, failures redrawn once,
+  before any motion is bought.
+- **Motion.** The channel's video model on fal (MiniMax H3 Max by
+  default). Continued takes start from the last frame. Checked by vision,
+  a broken shot made again once if the budget allows.
+- **Finish.** Local ffmpeg. Retimed onto the narration by at most a
+  quarter, held on the look's cadence, upscaled, graded and grained
+  identically, then cut together.
+
+Everything is written to the video's working folder and reused on a
+retry. A shot the model can't make is held as its keyframe; stretches
+the budget can't cover go back to other pictures from the end; both are
+noted on the video's report. Animatics (keyframes cut to narration, no
+video model) and animated previews of a finished video's script run as
+background jobs from the settings page or `tools/animate.py`, and land
+in `cache/animation_previews/`, never in `output/`.
 
 ## Jobs
 
@@ -580,6 +631,9 @@ for, so:
 | Reading the ElevenLabs quota | Treated as unknown; nothing is refused on a number that couldn't be read |
 | An automatic script or picture check | Recorded as not run; the gate holds the video for a person |
 | An automatic upload | The video waits in review with the reason; it is not marked published |
+| An animated shot the video model can't make | Its checked keyframe, held and pushed in; noted |
+| Animation beyond the per-video budget | Those segments use other pictures, from the end; noted |
+| The whole animation stage | Its segments use footage; `scenes_fell_back` counts them |
 
 Anything that degrades sets a flag carried into the render report, the
 job warnings and the review queue, so a degraded video is never published

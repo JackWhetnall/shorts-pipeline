@@ -34,6 +34,12 @@
     <span>{{ "The quiz board's colours and fonts" if channel.format == 'quiz'
              else 'Footage, graphics, paintings, and their look' }}</span>
   </a>
+  {% if channel.format != 'quiz' %}
+  <a href="#section-animation" class="settings-nav-link">
+    <strong>Animation</strong>
+    <span>Its animated look, cast, motion and cost</span>
+  </a>
+  {% endif %}
   <a href="#section-music" class="settings-nav-link">
     <strong>Music &amp; sound</strong>
     <span>Tracks, levels, effects</span>
@@ -863,6 +869,14 @@
     {% endif %}
 
   </section>
+
+  {% if channel.format != 'quiz' %}
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-animation" class="settings-section">
+    <h2>Animation</h2>
+    {% include "_animation_settings.html" %}
+  </section>
+  {% endif %}
 
   <!-- ---------------------------------------------------------------- -->
   <section id="section-music" class="settings-section">

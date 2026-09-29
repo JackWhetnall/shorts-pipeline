@@ -247,6 +247,7 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
         "artwork": list(getattr(plan, "art_credits", [])),
         "scenes_fell_back": plan.scenes_fell_back,
         "scene_notes": list(plan.scene_notes),
+        "animation": dict(getattr(plan, "animation", None) or {}),
         "similarity": {
             "flagged": report.flagged,
             "max_trigram": report.max_trigram,

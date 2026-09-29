@@ -3073,3 +3073,137 @@ async function startLongform(channelKey, button) {
     pollJob(data.job_id);
   });
 }
+
+// --- Generated animation settings (web.blueprints.animation) ----------------
+// The buttons act on the form as it stands, saved or not: style frames are
+// filed by what they were drawn from, so trying a look and switching back
+// finds the earlier frames again.
+function initAnimationSettings() {
+  const root = document.querySelector("[data-animation-settings]");
+  if (!root) return;
+  const channel = root.dataset.channel;
+  const form = root.closest("form");
+  const presets = JSON.parse(root.querySelector("[data-anim-presets]").textContent);
+  const framesBox = root.querySelector("[data-anim-frames]");
+  const framesStatus = root.querySelector("[data-anim-frames-status]");
+  const castStatus = root.querySelector("[data-anim-cast-status]");
+  const estimateLine = root.querySelector("[data-anim-estimate]");
+  const customPalette = root.querySelector("[data-anim-palette-custom]");
+  const paletteInputs = [...root.querySelectorAll("[data-anim-palette]")];
+
+  const lookKey = () => form.querySelector("input[name=anim_look]:checked")?.value;
+  const state = () => ({
+    look: lookKey(),
+    style_notes: form.querySelector("[name=anim_style_notes]").value,
+    palette: customPalette.checked ? paletteInputs.map(i => i.value) : [],
+    cast: [...root.querySelectorAll("[data-anim-cast-row]")].map(row => ({
+      name: row.querySelector("[data-anim-cast-name]").value,
+      description: row.querySelector("[data-anim-cast-desc]").value,
+    })).filter(c => c.name.trim()),
+  });
+  const post = async (url, body) => {
+    const res = await apiFetch(url, {method: "POST", headers: {"Content-Type": "application/json"},
+                                     body: JSON.stringify(body)});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "That didn't work.");
+    return data;
+  };
+
+  const render = bible => {
+    framesBox.innerHTML = bible.frames.length ? bible.frames.map(f => `
+      <button type="button" class="anim-frame ${f.index === bible.chosen ? "chosen" : ""}"
+              data-anim-choose="${f.index}" title="Use this one">
+        <img src="${escapeHtml(f.url)}" alt="Style frame ${f.index + 1}">
+      </button>`).join("")
+      : `<p class="hint">${bible.stale ? "The look has changed since its frames were drawn." : "Not drawn yet."}</p>`;
+    root.querySelectorAll("[data-anim-cast-row]").forEach(row => {
+      const name = row.querySelector("[data-anim-cast-name]").value.trim();
+      const slot = row.querySelector(".anim-sheet");
+      const url = bible.cast[name];
+      slot.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}'s model sheet">` : "";
+    });
+  };
+
+  let refreshTimer = null;
+  const refresh = () => {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(async () => {
+      try { render(await post(`/api/channels/${channel}/animation/bible`, state())); }
+      catch (err) { framesStatus.textContent = err.message; }
+    }, 600);
+  };
+
+  // A preset's own palette fills the swatches until you choose your own.
+  const showPresetPalette = () => {
+    if (customPalette.checked) return;
+    const palette = presets[lookKey()]?.palette || [];
+    paletteInputs.forEach((input, i) => { if (palette[i]) input.value = palette[i]; });
+  };
+  customPalette.addEventListener("change", () => {
+    paletteInputs.forEach(i => { i.disabled = !customPalette.checked; });
+    showPresetPalette();
+  });
+  const ownCadence = root.querySelector("[data-anim-own-cadence]");
+  form.querySelectorAll("input[name=anim_look]").forEach(r => r.addEventListener("change", () => {
+    showPresetPalette();
+    if (ownCadence) ownCadence.textContent = `The look's own (${presets[lookKey()]?.cadence || "twos"})`;
+    refresh();
+  }));
+  root.querySelectorAll("[data-anim-bible-field]").forEach(f => f.addEventListener("change", refresh));
+
+  root.addEventListener("click", async event => {
+    const draw = event.target.closest("[data-anim-draw-frames]");
+    const choose = event.target.closest("[data-anim-choose]");
+    const cast = event.target.closest("[data-anim-draw-cast]");
+    const previewButton = event.target.closest("[data-anim-preview]");
+    try {
+      if (draw) {
+        draw.disabled = true;
+        framesStatus.textContent = "Drawing three frames, about a minute…";
+        render(await post(`/api/channels/${channel}/animation/frames`, state()));
+        framesStatus.textContent = "Click a frame to choose it.";
+      } else if (choose) {
+        render(await post(`/api/channels/${channel}/animation/choose`,
+                          {...state(), index: Number(choose.dataset.animChoose)}));
+      } else if (cast) {
+        cast.disabled = true;
+        castStatus.textContent = "Drawing model sheets, about 20 seconds each…";
+        render(await post(`/api/channels/${channel}/animation/cast`, state()));
+        castStatus.textContent = "Drawn. Save to keep the cast.";
+      } else if (previewButton) {
+        const status = root.querySelector("[data-anim-preview-status]");
+        previewButton.disabled = true;
+        await post(`/api/channels/${channel}/animation/preview`, {
+          video: root.querySelector("[data-anim-video]").value,
+          animate: previewButton.dataset.animPreview === "1",
+        });
+        status.innerHTML = `Started. Follow it on <a href="/activity">Activity</a>; it appears here when done.`;
+      }
+    } catch (err) {
+      (cast ? castStatus : framesStatus).textContent = err.message;
+      if (previewButton) root.querySelector("[data-anim-preview-status]").textContent = err.message;
+    } finally {
+      if (draw) draw.disabled = false;
+      if (cast) cast.disabled = false;
+    }
+  });
+
+  const updateEstimate = async () => {
+    const params = new URLSearchParams({
+      quality: form.querySelector("[name=anim_quality]").value,
+      video_model: form.querySelector("[name=anim_video_model]").value,
+      image_model: form.querySelector("[name=anim_image_model]").value,
+      pace: form.querySelector("[name=anim_pace]").value,
+      budget: form.querySelector("[name=anim_budget]").value || "0",
+    });
+    try {
+      const res = await apiFetch(`/api/animation/estimate?${params}`);
+      const data = await res.json();
+      estimateLine.textContent = data.text + (data.over
+        ? " That's over the most per video: the end of a long video will use other pictures." : "");
+      estimateLine.classList.toggle("warning-text", data.over);
+    } catch (err) { /* the line keeps its last value */ }
+  };
+  root.querySelectorAll("[data-anim-estimate-field]").forEach(f => f.addEventListener("change", updateEstimate));
+}
+document.addEventListener("DOMContentLoaded", initAnimationSettings);

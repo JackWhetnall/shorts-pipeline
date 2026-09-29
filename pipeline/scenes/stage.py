@@ -135,7 +135,7 @@ def _save(plan) -> None:
     try:
         job_context.save_json_checkpoint("scenes", {
             "clips": plan.scene_clips, "fell_back": plan.scenes_fell_back,
-            "notes": plan.scene_notes})
+            "notes": plan.scene_notes, "animation": getattr(plan, "animation", None) or {}})
     except Exception:  # noqa: BLE001 - checkpointing is best-effort
         pass
 

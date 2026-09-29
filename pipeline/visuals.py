@@ -14,6 +14,7 @@ twice. See decision 040.
 
 from __future__ import annotations
 
+from core import job_context
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from core.paths import channel_props_dir
@@ -43,6 +44,7 @@ def run(plan):
     if restored is not None:
         plan.scene_clips, plan.scenes_fell_back, plan.scene_notes = restored
         plan.art_credits = [c["credit"] for c in plan.scene_clips if c.get("credit")]
+        plan.animation = (job_context.load_json_checkpoint("scenes") or {}).get("animation") or {}
         log.info(f"  [visuals] reusing {len(plan.scene_clips)} clip(s) from the earlier attempt")
         return plan
 
@@ -50,10 +52,11 @@ def run(plan):
     style = art.resolve(channel.scenes.art)
     props_dir = channel_props_dir(channel.key, style["key"])
     folder = plan.out_dir / f"{plan.stem}_scenes"
+    animated = _animation_ready(plan)
     log.info(f"[3/5] Directing the visuals ({style['label']})...")
     try:
         directions = director.direct(segments, plan.seed.title, share, covered,
-                                     artwork=paintings)
+                                     artwork=paintings, animation=animated)
     except PipelineError as exc:
         log.warning(f"  [visuals] couldn't direct ({exc}); footage throughout")
         plan.scene_notes.append("The visual plan failed, so this video is all footage.")
@@ -66,7 +69,7 @@ def run(plan):
     hook_end = stage._hook_end(plan)
     tail = channel.pacing.crossfade
     for d in directions:
-        if d["medium"] == "footage":
+        if d["medium"] in ("footage", "animation"):
             continue
         i = d["index"]
         segment = segments[i]
@@ -99,8 +102,51 @@ def run(plan):
         plan.scene_clips.sort(key=lambda c: c["first"])
         plan.scene_notes.extend(f"Segment {i + 1}: {n}" for n in notes)
 
+    _animate(plan, [d for d in directions if d["medium"] == "animation"], folder / "animation",
+             tail)
     stage._save(plan)
     return plan
+
+
+def _animation_ready(plan) -> bool:
+    """Whether this channel animates: switched on, and fal's key set. On
+    but without the key, it draws illustrations as before and says why."""
+    from pipeline.animation import fal
+    if not getattr(plan.channel.animation, "enabled", False):
+        return False
+    if fal.configured():
+        return True
+    plan.scene_notes.append("Animation is switched on for this channel, but FAL_KEY isn't set, "
+                            "so it used still illustrations. Add the key (see the APIs page).")
+    return False
+
+
+def _animate(plan, directions: list, folder, tail: float) -> None:
+    """The segments given to animation, made as one film (pipeline.
+    animation.stage). Anything it can't make falls back to footage and
+    is flagged, like every other medium here."""
+    if not directions:
+        return
+    from pipeline.animation import stage as animation
+    indices = [d["index"] for d in directions]
+    briefs = {d["index"]: d.get("brief", "") for d in directions}
+    log.info(f"  [visuals] animating {len(indices)} segment(s)")
+    try:
+        result = animation.make(plan, indices, briefs, folder, tail)
+    except Exception as exc:  # noqa: BLE001 - degrades to footage and is flagged, never silent
+        if not isinstance(exc, PipelineError):
+            log.exception("  [visuals] animation failed unexpectedly")
+        log.warning(f"  [visuals] animation fell back to footage: {exc}")
+        plan.scenes_fell_back += len(indices)
+        message = exc.user_message if isinstance(exc, PipelineError) else "an unexpected error"
+        plan.scene_notes.append(f"The animation couldn't be made ({message}); those segments "
+                                f"use footage instead.")
+        return
+    plan.scene_clips.extend(result.clips)
+    plan.scene_clips.sort(key=lambda c: c["first"])
+    plan.scenes_fell_back += len(result.fell_back)
+    plan.scene_notes.extend(result.notes)
+    plan.animation = result.summary
 
 
 def _make(d, words, duration, narration, style, props_dir, stem, tail, not_before, hook_end, i):

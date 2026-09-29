@@ -91,6 +91,8 @@ _SERVICE_BY_URL_FRAGMENT = (
     ("elevenlabs", "The voice service (ElevenLabs)"),
     ("api.anthropic.com", "The AI service (Claude)"),
     ("api.openai.com", "The image service (OpenAI)"),
+    ("fal.run", "The video service (fal)"),
+    ("fal.media", "The video service (fal)"),
     ("pexels", "The stock footage service (Pexels)"),
     ("pixabay", "The stock footage service (Pixabay)"),
     ("bible-api", "The Bible verse service (bible-api.com)"),

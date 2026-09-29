@@ -68,6 +68,13 @@ def channel_props_dir(channel_key: str, style_key: str) -> Path:
     return CHANNELS_DIR / channel_key / "props" / style_key
 
 
+def channel_animation_dir(channel_key: str, look_key: str) -> Path:
+    """A channel's animation bible for one look: its style frames and its
+    cast drawn in that look (pipeline.animation.bible). A character
+    painted in gouache doesn't belong in a claymation video."""
+    return CHANNELS_DIR / channel_key / "animation" / look_key
+
+
 def channel_merch_dir(channel_key: str) -> Path:
     return CHANNELS_DIR / channel_key / "merch"
 

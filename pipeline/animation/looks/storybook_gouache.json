@@ -1,0 +1,28 @@
+{
+  "key": "storybook_gouache",
+  "label": "Storybook gouache",
+  "description": "Opaque gouache painted on textured paper: soft brush edges, visible strokes, a warm limited palette and gentle light. A picture book that moves.",
+  "suits": "stories, faith and reflection, folklore, gentle explainers",
+  "image": "hand-painted gouache illustration on cold-press paper, visible opaque brush strokes and dry-brush texture, soft painted edges rather than outlines, simplified shapes with carefully chosen detail, a warm limited palette, painterly skies, a picture-book finish",
+  "light": "soft directional light with warm highlights and cool painted shadows",
+  "camera": "unhurried: slow push-ins, gentle lateral drifts, an occasional slow crane",
+  "motion": "hand-painted 2D animation: the brush texture stays on the paper while forms move, gentle secondary motion in hair, cloth, leaves and steam, soft easing",
+  "palette": [
+    "#E8C9A0",
+    "#C2703D",
+    "#6E8B74",
+    "#2F4858",
+    "#F4EBDD",
+    "#8C3B2E"
+  ],
+  "avoid": "photorealism, 3D render, glossy plastic, hard vector outlines, lens flare",
+  "cadence": "twos",
+  "grade": {
+    "contrast": 1.02,
+    "saturation": 0.97,
+    "warmth": 0.25,
+    "grain": 0.35,
+    "vignette": 0.25,
+    "sharpen": 0.2
+  }
+}

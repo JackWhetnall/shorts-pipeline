@@ -36,6 +36,19 @@ def test_an_edited_file_makes_the_app_stale(tree):
     assert code_freshness.is_stale()
 
 
+def test_an_edit_made_while_the_app_was_starting_counts(tree):
+    """Regression: the fingerprint was taken after the app had imported
+    everything, so an edit landing during those seconds was already in it.
+    The app then ran the old code with a new template forever (the
+    Animation settings page failed until a hand restart)."""
+    before_imports = code_freshness.fingerprint()
+    path = tree / "web" / "a.py"
+    path.write_text("x = 3  # saved while the app was importing\n")
+    os.utime(path, ns=(time.time_ns(), time.time_ns() + 10_000_000))
+    code_freshness.remember(before_imports)
+    assert code_freshness.is_stale()
+
+
 def test_a_new_file_makes_it_stale_too(tree):
     code_freshness.remember()
     (tree / "pipeline" / "sound.py").write_text("\n")

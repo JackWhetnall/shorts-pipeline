@@ -352,6 +352,46 @@ class Scenes(_MappingLike):
     art: dict = field(default_factory=dict)
 
 
+# How much generated animation is worth paying for: the resolution the
+# video model draws at. pipeline.animation.models turns each into a
+# model's own setting and price.
+ANIMATION_QUALITIES = ("draft", "standard", "high")
+# "" is the look's own: stop-motion on threes, painted styles on twos.
+ANIMATION_CADENCES = ("", "ones", "twos", "threes")
+
+
+@dataclass
+class Animation(_MappingLike):
+    """Generated animation in this channel's own look (pipeline.animation,
+    decision 051). Used for the segments the visual director gives to
+    animation, which on a fully animated channel (`scenes.share` 100) is
+    all of them.
+
+    `look`: a preset in pipeline/animation/looks; `style_notes` and
+    `palette` adjust it for this channel. `cast`: recurring characters,
+    [{"name", "description"}], drawn once per look and kept on-model in
+    every video. `energy` (how much moves) and `pace` (how often it cuts)
+    run 0-100; `finish` is how much of the look's grade and grain is laid
+    over the result, 0 (none) to 100 (the look's own). `budget` caps what
+    one video may spend on animation, in dollars; the storyboard is
+    planned inside it.
+    """
+
+    enabled: bool = False
+    look: str = "storybook_gouache"
+    style_notes: str = ""
+    palette: list = field(default_factory=list)
+    cast: list = field(default_factory=list)
+    energy: int = 50
+    pace: int = 50
+    cadence: str = ""
+    finish: int = 100
+    quality: str = "standard"
+    video_model: str = "h3_max"
+    image_model: str = "gpt_image_flare"
+    budget: float = 5.0
+
+
 @dataclass
 class Quiz(_MappingLike):
     """A quiz channel's shape (pipeline.quiz, decision 041). Read only when
@@ -476,6 +516,7 @@ class ChannelConfig:
     autopilot: Autopilot = field(default_factory=Autopilot)
     publishing: Publishing = field(default_factory=Publishing)
     scenes: Scenes = field(default_factory=Scenes)
+    animation: Animation = field(default_factory=Animation)
     sound: Sound = field(default_factory=Sound)
     artwork: Artwork = field(default_factory=Artwork)
     quiz: Quiz = field(default_factory=Quiz)
@@ -587,7 +628,23 @@ class ChannelConfig:
         if not 0 <= self.scenes.share <= 100:
             raise ConfigError(
                 f"{where} animates {self.scenes.share}% of each video. Pick 0 to 100.")
+        self._validate_animation(where)
         self._validate_output_dir(where)
+
+    def _validate_animation(self, where: str) -> None:
+        a = self.animation
+        for name in ("energy", "pace", "finish"):
+            if not 0 <= int(getattr(a, name)) <= 100:
+                raise ConfigError(f"{where} has animation {name} {getattr(a, name)}. Pick 0 to 100.")
+        if a.quality not in ANIMATION_QUALITIES:
+            raise ConfigError(f"{where} has animation quality {a.quality!r}. It must be one of: "
+                              f"{', '.join(ANIMATION_QUALITIES)}.")
+        if a.cadence not in ANIMATION_CADENCES:
+            raise ConfigError(f"{where} has animation cadence {a.cadence!r}, which isn't recognised.")
+        if a.budget < 0:
+            raise ConfigError(f"{where} has an animation budget below $0.")
+        if any(not isinstance(c, dict) or not str(c.get("name") or "").strip() for c in a.cast):
+            raise ConfigError(f"{where} has a cast member with no name.")
 
     def _has_corpus(self) -> bool:
         from core import corpus
@@ -641,6 +698,7 @@ _NESTED = {
     "autopilot": Autopilot,
     "publishing": Publishing,
     "scenes": Scenes,
+    "animation": Animation,
     "sound": Sound,
     "artwork": Artwork,
     "quiz": Quiz,

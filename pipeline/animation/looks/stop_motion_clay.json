@@ -1,0 +1,28 @@
+{
+  "key": "stop_motion_clay",
+  "label": "Stop-motion clay",
+  "description": "Handmade clay figures on a miniature set: fingerprints, soft studio light, tiny props, the charm of animation shot frame by frame.",
+  "suits": "comedy, everyday life, families, cosy explainers",
+  "image": "stop-motion claymation still, handmade plasticine characters with visible fingerprints and tool marks, a miniature handcrafted set with felt, wood and cardboard props, shallow depth of field like a macro lens, tactile materials",
+  "light": "soft studio lighting with practical miniature lamps and a gentle warm bounce",
+  "camera": "a small real camera on a miniature set: slow slider moves, shallow focus pulls, locked-off shots",
+  "motion": "stop-motion animation: slightly stepped handmade movement, clay subtly shifting between frames, props physically moved by hand",
+  "palette": [
+    "#E07A5F",
+    "#3D405B",
+    "#81B29A",
+    "#F2CC8F",
+    "#F4F1DE",
+    "#6D597A"
+  ],
+  "avoid": "smooth CGI, photoreal humans, glossy plastic, motion blur",
+  "cadence": "threes",
+  "grade": {
+    "contrast": 1.0,
+    "saturation": 1.0,
+    "warmth": 0.2,
+    "grain": 0.2,
+    "vignette": 0.3,
+    "sharpen": 0.2
+  }
+}

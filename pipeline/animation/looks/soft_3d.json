@@ -1,0 +1,28 @@
+{
+  "key": "soft_3d",
+  "label": "Soft 3D",
+  "description": "Rounded, toy-like 3D: soft materials, pastel colour, gentle global illumination. The warmth of a family animated film.",
+  "suits": "children, cute explainers, how products and machines work, upbeat channels",
+  "image": "stylised 3D animated film frame, rounded appealing characters with big expressive eyes, soft matte materials like felt, clay and plastic, gentle subsurface glow, tidy miniature-like environments, shallow depth of field",
+  "light": "soft global illumination, a warm key light, soft bounce and gentle ambient occlusion",
+  "camera": "a smooth virtual camera: arcs around subjects, dolly moves, playful low angles",
+  "motion": "polished 3D character animation with appealing arcs, squash and stretch, springy secondary motion and a smooth camera",
+  "palette": [
+    "#FFB5A7",
+    "#A8DADC",
+    "#F1FAEE",
+    "#457B9D",
+    "#FFD166",
+    "#8E7DBE"
+  ],
+  "avoid": "photoreal humans, gritty textures, horror, 2D outlines",
+  "cadence": "ones",
+  "grade": {
+    "contrast": 1.0,
+    "saturation": 1.02,
+    "warmth": 0.1,
+    "grain": 0.05,
+    "vignette": 0.12,
+    "sharpen": 0.2
+  }
+}

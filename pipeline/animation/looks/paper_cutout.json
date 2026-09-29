@@ -1,0 +1,28 @@
+{
+  "key": "paper_cutout",
+  "label": "Layered paper cut-out",
+  "description": "Cut and layered paper: torn edges, paper grain, real shadows between layers, a diorama lit from the side.",
+  "suits": "history, myths, how things work, crafts, stories for all ages",
+  "image": "layered paper-craft diorama, shapes cut from coloured card and textured paper with crisp or torn edges, visible paper fibres, real soft drop shadows between stacked layers giving depth, handmade and tactile",
+  "light": "a single warm side light raking across the paper layers, soft cast shadows",
+  "camera": "a camera over a paper theatre: trucking sideways across the layers, gentle push-ins that reveal depth",
+  "motion": "cut-out animation: paper pieces slide, hinge and turn on pins, layers move at different depths for parallax, slightly stepped handmade timing",
+  "palette": [
+    "#D1495B",
+    "#EDAE49",
+    "#00798C",
+    "#30638E",
+    "#F3E9DC",
+    "#003D5B"
+  ],
+  "avoid": "photorealism, 3D render, glossy surfaces, drawn outlines",
+  "cadence": "threes",
+  "grade": {
+    "contrast": 1.02,
+    "saturation": 0.98,
+    "warmth": 0.15,
+    "grain": 0.3,
+    "vignette": 0.25,
+    "sharpen": 0.25
+  }
+}
