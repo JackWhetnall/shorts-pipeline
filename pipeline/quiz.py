@@ -127,7 +127,8 @@ their score and next category in the comments or to send it to a friend
 to see how they do. Vary it.
 
 Titles: short (under 60 characters), naming the category and the
-difficulty, inviting the viewer to test themselves. The description body:
+difficulty, inviting the viewer to test themselves. No claims you can't
+know about how people score ("most people get these wrong"). The description body:
 one or two plain sentences about the round, no hashtags.
 
 The level number is for you alone. Never write it anywhere: not in a
@@ -783,7 +784,7 @@ def _write(category, difficulty, channel, context, extra="", kind: str = None,
     return _clean_round(data, count, kind)
 
 
-def verify(category: str, difficulty: str, questions: list) -> list:
+def verify(category: str, difficulty: str, questions: list, operation: str = "quiz_verify") -> list:
     """[verdict per question] from an independent check: "ok", "wrong",
     "ambiguous" or "dated". A check that can't run returns "unchecked"
     for every question, which holds the video rather than passing it."""
@@ -792,7 +793,7 @@ def verify(category: str, difficulty: str, questions: list) -> list:
                        for i, q in enumerate(questions))
     try:
         data = call_json(VERIFY_SYSTEM, f"Category: {category}. Difficulty: {difficulty}.\n\n{listed}",
-                         VERIFY_SCHEMA, operation="quiz_verify",
+                         VERIFY_SCHEMA, operation=operation,
                          max_tokens=VERIFY_MAX_TOKENS, effort=VERIFY_EFFORT)
     except PipelineError as exc:
         log.warning(f"  [quiz] the fact check couldn't run ({exc})")
@@ -972,13 +973,95 @@ def _close(said: str, fact: str) -> bool:
             or difflib.SequenceMatcher(None, said, fact).ratio() >= 0.8)
 
 
+BANK_GUIDE = """
+This round's questions are already written and checked, and are given in
+order with their answers. Keep every question and answer exactly as
+given: don't reword, reorder, add or drop any. Write everything around
+them: the hook, the intro, each question's `lead_in` and each
+`spoken_answer`, which gives the answer as written and may add the note
+given with it, and nothing else of its own. Then the sign-off, titles and
+description as usual.
+""".strip()
+
+BANK_SPARE = 6          # bank questions looked at beyond the round's own
+
+
+def _bank_questions(channel, category: str, difficulty: str, count: int) -> list:
+    """Unused checked questions from the bank for this round, or [] when it
+    can't supply `count` that neither repeat what the channel asked before
+    the bank nor clash with each other (decision 050)."""
+    try:
+        from pipeline.facts import bank, store
+        rows = bank.for_round(store.connect(), channel.key, category, level_of(channel, difficulty),
+                              count + BANK_SPARE)
+    except Exception as exc:  # noqa: BLE001 - no bank is no bank, never no round
+        log.warning(f"  [quiz] the question bank couldn't be read ({exc}); writing without it")
+        return []
+    questions = [{"question": r["question"], "answer": r["answer"], "note": r["note"],
+                  "bank_id": r["id"]} for r in rows]
+    earlier = set(repeats(questions, channel.key))
+    questions = [q for i, q in enumerate(questions) if i not in earlier]
+    clashing = set(round_clashes(questions))
+    questions = [q for i, q in enumerate(questions) if i not in clashing][:count]
+    if len(questions) < count:
+        log.info(f"  [quiz] the bank has {len(questions)} unused questions for {category} near "
+                 f"{difficulty}; not enough for a round")
+        return []
+    return questions
+
+
+def _bank_schema() -> dict:
+    schema = _schema()
+    item = {"type": "object", "properties": {"number": {"type": "integer"}, "lead_in": {"type": "string"},
+                                             "spoken_answer": {"type": "string"}},
+            "required": ["number", "lead_in", "spoken_answer"], "additionalProperties": False}
+    schema["properties"]["questions"] = {"type": "array", "items": item}
+    return schema
+
+
+def _round_from_bank(channel, category: str, difficulty: str, questions: list) -> Script:
+    """A round of the bank's questions, with the host's lines written round
+    them. Already checked, so no second check."""
+    count = len(questions)
+    system = [SystemBlock(SYSTEM, cacheable=True), SystemBlock(BANK_GUIDE, cacheable=True),
+              SystemBlock(f"This channel's own brief for its host and its rounds:\n\n{channel.style_prompt}")]
+    listed = "\n".join(f"{i + 1}. {q['question']} Answer: {q['answer']}."
+                        + (f" Note: {q['note']}" if q.get("note") else "") for i, q in enumerate(questions))
+    user = _user(category, difficulty, count, channel, ([], []), "") + f"The questions, in order:\n{listed}"
+    data = call_json(system, user, _bank_schema(), operation="quiz_write",
+                     max_tokens=WRITE_MAX_TOKENS, effort="low")
+    lines = {row.get("number"): row for row in data.get("questions") or []}
+    rows = []
+    for i, q in enumerate(questions):
+        said = lines.get(i + 1) or {}
+        rows.append({"lead_in": "" if i == 0 else " ".join((said.get("lead_in") or "").split()),
+                     "question": q["question"], "answer": q["answer"],
+                     "spoken_answer": " ".join((said.get("spoken_answer") or "").split()) or q["answer"],
+                     "bank_id": q["bank_id"]})
+    data["questions"] = rows
+    data["hook"] = " ".join((data.get("hook") or "").split()[:12])
+    data["pronunciations"] = element_respellings(rows)
+    try:
+        from pipeline.facts import bank, store
+        bank.mark_used(store.connect(), channel.key, [q["bank_id"] for q in rows], f"{category}: {difficulty}")
+    except Exception as exc:  # noqa: BLE001 - see _bank_questions
+        log.warning(f"  [quiz] couldn't record the bank questions used ({exc})")
+    log.info(f"  [quiz] {count} questions from the question bank")
+    return to_script(data, channel, category, difficulty, [])
+
+
 def _write_checked(channel, category: str, difficulty: str, extra: str = "",
                    kind: str = None) -> Script:
     """Write a round, fact-check it (and look at its pictures), and check
     it against every question the channel has asked (see the module
-    docstring). A text round is built on facts from the store when it
-    has enough (decision 049)."""
+    docstring). A text round comes from the question bank when it has
+    enough (decision 050), else is built on stored facts (decision 049),
+    else written from scratch."""
     count = channel.quiz.questions
+    if not kind:
+        chosen = _bank_questions(channel, category, difficulty, count)
+        if chosen:
+            return _round_from_bank(channel, category, difficulty, chosen)
     facts = [] if kind else _facts(channel, category, difficulty, count + FACT_SPARE)
     offered = {f["id"] for f in facts}
     # Built on unused facts, the round needn't be shown every question
@@ -1094,7 +1177,7 @@ def to_script(data: dict, channel, category: str, difficulty: str,
         segments.append(Segment(text=q["spoken_answer"], pause_after=float(quiz.answer_pause)))
         row = {"question": q["question"], "answer": q["answer"],
                "spoken_answer": q["spoken_answer"], "ask": ask, "reveal": ask + 1}
-        for key in ("kind", "subject", "picture", "fact_id"):
+        for key in ("kind", "subject", "picture", "fact_id", "bank_id"):
             if q.get(key):
                 row[key] = q[key]
         rows.append(row)

@@ -20,6 +20,10 @@ The fact store: facts/facts.db, one SQLite file.
 - `used`: which facts each channel has asked, whichever category they
   came through: a fact is asked once per channel, ever.
 - `runs`: background harvests, for the Facts page.
+- `questions`, `question_tags`, `question_used`, `bank_areas`: the
+  question bank (pipeline.facts.bank): finished quiz questions written
+  and checked ahead of any round, tagged with every category they fit,
+  and used once per channel.
 """
 
 from __future__ import annotations
@@ -81,6 +85,39 @@ CREATE TABLE IF NOT EXISTS used (
     round TEXT NOT NULL DEFAULT '',
     used_at TEXT NOT NULL,
     PRIMARY KEY (fact_id, channel)
+);
+CREATE TABLE IF NOT EXISTS questions (
+    id INTEGER PRIMARY KEY,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    alternatives TEXT NOT NULL DEFAULT '[]',
+    note TEXT NOT NULL DEFAULT '',
+    level REAL NOT NULL,
+    shape TEXT NOT NULL DEFAULT '',
+    area TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL,
+    status TEXT NOT NULL,
+    verdict TEXT NOT NULL DEFAULT '',
+    answer_key TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS questions_answer ON questions (answer_key);
+CREATE TABLE IF NOT EXISTS question_tags (
+    question_id INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    PRIMARY KEY (question_id, category)
+);
+CREATE INDEX IF NOT EXISTS question_tags_category ON question_tags (category);
+CREATE TABLE IF NOT EXISTS question_used (
+    question_id INTEGER NOT NULL,
+    channel TEXT NOT NULL,
+    round TEXT NOT NULL DEFAULT '',
+    used_at TEXT NOT NULL,
+    PRIMARY KEY (question_id, channel)
+);
+CREATE TABLE IF NOT EXISTS bank_areas (
+    category TEXT PRIMARY KEY,
+    areas TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS runs (
     id INTEGER PRIMARY KEY,

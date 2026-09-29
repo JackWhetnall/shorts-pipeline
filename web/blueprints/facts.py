@@ -42,7 +42,39 @@ def page():
         rows.append(row)
     runs = store.recent_runs(conn, 8)
     return render_template("facts.html", totals=store.totals(conn), rows=rows, runs=runs,
-                           busy=keep.busy(), note=request.args.get("note", ""))
+                           bank=_bank_rows(conn, channels), busy=keep.busy(),
+                           note=request.args.get("note", ""))
+
+
+def _bank_rows(conn, channels) -> dict:
+    """The question bank per category: checked questions, and for each quiz
+    channel how many it hasn't used and the levels where it's short."""
+    from pipeline import quiz
+    from pipeline.facts import bank, keep
+    rows = {}
+    for channel in channels:
+        levels = quiz.levels(channel.quiz.difficulties)
+        for name in keep.quiz_categories(channel):
+            row = rows.setdefault(name, {"name": name, "checked": conn.execute(
+                "SELECT COUNT(DISTINCT q.id) FROM questions q JOIN question_tags t ON t.question_id = q.id "
+                "WHERE t.category = ? AND q.status = 'ok'", (name,)).fetchone()[0], "channels": []})
+            have = bank.counts(conn, channel.key, name, levels)
+            row["channels"].append({"name": channel.channel_display_name,
+                                    "unused": len(bank.pool(conn, channel.key, name)),
+                                    "short": [label for label, n in have.items() if n < keep.BANK_LOW]})
+    total = conn.execute("SELECT COUNT(*) FROM questions WHERE status = 'ok'").fetchone()[0]
+    return {"rows": sorted(rows.values(), key=lambda r: r["name"]), "total": total,
+            "spent": bank.spent_today(), "limit": keep.BANK_DAILY_USD}
+
+
+@bp.route("/facts/bank", methods=["POST"])
+def write_bank():
+    from pipeline.facts import keep
+    channels = _quiz_channels()
+
+    def work(conn, say):
+        return " ".join(keep.stock_bank(conn, channel, say) for channel in channels)
+    return _start("write questions", work)
 
 
 def _start(action: str, work):

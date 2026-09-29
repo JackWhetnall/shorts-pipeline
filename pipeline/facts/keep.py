@@ -136,6 +136,43 @@ def _stock_one(conn, channel, name: str, say) -> bool:
     return fetched
 
 
+BANK_LOW = 20                  # unused checked questions near a level before writing more
+BANK_BATCHES = 6               # batches per run, at most (a run is hourly)
+BANK_DAILY_USD = 1.50          # and no more than this a day on the bank
+
+
+def stock_bank(conn, channel, say=None) -> str:
+    """Write question-bank batches where this channel's categories are
+    shortest (pipeline.facts.bank), within the run's and the day's limits."""
+    from pipeline import quiz
+    from pipeline.facts import bank
+    say = say or (lambda message: log.info(f"  [bank] {message}"))
+    names = quiz_categories(channel)
+    levels = quiz.levels(channel.quiz.difficulties)
+    short = []
+    for name in names:
+        for (label, level), have in zip(levels, bank.counts(conn, channel.key, name, levels).values()):
+            if have < BANK_LOW:
+                short.append((have, name, label, level))
+    written = 0
+    for have, name, label, level in sorted(short):
+        if written >= BANK_BATCHES:
+            break
+        if bank.spent_today() >= BANK_DAILY_USD:
+            say(f"Today's question-bank budget (${BANK_DAILY_USD:.2f}) is spent; more tomorrow.")
+            break
+        say(f"Writing {name} questions near {label} ({have} unused)")
+        try:
+            bank.write_batch(conn, name, level, names)
+        except Exception as exc:  # noqa: BLE001 - one batch failing mustn't stop the rest
+            log.warning(f"  [bank] {name} near {label}: {exc}")
+            continue
+        written += 1
+    if not short:
+        return "The question bank is stocked."
+    return f"Wrote {written} question batch{'es' if written != 1 else ''}."
+
+
 def keep_up(channels: dict) -> bool:
     """The scheduler's duty: at most hourly, stock every quiz channel's
     categories and refresh stale facts, in the background."""
@@ -146,7 +183,8 @@ def keep_up(channels: dict) -> bool:
     _last_auto = time.time()
 
     def work(conn, say):
-        results = [stock(conn, channel, say) for channel in quizzes]
+        results = [stock_bank(conn, channel, say) for channel in quizzes]
+        results += [stock(conn, channel, say) for channel in quizzes]
         harvest.refresh(conn, progress=say)
         return " ".join(results)
 

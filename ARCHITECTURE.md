@@ -383,8 +383,17 @@ come from reusable sources only and are looked at before use
 category, each using a round once
 ([046](docs/decisions/046-picture-rounds-and-series.md)).
 
-**The fact store** (`pipeline/facts/`, `facts/facts.db`) supplies quiz
-rounds with facts gathered from Wikidata ahead of any script. Entities,
+**The question bank** (`pipeline/facts/bank.py`, in `facts/facts.db`) is
+where a quiz round's questions come from first: classic pub-quiz
+questions written in batches per category, area and level, each checked
+once, de-duplicated, levelled 1-10, tagged with every category it fits
+and used once per channel. A round from the bank has only its host's
+lines written. It's topped up hourly within a daily limit (`facts.keep`).
+See decision [050](docs/decisions/050-question-bank.md).
+
+**The fact store** (`pipeline/facts/`, `facts/facts.db`) is the fallback
+when the bank is short: facts gathered from Wikidata ahead of any
+script. Entities,
 facts (subject, property, value, each stored once), categories as sets of
 member entities (a fact belongs to every category its subject is in), and
 per-channel usage (a fact is asked once per channel). Levels are a fact's

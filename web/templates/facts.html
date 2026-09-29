@@ -23,6 +23,32 @@
   </form>
 </div>
 
+<h2>Question bank
+  <button type="button" class="info-dot" data-tooltip="Classic pub-quiz questions written ahead, each fact-checked once, levelled 1-10 and used once per channel. Rounds come from here first; the writer only adds the hook and the patter. Topped up hourly within a daily limit.">?</button>
+</h2>
+<p class="meta">{{ '{:,}'.format(bank.total) }} checked questions &middot;
+  ${{ '%.2f'|format(bank.spent) }} of ${{ '%.2f'|format(bank.limit) }} spent on it today</p>
+<form method="post" action="{{ url_for('facts.write_bank') }}" class="actions">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="btn-ghost" {{ 'disabled' if busy }}>Write more questions now</button>
+</form>
+{% if bank.rows %}
+<table class="facts-table">
+  <thead><tr><th>Category</th><th>Checked</th><th>Unused</th></tr></thead>
+  <tbody>
+  {% for row in bank.rows %}
+  <tr>
+    <td><strong>{{ row.name }}</strong></td>
+    <td>{{ '{:,}'.format(row.checked) }}</td>
+    <td>{% for c in row.channels %}{{ '{:,}'.format(c.unused) }}
+      {% if c.short %}<span class="hint">short at {{ c.short|join(', ') }}</span>{% endif %}<br>{% endfor %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Facts</h2>
 {% if rows %}
 <table class="facts-table">
   <thead><tr><th>Category</th><th>Facts</th><th>Unused</th><th>From</th><th></th></tr></thead>

@@ -8,6 +8,9 @@ Maintain the quiz fact store (pipeline.facts, facts/facts.db).
     python tools/manage_facts.py stock the_pub_quiz_round    # every category that channel has
     python tools/manage_facts.py show "Space" --level 7      # a sample round's facts
     python tools/manage_facts.py refresh --days 180          # re-pull old facts
+    python tools/manage_facts.py bank-write "Science" --level 4   # a batch of questions
+    python tools/manage_facts.py bank-stock the_pub_quiz_round    # top up where short
+    python tools/manage_facts.py bank-show "Science" --level 4    # a sample round
 
 The app does `stock` for every quiz channel by itself, hourly (see
 pipeline.facts.keep); these are for doing it now, or by hand.
@@ -22,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.logging_setup import configure                         # noqa: E402
-from pipeline.facts import categories, harvest, keep, pick, store  # noqa: E402
+from pipeline.facts import bank, categories, harvest, keep, pick, store  # noqa: E402
 
 
 def main() -> int:
@@ -38,6 +41,15 @@ def main() -> int:
     show.add_argument("--count", type=int, default=10)
     refresh = sub.add_parser("refresh")
     refresh.add_argument("--days", type=int, default=180)
+    write = sub.add_parser("bank-write")
+    write.add_argument("category")
+    write.add_argument("--level", type=float, default=5.0)
+    write.add_argument("--count", type=int, default=25)
+    sub.add_parser("bank-stock").add_argument("channel")
+    bank_show = sub.add_parser("bank-show")
+    bank_show.add_argument("category")
+    bank_show.add_argument("--level", type=float, default=5.0)
+    bank_show.add_argument("--count", type=int, default=10)
     args = parser.parse_args()
     configure()
     conn = store.connect()
@@ -64,6 +76,16 @@ def main() -> int:
             print(f"  {fact['level']:>5}  {pick.describe(fact)}")
     elif args.command == "refresh":
         print(f"refreshed {harvest.refresh(conn, args.days)} entities")
+    elif args.command == "bank-write":
+        from core.channels import load_channels
+        names = sorted({n for c in load_channels(validate=False).values() for n in keep.quiz_categories(c)})
+        print(bank.write_batch(conn, args.category, args.level, names or [args.category], args.count))
+    elif args.command == "bank-stock":
+        from core.channels import load_channels
+        print(keep.stock_bank(conn, load_channels(validate=False)[args.channel]))
+    elif args.command == "bank-show":
+        for q in bank.for_round(conn, "preview", args.category, args.level, args.count):
+            print(f"  {q['level']:>4}  [{q['shape']}] {q['question']}  ->  {q['answer']}")
     return 0
 
 

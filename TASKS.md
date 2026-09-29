@@ -65,10 +65,15 @@ The music buttons work now: they were dead on quiz channels.
    one is *Wooden tick*) and its level, and press **Listen**. **Save
    changes**.
 
-### 4b. Fill the fact store before making more shorts (5 minutes, then it runs by itself)
-Rounds are now built on facts from Wikidata (the **Facts** page in the
-sidebar), so each answer comes from a real source and no fact is used
-twice. The app is already filling it by itself in the background (it
+### 4b. Let the question bank and fact store fill (nothing to do but leave the app running)
+Rounds now come from a **question bank** of classic pub-quiz questions,
+written and checked ahead (the **Facts** page in the sidebar), and fall
+back to stored Wikidata facts. The bank tops itself up hourly, up to
+$1.50 a day, about 400 questions: a full first stock (about 2,000 across
+the categories) takes four or five days and about $7. **Write more
+questions now** on that page starts a run straight away. Science already
+has about 70.
+The fact store (below) fills alongside it. The app is already filling it by itself in the background (it
 started on 28 Sep): each category takes about 10 minutes and a cent, so
 the fifteen take a few hours. Leave the app running. The **Facts** page
 shows each category's facts and progress; **Stock every quiz category

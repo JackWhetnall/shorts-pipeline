@@ -8,7 +8,8 @@ The fact store: quiz facts from Wikidata, gathered ahead of any script.
 - categories: a quiz category mapped onto Wikidata;
 - harvest: filling and growing the store;
 - pick: facts for one round;
+- bank: finished quiz questions, written and checked ahead;
 - keep: keeping every quiz category stocked, in the background.
 
-See decision 049.
+See decisions 049 and 050.
 """
