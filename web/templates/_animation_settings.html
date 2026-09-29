@@ -4,6 +4,7 @@
 <input type="hidden" name="anim_present" value="1">
 <div class="anim-settings" data-animation-settings data-channel="{{ channel.key }}">
   <script type="application/json" data-anim-presets>{{ anim_presets|tojson }}</script>
+  <script type="application/json" data-anim-examples>{{ anim_examples|tojson }}</script>
 
   <fieldset>
     <legend>Generated animation</legend>
@@ -21,18 +22,50 @@
 
   <fieldset>
     <legend>The look</legend>
+    <p class="hint">Each look drawn at its defaults, with the same four subjects so they can be
+      compared. Click a look to choose it; <strong>See larger</strong> steps through them full
+      size. Your channel's own pictures come from its style frames, below.</p>
     <div class="anim-looks">
       {% for key, p in anim_presets.items() %}
-      <label class="choice anim-look">
-        <input type="radio" name="anim_look" value="{{ key }}" {% if key == anim_look.key %}checked{% endif %}>
-        <span>
-          <strong>{{ p.label }}</strong>
+      <label class="anim-look" data-anim-look-card="{{ key }}">
+        <span class="anim-look-examples">
+          {% for ex in anim_examples[key] %}
+          <img src="{{ ex.url }}" alt="{{ p.label }}: {{ ex.label }}" title="{{ ex.label }}" loading="lazy">
+          {% else %}
+          <span class="hint anim-no-examples">No examples drawn yet.</span>
+          {% endfor %}
+        </span>
+        <span class="anim-look-text">
+          <span class="anim-look-title">
+            <input type="radio" name="anim_look" value="{{ key }}" {% if key == anim_look.key %}checked{% endif %}>
+            <strong>{{ p.label }}</strong>
+            {% if anim_examples[key] %}
+            <button type="button" class="btn-ghost btn-small" data-anim-look-zoom="{{ key }}">See larger</button>
+            {% endif %}
+          </span>
           <span class="hint">{{ p.description }}</span>
           <span class="hint anim-suits">Suits {{ p.suits }}.</span>
         </span>
       </label>
       {% endfor %}
     </div>
+
+    <dialog class="anim-viewer" data-anim-viewer>
+      <div class="anim-viewer-head">
+        <div>
+          <strong data-anim-viewer-title></strong>
+          <span class="hint" data-anim-viewer-description></span>
+        </div>
+        <button type="button" class="btn-ghost" data-anim-viewer-close aria-label="Close">Close</button>
+      </div>
+      <div class="anim-viewer-examples" data-anim-viewer-examples></div>
+      <div class="anim-viewer-actions">
+        <button type="button" class="btn-ghost" data-anim-viewer-step="-1">&larr; Previous look</button>
+        <span class="hint" data-anim-viewer-count></span>
+        <button type="button" class="btn-ghost" data-anim-viewer-step="1">Next look &rarr;</button>
+        <button type="button" class="btn-primary" data-anim-viewer-use>Use this look</button>
+      </div>
+    </dialog>
 
     <label class="field-row">
       <span class="field-label">Style notes for this channel</span>

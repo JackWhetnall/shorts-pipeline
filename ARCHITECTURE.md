@@ -108,7 +108,9 @@ pipeline/     The generation stages. No web dependency at all.
   visuals       Carries out the director's plan; failures fall back to footage.
   illustrate    One image in the channel's style, pushed in.
   animation/    Generated animation in a channel's own look (decision 051).
-    looks/        Ten art directions: medium, light, camera, motion, cadence, grade.
+    looks/        Ten art directions: medium, light, camera, motion, cadence, grade;
+                  looks/samples/ holds each one's four example pictures.
+    samples       The examples: the same four subjects drawn in every look.
     look          A channel's look: preset + notes, palette and sliders.
     models        The picture and video models, their prices, request shapes, and
                   the arithmetic of fitting generated seconds to narration.

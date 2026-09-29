@@ -264,7 +264,10 @@ shut down on 24 Sep, so the OpenAI key can't do video any more.
 
 ### C. Choose a look for one channel (10 minutes, about 5 cents)
 **Settings → Animation** on the channel:
-1. Pick a **look**. Each card says what it suits.
+1. Pick a **look**. Each card shows four example pictures, the same four
+   subjects in every look, so they compare directly. **See larger** steps
+   through them full size (arrow keys work), and **Use this look** picks
+   one.
 2. Optional: **style notes** ("muted autumn colours, always misty") and
    your own **palette**.
 3. **Draw style frames**, then click the one that feels most like the

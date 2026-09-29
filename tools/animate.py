@@ -2,6 +2,8 @@
 Generated animation from the command line (pipeline.animation).
 
     python tools/animate.py looks                               # the presets
+    python tools/animate.py samples                             # draw missing look examples
+    python tools/animate.py samples --look risograph --force    # draw one look's again
     python tools/animate.py frames curiosity_leak                # draw its style frames again
     python tools/animate.py cast curiosity_leak                  # draw its cast's model sheets
     python tools/animate.py estimate curiosity_leak --seconds 50 # what a video would cost
@@ -52,6 +54,9 @@ def main() -> int:
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("looks")
+    samples_cmd = sub.add_parser("samples")
+    samples_cmd.add_argument("--look", action="append", choices=list(looks.presets()))
+    samples_cmd.add_argument("--force", action="store_true")
     for name in ("frames", "cast", "estimate", "animatic", "film"):
         p = sub.add_parser(name)
         p.add_argument("channel")
@@ -75,6 +80,11 @@ def main() -> int:
     if args.command == "looks":
         for key, p in looks.presets().items():
             print(f"{key:20} {p['label']}: {p['description']}")
+        return 0
+    if args.command == "samples":
+        from pipeline.animation import samples
+        for path in samples.draw(args.look, force=args.force):
+            print(path)
         return 0
     channel = _channel(args.channel, args)
     look = looks.resolve(channel.animation)

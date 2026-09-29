@@ -3151,6 +3151,47 @@ function initAnimationSettings() {
   }));
   root.querySelectorAll("[data-anim-bible-field]").forEach(f => f.addEventListener("change", refresh));
 
+  // The looks, full size, one after another; "Use this look" picks it.
+  const examples = JSON.parse(root.querySelector("[data-anim-examples]").textContent);
+  const viewer = root.querySelector("[data-anim-viewer]");
+  const shown = Object.keys(presets).filter(k => (examples[k] || []).length);
+  let viewing = 0;
+  const showLook = index => {
+    viewing = (index + shown.length) % shown.length;
+    const key = shown[viewing];
+    viewer.querySelector("[data-anim-viewer-title]").textContent = presets[key].label;
+    viewer.querySelector("[data-anim-viewer-description]").textContent =
+      `${presets[key].description} Suits ${presets[key].suits}.`;
+    viewer.querySelector("[data-anim-viewer-examples]").innerHTML = examples[key].map(ex => `
+      <figure><img src="${escapeHtml(ex.url)}" alt="${escapeHtml(presets[key].label)}: ${escapeHtml(ex.label)}">
+        <figcaption class="hint">${escapeHtml(ex.label)}</figcaption></figure>`).join("");
+    viewer.querySelector("[data-anim-viewer-count]").textContent =
+      `${viewing + 1} of ${shown.length}${key === lookKey() ? " (chosen)" : ""}`;
+  };
+  root.addEventListener("click", event => {
+    const zoom = event.target.closest("[data-anim-look-zoom]");
+    if (zoom) {
+      event.preventDefault();
+      showLook(shown.indexOf(zoom.dataset.animLookZoom));
+      viewer.showModal();
+    }
+    const step = event.target.closest("[data-anim-viewer-step]");
+    if (step) showLook(viewing + Number(step.dataset.animViewerStep));
+    if (event.target.closest("[data-anim-viewer-close]")) viewer.close();
+    if (event.target.closest("[data-anim-viewer-use]")) {
+      const radio = form.querySelector(`input[name=anim_look][value="${shown[viewing]}"]`);
+      radio.checked = true;
+      radio.dispatchEvent(new Event("change", {bubbles: true}));
+      viewer.close();
+      radio.closest("[data-anim-look-card]").scrollIntoView({block: "center", behavior: "smooth"});
+    }
+    if (event.target === viewer) viewer.close();          // a click on the backdrop
+  });
+  viewer.addEventListener("keydown", event => {
+    if (event.key === "ArrowRight") showLook(viewing + 1);
+    if (event.key === "ArrowLeft") showLook(viewing - 1);
+  });
+
   root.addEventListener("click", async event => {
     const draw = event.target.closest("[data-anim-draw-frames]");
     const choose = event.target.closest("[data-anim-choose]");

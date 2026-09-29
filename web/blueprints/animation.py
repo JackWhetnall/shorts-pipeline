@@ -21,7 +21,7 @@ from core.channels import ANIMATION_CADENCES
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from core.paths import OUTPUT_DIR, PathTraversalError, relative_to_output, safe_join
-from pipeline.animation import bible, fal, look as looks, models, preview
+from pipeline.animation import bible, fal, look as looks, models, preview, samples
 from web.helpers import channel_or_404
 
 log = get_logger(__name__)
@@ -34,6 +34,14 @@ PREVIEW_SECONDS = 50.0
 
 # --- the form -------------------------------------------------------------------
 
+def look_examples() -> dict:
+    """{look key: [{"url", "label"}]}: each look's example pictures."""
+    return {key: [{"url": url_for("animation.look_sample", look_key=key, n=n + 1),
+                   "label": label}
+                  for n, label, _ in samples.available(key)]
+            for key in looks.presets()}
+
+
 def form_context(channel) -> dict:
     """What _animation_settings.html needs."""
     a = channel.animation
@@ -43,6 +51,7 @@ def form_context(channel) -> dict:
         "anim": a,
         "anim_look": look,
         "anim_presets": presets,
+        "anim_examples": look_examples(),
         "anim_palette": look["palette"],
         "anim_custom_palette": bool(a.palette),
         "anim_cadences": {"": f"The look's own", "ones": "Smooth (every frame)",
@@ -172,6 +181,17 @@ def _trying(channel, data: dict):
 
 
 # --- routes ---------------------------------------------------------------------
+
+@bp.route("/animation/looks/<look_key>/<int:n>.jpg")
+def look_sample(look_key, n):
+    """One of a look's example pictures (pipeline.animation.samples)."""
+    if look_key not in looks.presets() or not 1 <= n <= len(samples.SUBJECTS):
+        abort(404)
+    path = samples.path(look_key, n - 1)
+    if not path.is_file():
+        abort(404)
+    return send_file(path, mimetype="image/jpeg", max_age=86400)
+
 
 @bp.route("/channels/<key>/animation/file/<look_key>/<path:name>")
 def bible_file(key, look_key, name):

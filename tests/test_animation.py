@@ -614,3 +614,129 @@ class TestPreviewJob:
         job = {"status": "done", "seed": {"type": "animation_preview"}, "finished_at": 10,
                "stage_entered": {"1": 1}}
         assert job_eta._durations(job) == {}
+
+
+# --- each look's example pictures -------------------------------------------------
+
+class TestLookExamples:
+    def test_every_look_is_drawn_with_the_same_subjects(self, monkeypatch, tmp_path):
+        from pipeline.animation import samples
+        monkeypatch.setattr(samples, "SAMPLES_DIR", tmp_path)
+        monkeypatch.setattr(samples, "CACHE_DIR", tmp_path / "cache")
+        prompts = []
+
+        def fake_draw(prompt, out, model, **kw):
+            from PIL import Image
+            prompts.append(prompt)
+            Path(out).parent.mkdir(parents=True, exist_ok=True)
+            Image.new("RGB", (864, 1536)).save(out, format="JPEG")
+            return Path(out)
+        monkeypatch.setattr(samples.images, "draw", fake_draw)
+        made = samples.draw(["risograph", "soft_3d"])
+        assert len(made) == 2 * len(samples.SUBJECTS)
+        assert all(p.stat().st_size and p.suffix == ".jpg" for p in made)
+        from PIL import Image
+        assert Image.open(made[0]).size == samples.SIZE
+        subject = samples.SUBJECTS[0][1]
+        assert sum(subject in p for p in prompts) == 2           # the same subject in both looks
+        assert samples.draw(["risograph"]) == []                   # nothing missing: nothing drawn
+        assert [label for _, label, _ in samples.available("risograph")] == \
+            [label for label, _ in samples.SUBJECTS]
+
+    def test_one_refused_picture_does_not_stop_the_rest(self, monkeypatch, tmp_path):
+        from pipeline.animation import samples
+        monkeypatch.setattr(samples, "SAMPLES_DIR", tmp_path)
+
+        def fake_one(key, n):
+            if n == 1:
+                raise ExternalServiceError("OpenAI", "moderation", user_message="refused")
+            out = samples.path(key, n)
+            out.write_bytes(b"x")
+            return out
+        monkeypatch.setattr(samples, "_draw_one", fake_one)
+        assert len(samples.draw(["engraving"])) == len(samples.SUBJECTS) - 1
+
+    def test_the_cards_show_the_examples_and_the_route_serves_them(self, client, monkeypatch,
+                                                                   tmp_path):
+        from pipeline.animation import samples
+        monkeypatch.setattr(samples, "SAMPLES_DIR", tmp_path)
+        samples.path("clean_cel", 0).write_bytes(b"\xff\xd8jpeg")
+        body = client.get("/channels/test_channel/settings").get_data(as_text=True)
+        assert "/animation/looks/clean_cel/1.jpg" in body
+        assert 'data-anim-look-zoom="clean_cel"' in body
+        assert 'data-anim-look-zoom="risograph"' not in body          # none drawn: no viewer
+        assert client.get("/animation/looks/clean_cel/1.jpg").data == b"\xff\xd8jpeg"
+        assert client.get("/animation/looks/clean_cel/2.jpg").status_code == 404
+        assert client.get("/animation/looks/clean_cel/9.jpg").status_code == 404
+        assert client.get("/animation/looks/nope/1.jpg").status_code == 404
+
+    def test_the_shipped_examples_are_complete(self):
+        """Every look carries its four examples in the repository, so the
+        picker is never a wall of text on a fresh install."""
+        from pipeline.animation import samples
+        missing = [(k, n + 1) for k in looks.presets() for n in range(len(samples.SUBJECTS))
+                   if not samples.path(k, n).exists()]
+        assert not missing, missing
+
+
+# --- the image model's per-minute limit -------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _fresh_image_limiter(monkeypatch):
+    """images.draw paces calls in a module-wide window; each test starts
+    with an empty one so none waits on another's calls."""
+    from collections import deque
+    monkeypatch.setattr(images, "_sent", deque())
+    monkeypatch.setattr(images, "per_minute", 5)
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 1000.0
+        self.slept = []
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.slept.append(round(seconds, 1))
+        self.now += seconds
+
+
+class TestImageRateLimit:
+    def test_calls_wait_their_turn_counting_references(self, monkeypatch):
+        clock = FakeClock()
+        monkeypatch.setattr(images.time, "monotonic", clock.monotonic)
+        monkeypatch.setattr(images.time, "sleep", clock.sleep)
+        images._wait_turn(3)          # a keyframe with three references
+        images._wait_turn(2)
+        assert clock.slept == []      # five in the minute: fine
+        images._wait_turn(1)          # the sixth waits for the first to age out
+        assert clock.slept and clock.slept[0] == pytest.approx(60.5, abs=0.1)
+
+    def test_a_rate_limit_is_waited_out_and_its_limit_learned(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("OPENAI_API_KEY", "k")
+        clock = FakeClock()
+        monkeypatch.setattr(images.time, "monotonic", clock.monotonic)
+        monkeypatch.setattr(images.time, "sleep", clock.sleep)
+        monkeypatch.setattr(images.costs, "_write", lambda r: None)
+        limited = FakeResponse(status=429)
+        limited.text = ('{"error": {"message": "Rate limit reached for gpt-image-2.5-sunburst '
+                        '(for limit gpt-image) on input-images per min: Limit 3, Used 3, '
+                        'Requested 1. Please try again in 12s."}}')
+        replies = iter([limited, FakeResponse(body={"data": [{"b64_json": base64.b64encode(
+            b"ok").decode()}]})])
+        monkeypatch.setattr(images.requests, "post", lambda *a, **k: next(replies))
+        out = images.draw("p", tmp_path / "f.jpg", models.IMAGE_MODELS["gpt_image_flare"])
+        assert out.read_bytes() == b"ok"
+        assert images.per_minute == 3 and 13.0 in clock.slept
+
+    def test_running_out_of_credit_is_not_waited_on(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("OPENAI_API_KEY", "k")
+        broke = FakeResponse(status=429)
+        broke.text = '{"error": {"code": "insufficient_quota", "message": "You exceeded your current quota"}}'
+        calls = []
+        monkeypatch.setattr(images.requests, "post", lambda *a, **k: calls.append(1) or broke)
+        with pytest.raises(ExternalServiceError) as exc:
+            images.draw("p", tmp_path / "f.jpg", models.IMAGE_MODELS["gpt_image_flare"])
+        assert len(calls) == 1 and "credit" in exc.value.user_message

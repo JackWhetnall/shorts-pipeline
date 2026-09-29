@@ -101,6 +101,22 @@ animation studio uses, each doing the job it's best at:
    it read as animation rather than "AI video", and it hides the shimmer
    video models leave between frames.
 
+**Choosing a look by eye** (added the same day, at the owner's request).
+Every look comes with four example pictures, drawn at its defaults with
+the same four subjects. The subjects are chosen to show what matters when
+picking a style:
+- a person in a landscape;
+- a face lit close;
+- an animal in nature;
+- an everyday interior.
+
+Because the subjects are the same, the looks can be compared directly.
+The settings page shows them on each look's card, and "See larger" steps
+through the looks full size, with "Use this look". The examples are part
+of the look, so they're kept in the repository (`looks/samples/`, about
+4 MB), not the cache. `tools/animate.py samples` draws any that are
+missing, for about a cent each.
+
 **Where it sits.** When animation is on and FAL_KEY is set, the visual
 director offers `animation` where it offered `illustration`. The
 channel's Pictures slider keeps its meaning: at "Always" the whole video
