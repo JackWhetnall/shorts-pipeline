@@ -1010,6 +1010,32 @@ def _bank_questions(channel, category: str, difficulty: str, count: int) -> list
     return questions
 
 
+BANK_TOP_UPS = 3        # batches written for a round the bank can't yet supply...
+BANK_TOP_UP_SIZE = 12   # ...each small and in its own area, so the round isn't all one area
+
+
+def _top_up_bank(channel, category: str, difficulty: str) -> bool:
+    """Write bank questions for this category and level now, so the round
+    is proper pub-quiz questions rather than the fact store's: with the
+    bank short, a Fiendish Geography round fell back to "the highest peak
+    of Euboea". Three small batches, each to the category's least-stocked
+    area, so the round has several areas to draw on (one batch made it all
+    mountains). About 10 cents in all. True if anything was written."""
+    try:
+        from pipeline.facts import bank, keep, store
+        conn = store.connect()
+        names = keep.quiz_categories(channel) or [category]
+        level = level_of(channel, difficulty)
+        wrote = False
+        for _ in range(BANK_TOP_UPS):
+            log.info(f"  [quiz] writing {category} questions near {difficulty} for the bank")
+            wrote = bank.write_batch(conn, category, level, names, BANK_TOP_UP_SIZE)["kept"] > 0 or wrote
+        return wrote
+    except Exception as exc:  # noqa: BLE001 - see _bank_questions
+        log.warning(f"  [quiz] couldn't write bank questions now ({exc}); using the fallbacks")
+        return False
+
+
 def _bank_schema() -> dict:
     schema = _schema()
     item = {"type": "object", "properties": {"number": {"type": "integer"}, "lead_in": {"type": "string"},
@@ -1060,6 +1086,8 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "",
     count = channel.quiz.questions
     if not kind:
         chosen = _bank_questions(channel, category, difficulty, count)
+        if not chosen and _top_up_bank(channel, category, difficulty):
+            chosen = _bank_questions(channel, category, difficulty, count)
         if chosen:
             return _round_from_bank(channel, category, difficulty, chosen)
     facts = [] if kind else _facts(channel, category, difficulty, count + FACT_SPARE)

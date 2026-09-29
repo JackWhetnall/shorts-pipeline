@@ -150,3 +150,23 @@ def test_the_day_spend_counts_only_the_banks_own_calls(monkeypatch):
         {"operation": "quiz_verify", "ts": now - 60, "cost_usd": 0.50},
         {"operation": "bank_write", "ts": now - 90000, "cost_usd": 1.00}])
     assert bank.spent_today() == pytest.approx(0.07)
+
+
+def test_a_round_the_bank_cant_supply_writes_bank_questions_first(monkeypatch):
+    """Regression: with the bank short, a Fiendish Geography round fell back
+    to stored facts ("the highest peak of Euboea") instead of writing
+    proper pub-quiz questions."""
+    from pipeline import quiz
+    channel = ChannelConfig(key="pub", format="quiz", style_prompt="host")
+    channel.quiz.questions = 3
+
+    def write_batch(conn, category, level, names, *args, **kwargs):
+        _stock(conn, 30, category)
+        return {"kept": 30}
+    monkeypatch.setattr(bank, "write_batch", write_batch)
+    monkeypatch.setattr(quiz, "_facts", lambda *a, **k: pytest.fail("fell back to facts"))
+    monkeypatch.setattr(quiz, "call_json", lambda system, user, schema, **k: {
+        "hook": "Know your places?", "intro": "Question one.", "outro": "Bye.", "title_options": ["t"],
+        "description_body": "d", "questions": [{"number": n, "lead_in": "", "spoken_answer": "x"} for n in (1, 2, 3)]})
+    script = quiz._write_checked(channel, "Geography", "Fiendish")
+    assert all(q.get("bank_id") for q in script.quiz["questions"])

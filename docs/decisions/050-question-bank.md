@@ -97,6 +97,36 @@ Three Science batches:
 - **A round from the bank:** 1.5 cents (writing the host's lines only),
   against about 4 to 8 cents to write and check a round.
 
+## Revised: the bank first, always
+
+A Fiendish Geography round came back as ten obscure facts: the highest
+peak of Euboea, the rock of a Philippine volcano, mostly mountains and
+islands, "extremely difficult". The bank had only 2 unused Geography
+questions near Fiendish, so the round fell back, all or nothing, to the
+fact store, where three things went wrong at once:
+- the fallback never tried to write bank questions;
+- fact levels were ranks across *every* fact in a category, so Fiendish
+  meant its obscure end;
+- nothing kept a round of facts off one kind of thing.
+
+Now:
+- **A round the bank can't supply writes bank questions first:** three
+  batches of 12, each to the category's least-stocked area, so the round
+  has several areas to draw on. About 10 cents, once, and it stays in
+  the bank. Facts are the last resort.
+- **Fact levels span only the best-known 40%** of a category's facts;
+  the rest sit at 10 (`levels.FAMOUS_SHARE`).
+- **A round of facts takes at most two about one kind of thing**, read
+  from the subject's description ("mountain in Greece").
+- **The channel's own scale runs a notch lower**, so every level is a
+  notch easier. It was Easy 2, Medium 4, Hard 5.5, Tricky 6.5, Fiendish 8,
+  Impossible 9; it's now 1.5, 3, 4.5, 5.5, 6.5 and 8. It's a channel
+  setting, not code.
+
+Checked again, Fiendish Geography came from the bank: the first European
+to sight the Pacific, the Gulf flags with a zigzag edge, the Challenger
+Deep, Machu Picchu's rediscoverer. Six areas, 1.5 cents.
+
 ## Tried and rejected
 
 - **Copying free quiz sites.** See above.

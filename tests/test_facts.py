@@ -212,6 +212,9 @@ class TestPicking:
         _stocked(conn)
         facts = {f["subject"]: f for f in pick.pool(conn, "Things", False)}
         assert facts["Q0"]["level"] == 1.0 and facts["Q39"]["level"] == 10.0
+        # Regression: spread over every fact, Fiendish Geography asked for
+        # the highest peak of Euboea. Only the best-known 40% span the scale.
+        assert facts["Q16"]["level"] == 10.0 and facts["Q8"]["level"] < 6
         easy = pick.for_round(conn, "ch", "Things", 1.0, 3, seed=1)
         hard = pick.for_round(conn, "ch", "Things", 10.0, 3, seed=1)
         assert max(f["level"] for f in easy) < min(f["level"] for f in hard)
@@ -221,10 +224,9 @@ class TestPicking:
         _stocked(conn, 12)
         store.save_category(conn, "Also", {"sets": []})
         store.add_members(conn, "Also", [f"Q{i}" for i in range(12)])
-        first = pick.for_round(conn, "ch", "Things", 5, 12, seed=1)
-        store.mark_used(conn, "ch", [f["id"] for f in first])
-        assert pick.for_round(conn, "ch", "Also", 5, 5) == []
-        assert len(pick.for_round(conn, "other channel", "Also", 5, 5)) == 5
+        store.mark_used(conn, "ch", [r[0] for r in conn.execute("SELECT id FROM facts")])
+        assert pick.for_round(conn, "ch", "Also", 10, 5) == []
+        assert len(pick.for_round(conn, "other channel", "Also", 10, 5)) == 5
 
     def test_one_subject_and_one_answer_per_round(self, tmp_path):
         conn = store.connect(tmp_path / "f.db")
@@ -329,6 +331,7 @@ class TestRoundsFromFacts:
                                   for i, fid in enumerate(ids)]}
         monkeypatch.setattr(quiz, "call_json", call_json)
         monkeypatch.setattr(quiz, "verify", lambda category, difficulty, questions: ["ok"] * len(questions))
+        monkeypatch.setattr(quiz, "_top_up_bank", lambda *a, **k: False)     # the bank stays empty
         return seen
 
     def test_a_round_is_built_on_unused_facts_and_marks_them_used(self, monkeypatch):
@@ -338,7 +341,7 @@ class TestRoundsFromFacts:
         authors = {f"F{r['id']}": r["value_label"] for r in conn.execute("SELECT id, value_label FROM facts")}
         seen = self._fake_writer(monkeypatch, lambda fid: authors[fid])
         channel = self._channel()
-        script = quiz._write_checked(channel, "Things", "Hard")
+        script = quiz._write_checked(channel, "Things", "Impossible")
         assert not script.quiz["unverified"]
         assert all(q.get("fact_id") for q in script.quiz["questions"])
         assert "The facts:" in seen["users"][0] and "Already asked" not in seen["users"][0]
@@ -356,7 +359,7 @@ class TestRoundsFromFacts:
                 return "Someone Made Up"
             return authors[fid]
         self._fake_writer(monkeypatch, answer)
-        script = quiz._write_checked(self._channel(), "Things", "Hard")
+        script = quiz._write_checked(self._channel(), "Things", "Impossible")
         assert "Someone Made Up" not in [q["answer"] for q in script.quiz["questions"]]
         assert not script.quiz["unverified"]
 
@@ -487,3 +490,22 @@ def test_a_set_added_to_a_harvested_category_is_fetched(monkeypatch, tmp_path):
     monkeypatch.setattr(keep, "short_levels", lambda conn, channel, name: [])
     keep.stock(conn, ChannelConfig(key="q", format="quiz"), names=["Science"])
     assert harvested == [False]
+
+
+def test_a_round_of_facts_takes_few_of_any_one_kind_of_thing(tmp_path):
+    """Regression: a Fiendish Geography round was nearly all mountains and islands."""
+    conn = store.connect(tmp_path / "f.db")
+    things = [(f"Q{i}", f"Place {chr(65 + i)}", ["mountain in Greece", "island in Italy", "river in France",
+                                                 "city in Spain", "lake in Chile"][i % 5], 100) for i in range(20)]
+    store.upsert_entities(conn, things)
+    _read(conn, {q: 500_000 for q, *_ in things})
+    store.save_category(conn, "Geo", {"sets": []})
+    store.add_members(conn, "Geo", [q for q, *_ in things])
+    store.replace_facts(conn, [q for q, *_ in things], [
+        {"subject": q, "property": ["P17", "P131", "P206", "P4552"][i % 4], "value": f"Q9{i}",
+         "value_label": f"Answer {i}", "value_description": "", "value_sitelinks": 200, "kind": "item",
+         "values_for_subject": 1, "hardness": 0.0} for i, (q, *_) in enumerate(things)])
+    chosen = pick.for_round(conn, "ch", "Geo", 10, 10, seed=3)
+    kinds = [pick.kind_of(f["subject_description"]) for f in chosen]
+    assert max(kinds.count(k) for k in set(kinds)) <= 2
+    assert pick.kind_of("mountain in Greece") == "mountain" and pick.kind_of("island in the Aegean Sea") == "island"

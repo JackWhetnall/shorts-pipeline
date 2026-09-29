@@ -42,8 +42,15 @@ def hardness(pid: str, subject_views: int, value_sitelinks: int = None) -> float
     return round(0.55 * named + 0.45 * answer + (prop.adjust if prop else 0.0), 3)
 
 
-def levels_for(hardnesses: list) -> list:
-    """Each hardness's level (1-10) by its rank among these."""
+# Only the best-known share of a category's facts is spread over the
+# 1-10 scale; the rest sit at 10 and are almost never asked. Spread over
+# all of them, Fiendish Geography meant "the highest peak of Euboea".
+FAMOUS_SHARE = 0.4
+
+
+def levels_for(hardnesses: list, share: float = FAMOUS_SHARE) -> list:
+    """Each hardness's level (1-10) by its rank among these, the easiest
+    `share` of them spread over the scale."""
     n = len(hardnesses)
     if n == 0:
         return []
@@ -52,5 +59,5 @@ def levels_for(hardnesses: list) -> list:
     order = sorted(range(n), key=lambda i: hardnesses[i])
     out = [0.0] * n
     for rank, i in enumerate(order):
-        out[i] = round(1 + 9 * rank / (n - 1), 2)
+        out[i] = round(1 + 9 * min(1.0, rank / ((n - 1) * share)), 2)
     return out

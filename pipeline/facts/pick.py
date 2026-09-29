@@ -109,20 +109,33 @@ def _spread(facts: list, count: int, rng) -> list:
     categories are mostly one kind of fact (books: who wrote them)."""
     facts = list(facts)
     rng.shuffle(facts)
-    subjects, answers, properties, out = set(), set(), {}, []
-    for cap in (max(2, count // 4), count):
+    subjects, answers, properties, kinds, out = set(), set(), Counter(), Counter(), []
+    for cap, kind_cap in ((max(2, count // 4), KIND_CAP), (count, KIND_CAP), (count, count)):
         for f in facts:
             if len(out) == count:
                 return out
             answer = f["value_label"].lower()
+            kind = kind_of(f.get("subject_description") or "")
             if (f["subject"] in subjects or answer in answers or f["subject_label"].lower() in answers
-                    or properties.get(f["property"], 0) >= cap):
+                    or properties[f["property"]] >= cap or kinds[kind] >= kind_cap):
                 continue
             out.append(f)
             subjects.add(f["subject"])
             answers |= {answer, f["subject_label"].lower()}
-            properties[f["property"]] = properties.get(f["property"], 0) + 1
+            properties[f["property"]] += 1
+            kinds[kind] += 1
     return out
+
+
+KIND_CAP = 2            # facts about the same kind of thing in one round, while others remain
+
+
+def kind_of(description: str) -> str:
+    """What kind of thing a subject is, from its Wikidata description:
+    "mountain in Greece" is a mountain, "island in the Aegean Sea" an
+    island. A Fiendish Geography round was nearly all mountains and islands."""
+    head = re.split(r"\s+(?:in|of|on|from|at|near|located)\s+|,|\(", description.lower())[0].strip()
+    return head.split()[-1] if head else ""
 
 
 def describe(fact: dict) -> str:
