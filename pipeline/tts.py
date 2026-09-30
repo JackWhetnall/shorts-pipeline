@@ -38,6 +38,7 @@ import numpy as np
 import requests
 
 from core import costs, job_context, voice_quota
+from core.paths import CACHE_DIR
 from core.errors import ExternalServiceError, MissingCredentialError
 from core.logging_setup import get_logger
 from pipeline.audio import apply_fade, decode_audio_file, match_channels
@@ -542,6 +543,57 @@ def narration_characters(segments: list, citation: str, pacing, source_index: in
                for text, _, _ in build_plan(segments, citation, pacing, source_index))
 
 
+# Every segment's voice is kept a while, keyed by exactly what was said and
+# how, so remaking a video with a few lines changed (a quiz with questions
+# swapped) pays only for those lines. Only a remake reads it: a video
+# discarded for its voice is voiced afresh.
+VOICE_CACHE_DIR = CACHE_DIR / "voice_segments"
+VOICE_CACHE_DAYS = 60
+
+
+def segment_key(text: str, voice_id: str, speed: float, say_as: dict = None) -> str:
+    import hashlib
+    import json
+    said = [speakable(text, say_as), voice_id, ELEVENLABS_MODEL, round(float(speed or 1.0), 3)]
+    return hashlib.sha1(json.dumps(said).encode("utf-8")).hexdigest()
+
+
+def cached_segment(key: str):
+    """(word_timings, samples) for a segment voiced before, or None."""
+    import json
+    mp3, meta = VOICE_CACHE_DIR / f"{key}.mp3", VOICE_CACHE_DIR / f"{key}.json"
+    if not (mp3.exists() and meta.exists()):
+        return None
+    try:
+        words = [WordTiming(w, s, e) for w, s, e in json.loads(meta.read_text(encoding="utf-8"))["words"]]
+        return words, decode_audio_file(str(mp3), fps=SAMPLE_RATE)
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def keep_segment(key: str, audio_path, word_timings: list) -> None:
+    import json
+    try:
+        VOICE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(audio_path, VOICE_CACHE_DIR / f"{key}.mp3")
+        (VOICE_CACHE_DIR / f"{key}.json").write_text(json.dumps(
+            {"words": [[w.word, w.start, w.end] for w in word_timings]}), encoding="utf-8")
+        cutoff = time.time() - VOICE_CACHE_DAYS * 86400
+        for old in VOICE_CACHE_DIR.iterdir():
+            if old.stat().st_mtime < cutoff:
+                old.unlink(missing_ok=True)
+    except OSError:  # a cache: losing it only costs a later remake its saving
+        log.debug("Couldn't keep a voiced segment", exc_info=True)
+
+
+def characters_to_voice(segments: list, citation: str, pacing, source_index: int, voice_id: str,
+                        speed: float, say_as: dict = None, reuse: bool = False) -> int:
+    """What this narration will bill, less the lines a remake reuses."""
+    return sum(len(apply_pronunciation_overrides(text))
+               for text, _, _ in build_plan(segments, citation, pacing, source_index)
+               if not (reuse and cached_segment(segment_key(text, voice_id, speed, say_as))))
+
+
 def _stitch(results, segments, out_audio_path: str):
     """Assemble segment audio into one track, filling in segment spans.
 
@@ -604,7 +656,7 @@ def _stitch(results, segments, out_audio_path: str):
 
 def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: str,
                        pacing, speed: float = 1.0, source_index: int = 0,
-                       say_as: dict = None) -> Voiceover:
+                       say_as: dict = None, reuse: bool = False) -> Voiceover:
     """Synthesize the whole narration and fill in each segment's real
     start/end times.
 
@@ -625,6 +677,12 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
     def synth_one(item):
         i, (text, pause, segment_index) = item
         preview = text if len(text) <= 50 else text[:47] + "..."
+        key = segment_key(text, voice_id, speed, say_as)
+        kept = cached_segment(key) if reuse else None
+        if kept:
+            log.info(f'  [tts] reusing {i + 1}/{len(plan)} from the video this remakes: "{preview}"')
+            job_context.report_detail("tts", i, {"status": "done"})
+            return (pause, segment_index) + kept
         log.info(f'  [tts] synthesizing {i + 1}/{len(plan)}: "{preview}"')
         job_context.report_detail("tts", i, {"status": "active"})
         try:
@@ -635,6 +693,7 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
         except Exception:
             job_context.report_detail("tts", i, {"status": "error"})
             raise
+        keep_segment(key, segment_paths[i], timings)
         job_context.report_detail("tts", i, {"status": "done"})
         return pause, segment_index, timings, samples
 
@@ -677,22 +736,24 @@ def run(plan):
         )
         return plan
 
+    # The channel's own list of words the engine misreads, and a quiz
+    # round's chemical symbols, worked out again here so a round stored
+    # with the writer's old respellings doesn't use them (decision 048).
+    say_as = {**_symbol_respellings(plan.script), **(getattr(plan.channel, "pronunciations", None) or {})}
+    reuse = bool(getattr(getattr(plan, "seed", None), "remake_of", ""))
+    source_index = getattr(plan.script, "source_index", 0)
     # Checked before the first request rather than discovered on the
     # third segment: a quota that runs out mid-narration still bills the
     # segments that did get through.
-    voice_quota.require_room(narration_characters(plan.script.segments, plan.script.citation,
-                                                  plan.channel.pacing, getattr(plan.script, "source_index", 0)))
+    voice_quota.require_room(characters_to_voice(
+        plan.script.segments, plan.script.citation, plan.channel.pacing, source_index,
+        plan.channel.voice, plan.channel.speed, say_as, reuse))
 
     log.info("[2/5] Generating the voiceover...")
     plan.voiceover = generate_voiceover(
         plan.script.segments, plan.script.citation, plan.channel.voice,
         str(plan.audio_path), plan.channel.pacing, speed=plan.channel.speed,
-        source_index=getattr(plan.script, "source_index", 0),
-        # The channel's own list of words the engine misreads, and a quiz
-        # round's chemical symbols, worked out again here so a round stored
-        # with the writer's old respellings doesn't use them (decision 048).
-        say_as={**_symbol_respellings(plan.script),
-                **(getattr(plan.channel, "pronunciations", None) or {})},
+        source_index=source_index, say_as=say_as, reuse=reuse,
     )
 
     try:

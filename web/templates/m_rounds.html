@@ -1,0 +1,18 @@
+{% extends "m_base.html" %}
+{% block title %}{{ channel.channel_display_name }} rounds{% endblock %}
+{% block content %}
+<h1>{{ channel.channel_display_name }}: rounds written ahead</h1>
+<p class="meta">Not made yet. Checking their questions now means the videos made from them later ask the ones you kept.</p>
+{% for s in rows %}
+{% set qs = s.script.quiz.questions %}
+<a class="card" style="display: block; text-decoration: none; color: inherit"
+   href="{{ url_for('quiz_review.written', key=key, subtopic_id=s.id, m='1') }}">
+  <strong>{{ s.title }}</strong>
+  <div class="meta">{{ qs|length }} questions &middot;
+    {% set looked = qs|selectattr('approved')|list|length %}
+    {% if looked == qs|length %}all checked{% elif looked %}{{ looked }} checked{% else %}not checked yet{% endif %}</div>
+</a>
+{% else %}
+<p class="meta">No rounds written ahead.</p>
+{% endfor %}
+{% endblock %}

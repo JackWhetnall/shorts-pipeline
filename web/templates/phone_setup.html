@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Phone access{% endblock %}
+{% block content %}
+<h1>Phone access</h1>
+<p class="meta">Use the app from a phone on the same Wi-Fi: see what's being made, watch and approve or discard
+  what's waiting for review, check a quiz's questions, and start the next video.</p>
+{% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
+
+<div class="card">
+  {% if state.enabled %}
+    {% if listening %}
+    <p><strong>On.</strong> On your phone, open:</p>
+    {% for address in addresses %}
+    <p style="font-size: 1.3rem"><code>http://{{ address }}:{{ port }}/m</code></p>
+    {% else %}
+    <p class="meta">This PC doesn't seem to be on a home network right now.</p>
+    {% endfor %}
+    <p>Access code: <strong style="font-size: 1.4rem; letter-spacing: .15em">{{ state.code }}</strong></p>
+    <p class="meta">A phone enters it once and stays signed in.</p>
+    {% else %}
+    <p><strong>On, but not listening on the network yet.</strong>
+      {% if restarting %}The app restarts once nothing is being made, then this page shows the address.
+      {% else %}Restart the app for it to apply.{% endif %}</p>
+    {% endif %}
+    <div class="actions">
+      <form method="post" action="{{ url_for('phone.set_access') }}" style="display: inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" name="action" value="new-code" class="btn-ghost"
+                data-tooltip="Signs out every phone signed in with the old code">New code</button>
+        <button type="submit" name="action" value="off" class="btn-ghost danger-text">Turn off</button>
+      </form>
+    </div>
+  {% else %}
+    <p><strong>Off.</strong> The app only answers on this PC.</p>
+    <form method="post" action="{{ url_for('phone.set_access') }}" class="actions">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" name="action" value="on" class="btn-primary">Turn on phone access</button>
+    </form>
+    <p class="meta">Turning it on makes an access code and restarts the app (once nothing is being made) so it
+      listens on your home network.</p>
+  {% endif %}
+</div>
+
+<h2>If the phone can't connect</h2>
+<p class="meta">Windows Firewall has to let phones in, once. In a PowerShell window opened with
+  <em>Run as administrator</em>:</p>
+<pre><code>netsh advfirewall firewall add rule name="Shorts Pipeline (phone)" dir=in action=allow protocol=TCP localport={{ port }} profile=private</code></pre>
+<p class="meta">That allows it on networks Windows calls private (your home Wi-Fi), not on public ones.
+  If your home network is set to public, change it under Settings, Network &amp; internet, Wi-Fi, your network, to
+  Private. The phone must be on the same Wi-Fi as this PC. It's for your home network only: don't open this
+  port on your router.</p>
+{% endblock %}

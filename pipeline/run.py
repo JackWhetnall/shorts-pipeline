@@ -216,6 +216,10 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
             quiz.save_round(plan)
         except Exception:  # noqa: BLE001 - the short is finished; only its reuse in a long quiz is lost
             log.exception("Could not save this round's timings for long quizzes")
+        try:
+            quiz.save_script(plan)
+        except Exception:  # noqa: BLE001 - the short is finished; only swapping its questions is lost
+            log.exception("Could not save this round's script for question review")
 
     # Seed the editable title and description. Stored on the video rather
     # than only in the meta file, so the review screen can show them,

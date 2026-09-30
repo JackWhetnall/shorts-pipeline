@@ -5,9 +5,9 @@ testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
 *Last updated: 30 Sep 2026. For now only The Pub Quiz Round publishes.
-New: a guided animation style builder for narrated channels, with minimal
-diagram styles and widescreen previews (its own section below the quiz
-list).*
+New: check a quiz's questions one by one and swap out the bad ones (step
+4d), and the app on your phone (step 4e). Also a guided animation style
+builder for narrated channels (its own section below the quiz list).*
 
 ---
 
@@ -99,6 +99,56 @@ Thirteen quiz rounds were written ahead by earlier versions (before the
 question bank and the difficulty fix). **Topic plan → Clear written
 scripts (13)**. Each is written afresh from the bank when its video is
 made. Discard any quiz still in Review that came from them.
+
+### 4d. Check a round's questions (5 minutes)
+Each question can now be judged on its own, with a bad one swapped out
+rather than the whole round written again.
+1. In **Review**, open one of the quiz shorts waiting, and click **Check
+   the questions**. You'll see just the questions and answers, with how
+   many adults the rater thinks would know each one.
+2. For each question:
+   - **Fine** keeps it.
+   - **Too easy** or **Too hard** moves it in the bank to the next easier
+     or harder level, where a round at that level can use it, and swaps
+     in another.
+   - **Wrong or no good** (with a reason if you like) takes it out of the
+     bank for good and swaps in another.
+
+   **All the rest are fine** clears the others in one go.
+3. If you swapped any, press **Remake with these changes**. The short is
+   discarded and made again with the same number. The shorts waiting now
+   were made before this existed, so their remake voices the whole round
+   once (about one short's worth of voice characters). From now on a
+   remake voices only the lines that changed.
+
+Rounds written ahead of their video can be checked the same way before
+they're made: **Topic plan → Check questions** beside the round. Create
+video isn't affected: it still writes and makes without stopping.
+
+### 4e. Use it from your phone (5 minutes, optional)
+1. On the PC, click **Phone** in the top bar, then **Turn on phone
+   access**. The app restarts itself within a minute (once nothing is
+   being made), and the page then shows an address like
+   `http://192.168.1.23:5000/m` and a six-digit code.
+2. Let the phone through Windows Firewall, once. I can't change system
+   settings for you. Open PowerShell with **Run as administrator** (Start,
+   type PowerShell, right-click, Run as administrator), then:
+   ```
+   netsh advfirewall firewall add rule name="Shorts Pipeline (phone)" dir=in action=allow protocol=TCP localport=5000 profile=private
+   ```
+   That allows it on private networks only. If Windows has your home
+   Wi-Fi marked as **Public**, switch it to **Private**: Settings, Network
+   & internet, Wi-Fi, your network's properties.
+3. On the phone, on the same Wi-Fi, open that address and enter the code.
+   The phone stays signed in; **New code** on the PC signs every phone out.
+   Adding it to your home screen makes it feel like an app (Share → Add to
+   Home Screen on iPhone; ⋮ → Add to Home screen on Android).
+
+From the phone you can see what's being made, watch and approve or discard
+what's waiting, check a quiz's questions (and remake), and start the next
+video or pick one from the plan. **Full app** opens everything else.
+Don't forward the port on your router: this is for your home network
+only.
 
 ### 5. Clear Review, then make a few new shorts (20 minutes)
 1. **Discard** the 7-minute long quiz. It has the old, quick timing.

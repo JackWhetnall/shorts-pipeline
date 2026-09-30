@@ -1108,6 +1108,11 @@ function renderReview() {
   document.getElementById("review-created").textContent = item.created_label || "";
   document.getElementById("review-script").textContent = item.meta_text || "(no script recorded)";
   document.getElementById("review-download").href = `/videos/${item.relpath}/download`;
+  const questions = document.getElementById("review-questions");
+  if (questions) {
+    questions.hidden = !item.is_quiz;
+    questions.href = `/videos/${item.relpath}/questions`;
+  }
 
   document.getElementById("review-title").value = item.title || "";
   document.getElementById("review-description").value = item.description || "";

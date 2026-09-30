@@ -50,6 +50,7 @@ SCHEDULE_PATH = PROJECT_ROOT / "config" / "schedule.json"
 # Tombstones for discarded videos whose files have been deleted. The
 # statistics have to outlive the mp4 — see core.gallery.purge.
 DISCARD_HISTORY_PATH = PROJECT_ROOT / "config" / "discard_history.jsonl"
+PHONE_ACCESS_PATH = PROJECT_ROOT / "config" / "phone_access.json"
 
 # The one place the output frame size is defined. Both the renderer and
 # the footage normalizer have to agree on this or clips arrive at the

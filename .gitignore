@@ -47,6 +47,8 @@ footage/library.db-shm
 config/cost_log.jsonl
 config/script_history.json
 config/discard_history.jsonl
+# The phone access code (core.phone_access).
+config/phone_access.json
 config/curricula/
 # Downloaded per-channel artwork.
 channels/*/background*.jpg

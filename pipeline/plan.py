@@ -50,6 +50,9 @@ class Seed:
     topic_id: str = ""
     # A quiz short's number on screen ("#4"); 0 means the next one.
     number: int = 0
+    # The video this one remakes with an edited script (a quiz with some
+    # questions swapped): its unchanged lines' voice is reused.
+    remake_of: str = ""
 
     @property
     def title(self) -> str:
@@ -66,13 +69,15 @@ class Seed:
     def to_jsonable(self) -> dict:
         return {"type": self.type, "text": self.text,
                 "reference": self.reference, "topic": self.topic,
-                "topic_id": self.topic_id, "number": self.number}
+                "topic_id": self.topic_id, "number": self.number,
+                **({"remake_of": self.remake_of} if self.remake_of else {})}
 
     @classmethod
     def from_jsonable(cls, data: dict) -> "Seed":
         return cls(type=data["type"], text=data.get("text", ""),
                    reference=data.get("reference", ""), topic=data.get("topic", ""),
-                   topic_id=data.get("topic_id", ""), number=int(data.get("number") or 0))
+                   topic_id=data.get("topic_id", ""), number=int(data.get("number") or 0),
+                   remake_of=data.get("remake_of", ""))
 
 
 @dataclass

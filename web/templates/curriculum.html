@@ -160,6 +160,10 @@
         {{ sub.title }}
         {% if sub.angle %}<span class="hint">{{ sub.angle }}</span>{% endif %}
         {% if sub.script %}<span class="hint">Script ready</span>{% endif %}
+        {% if quiz and ((sub.script or {}).get('quiz') or sub.video_stem) %}
+        <a class="hint" href="{{ url_for('quiz_review.written', key=key, subtopic_id=sub.id) }}"
+           title="Its questions laid out: keep each, or move it easier or harder, or take it out, and swap in another">Check questions</a>
+        {% endif %}
         {% if sub.status == 'skipped' %}<span class="hint">Skipped{% if sub.note %} &mdash; {{ sub.note }}{% endif %}</span>{% endif %}
         {% if sub.id == up_next and sub.status == 'pending' %}<span class="hint up-next-chip">Up next</span>{% endif %}
       </span>

@@ -109,7 +109,9 @@ def rate_bank(conn, only_unrated: bool = True, say=None) -> int:
                 if rating is None:
                     continue
                 percent, kid = rating
-                conn.execute("UPDATE questions SET known_pct = ?, kid_guess = ?, level = ? WHERE id = ?",
+                # A level the owner set on review stands (pipeline.quiz_review).
+                conn.execute("UPDATE questions SET known_pct = ?, kid_guess = ?, "
+                             "level = COALESCE(owner_level, ?) WHERE id = ?",
                              (percent, int(kid), level_for(percent, kid), q["id"]))
                 done += 1
     return done

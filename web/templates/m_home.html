@@ -1,0 +1,57 @@
+{% extends "m_base.html" %}
+{% block title %}Shorts{% endblock %}
+{% block content %}
+{% if active %}<meta http-equiv="refresh" content="20">{% endif %}
+{% if note %}<p class="info-banner">{{ note }}</p>{% endif %}
+
+<h1>Being made</h1>
+{% for job in active %}
+<div class="card">
+  <strong>{{ job.title }}</strong>
+  <div class="meta">{{ job.channel_name }} &middot;
+    {% if job.status == 'queued' %}waiting its turn{% if job.queue_position %} ({{ job.queue_position }}){% endif %}
+    {% else %}{{ job.stage_label or 'starting' }}{% if job.eta_label %} &middot; {{ job.eta_label }}{% endif %}{% endif %}
+  </div>
+  {% if job.progress_percent is not none %}<div class="bar"><span style="width: {{ job.progress_percent|int }}%"></span></div>{% endif %}
+</div>
+{% else %}
+<p class="meta">Nothing right now.</p>
+{% endfor %}
+{% for job in recent if job.status in ('failed', 'interrupted') %}
+<div class="card"><strong>{{ job.title }}</strong>
+  <div class="meta danger-text">{{ job.channel_name }} &middot; {{ job.error or 'Stopped before it finished.' }}</div></div>
+{% endfor %}
+
+<h2>Waiting for review</h2>
+{% if waiting %}
+<a class="btn-primary" href="{{ url_for('phone.review') }}">Review {{ waiting }} video{{ 's' if waiting != 1 }} &rarr;</a>
+{% else %}
+<p class="meta">Nothing waiting.</p>
+{% endif %}
+
+<h2>Make a video</h2>
+{% for c in channels %}
+<div class="card">
+  <strong>{{ c.name }}</strong>
+  {% if c.waiting %}<span class="meta"> &middot; {{ c.waiting }} to review</span>{% endif %}
+  {% if c.busy %}
+  <p class="meta">Making one now.</p>
+  {% else %}
+  <form method="post" action="{{ url_for('phone.make', key=c.key) }}" class="row" style="margin-top: var(--sp-2)"
+        onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Starting…';">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if c.picks %}
+    <select name="subtopic_id" aria-label="Which video">
+      <option value="">The next one in the plan</option>
+      {% for s in c.picks %}<option value="{{ s.id }}">{{ s.title }}{% if (s.script or {}).get('quiz') %} (written){% endif %}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <button type="submit" class="btn-primary">Make it</button>
+  </form>
+  {% endif %}
+  {% if c.quiz and c.written %}
+  <p style="margin-bottom: 0"><a href="{{ url_for('phone.rounds', key=c.key) }}">Check the questions of {{ c.written }} round{{ 's' if c.written != 1 }} written ahead &rarr;</a></p>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

@@ -228,6 +228,14 @@ frequencies:
   which is why the footage matching problem survived for months with no
   way to see it.
 
+The daily loop also runs on a phone on the home network: `/m`
+(`web/blueprints/phone.py`) shows what's being made and what's waiting
+for review, with approve, discard, check the questions and make the next
+video. It's off until turned on from the PC's **Phone** page
+(`core.phone_access`). The app then listens on the network, and anything
+not from this PC must give an access code first. See decision
+[055](docs/decisions/055-question-review-and-phone.md).
+
 ## The pipeline
 
 Each stage is `fn(plan) -> plan`, mutating one `RenderPlan`. Adding a
@@ -507,6 +515,20 @@ once, de-duplicated, levelled 1-10, tagged with every category it fits
 and used once per channel. A round from the bank has only its host's
 lines written. It's topped up hourly within a daily limit (`facts.keep`).
 See decision [050](docs/decisions/050-question-bank.md).
+
+**Question review** (`pipeline/quiz_review.py`, `web/blueprints/quiz_review.py`)
+lays a round's questions out to judge one by one: fine, too easy, too
+hard, or wrong. Too easy or too hard moves the question in the bank to
+the channel's next level (`owner_level`, which re-rating keeps); wrong
+rejects it. Either way a replacement from the bank is swapped in, and
+only its host lines are rewritten. It works on a round written ahead
+(changed in place on its subtopic) and on a made short (a draft beside
+it, `_script_draft.json`, then "Remake with these changes"). Made shorts
+keep their script (`_script.json`); older ones are rebuilt from
+`_meta.txt` and `_quiz.json`. A remake (`Seed.remake_of`) reuses the
+voice of every unchanged line from `cache/voice_segments/`
+(`tts.segment_key`). See decision
+[055](docs/decisions/055-question-review-and-phone.md).
 
 **The fact store** (`pipeline/facts/`, `facts/facts.db`) is the fallback
 when the bank is short: facts gathered from Wikidata ahead of any

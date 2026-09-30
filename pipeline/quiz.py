@@ -463,6 +463,18 @@ def remember(channel_key: str, video: str, script: Script) -> None:
     path.write_text(json.dumps(rounds, indent=1, ensure_ascii=False), encoding="utf-8")
 
 
+def forget(channel_key: str, video: str) -> bool:
+    """Take a video's round out of what the channel has asked: it was
+    remade with some questions swapped, and the ones swapped out can be
+    asked in another round. True if it was there."""
+    rounds = bank(channel_key)
+    kept = [r for r in rounds if r.get("video") != video]
+    if len(kept) == len(rounds):
+        return False
+    _bank_path(channel_key).write_text(json.dumps(kept, indent=1, ensure_ascii=False), encoding="utf-8")
+    return True
+
+
 def _made(channel_key: str) -> list:
     """[(video stem, {category, questions})] for every quiz this channel
     has made, newest first."""
@@ -1588,6 +1600,20 @@ def round_sidecar(video_path) -> Path:
     return video_path.with_name(f"{video_path.stem}_quiz.json")
 
 
+def script_sidecar(video_path) -> Path:
+    """The whole script a quiz short was made from, beside it, so its
+    questions can be reviewed and swapped and the short remade from it
+    (pipeline.quiz_review)."""
+    video_path = Path(video_path)
+    return video_path.with_name(f"{video_path.stem}_script.json")
+
+
+def save_script(plan) -> Path:
+    path = script_sidecar(plan.video_path)
+    path.write_text(json.dumps(plan.script.to_jsonable(), indent=1, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
 def next_number(channel) -> int:
     """The next quiz short's number: one more than the highest number on
     a short not discarded. A discarded #2 can be remade by asking for 2."""
@@ -1628,7 +1654,8 @@ def save_round(plan) -> Path:
         "credits": list(quiz.get("credits") or []),
         "questions": [{"question": q["question"], "answer": q["answer"],
                        "spoken_answer": q.get("spoken_answer", ""),
-                       **{k: q[k] for k in ("kind", "subject", "picture") if q.get(k)},
+                       **{k: q[k] for k in ("kind", "subject", "picture", "bank_id", "fact_id")
+                          if q.get(k)},
                        "ask_audio": spoken(segments[q["ask"]]),
                        "answer_audio": spoken(segments[q["reveal"]])}
                       for q in quiz.get("questions") or []],

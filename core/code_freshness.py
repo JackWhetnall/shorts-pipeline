@@ -33,6 +33,7 @@ CHECK_EVERY = 20              # seconds
 RESTART_DELAY = 3             # seconds for the old process to let go of the port
 
 _started_with = None
+_asked = None                 # why a restart was asked for, if it was
 
 
 def fingerprint() -> tuple:
@@ -57,7 +58,18 @@ def remember(taken: tuple = None) -> None:
 
 
 def is_stale() -> bool:
-    return _started_with is not None and fingerprint() != _started_with
+    return _started_with is not None and (bool(_asked) or fingerprint() != _started_with)
+
+
+def request_restart(why: str) -> bool:
+    """Restart as soon as nothing is running, as after an update: a
+    setting that only applies at start (phone access changes what the app
+    listens on). False when there's no watcher to do it (debug mode)."""
+    global _asked
+    if _started_with is None:
+        return False
+    _asked = why
+    return True
 
 
 def restart() -> None:
@@ -76,7 +88,7 @@ def restart() -> None:
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     subprocess.Popen([sys.executable, "-c", relauncher, *command], cwd=str(ROOT),
                      creationflags=flags, close_fds=True)
-    log.info("Code changed on disk: restarting to pick it up.")
+    log.info(f"{_asked or 'Code changed on disk'}: restarting to pick it up.")
     os._exit(0)
 
 

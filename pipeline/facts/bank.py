@@ -401,6 +401,52 @@ def release(conn, channel_key: str, scripts: list) -> int:
     return len(bank_ids) + len(fact_ids)
 
 
+def unuse(conn, channel_key: str, ids: list) -> None:
+    """These questions can be asked on this channel again."""
+    with conn:
+        conn.executemany("DELETE FROM question_used WHERE question_id = ? AND channel = ?",
+                         [(i, channel_key) for i in ids if i])
+
+
+# --- the owner's verdicts (pipeline.quiz_review) --------------------------------------
+
+def find_id(conn, question: str, answer: str = "") -> int:
+    """A question's id in the bank from its wording, or None: rounds made
+    before questions carried their id."""
+    row = conn.execute("SELECT id FROM questions WHERE question = ? AND (? = '' OR answer_key = ?) "
+                       "ORDER BY id LIMIT 1", (question, answer, answer_key(answer) if answer else "")).fetchone()
+    return row[0] if row else None
+
+
+def set_owner_level(conn, qid: int, level: float) -> None:
+    """The owner's level for a question: "too easy for this round" moves it
+    to an easier one. Re-rating keeps it (pipeline.facts.rate)."""
+    level = max(1.0, min(10.0, float(level)))
+    with conn:
+        conn.execute("UPDATE questions SET level = ?, owner_level = ? WHERE id = ?", (level, level, qid))
+
+
+def confirm(conn, qid: int) -> None:
+    """The owner kept it at its level: re-rating leaves it there."""
+    with conn:
+        conn.execute("UPDATE questions SET owner_level = level WHERE id = ?", (qid,))
+
+
+def reject(conn, qid: int, reason: str = "") -> None:
+    """Out of every round, kept so it's never written again."""
+    note = " ".join(("owner: " + (reason or "wrong")).split())[:200]
+    with conn:
+        conn.execute("UPDATE questions SET status = 'rejected', verdict = ? WHERE id = ?", (note, qid))
+
+
+def adopt(conn, q: dict, category: str, level: float) -> int:
+    """A round's question that came from outside the bank (built on a fact,
+    or written with the round), taken in at the owner's level."""
+    qid = add(conn, {**q, "level": level}, category, "", "ok", "owner", "owner")
+    set_owner_level(conn, qid, level)
+    return qid
+
+
 def mark_used(conn, channel_key: str, ids: list, round_name: str = "") -> None:
     with conn:
         conn.executemany("INSERT OR IGNORE INTO question_used (question_id, channel, round, used_at) "

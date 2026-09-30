@@ -1,0 +1,141 @@
+{% extends "m_base.html" if phone else "base.html" %}
+{% block title %}Questions — {{ title }}{% endblock %}
+{% block content %}
+<style>
+  .qr-head h1 { margin-bottom: var(--sp-1); }
+  .qr-hook { font-style: italic; color: var(--text-dim); }
+  .qr-list { list-style: none; padding: 0; margin: var(--sp-4) 0; display: grid; gap: var(--sp-3); }
+  .qr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+             padding: var(--sp-3) var(--sp-4); display: grid; grid-template-columns: 2rem 1fr; gap: var(--sp-3); }
+  .qr-card.approved { border-color: var(--success); }
+  .qr-card.flagged, .qr-card.unverified { border-color: var(--danger); }
+  .qr-num { font-weight: 700; font-size: 1.3rem; color: var(--accent); }
+  .qr-q { margin: 0 0 var(--sp-1); font-size: 1.05rem; }
+  .qr-a { margin: 0 0 var(--sp-1); }
+  .qr-a strong { color: var(--accent); }
+  .qr-meta { margin: 0 0 var(--sp-2); font-size: 0.85rem; color: var(--text-faint); }
+  .qr-state { font-size: 0.85rem; margin: 0 0 var(--sp-2); }
+  .qr-state.good { color: var(--success); }
+  .qr-state.bad { color: var(--danger); }
+  .qr-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+  .qr-actions form { display: contents; }
+  .qr-actions button { min-height: 2.5rem; padding: 0 var(--sp-3); }
+  .qr-wrong { margin-top: var(--sp-2); }
+  .qr-wrong form { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); }
+  .qr-wrong input { flex: 1 1 12rem; min-height: 2.5rem; }
+  .qr-banner { background: var(--surface-2); border: 1px solid var(--accent-dim); border-radius: var(--radius);
+               padding: var(--sp-3) var(--sp-4); margin: var(--sp-3) 0; }
+  .qr-banner form { display: inline; }
+  .qr-busy { display: none; color: var(--accent); margin-left: var(--sp-2); }
+  form.working .qr-busy, .working .qr-busy { display: inline; }
+</style>
+
+<div class="qr-head">
+  {% if mode == "written" %}
+  <a class="back-link" href="{{ url_for('phone.home') if phone else url_for('curriculum.page', key=key) + '#' + subtopic.id }}">&larr; {{ 'Home' if phone else 'Topic plan' }}</a>
+  {% else %}
+  <a class="back-link" href="{{ url_for('phone.home') if phone else url_for('review.queue') }}">&larr; {{ 'Home' if phone else 'Review' }}</a>
+  {% endif %}
+  <h1>{{ title }}</h1>
+  <p class="meta">{{ quiz.category }} &middot; {{ quiz.difficulty }} &middot; {{ questions|length }} questions
+    {% if mode == "written" %}&middot; written ahead, not made yet{% endif %}</p>
+  {% if hook %}<p class="qr-hook">Hook: &ldquo;{{ hook }}&rdquo;</p>{% endif %}
+</div>
+
+{% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
+
+{% if mode == "made" %}
+  {% if not editable %}
+  <div class="qr-banner">This video was made before scripts were kept beside videos. Your verdicts still move
+    questions in the bank, but they can't be swapped here; remake it from its topic plan.</div>
+  {% elif discarded %}
+  <div class="qr-banner">This video is discarded. Verdicts still teach the bank.</div>
+  {% elif out %}
+  <div class="qr-banner">This video has gone out. Verdicts still teach the bank.</div>
+  {% endif %}
+  {% if swapped %}
+  <div class="qr-banner">
+    <p>Question{{ 's' if swapped|length > 1 }} {{ swapped|join(', ') }} changed since this video was made.</p>
+    <form method="post" action="{{ url_for('quiz_review.remake', relpath=relpath) }}" class="qr-busy-form"
+          onsubmit="return confirm('Discard this video and make it again with the changed questions? It keeps its number; only the changed lines are voiced again.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if phone %}<input type="hidden" name="m" value="1">{% endif %}
+      <button type="submit" class="btn-primary">Remake with these changes</button>
+    </form>
+    <form method="post" action="{{ url_for('quiz_review.undo_draft', relpath=relpath) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if phone %}<input type="hidden" name="m" value="1">{% endif %}
+      <button type="submit" class="btn-ghost">Drop the changes</button>
+    </form>
+    <span class="qr-busy">Working&hellip;</span>
+  </div>
+  {% endif %}
+{% endif %}
+
+<ol class="qr-list">
+  {% for q in questions %}
+  <li class="qr-card {{ 'approved' if q.approved }} {{ 'flagged' if q.flagged }} {{ 'unverified' if q.unverified and not q.approved }}">
+    <div class="qr-num">{{ q.number }}</div>
+    <div>
+      <p class="qr-q">{{ q.question }}</p>
+      <p class="qr-a">Answer: <strong>{{ q.answer }}</strong>{% if q.kind %} <span class="meta">(picture: {{ q.subject }})</span>{% endif %}</p>
+      <p class="qr-meta">
+        {% if q.source == 'bank' %}From the bank{% if q.level %} &middot; level {{ '%g'|format(q.level) }}{% endif %}{% if q.known_pct is not none %} &middot; about {{ q.known_pct|round|int }}% of adults would know it{% endif %}{% if q.area %} &middot; {{ q.area }}{% endif %}
+        {% elif q.source == 'fact' %}Built on a stored fact{% else %}Written with the round{% endif %}
+      </p>
+      {% if q.approved %}<p class="qr-state good">Fine</p>
+      {% elif q.flagged %}<p class="qr-state bad">{{ verdicts[q.flagged] }}, but nothing could replace it yet</p>
+      {% elif q.unverified %}<p class="qr-state bad">The fact check didn't pass this one</p>{% endif %}
+      <div class="qr-actions">
+        <form method="post" action="{{ judge_url }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="index" value="{{ q.index }}">
+          {% if phone %}<input type="hidden" name="m" value="1">{% endif %}
+          {% if not q.approved %}<button type="submit" name="verdict" value="ok" class="btn-ghost">Fine</button>{% endif %}
+          <button type="submit" name="verdict" value="easy" class="btn-ghost"
+                  data-tooltip="Moves it to an easier level in the bank, where an easier round can ask it{{ ', and swaps in another' if can_swap }}">Too easy</button>
+          <button type="submit" name="verdict" value="hard" class="btn-ghost"
+                  data-tooltip="Moves it to a harder level in the bank{{ ', and swaps in another' if can_swap }}">Too hard</button>
+          <span class="qr-busy">Swapping&hellip;</span>
+        </form>
+      </div>
+      <details class="qr-wrong">
+        <summary class="hint">Wrong or no good&hellip;</summary>
+        <form method="post" action="{{ judge_url }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="index" value="{{ q.index }}">
+          <input type="hidden" name="verdict" value="invalid">
+          {% if phone %}<input type="hidden" name="m" value="1">{% endif %}
+          <input type="text" name="reason" placeholder="Why (optional): wrong answer, ambiguous, dull...">
+          <button type="submit" class="btn-ghost danger-text">Take it out{{ ' and replace it' if can_swap }}</button>
+          <span class="qr-busy">Swapping&hellip;</span>
+        </form>
+      </details>
+    </div>
+  </li>
+  {% endfor %}
+</ol>
+
+{% if questions|rejectattr('approved')|list %}
+<form method="post" action="{{ judge_url }}" class="actions">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="index" value="all">
+  <input type="hidden" name="verdict" value="ok">
+  {% if phone %}<input type="hidden" name="m" value="1">{% endif %}
+  <button type="submit" class="btn-primary">All the rest are fine</button>
+</form>
+{% endif %}
+
+<script>
+  // A swap takes a few seconds (a replacement is found and the host's
+  // lines for it written): say so, and stop a second tap sending it twice.
+  document.querySelectorAll(".qr-list form, .qr-banner form, form.actions").forEach(form => {
+    form.addEventListener("submit", () => {
+      setTimeout(() => form.querySelectorAll("button").forEach(b => b.disabled = true), 0);
+      form.classList.add("working");
+      const banner = form.closest(".qr-banner");
+      if (banner) banner.classList.add("working");
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0e14">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Shorts{% endblock %}</title>
+  {# The phone pages carry their own few styles: the PC's stylesheet is
+     built for a wide window with a sidebar of navigation. #}
+  <style>
+    :root {
+      --bg: #0d0e14; --surface: #161822; --surface-2: #1e212e; --border: #2a2d3d;
+      --border-light: #363a4d; --text: #eceef4; --text-dim: #9ea2b8; --text-faint: #6a6e82;
+      --accent: #ffd400; --accent-dim: #c9a900; --accent-contrast: #14151c;
+      --danger: #ff5c72; --success: #3ddc97;
+      --radius-sm: 6px; --radius: 12px;
+      --sp-1: .25rem; --sp-2: .5rem; --sp-3: .75rem; --sp-4: 1rem; --sp-5: 1.5rem;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+           padding: 0 var(--sp-4) calc(var(--sp-5) + env(safe-area-inset-bottom)); }
+    a { color: var(--accent); }
+    h1 { font-size: 1.35rem; margin: var(--sp-4) 0 var(--sp-2); }
+    h2 { font-size: 1.1rem; margin: var(--sp-5) 0 var(--sp-2); }
+    .m-bar { position: sticky; top: 0; z-index: 5; background: var(--bg); display: flex; gap: var(--sp-2);
+             padding: var(--sp-3) 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .m-bar a { flex: 0 0 auto; padding: var(--sp-2) var(--sp-3); border-radius: 999px; background: var(--surface);
+               color: var(--text); text-decoration: none; font-size: .95rem; }
+    .m-bar a.active { background: var(--accent); color: var(--accent-contrast); }
+    .count { background: var(--danger); color: #fff; border-radius: 999px; padding: 0 .45em; font-size: .8em; margin-left: .2em; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--sp-3) var(--sp-4); margin: var(--sp-3) 0; }
+    .meta, .hint { color: var(--text-dim); font-size: .9rem; }
+    .info-banner { background: var(--surface-2); border-left: 3px solid var(--accent); padding: var(--sp-2) var(--sp-3); border-radius: var(--radius-sm); color: var(--text); }
+    button, .btn-primary, .btn-ghost, select, input[type=text], input[type=tel] {
+      font: inherit; min-height: 2.75rem; border-radius: var(--radius-sm); }
+    button, .btn-ghost, .btn-primary { cursor: pointer; padding: 0 var(--sp-4); border: 1px solid var(--border-light);
+      background: var(--surface-2); color: var(--text); text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+    .btn-primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); font-weight: 600; }
+    .danger-text { color: var(--danger); }
+    select, input[type=text], input[type=tel] { background: var(--surface-2); color: var(--text); border: 1px solid var(--border-light); padding: 0 var(--sp-3); max-width: 100%; }
+    .row { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+    .row > * { flex: 1 1 auto; }
+    .back-link { display: inline-block; margin-top: var(--sp-3); }
+    .actions { margin: var(--sp-4) 0; }
+    details summary { cursor: pointer; }
+    .bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-top: var(--sp-2); }
+    .bar span { display: block; height: 100%; background: var(--accent); }
+    [data-tooltip] { position: relative; }
+  </style>
+</head>
+<body>
+  <nav class="m-bar">
+    <a href="{{ url_for('phone.home') }}" class="{{ 'active' if request.endpoint == 'phone.home' }}">Home</a>
+    <a href="{{ url_for('phone.review') }}" class="{{ 'active' if request.endpoint == 'phone.review' }}">Review{% if review_waiting %}<span class="count">{{ review_waiting }}</span>{% endif %}</a>
+    <a href="{{ url_for('channels.index') }}">Full app</a>
+  </nav>
+  {% block content %}{% endblock %}
+</body>
+</html>

@@ -63,6 +63,23 @@ def _check_csrf() -> None:
                                "Reload the page and try again.")
 
 
+def _check_phone_access():
+    """Anything not from this PC needs phone access on and the code given
+    (core.phone_access). The sign-in page and the stylesheet are open, so
+    there's a page to give the code on."""
+    from core import phone_access
+    if phone_access.is_local(request.remote_addr):
+        return None
+    if not phone_access.settings()["enabled"]:
+        abort(403, description="Phone access is off. Turn it on in Settings on the PC.")
+    if session.get("phone") and secrets.compare_digest(str(session["phone"]), phone_access.token()):
+        return None
+    if request.endpoint in ("phone.sign_in", "static"):
+        return None
+    from flask import redirect
+    return redirect(url_for("phone.sign_in", next=request.full_path.rstrip("?")))
+
+
 def _wants_json() -> bool:
     return (request.path.startswith("/api/")
             or request.accept_mimetypes.best == "application/json"
@@ -90,6 +107,10 @@ def create_app(debug: bool = False) -> Flask:
     # restarts. Generated and stored on first run rather than committed.
     app.secret_key = os.environ.get("SHORTS_SECRET_KEY") or _local_secret()
 
+    # A phone signed in stays signed in (until the code changes).
+    from datetime import timedelta
+    app.permanent_session_lifetime = timedelta(days=365)
+    app.before_request(_check_phone_access)
     app.before_request(_check_csrf)
 
     @app.context_processor
@@ -169,8 +190,11 @@ def create_app(debug: bool = False) -> Flask:
 
     from web.blueprints import (
         animation, backgrounds, channels, curriculum, facts, footage, gallery, jobs as jobs_bp,
-        logos, music, pitch, review, scenes, services, setup, style_setup, voice_lab, youtube,
+        logos, music, phone, pitch, quiz_review, review, scenes, services, setup, style_setup,
+        voice_lab, youtube,
     )
+    app.register_blueprint(phone.bp)
+    app.register_blueprint(quiz_review.bp)
     app.register_blueprint(animation.bp)
     app.register_blueprint(backgrounds.bp)
     app.register_blueprint(style_setup.bp)

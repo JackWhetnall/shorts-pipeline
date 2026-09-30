@@ -43,6 +43,7 @@ def _queue() -> list:
     Oldest first on purpose: a review queue should drain, and putting the
     newest at the front means the oldest never gets looked at.
     """
+    from pipeline import quiz
     items = []
     for key, channel in load_channels(validate=False).items():
         # Once per channel, not once per video: this reads a file.
@@ -83,6 +84,8 @@ def _queue() -> list:
                 "queued": video["queued"],
                 "approved_by": video["links"].get("approved_by"),
                 "slot_label": _slot_label(slots, video) if video["queued"] else "",
+                # A quiz round, whose questions have their own page.
+                "is_quiz": quiz.round_sidecar(gallery.OUTPUT_DIR / video["relpath"]).exists(),
             })
     items.sort(key=lambda v: v["mtime"])
     return items

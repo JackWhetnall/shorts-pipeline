@@ -150,7 +150,8 @@ def connect(path: Path = None) -> sqlite3.Connection:
             conn.execute(f"ALTER TABLE entities ADD COLUMN {column} {kind}")
     # A question's measured difficulty (pipeline.facts.rate), added later.
     asked = {r[1] for r in conn.execute("PRAGMA table_info(questions)")}
-    for column, kind in (("known_pct", "REAL"), ("kid_guess", "INTEGER")):
+    # ...and the level the owner gave it on review, which re-rating keeps.
+    for column, kind in (("known_pct", "REAL"), ("kid_guess", "INTEGER"), ("owner_level", "REAL")):
         if column not in asked:
             conn.execute(f"ALTER TABLE questions ADD COLUMN {column} {kind}")
     return conn

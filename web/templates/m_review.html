@@ -1,0 +1,47 @@
+{% extends "m_base.html" %}
+{% block title %}Review{% endblock %}
+{% block content %}
+<style>
+  .m-video { width: 100%; max-height: 70vh; aspect-ratio: 9 / 16; background: #000; border-radius: var(--radius-sm); display: block; }
+  .flags { margin: var(--sp-2) 0; padding-left: 1.1rem; color: var(--danger); font-size: .9rem; }
+</style>
+{% if note %}<p class="info-banner">{{ note }}</p>{% endif %}
+<h1>Waiting for review</h1>
+{% for v in items %}
+<div class="card" id="v{{ loop.index }}">
+  <strong>{{ v.links.title or v.title }}</strong>
+  <div class="meta">{{ v.channel_name }} &middot; {{ v.created_label }}</div>
+  <video class="m-video" controls playsinline preload="none"
+         poster="{{ url_for('gallery.thumbnail', key=v.channel_key, relpath=v.relpath) }}"
+         src="{{ url_for('gallery.serve_video', relpath=v.relpath) }}" style="margin-top: var(--sp-2)"></video>
+  {% set flags = [] %}
+  {% if v.footage_repeated %}{% set _ = flags.append('A clip is used twice') %}{% endif %}
+  {% if v.similarity_flagged %}{% set _ = flags.append('Reads like an earlier video' ~ (': ' ~ v.similarity_closest if v.similarity_closest else '')) %}{% endif %}
+  {% if v.script_suspect %}{% set _ = flags.append(v.script_suspect) %}{% endif %}
+  {% if v.footage_degraded %}{% set _ = flags.append('Footage picked without scoring') %}{% endif %}
+  {% if (v.report or {}).get('quiz_unverified') %}{% set _ = flags.append('Questions the fact check didn\'t pass: ' ~ v.report.quiz_unverified|join(', ')) %}{% endif %}
+  {% if flags %}<ul class="flags">{% for f in flags %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+  {% if v.is_quiz %}
+  <p><a class="btn-ghost" href="{{ url_for('quiz_review.made', relpath=v.relpath, m='1') }}">Check the questions</a></p>
+  {% endif %}
+  <div class="row">
+    <form method="post" action="{{ url_for('phone.approve', relpath=v.relpath) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-primary" style="width: 100%">Approve</button>
+    </form>
+  </div>
+  <details style="margin-top: var(--sp-2)">
+    <summary class="hint">Discard&hellip;</summary>
+    <form method="post" action="{{ url_for('phone.discard', relpath=v.relpath) }}" class="row" style="margin-top: var(--sp-2)">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <select name="reason" aria-label="Why">
+        {% for id, label in reasons %}<option value="{{ id }}">{{ label }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="danger-text">Discard</button>
+    </form>
+  </details>
+</div>
+{% else %}
+<p class="meta">Nothing waiting for review.</p>
+{% endfor %}
+{% endblock %}

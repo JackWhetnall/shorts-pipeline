@@ -47,21 +47,28 @@ def already_running(host: str, port: int) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Shorts Pipeline web app.")
-    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--host", default=None,
+                        help="Where to listen. By default this PC only, or the home network "
+                             "too when phone access is on (core.phone_access).")
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--debug", action="store_true",
                         help="Enable the Werkzeug debugger and auto-reload.")
     parser.add_argument("--no-scheduler", action="store_true",
                         help="Don't run scheduled generations in this process.")
     args = parser.parse_args()
+    from core import phone_access
+    args.host = args.host or phone_access.host()
+    # Listening everywhere, the copy to look for still answers here.
+    probe = "127.0.0.1" if args.host == "0.0.0.0" else args.host
 
-    if already_running(args.host, args.port):
+    if already_running(probe, args.port):
         log.error(f"Another copy of the app is already running at "
                   f"http://{args.host}:{args.port}/ - not starting a second one. Stop "
                   f"the other copy first (Task Manager: python/pythonw).")
         raise SystemExit(1)
 
     app = create_app(debug=args.debug)
+    app.config["LISTEN_HOST"] = args.host
 
     # Startup side effects live here, not at import time, so a test that
     # imports the app factory doesn't reload job history or start threads.
@@ -75,7 +82,10 @@ def main() -> None:
         code_freshness.remember(_CODE_AT_START)
         code_freshness.watch(lambda: jobs.busy() or scheduler.busy())
 
-    log.info(f"Open http://{args.host}:{args.port}/")
+    log.info(f"Open http://{probe}:{args.port}/")
+    if args.host == "0.0.0.0":
+        for address in phone_access.addresses():
+            log.info(f"On a phone on this network: http://{address}:{args.port}/m")
     app.run(host=args.host, port=args.port, debug=args.debug,
             use_reloader=args.debug, threaded=True)
 
