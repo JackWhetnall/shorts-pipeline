@@ -667,6 +667,22 @@ def set_script(channel_key: str, subtopic_id: str, script: dict) -> None:
     _set(channel_key, subtopic_id, script=script, script_written_at=_now())
 
 
+def clear_scripts(channel_key: str) -> list:
+    """Remove every script written ahead for a subtopic that hasn't become a
+    video, so the next time each is made it's written afresh (by whatever
+    the writing does now). Returns the removed scripts. Scripts of videos
+    already made are left alone."""
+    data = load(channel_key)
+    removed = []
+    for row in data["subtopics"]:
+        if row["status"] == PENDING and row.get("script"):
+            removed.append(row["script"])
+            row["script"], row["script_written_at"] = None, None
+    if removed:
+        save(data)
+    return removed
+
+
 def mark_published(channel_key: str, video_stem: str) -> None:
     data = load(channel_key)
     for row in data["subtopics"]:

@@ -62,6 +62,15 @@
   <div class="stat"><span class="stat-num">{{ progress.skipped }}</span> skipped</div>
   <div class="stat"><span class="stat-num">{{ progress.runway_days }}</span> days of runway</div>
 </div>
+{% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
+{% if written %}
+<form method="post" action="{{ url_for('curriculum.clear_scripts', key=key) }}" class="actions"
+      onsubmit="return confirm('Clear all {{ written }} scripts written ahead? Each video is written afresh when it is made. Videos already made are not touched.');">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="btn-ghost danger-text">Clear written scripts ({{ written }})</button>
+  <button type="button" class="info-dot" data-tooltip="Scripts written ahead by an earlier version of the writing. Cleared, each video is written afresh from the question bank when it's made, and the questions they had taken go back into it.">?</button>
+</form>
+{% endif %}
 
 {% if progress.running_low %}
 <p class="error-banner">

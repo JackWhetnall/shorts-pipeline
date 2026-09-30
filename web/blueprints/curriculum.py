@@ -58,6 +58,9 @@ def page(key):
         topics=_in_order(channel, curriculum.topics_with_subtopics(key)),
         next_topic=curriculum.next_unfilled_topic(key),
         up_next=(curriculum.load(key).get("up_next") or "") if curriculum.exists(key) else "",
+        note=request.args.get("note", ""),
+        written=sum(1 for s in curriculum.subtopics(key) if s["status"] == curriculum.PENDING and s.get("script"))
+        if curriculum.exists(key) else 0,
         quiz=channel.format == "quiz",
         picture_kinds=_picture_kinds(),
         noun="category" if channel.format == "quiz" else "topic",
@@ -454,6 +457,20 @@ def make_next(key, subtopic_id):
     except PipelineError as exc:
         abort(400, description=exc.user_message)
     return redirect(url_for("curriculum.page", key=key, _anchor=subtopic_id))
+
+
+@bp.route("/channels/<key>/curriculum/clear-scripts", methods=["POST"])
+def clear_scripts(key):
+    """Clear every script written ahead for a video not yet made, so each is
+    written afresh when it's made, and give back what they had taken from
+    the question bank and the fact store."""
+    channel_or_404(key)
+    removed = curriculum.clear_scripts(key)
+    if removed:
+        from pipeline.facts import bank, store
+        bank.release(store.connect(), key, removed)
+    return redirect(url_for("curriculum.page", key=key, note=f"Cleared {len(removed)} written "
+                                                           f"script{'s' if len(removed) != 1 else ''}."))
 
 
 @bp.route("/channels/<key>/curriculum/delete", methods=["POST"])

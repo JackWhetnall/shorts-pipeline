@@ -86,6 +86,12 @@ Once a few categories are in, try **Add it** with one of your own (e.g.
 "Harry Potter") to see a new category tagged and filled, and make a
 short or two to hear the questions.
 
+### 4c. Clear the old written scripts (1 minute)
+Thirteen quiz rounds were written ahead by earlier versions (before the
+question bank and the difficulty fix). **Topic plan → Clear written
+scripts (13)**. Each is written afresh from the bank when its video is
+made. Discard any quiz still in Review that came from them.
+
 ### 5. Clear Review, then make a few new shorts (20 minutes)
 1. **Discard** the 7-minute long quiz. It has the old, quick timing.
 2. The shorts waiting now were made before the hook screen and numbers

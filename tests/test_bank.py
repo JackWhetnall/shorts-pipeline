@@ -170,3 +170,74 @@ def test_a_round_the_bank_cant_supply_writes_bank_questions_first(monkeypatch):
         "description_body": "d", "questions": [{"number": n, "lead_in": "", "spoken_answer": "x"} for n in (1, 2, 3)]})
     script = quiz._write_checked(channel, "Geography", "Fiendish")
     assert all(q.get("bank_id") for q in script.quiz["questions"])
+
+
+class TestDifficulty:
+    """Regression: an Easy round asked for Diners Club (the first credit
+    card) and "cask": the writer, asked for level 2, called them level 2."""
+
+    def test_the_level_comes_from_the_share_of_people_who_know_it(self):
+        from pipeline.facts import rate
+        assert rate.level_for(95, True) == 1 and rate.level_for(82, True) == 2
+        assert rate.level_for(15, False) == 8 and rate.level_for(3, False) == 10
+        # The easy levels also need a ten-year-old to have a good guess.
+        assert rate.level_for(92, False) == 3
+
+    def test_a_batch_is_levelled_by_the_rater_not_the_writer(self, monkeypatch, tmp_path):
+        from pipeline import llm, quiz
+        from pipeline.facts import rate
+        conn = store.connect(tmp_path / "f.db")
+        monkeypatch.setattr(bank, "areas", lambda conn, category: ["Money"])
+        monkeypatch.setattr(llm, "call_json", lambda *a, **k: {"questions": [
+            _q("Which company issued the first credit card?", "Diners Club", level=2)]})
+        monkeypatch.setattr(quiz, "verify", lambda *a, **k: ["ok"])
+        monkeypatch.setattr(rate, "rate", lambda qs: [(15.0, False)])
+        bank.write_batch(conn, "Business", 2, ["Business"])
+        row = conn.execute("SELECT level, known_pct FROM questions").fetchone()
+        assert (row[0], row[1]) == (8, 15)
+
+    def test_an_easy_round_never_widens_towards_harder(self, tmp_path):
+        conn = store.connect(tmp_path / "f.db")
+        _stock(conn)       # levels 1-10, three at each
+        chosen = bank.for_round(conn, "pub", "Science", 1.5, 10)
+        assert chosen and max(q["level"] for q in chosen) <= 2.25
+
+
+def test_a_round_takes_its_own_categorys_questions_before_borrowed_ones(tmp_path):
+    """Regression: a Geography round was Senna, the Nurburgring and a cash
+    machine: sport and firsts questions tagged Geography."""
+    conn = store.connect(tmp_path / "f.db")
+    import json
+    with conn:
+        conn.execute("INSERT INTO bank_areas (category, areas) VALUES ('Geography', ?)", (json.dumps(["Rivers"]),))
+    for i, w in enumerate(WORDS[:8]):
+        bank.add(conn, _q(f"Which river is the {w}?", f"River {w}", level=5), "Geography", "Rivers", "ok", "ok",
+                 "written")
+        bank.add(conn, _q(f"Which racetrack is the {w}?", f"Track {w}", level=5, tags=["Geography"]), "Sport",
+                 "Motorsport", "ok", "ok", "written", ["Geography", "Sport"])
+    chosen = bank.for_round(conn, "pub", "Geography", 5, 6)
+    assert all(q["area"] == "Rivers" for q in chosen)
+    assert not bank.for_round(conn, "pub", "Geography", 5, 12, borrow=False)[8:]
+    assert bank.counts(conn, "pub", "Geography", [("Hard", 5)])["Hard"] == 8
+
+
+def test_clearing_written_scripts_gives_their_questions_back(monkeypatch, tmp_path):
+    """The owner: scripts written by earlier versions should be clearable in
+    one go, to be written afresh."""
+    from core import curriculum
+    monkeypatch.setattr(curriculum, "CURRICULUM_DIR", tmp_path, raising=False)
+    conn = store.connect(tmp_path / "f.db")
+    _stock(conn, 3)
+    bank.mark_used(conn, "pub", [1, 2])
+    data = {"topics": [{"id": "t1", "title": "Science"}], "subtopics": [
+        {"id": "s1", "topic": "t1", "title": "Science: Easy", "status": curriculum.PENDING,
+         "script": {"quiz": {"questions": [{"bank_id": 1}, {"bank_id": 2}]}}},
+        {"id": "s2", "topic": "t1", "title": "Science: Hard", "status": curriculum.USED,
+         "script": {"quiz": {"questions": [{"bank_id": 3}]}}}]}
+    monkeypatch.setattr(curriculum, "load", lambda key: data)
+    monkeypatch.setattr(curriculum, "save", lambda d: None)
+    removed = curriculum.clear_scripts("pub")
+    assert len(removed) == 1 and data["subtopics"][0]["script"] is None
+    assert data["subtopics"][1]["script"] is not None          # a made video's script stays
+    assert bank.release(conn, "pub", removed) == 2
+    assert conn.execute("SELECT COUNT(*) FROM question_used").fetchone()[0] == 0

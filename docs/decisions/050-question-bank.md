@@ -127,6 +127,50 @@ Checked again, Fiendish Geography came from the bank: the first European
 to sight the Pacific, the Gulf flags with a zigzag edge, the Challenger
 Deep, Machu Picchu's rediscoverer. Six areas, 1.5 cents.
 
+## Revised: difficulty measured, not claimed
+
+An Easy General Knowledge round asked which company issued the first
+credit card (Diners Club) and what a beer barrel is called (cask). The
+writer, asked for "questions near level 2", had labelled what it wrote
+level 2.
+
+Now:
+- **Every question is rated by a separate call** (`pipeline/facts/rate.py`)
+  that isn't told the level asked for. It estimates the share of UK
+  adults who'd get it right, and whether a typical ten-year-old could make
+  a good guess (the owner's test for Easy), against reference questions
+  of known difficulty.
+- **The level follows from that share:** 90%+ is level 1, 80% level 2,
+  68% level 3, down to under 6% at level 10. Levels 1-2 also need the
+  ten-year-old.
+- **The whole bank was re-rated:** 745 questions, 22 cents. Diners Club
+  went from 2 to 8, and the German beer-purity law from 3 to 8.
+- **Easy rounds never widen towards harder questions.** A round widens
+  mostly towards easier ones, at most half a level harder, then
+  three-quarters.
+
+Checked afterwards:
+- An Easy General Knowledge round drew Beckham's sport, bagpipes
+  (Scotland), the first man on the Moon, Monaco, a Cyclops's eyes and
+  Guinness (Ireland), all rated 80-95%.
+- A Fiendish round drew questions rated 20-40%.
+
+**Rounds take their own category's questions first.** A Geography round
+was Senna, the Nürburgring and a cash machine: questions written for
+Sport and Famous Firsts, tagged Geography because they named a place.
+- Writers now tag only where a quizmaster would put the question.
+- A round takes questions written for its own category, over at least
+  four of its areas; if the bank can't do that yet, it writes more first
+  and borrows only to fill.
+- Stocking counts only a category's own questions. Counting borrowed
+  ones, Geography never had a batch of its own written.
+
+**Written scripts can be cleared.** The topic plan's "Clear written
+scripts" removes every script written ahead for a video not yet made
+(earlier versions of the writing), and gives back to the bank and the
+fact store what they had taken. Each video is then written afresh when
+it's made.
+
 ## Tried and rejected
 
 - **Copying free quiz sites.** See above.

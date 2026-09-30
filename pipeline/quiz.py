@@ -986,14 +986,17 @@ description as usual.
 BANK_SPARE = 6          # bank questions looked at beyond the round's own
 
 
-def _bank_questions(channel, category: str, difficulty: str, count: int) -> list:
+def _bank_questions(channel, category: str, difficulty: str, count: int, borrow: bool = True) -> list:
     """Unused checked questions from the bank for this round, or [] when it
     can't supply `count` that neither repeat what the channel asked before
-    the bank nor clash with each other (decision 050)."""
+    the bank nor clash with each other (decision 050). Without `borrow`,
+    only questions written for this category, over enough of its areas."""
     try:
         from pipeline.facts import bank, store
         rows = bank.for_round(store.connect(), channel.key, category, level_of(channel, difficulty),
-                              count + BANK_SPARE)
+                              count + BANK_SPARE, borrow=borrow)
+        if not borrow and not bank.varied(rows):
+            return []
     except Exception as exc:  # noqa: BLE001 - no bank is no bank, never no round
         log.warning(f"  [quiz] the question bank couldn't be read ({exc}); writing without it")
         return []
@@ -1085,9 +1088,13 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "",
     else written from scratch."""
     count = channel.quiz.questions
     if not kind:
-        chosen = _bank_questions(channel, category, difficulty, count)
-        if not chosen and _top_up_bank(channel, category, difficulty):
-            chosen = _bank_questions(channel, category, difficulty, count)
+        # The category's own questions, over several of its areas; if the
+        # bank can't do that yet, write more first, then borrow to fill.
+        chosen = _bank_questions(channel, category, difficulty, count, borrow=False)
+        if not chosen:
+            _top_up_bank(channel, category, difficulty)
+            chosen = (_bank_questions(channel, category, difficulty, count, borrow=False)
+                      or _bank_questions(channel, category, difficulty, count))
         if chosen:
             return _round_from_bank(channel, category, difficulty, chosen)
     facts = [] if kind else _facts(channel, category, difficulty, count + FACT_SPARE)

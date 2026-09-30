@@ -45,7 +45,10 @@ log = get_logger(__name__)
 
 BATCH = 25                      # questions asked for per batch
 CHECK_CHUNK = 13                # questions per fact-check call
-WINDOWS = (0.75, 1.25, 2.0)
+# How far from a round's level to look, widening only if the bank is short
+# there: (easier, harder). Never much harder: an Easy round widened both
+# ways took in questions few adults know.
+WINDOWS = ((0.75, 0.5), (1.25, 0.5), (2.0, 0.75))
 ANSWERS_SHOWN = 250             # the area's existing answers shown to the writer
 
 SYSTEM = """
@@ -85,7 +88,9 @@ Each question:
   change, populations, prices or "the latest" anything. A superlative or
   "only" only when there is no dispute at all (never the Nile against the
   Amazon).
-- `level` on this 1-10 scale:
+- `level` on this 1-10 scale (it's measured again independently, so aim
+  honestly; at levels 1-2 write only what a ten-year-old could answer or
+  make a good guess at: primary-school and everyday knowledge):
   - 1-2: almost every adult knows it;
   - 3-4: most adults would get it: everyday general knowledge;
   - 5-6: a regular at the pub quiz would; about a third of adults;
@@ -94,8 +99,10 @@ Each question:
     checkable fact. Still fair: never a trick.
 - `shape`: one or two words for its kind (superlative, only, name, origin,
   who, number, first, word...).
-- `tags`: every category from the list given that this question also
-  belongs in, besides the one it was written for (often none).
+- `tags`: any other category from the list given that a quizmaster would
+  put this question in a round of, besides the one it was written for.
+  Usually none: mentioning a place doesn't make a sport question
+  Geography.
 
 Never repeat a fact already in the bank (its answers are listed), and
 never write two questions whose answers give each other away.
@@ -242,11 +249,21 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
     for start in range(0, len(fresh), CHECK_CHUNK):
         chunk = fresh[start:start + CHECK_CHUNK]
         verdicts += quiz.verify(category, f"level {level:g}", chunk, operation="bank_verify")
+    # The writer's own level isn't trusted: asked for level 2 it labels what
+    # it wrote level 2 ("Diners Club" among them). An independent rating
+    # sets it (pipeline.facts.rate).
+    from pipeline.facts import rate
+    passed = [q for q, v in zip(fresh, verdicts) if v == "ok"]
+    ratings = rate.rate(passed) if passed else []
+    measured = {id(q): r for q, r in zip(passed, ratings) if r}
     kept = rejected = 0
     for q, verdict in zip(fresh, verdicts):
         status = "ok" if verdict == "ok" else "rejected"
         kept += status == "ok"
         rejected += status != "ok"
+        if id(q) in measured:
+            percent, kid = measured[id(q)]
+            q = {**q, "level": rate.level_for(percent, kid), "known_pct": percent, "kid_guess": int(kid)}
         add(conn, q, category, area, status, verdict, "written", categories)
     log.info(f"  [bank] {category} / {area} near {level:g}: {kept} kept, {rejected} rejected, "
              f"{repeats} repeats")
@@ -263,10 +280,11 @@ def add(conn, q: dict, category: str, area: str, status: str, verdict: str, sour
     with conn:
         qid = conn.execute(
             "INSERT INTO questions (question, answer, alternatives, note, level, shape, area, source, "
-            "status, verdict, answer_key, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "status, verdict, answer_key, created_at, known_pct, kid_guess) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (q["question"], q["answer"], json.dumps(q.get("alternatives") or []), (q.get("note") or "").strip(),
              level, (q.get("shape") or "").strip().lower()[:30], area, source, status, verdict,
-             answer_key(q["answer"]), store.now())).lastrowid
+             answer_key(q["answer"]), store.now(), q.get("known_pct"), q.get("kid_guess"))).lastrowid
         conn.executemany("INSERT OR IGNORE INTO question_tags (question_id, category) VALUES (?, ?)",
                          [(qid, t) for t in tags])
     return qid
@@ -287,18 +305,36 @@ def pool(conn, channel_key: str, category: str) -> list:
     return [dict(r) for r in rows]
 
 
+MIN_AREAS = 4          # a round of a category's own questions spans at least this many areas
+
+
 def for_round(conn, channel_key: str, category: str, level: float, count: int,
-              exclude: set = frozenset(), seed=None) -> list:
+              exclude: set = frozenset(), seed=None, borrow: bool = True) -> list:
     """Up to `count` unused checked questions near a level, one per
     answer, with a spread of shapes and areas. Fewer when the bank is
     short there: the caller decides."""
     rows = [r for r in pool(conn, channel_key, category) if r["id"] not in exclude]
+    # Questions written for this category first; ones only tagged with it
+    # (a sport question naming a racetrack, tagged Geography) fill gaps.
+    own = set(_stored_areas(conn, category))
     rng = random.Random(seed)
-    for window in WINDOWS:
-        chosen = _spread([r for r in rows if abs(r["level"] - level) <= window], count, rng)
+    for easier, harder in WINDOWS:
+        near = [r for r in rows if level - easier <= r["level"] <= level + harder]
+        chosen = _spread([r for r in near if r["area"] in own], count, rng)
+        if len(chosen) < count and borrow:
+            ids = {r["id"] for r in chosen}
+            chosen += _spread([r for r in near if r["id"] not in ids
+                               and r["answer_key"] not in {c["answer_key"] for c in chosen}],
+                              count - len(chosen), rng)
         if len(chosen) >= count:
             return chosen
     return chosen
+
+
+def _stored_areas(conn, category: str) -> list:
+    """The category's areas if already worked out (never asks the model)."""
+    row = conn.execute("SELECT areas FROM bank_areas WHERE lower(category) = lower(?)", (category,)).fetchone()
+    return json.loads(row[0]) if row else []
 
 
 def _spread(rows: list, count: int, rng) -> list:
@@ -318,6 +354,20 @@ def _spread(rows: list, count: int, rng) -> list:
     return out
 
 
+def release(conn, channel_key: str, scripts: list) -> int:
+    """Give back to the bank and the fact store what these unmade scripts
+    had taken for this channel. Returns how many questions and facts."""
+    questions = [q for s in scripts for q in ((s or {}).get("quiz") or {}).get("questions") or []]
+    bank_ids = [q["bank_id"] for q in questions if q.get("bank_id")]
+    fact_ids = [q["fact_id"] for q in questions if q.get("fact_id")]
+    with conn:
+        conn.executemany("DELETE FROM question_used WHERE question_id = ? AND channel = ?",
+                         [(i, channel_key) for i in bank_ids])
+        conn.executemany("DELETE FROM used WHERE fact_id = ? AND channel = ?",
+                         [(i, channel_key) for i in fact_ids])
+    return len(bank_ids) + len(fact_ids)
+
+
 def mark_used(conn, channel_key: str, ids: list, round_name: str = "") -> None:
     with conn:
         conn.executemany("INSERT OR IGNORE INTO question_used (question_id, channel, round, used_at) "
@@ -327,9 +377,18 @@ def mark_used(conn, channel_key: str, ids: list, round_name: str = "") -> None:
 # --- figures ---------------------------------------------------------------------------
 
 def counts(conn, channel_key: str, category: str, levels: list) -> dict:
-    """{label: unused checked questions within a point of its level}."""
-    rows = pool(conn, channel_key, category)
-    return {label: sum(1 for r in rows if abs(r["level"] - level) <= 1.0) for label, level in levels}
+    """{label: the category's own unused checked questions a round at its
+    level would take}. Questions only tagged with it don't count: counting
+    them, Geography never had a batch of its own written."""
+    own = set(_stored_areas(conn, category))
+    rows = [r for r in pool(conn, channel_key, category) if r["area"] in own]
+    easier, harder = WINDOWS[0]
+    return {label: sum(1 for r in rows if level - easier <= r["level"] <= level + harder)
+            for label, level in levels}
+
+
+def varied(questions: list) -> bool:
+    return len({q["area"] for q in questions}) >= MIN_AREAS
 
 
 def spent_today() -> float:
