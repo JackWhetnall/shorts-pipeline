@@ -1,0 +1,26 @@
+{
+  "key": "theatre",
+  "label": "Paper theatre",
+  "engine": "generated",
+  "order": 4,
+  "description": "Cut-paper figures with jointed limbs perform on layered paper backdrops, side-on like a toy theatre. Scenes change like painted flats sliding in, and names and dates appear on paper labels.",
+  "suits": "history, biography, myths and legends, scripture stories",
+  "looks": [
+    "paper_puppet",
+    "paper_cutout",
+    "engraving"
+  ],
+  "cost": "about $4 for 50 seconds (the video model)",
+  "captions": true,
+  "labels": {
+    "font": "Constantia",
+    "weight": 700,
+    "size": 50,
+    "title_size": 70,
+    "tag": "#F3E9D2",
+    "write": false,
+    "rough": false,
+    "line": 6
+  },
+  "guide": "STAGING: this film is a paper theatre, and it stages the story being told: its people, its places and its events, played out as a play. Where the narration turns to what it means today, stay in the theatre (the same figures in a new tableau, a single figure alone on the stage, a symbolic prop raised on a rod) rather than cutting to modern scenes. Every shot is staged side-on, like a toy theatre or a shadow play: flat, layered planes one behind another (backdrop, midground flats, figures, foreground pieces), figures mostly in profile or three-quarter, moving across the stage, not towards the camera. Figures are cut-paper puppets with jointed limbs held by split pins: they gesture, bow, point, walk and turn with the stiff, charming movement of puppets. Scene changes are theatrical: a new painted flat slides in, a paper curtain drops, the sun or moon is raised on a rod. The camera stays in front of the stage: slow pans along it and gentle push-ins, never going behind. Give a shot a caption when the narration introduces a person, a place or a year the viewer should hold on to (\"Moses\", \"Kadesh, c. 1400 BC\", \"Deuteronomy 1:26\"): only what the narration says, a few words. Leave it empty otherwise; most shots have none."
+}

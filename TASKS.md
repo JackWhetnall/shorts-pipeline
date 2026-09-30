@@ -4,8 +4,8 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 29 Sep 2026. For now only The Pub Quiz Round publishes.
-New: generated animation for narrated channels (its own section below
+*Last updated: 30 Sep 2026. For now only The Pub Quiz Round publishes.
+New: animation formats for narrated channels (their own section below
 the quiz list).*
 
 ---
@@ -231,73 +231,69 @@ post takes about a minute by hand.
    channel with the video selected in Explorer. Drag it in, press Ctrl+V
    for the caption, then post.
 
-## Generated animation (new, 29 Sep)
+## Animation (29-30 Sep)
 
-Narrated channels can now be real animation in their own look instead of
-sprites on a board: a storyboard, each shot's first frame drawn and
-checked, then animated by a video model (decision 051). Nothing changes
-on any channel until you switch it on.
+Narrated channels can now be animated in four **formats**, each in any
+**look** (decisions 051, 052). Nothing changes on a channel until you
+switch it on.
 
-### A. Watch the test animatic (2 minutes)
-I ran Curiosity Leak's "why yawns are contagious" through it in the
-**Clean 2D cel** look, as an animatic: the storyboard's frames held and
-cut to the narration, with no video model yet. It cost $0.21. Open
-**Curiosity Leak → Settings → Animation** and play it under *Try it on
-one of this channel's videos*. It's also at
-`cache\animation_previews\curiosity_leak\why_yawns_are_contagious_animatic.mp4`.
-Compare it with the video that decision 040 called a car crash. Tell me
-what you think of the look and the shot choices.
+- **Tabletop**: handmade objects on a table, labelled in handwriting.
+- **Narrated canvas**: a narrator avatar, icons and diagrams, the camera
+  travelling across one big picture.
+- **Cinematic story**: characters in shots.
+- **Paper theatre**: puppets on a paper stage, with names and dates.
 
-### B. Make a fal account and key (10 minutes)
-The video models run on fal (one key for all of them). OpenAI's Sora was
-shut down on 24 Sep, so the OpenAI key can't do video any more.
+Tabletop and canvas cost a few cents a video and need nothing new. Story
+and theatre use a video model (about $4 a video) and need a fal key.
+
+### A. Watch the four versions of one script (5 minutes)
+I made Curiosity Leak's "why yawns are contagious" four ways. Open
+**Curiosity Leak → Settings → Animation** and play them under *Try it on
+one of this channel's videos* (or see `cachenimation_previews\`):
+- **Tabletop, felt craft** (finished, $0.20);
+- **Narrated canvas, flat minimal** (finished, $0.35 including the
+  narrator, drawn once);
+- **Story, clean 2D cel** (the animatic: frames without motion);
+- and on Minute Pastor, **Paper theatre** on Deuteronomy 1:26 (animatic).
+
+Tell me which direction is right for which channel, and what's wrong with
+each: that's what tunes the storyboards.
+
+### B. Choose a format and a look for one channel (10 minutes)
+**Settings → Animation** on the channel:
+1. Pick a **format**. Each card shows three frames from a real render.
+2. Pick a **look**. The ones that suit the format are marked and listed
+   first. Each card shows the same four subjects in that look; **See
+   larger** steps through them (arrow keys work), **Use this look**
+   picks one.
+3. For a story or theatre: optional **style notes**, **palette**, **Draw
+   style frames** (pick one) and a **cast**. For a canvas, the first cast
+   member is the narrator.
+4. **Save changes**, then **Make an animatic** or **Animate it** on one
+   of the channel's videos. For a tabletop or canvas, either button makes
+   the finished thing for a few cents.
+
+### C. Switch it on
+**Animate this channel's pictures in its own look** (top of Animation).
+Then, in **Pictures**, set the slider to **Always** to animate the whole
+video. On a tabletop or canvas channel, that's the right setting: they
+draw their own diagrams and labels. Suggested starting points:
+- **Curiosity Leak**: Tabletop, felt craft; or Narrated canvas.
+- **Wren's Guide**: Tabletop in felt or clay (a practice is objects and
+  steps), or Story in storybook gouache with Wren as the cast.
+- **Minute Pastor**: Paper theatre (paper puppets or engraving) for
+  narrative passages, once there's a fal key.
+
+### D. Only for story and theatre: a fal account and key (10 minutes)
+The video models run on fal. OpenAI's Sora was shut down on 24 Sep.
 1. <https://fal.ai> → **Sign in** (Google or GitHub).
-2. **Dashboard → Billing**: add credit. $20 is enough for several test
-   videos. A fully animated 50-second video costs about $4 at the default
-   settings.
+2. **Dashboard → Billing**: add credit. $20 is several test videos; a
+   fully animated 50-second video is about $4 at the default settings.
 3. **Dashboard → Keys → Create key** (scope: API). Copy it.
 4. Save it as a Windows user variable: **Start → "Edit environment
    variables for your account" → New**. Name `FAL_KEY`, value the key.
-   **OK**.
-5. Restart the app so it sees the key: sign out of Windows and back in (the
-   app starts itself at login). **APIs** should then show fal as set.
-
-### C. Choose a look for one channel (10 minutes, about 5 cents)
-**Settings → Animation** on the channel:
-1. Pick a **look**. Each card shows four example pictures, the same four
-   subjects in every look, so they compare directly. **See larger** steps
-   through them full size (arrow keys work), and **Use this look** picks
-   one.
-2. Optional: **style notes** ("muted autumn colours, always misty") and
-   your own **palette**.
-3. **Draw style frames**, then click the one that feels most like the
-   channel. That frame sets the hand every future frame is drawn in.
-4. Optional: a **cast**, meaning recurring characters with a precise
-   description (for Wren's Guide, Wren herself). **Draw their model
-   sheets** to check them.
-5. **Save changes.**
-
-### D. Try it on a real video (animatic 25 cents; animated about $3-4)
-Same page, *Try it on one of this channel's videos*: pick a video, then
-**Make an animatic**. Check it on **Activity**; it appears on the settings
-page when done. If the look is right, **Animate it** makes the real thing
-with motion, at the price shown under *Quality and cost*. This is the
-first real test of the video model, so tell me how the motion looks.
-Worth trying the same video with **Video model → Veo 3.1 Lite** too: it
-costs about half, but moves more plainly.
-
-### E. Switch it on
-**Animate this channel's pictures in its own look** (top of Animation).
-Then, in **Pictures**, set the slider to **Always** for a fully animated
-channel, or leave it lower to animate only the segments that need a
-picture. Set **Most per video** to what you're happy to spend; anything
-beyond it uses other pictures and is noted in Review.
-Suggested starting points:
-- **Curiosity Leak**: Clean 2D cel, pace in the middle.
-- **Wren's Guide**: Storybook gouache or Ink and watercolour, with Wren
-  as a cast member.
-- **Minute Pastor**: Engraving and woodcut, or Storybook gouache: calm
-  energy, lingering pace.
+5. Sign out of Windows and back in, so the app restarts with it. **APIs**
+   should show fal as set.
 
 ## Other channels (on hold while the quiz launches)
 

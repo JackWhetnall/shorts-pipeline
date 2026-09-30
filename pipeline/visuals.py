@@ -56,7 +56,8 @@ def run(plan):
     log.info(f"[3/5] Directing the visuals ({style['label']})...")
     try:
         directions = director.direct(segments, plan.seed.title, share, covered,
-                                     artwork=paintings, animation=animated)
+                                     artwork=paintings, animation=animated,
+                                     own_diagrams=animated and _draws_diagrams(channel))
     except PipelineError as exc:
         log.warning(f"  [visuals] couldn't direct ({exc}); footage throughout")
         plan.scene_notes.append("The visual plan failed, so this video is all footage.")
@@ -108,14 +109,20 @@ def run(plan):
     return plan
 
 
+def _draws_diagrams(channel) -> bool:
+    from pipeline.animation import formats
+    return formats.composited(formats.resolve(channel.animation.format))
+
+
 def _animation_ready(plan) -> bool:
-    """Whether this channel animates: switched on, and fal's key set. On
-    but without the key, it draws illustrations as before and says why."""
+    """Whether this channel animates: switched on, and, for a format with a
+    video model, fal's key set. On but without the key, a generated format
+    draws illustrations as before and says why."""
     from pipeline.animation import fal
     if not getattr(plan.channel.animation, "enabled", False):
         return False
-    if fal.configured():
-        return True
+    if fal.configured() or _draws_diagrams(plan.channel):
+        return True               # a composited format needs no video model
     plan.scene_notes.append("Animation is switched on for this channel, but FAL_KEY isn't set, "
                             "so it used still illustrations. Add the key (see the APIs page).")
     return False

@@ -122,7 +122,7 @@ TIMING
 """.strip()
 
 
-def schema() -> dict:
+def schema(captions: bool = False) -> dict:
     element = {"type": "object", "properties": {
         "key": {"type": "string"}, "kind": {"type": "string", "enum": list(KINDS)},
         "name": {"type": "string"}, "description": {"type": "string"}},
@@ -133,9 +133,11 @@ def schema() -> dict:
         "image": {"type": "string"}, "motion": {"type": "string"},
         "camera": {"type": "string"},
         "elements": {"type": "array", "items": {"type": "string"}},
-        "continues": {"type": "boolean"}, "why": {"type": "string"}},
+        "continues": {"type": "boolean"}, "why": {"type": "string"},
+        **({"caption": {"type": "string"}} if captions else {})},
         "required": ["start_word", "framing", "image", "motion", "camera", "elements",
-                     "continues", "why"], "additionalProperties": False}
+                     "continues", "why", *(["caption"] if captions else [])],
+        "additionalProperties": False}
     return {"type": "object", "properties": {
         "concept": {"type": "string"}, "colour_script": {"type": "string"},
         "elements": {"type": "array", "items": element},
@@ -188,13 +190,17 @@ def _narration(segments: list, words: list, windows: list) -> str:
 
 def write(segments: list, words: list, windows: list, *, subject: str, look: dict, cast: list,
           avoid: list, limits: dict, briefs: dict, hook_until: float = 0.0,
-          previous: dict = None, problems: list = None) -> dict:
-    """The raw storyboard from the model (see `settle` for the safe one)."""
+          previous: dict = None, problems: list = None, fmt: dict = None) -> dict:
+    """The raw storyboard from the model (see `settle` for the safe one).
+    `fmt`: a generated format with a grammar of its own (a paper theatre),
+    whose guide is added and whose captions the shots then carry."""
     cast_lines = "\n".join(f"- {c['name']}: {c.get('description') or ''}" for c in cast) \
         or "(none: invent what the film needs)"
     brief_lines = "\n".join(f"- segment {i}: {b}" for i, b in sorted(briefs.items()) if b)
+    fmt = fmt or {}
     user = [
         f"The video is about: {subject}",
+        f"FORMAT: {fmt['label']}. {fmt['guide']}" if fmt.get("guide") else "",
         f"The channel's look: {look['label']}. {look['description']} Its camera: "
         f"{look['camera']}. How things move in it: {look['motion']}.",
         f"Energy: {look['energy']}/100 (0 calm, 100 lively).",
@@ -216,8 +222,8 @@ def write(segments: list, words: list, windows: list, *, subject: str, look: dic
         user.append("Fix these problems and return the whole storyboard again:\n- " +
                     "\n- ".join(problems or []))
     return call_json([SystemBlock(GUIDE, cacheable=True)], "\n\n".join(p for p in user if p),
-                     schema(), operation="animation_storyboard", max_tokens=MAX_TOKENS,
-                     effort=EFFORT)
+                     schema(bool(fmt.get("captions"))), operation="animation_storyboard",
+                     max_tokens=MAX_TOKENS, effort=EFFORT)
 
 
 def _slug(text: str) -> str:
@@ -265,6 +271,7 @@ def settle(raw: dict, windows: list, words: list, video: models.VideoModel, qual
             notes.append(f"a shot cut on word {word}, outside the animation; dropped")
             continue
         shots.append(dict(s, start_word=word, window=window_of[word],
+                          caption=" ".join(str(s.get("caption") or "").split())[:48],
                           elements=[k for k in (_slug(x) for x in s.get("elements") or [])
                                     if k in elements],
                           framing=s.get("framing") if s.get("framing") in FRAMINGS else "medium"))

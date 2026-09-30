@@ -2187,7 +2187,7 @@ button.topic-row.selected:hover {
 .warning-text { color: var(--warning, #d9a441); }
 .anim-settings div.field-row { margin-bottom: var(--sp-3, 0.85rem); }
 .anim-settings div.field-row > .hint { display: block; }
-.anim-looks { display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); gap: var(--sp-3, 0.75rem);
+.anim-looks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr)); gap: var(--sp-3, 0.75rem);
   margin: var(--sp-3, 0.75rem) 0; }
 /* The form's fieldset labels sit two to a row; these are grid cells. */
 .channel-form fieldset label.anim-look { display: flex; flex-direction: column; gap: var(--sp-2, 0.5rem);
@@ -2196,6 +2196,17 @@ button.topic-row.selected:hover {
 .anim-look:hover { border-color: var(--border-light); }
 .anim-look:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent);
   background: var(--surface-hover); }
+.anim-formats { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(22rem, 100%), 1fr)); gap: var(--sp-3, 0.75rem);
+  margin: var(--sp-3, 0.75rem) 0; }
+.channel-form fieldset label.anim-format { display: flex; flex-direction: column; gap: var(--sp-2, 0.5rem);
+  width: auto; margin: 0; padding: var(--sp-2, 0.5rem); border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--surface-2); cursor: pointer; font-weight: 400; }
+.anim-format:hover { border-color: var(--border-light); }
+.anim-format:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent);
+  background: var(--surface-hover); }
+.anim-format-examples { grid-template-columns: repeat(3, 1fr); }
+.anim-fits { font-size: 0.72rem; font-weight: 700; color: var(--accent); border: 1px solid var(--accent);
+  border-radius: 999px; padding: 0.05rem 0.5rem; white-space: nowrap; }
 .anim-look-examples { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .anim-look-examples img { width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 6px;
   display: block; background: var(--border); }

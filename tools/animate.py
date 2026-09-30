@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.channels import load_channels                           # noqa: E402
 from core.logging_setup import configure                          # noqa: E402
-from pipeline.animation import bible, look as looks, models, preview  # noqa: E402
+from pipeline.animation import bible, formats, look as looks, models, preview  # noqa: E402
 
 
 def _channel(key: str, args):
@@ -36,7 +36,7 @@ def _channel(key: str, args):
         raise SystemExit(f"No channel {key!r}. Channels: {', '.join(channels)}")
     channel = channels[key]
     a = channel.animation
-    for name in ("look", "quality", "video_model", "image_model", "cadence"):
+    for name in ("format", "look", "quality", "video_model", "image_model", "cadence"):
         if getattr(args, name, None):
             setattr(a, name, getattr(args, name))
     if getattr(args, "notes", None) is not None:
@@ -64,6 +64,7 @@ def main() -> int:
             p.add_argument("video")
         if name == "estimate":
             p.add_argument("--seconds", type=float, default=50.0)
+        p.add_argument("--format", choices=list(formats.formats()))
         p.add_argument("--look", choices=list(looks.presets()))
         p.add_argument("--notes")
         p.add_argument("--quality", choices=["draft", "standard", "high"])

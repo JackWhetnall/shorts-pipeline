@@ -107,9 +107,13 @@ pipeline/     The generation stages. No web dependency at all.
                 diagram, with the channel's slider as the bar (decision 040).
   visuals       Carries out the director's plan; failures fall back to footage.
   illustrate    One image in the channel's style, pushed in.
-  animation/    Generated animation in a channel's own look (decision 051).
-    looks/        Ten art directions: medium, light, camera, motion, cadence, grade;
-                  looks/samples/ holds each one's four example pictures.
+  animation/    Animation in a channel's own format and look (decisions 051, 052).
+    formats/      Four formats (tabletop, canvas, story, theatre): each a grammar,
+                  its engine, stage, kit and label style; formats/examples/ holds
+                  three real frames of each.
+    formats       Loading them, and a format + look as the compositor's style.
+    looks/        Thirteen art directions: medium, light, camera, motion, cadence,
+                  grade; looks/samples/ holds each one's four example pictures.
     samples       The examples: the same four subjects drawn in every look.
     look          A channel's look: preset + notes, palette and sliders.
     models        The picture and video models, their prices, request shapes, and
@@ -123,6 +127,17 @@ pipeline/     The generation stages. No web dependency at all.
     finish        Retime, cadence, upscale, grade, grain; shots cut together.
     stage         Budget, bible, board, frames, motion, finish; resumable, degrading.
     preview       Animatics and animated previews of a finished video's script.
+    beats         The composited formats' storyboard: beats of designed layouts,
+                  exact labels, objects arriving on their words; `settle`.
+    kit           Objects drawn once per channel and look (cut-outs, reused by name),
+                  the tabletop's surface, the canvas narrator's poses.
+    compose       A composited format end to end: beats, kit, stage, render, finish.
+    compositor/   The motion-design engine, filmed in Chrome:
+      runtime.js    Sprites, shadows, stop-motion stepping, labels, arrows, rings,
+                    badges, a narrator, a camera; `__seek(t)`, deterministic.
+      layouts       Eleven designed arrangements, placed and sized by rule.
+      script        Beats to a timed stage: arrivals, continuity, exits, camera.
+      render        The page (fonts embedded) to video; paper-label captions.
   templates/    Designed motion-graphics templates (HTML/CSS, a seekable
                 engine, per-channel theme), filled by one small model call.
   description   The paste-ready description and the meta sidecar.
@@ -299,11 +314,30 @@ prompt instruction is the backstop for imagery a keyword wouldn't catch.
 
 ## Animation
 
-A channel with `animation.enabled` (and `FAL_KEY` set) gets generated
-animation wherever the director would have drawn a still illustration;
-at the slider's "Always", everything but numbers, structure and geometry
-is animated. It works like a small studio (`pipeline/animation/`,
-decision [051](docs/decisions/051-generated-animation.md)):
+A channel with `animation.enabled` gets animation wherever the director
+would have drawn a still illustration; at the slider's "Always", the
+whole video. The channel chooses a **format**, what kind of animated
+video it is, and a **look**, what it's made of. Any look goes with any
+format. See decisions [051](docs/decisions/051-generated-animation.md)
+and [052](docs/decisions/052-animation-formats.md).
+
+| Format | Stage | Drawn once | Rendered by |
+|---|---|---|---|
+| Tabletop | one surface from above; objects carried between beats | objects, the surface | the compositor |
+| Narrated canvas | a large canvas; each beat an area the camera travels to | icons, the narrator's poses | the compositor |
+| Cinematic story | a world, in shots | style frames, cast sheets | a video model |
+| Paper theatre | a toy theatre, side-on; name/date captions | as story | a video model |
+
+**Composited formats** (`compose`) cost cents a video and need no
+FAL_KEY. The beats storyboard chooses designed layouts and fills them;
+the layouts place everything; the kit supplies the channel's own
+pictures; the script times it all to the narration's words; the
+compositor films it; the finish grades it. On these channels the
+director offers no templates or diagrams, which would break the one
+continuous picture.
+
+**Generated formats** (story, theatre) need `FAL_KEY` and work like a
+small studio (`stage`):
 
 - **Look.** One of ten art directions plus the channel's notes, palette
   and sliders (energy, pace, cadence, finish).

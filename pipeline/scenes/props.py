@@ -73,8 +73,9 @@ EDGE_BAND = 4
 MAX_SIDE = 640          # plenty for a prop that fills at most half the frame's width
 
 
-def clean(png: bytes) -> bytes:
-    """Zero stray alpha and any edge frame, trim to the object, and downsize."""
+def clean(png: bytes, max_side: int = MAX_SIDE, trim: bool = True) -> bytes:
+    """Zero stray alpha and any edge frame, trim to the object (unless
+    `trim` is off: a set of poses must keep one canvas), and downsize."""
     import io
     from PIL import Image, ImageDraw
 
@@ -84,12 +85,12 @@ def clean(png: bytes) -> bytes:
     if w > 4 * EDGE_BAND and h > 4 * EDGE_BAND:
         ImageDraw.Draw(alpha).rectangle((0, 0, w - 1, h - 1), outline=0, width=EDGE_BAND)
     image.putalpha(alpha)
-    box = alpha.getbbox()
+    box = alpha.getbbox() if trim else None
     if box:
         pad = 8
         image = image.crop((max(0, box[0] - pad), max(0, box[1] - pad),
                             min(image.width, box[2] + pad), min(image.height, box[3] + pad)))
-    image.thumbnail((MAX_SIDE, MAX_SIDE), Image.LANCZOS)
+    image.thumbnail((max_side, max_side), Image.LANCZOS)
     out = io.BytesIO()
     image.save(out, format="PNG", optimize=True)
     return out.getvalue()

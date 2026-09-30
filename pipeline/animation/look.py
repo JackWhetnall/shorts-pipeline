@@ -26,7 +26,8 @@ HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 CADENCE_FPS = {"ones": 24, "twos": 12, "threes": 8}
 # Paper-based media keep their texture fixed to the page; filmed and
 # rendered ones get grain that moves.
-PAPER = {"storybook_gouache", "paper_cutout", "ink_watercolour", "risograph", "engraving"}
+PAPER = {"storybook_gouache", "paper_cutout", "ink_watercolour", "risograph", "engraving",
+         "felt_craft", "paper_puppet"}
 
 # Written for every frame, whatever the look: the captions sit in the
 # bottom third, and image and video models can't be trusted with words.

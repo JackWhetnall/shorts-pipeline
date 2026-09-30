@@ -120,9 +120,13 @@ def run(channel, video_path: Path, animate: bool) -> Path:
     from pipeline.animation import stage
 
     plan = plan_for(channel, video_path)
-    kind = "animated" if animate else "animatic"
+    from pipeline.animation import formats, look as looks
+    fmt = formats.resolve(channel.animation.format)
+    look = looks.resolve(channel.animation)
+    # A composited format has no video model: its preview is the real thing.
+    kind = "animated" if animate or formats.composited(fmt) else "animatic"
     home = preview_dir(channel.key)
-    folder = home / f"{plan.stem}_{kind}"
+    folder = home / f"{plan.stem}_{fmt['key']}_{look['key']}_{kind}"
     indices = list(range(len(plan.script.segments)))
     briefs = {i: s.shot_brief for i, s in enumerate(plan.script.segments)}
     result = stage.make(plan, indices, briefs, folder, tail=0.0, animate=animate)
@@ -131,11 +135,14 @@ def run(channel, video_path: Path, animate: bool) -> Path:
                                                              "within the budget.")
     picture = Path(result.clips[0]["clip"])
     start = plan.script.segments[result.clips[0]["first"]].start
-    out = home / f"{plan.stem}_{kind}.mp4"
+    out = home / f"{plan.stem}_{fmt['key']}_{look['key']}_{kind}.mp4"
     import imageio_ffmpeg
     subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-y",
                     "-i", str(picture), "-ss", f"{start:.3f}", "-i", str(plan.voiceover.audio_path),
-                    "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-shortest",
+                    # A size for watching, not an intermediate: grain alone made
+                    # a 34-second felt preview 68 MB at the working quality.
+                    "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "veryfast",
+                    "-crf", "21", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
                     str(out)], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     for note in result.notes:
         log.info(f"  [animation] note: {note}")

@@ -123,6 +123,43 @@ def still_shot(image: Path, out: Path, seconds: float, look: dict, hold: float =
     return out
 
 
+def grade(source: Path, out: Path, look: dict) -> Path:
+    """A composited clip in the look's grade and grain (its timing and
+    cadence are already the compositor's)."""
+    chain = grade_filters(look) + texture_filters(look)
+    if not chain:
+        Path(source).replace(out)
+        return out
+    subprocess.run([_ffmpeg(), "-v", "error", "-y", "-i", str(source), "-an",
+                    "-vf", ",".join(chain + ["format=yuv420p"]), "-r", str(FPS),
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "15", str(out)],
+                   check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return out
+
+
+def overlay_captions(clip: Path, captions: list, out: Path, top: int = 150) -> Path:
+    """`captions`: [(png, start, end)] in the clip's seconds, each laid
+    over the top of the picture (clear of the subtitles' third), faded in
+    and out."""
+    if not captions:
+        return clip
+    cmd = [_ffmpeg(), "-v", "error", "-y", "-i", str(clip)]
+    chain, label = [], "0:v"
+    for i, (png, start, end) in enumerate(captions, start=1):
+        cmd += ["-loop", "1", "-t", f"{end + 0.5:.3f}", "-i", str(png)]
+        fade = min(0.35, max(0.1, (end - start) / 4))
+        chain.append(f"[{i}:v]format=rgba,fade=in:st={start:.3f}:d={fade:.3f}:alpha=1,"
+                     f"fade=out:st={max(start, end - fade):.3f}:d={fade:.3f}:alpha=1[c{i}]")
+        chain.append(f"[{label}][c{i}]overlay=x=(W-w)/2:y={top}:"
+                     f"enable='between(t,{start:.3f},{end:.3f})'[v{i}]")
+        label = f"v{i}"
+    cmd += ["-filter_complex", ";".join(chain), "-map", f"[{label}]", "-an", "-r", str(FPS),
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "15", "-pix_fmt", "yuv420p",
+            str(out)]
+    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return out
+
+
 def join(parts: list, out: Path) -> Path:
     """Finished shots, cut together in order."""
     out.parent.mkdir(parents=True, exist_ok=True)

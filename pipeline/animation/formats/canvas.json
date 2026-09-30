@@ -1,0 +1,36 @@
+{
+  "key": "canvas",
+  "label": "Narrated canvas",
+  "engine": "compositor",
+  "order": 2,
+  "description": "A simple narrator character talks you through ideas drawn as clean icons, labels, arrows and diagrams on one big canvas. The camera travels from idea to idea, and the picture builds up as it goes.",
+  "suits": "history explained, geography, politics and systems, how things actually work, essays and arguments",
+  "looks": [
+    "flat_minimal",
+    "risograph",
+    "clean_cel",
+    "engraving"
+  ],
+  "cost": "a few cents a video: icons and the narrator are drawn once and reused",
+  "areas": "canvas",
+  "continuity": "persist",
+  "entrance": "pop",
+  "tilt": 0.0,
+  "avatar": true,
+  "labels": {
+    "font": "Segoe UI Black",
+    "weight": 900,
+    "size": 52,
+    "title_size": 76,
+    "tag": null,
+    "write": false,
+    "rough": false,
+    "line": 8
+  },
+  "shadow": {
+    "mode": "none"
+  },
+  "kit_view": "A single flat icon, front view, simple bold shapes, centred with a margin all round, isolated on a transparent background, no shadow.",
+  "narrator": "a minimal narrator character: a simple rounded head with two dot eyes and a small mouth, a plain simple body, a single distinctive accessory (a small hat), friendly and expressive",
+  "guide": "A narrator character, a simple avatar, talks the viewer through the idea. Everything else is drawn as clean icons, labels, arrows and diagrams on one big canvas: each beat is a new area of it, the camera travels there, and what was drawn stays behind. Use presenter beats for the hook, the asides and the conclusion, with the narrator's pose: talk while explaining, point when introducing something, shrug at uncertainty or irony, think for a question. Keep it witty and exact, like the best explainers online: every icon earns its place, labels say exactly what's meant, and a visual joke is welcome where it helps. Icons are single simple things (a crown, a castle, a coin, a factory, a scroll, a ship), never scenes; people are simple icon figures."
+}

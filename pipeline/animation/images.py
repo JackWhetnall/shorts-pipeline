@@ -124,10 +124,11 @@ def _error(response) -> ExternalServiceError:
 
 def draw(prompt: str, out_path: Path, model: ImageModel, *, references=(),
          size: tuple = PORTRAIT, operation: str = "animation_keyframe",
-         quality: str = None) -> Path:
+         quality: str = None, transparent: bool = False) -> Path:
     """One picture from `prompt`, drawn with `references` (paths, in the
     order the prompt names them) when there are any. Saved at out_path;
-    the format follows its suffix (.png or .jpg)."""
+    the format follows its suffix (.png or .jpg). `transparent` draws a
+    cut-out on a transparent background (a kit object; needs .png)."""
     out_path = Path(out_path)
     fmt = "png" if out_path.suffix.lower() == ".png" else "jpeg"
     fields = {"model": model.model, "prompt": prompt, "n": "1",
@@ -135,6 +136,8 @@ def draw(prompt: str, out_path: Path, model: ImageModel, *, references=(),
               "output_format": fmt}
     if fmt == "jpeg":
         fields["output_compression"] = "92"
+    if transparent and fmt == "png":
+        fields["background"] = "transparent"
     refs = [Path(p) for p in references if p]
     headers = {"Authorization": f"Bearer {_key()}"}
     attempt = limited = 0

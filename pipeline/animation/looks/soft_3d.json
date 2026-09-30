@@ -24,5 +24,6 @@
     "grain": 0.05,
     "vignette": 0.12,
     "sharpen": 0.2
-  }
+  },
+  "surface": "a smooth matte pastel surface"
 }

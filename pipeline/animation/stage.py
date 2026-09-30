@@ -27,7 +27,8 @@ from pathlib import Path
 
 from core.errors import PipelineError
 from core.logging_setup import get_logger
-from pipeline.animation import bible, finish, keyframes, look as looks, models, motion, storyboard
+from pipeline.animation import (bible, finish, formats, keyframes, look as looks, models, motion,
+                                storyboard)
 
 log = get_logger(__name__)
 
@@ -86,6 +87,12 @@ def make(plan, indices: list, briefs: dict, folder: Path, tail: float,
     channel = plan.channel
     settings = channel.animation
     look = looks.resolve(settings)
+    fmt = formats.resolve(getattr(settings, "format", ""))
+    if formats.composited(fmt):
+        # Tabletop and canvas: drawn once, composited, costing cents; no
+        # video model and nothing to hold back for the budget.
+        from pipeline.animation import compose
+        return compose.make(plan, runs(indices), folder, tail, look, fmt, result)
     video = models.video_model(settings.video_model)
     image = models.image_model(settings.image_model)
     quality = settings.quality if settings.quality in video.price else "standard"
@@ -113,7 +120,7 @@ def make(plan, indices: list, briefs: dict, folder: Path, tail: float,
         seconds, models.mean_shot_seconds(look["pace"]), video, image, quality).image_usd)
 
     board = _board(plan, folder, ranges, windows, words, look, cast, briefs, video, quality,
-                   video_budget, result)
+                   video_budget, result, fmt)
     shots = board["shots"]
 
     sheets = _sheets(channel, board, look, style_ref, cast, folder / "elements")
@@ -146,6 +153,9 @@ def make(plan, indices: list, briefs: dict, folder: Path, tail: float,
             result.fell_back += list(range(first, last + 1))
             continue
         clip = finish.join(parts, folder / f"animation_{first}_{last}.mp4")
+        if fmt.get("captions"):
+            clip = _captions(clip, [s for s in shots if s["window"] == w_index], windows[w_index],
+                             fmt, look, folder)
         result.clips.append({"first": first, "last": last, "clip": str(clip),
                              "kind": "animation"})
 
@@ -160,8 +170,27 @@ def make(plan, indices: list, briefs: dict, folder: Path, tail: float,
     return result
 
 
+def _captions(clip, shots, window, fmt, look, folder) -> Path:
+    """A paper theatre's names, dates and places, on the shots that carry
+    them (drawn in the format's face, in the look's ink)."""
+    from pipeline.animation.compositor import render as compositor
+
+    labels = formats.style_for(fmt, look)["labels"]
+    captions = []
+    for s in shots:
+        if not s.get("caption"):
+            continue
+        png = compositor.caption_png(s["caption"], labels,
+                                     folder / "captions" / f"c_{s['index']:02d}.png")
+        start = s["start"] - window["start"] + 0.35
+        captions.append((png, round(start, 3), round(max(start + 1.2, s["end"] - window["start"] - 0.25), 3)))
+    if not captions:
+        return clip
+    return finish.overlay_captions(clip, captions, Path(clip).with_name(Path(clip).stem + "_c.mp4"))
+
+
 def _board(plan, folder, ranges, windows, words, look, cast, briefs, video, quality,
-           video_budget, result) -> dict:
+           video_budget, result, fmt=None) -> dict:
     """The storyboard, from an earlier attempt when there is one for the
     same stretches (so its keyframes and shots still match it)."""
     path = folder / "storyboard.json"
@@ -179,7 +208,8 @@ def _board(plan, folder, ranges, windows, words, look, cast, briefs, video, qual
     raw = storyboard.write(plan.script.segments, words, windows,
                            subject=plan.seed.title if plan.seed else "",
                            look=look, cast=cast, avoid=list(plan.channel.avoid_imagery or []),
-                           limits=limits, briefs=briefs, hook_until=hook_until)
+                           limits=limits, briefs=briefs, hook_until=hook_until,
+                           fmt=fmt if fmt and fmt.get("guide") else None)
     board, notes = storyboard.settle(raw, windows, words, video, quality, video_budget, cast)
     for s in board["shots"]:
         if not s["image"].strip():

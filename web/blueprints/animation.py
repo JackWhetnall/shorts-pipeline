@@ -21,7 +21,7 @@ from core.channels import ANIMATION_CADENCES
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from core.paths import OUTPUT_DIR, PathTraversalError, relative_to_output, safe_join
-from pipeline.animation import bible, fal, look as looks, models, preview, samples
+from pipeline.animation import bible, fal, formats, look as looks, models, preview, samples
 from web.helpers import channel_or_404
 
 log = get_logger(__name__)
@@ -33,6 +33,16 @@ PREVIEW_SECONDS = 50.0
 
 
 # --- the form -------------------------------------------------------------------
+
+FORMAT_EXAMPLES = formats.FORMATS_DIR / "examples"
+
+
+def format_examples() -> dict:
+    """{format key: [example picture url]}."""
+    return {key: [url_for("animation.format_example", fmt_key=key, n=n)
+                  for n in (1, 2, 3) if (FORMAT_EXAMPLES / f"{key}_{n}.jpg").exists()]
+            for key in formats.formats()}
+
 
 def look_examples() -> dict:
     """{look key: [{"url", "label"}]}: each look's example pictures."""
@@ -47,8 +57,12 @@ def form_context(channel) -> dict:
     a = channel.animation
     look = looks.resolve(a)
     presets = looks.presets()
+    fmt = formats.resolve(a.format)
     return {
         "anim": a,
+        "anim_format": fmt,
+        "anim_formats": formats.formats(),
+        "anim_format_examples": format_examples(),
         "anim_look": look,
         "anim_presets": presets,
         "anim_examples": look_examples(),
@@ -129,6 +143,8 @@ def apply_form(animation, form) -> None:
     """The channel's animation settings from the settings form (fields
     named anim_*). Only called when the form carries them (anim_present)."""
     animation.enabled = bool(form.get("anim_enabled"))
+    if form.get("anim_format") in formats.formats():
+        animation.format = form.get("anim_format")
     if form.get("anim_look") in looks.presets():
         animation.look = form.get("anim_look")
     animation.style_notes = " ".join((form.get("anim_style_notes") or "").split())[:600]
@@ -181,6 +197,17 @@ def _trying(channel, data: dict):
 
 
 # --- routes ---------------------------------------------------------------------
+
+@bp.route("/animation/formats/<fmt_key>/<int:n>.jpg")
+def format_example(fmt_key, n):
+    """One of a format's example pictures."""
+    if fmt_key not in formats.formats() or n not in (1, 2, 3):
+        abort(404)
+    path = FORMAT_EXAMPLES / f"{fmt_key}_{n}.jpg"
+    if not path.is_file():
+        abort(404)
+    return send_file(path, mimetype="image/jpeg", max_age=86400)
+
 
 @bp.route("/animation/looks/<look_key>/<int:n>.jpg")
 def look_sample(look_key, n):
@@ -287,7 +314,7 @@ def start_preview(key):
     if not video.is_file():
         raise PipelineError("no such video", user_message="Pick one of the channel's videos.")
     animate = bool(data.get("animate"))
-    if animate and not fal.configured():
+    if animate and not fal.configured() and             not formats.composited(formats.resolve(channel.animation.format)):
         raise PipelineError("no fal key", user_message="Animating needs FAL_KEY. See the APIs "
                                                        "page; an animatic doesn't.")
     job_id = jobs.start_job(channel.key, {"type": "animation_preview",

@@ -1,0 +1,28 @@
+{
+  "key": "paper_puppet",
+  "label": "Paper puppets",
+  "description": "Cut-paper puppets with jointed limbs and visible split pins, on painted paper backdrops layered like a toy theatre. Textured card, soft side light, handmade.",
+  "suits": "history, biography, myths, legends, scripture",
+  "image": "a cut-paper puppet theatre: figures cut from textured coloured card with jointed limbs held by small brass split pins, flat painted-paper backdrops and layered paper flats one behind another, visible paper grain and hand-cut edges, a small soft shadow under each layer, handmade and slightly naive",
+  "light": "a warm soft side light across the stage, gentle shadows between the paper layers",
+  "camera": "in front of the stage: slow pans along it and gentle push-ins",
+  "motion": "cut-out puppet animation: stiff jointed limbs swinging on their pins, figures sliding and bobbing across the stage, stepped handmade timing",
+  "palette": [
+    "#C8553D",
+    "#F2D0A4",
+    "#588B8B",
+    "#2F3E46",
+    "#F4E9D8",
+    "#E09F3E"
+  ],
+  "avoid": "photorealism, 3D render, smooth CGI motion, glossy surfaces",
+  "cadence": "threes",
+  "grade": {
+    "contrast": 1.03,
+    "saturation": 0.97,
+    "warmth": 0.2,
+    "grain": 0.3,
+    "vignette": 0.28,
+    "sharpen": 0.25
+  }
+}

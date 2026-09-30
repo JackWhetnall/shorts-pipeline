@@ -3143,6 +3143,38 @@ function initAnimationSettings() {
     paletteInputs.forEach(i => { i.disabled = !customPalette.checked; });
     showPresetPalette();
   });
+  // The format decides which looks suit it (marked, and listed first) and
+  // whether the video-model settings apply at all.
+  const allFormats = JSON.parse(root.querySelector("[data-anim-formats]").textContent);
+  const lookGrid = root.querySelector(".anim-looks");
+  const showFormat = () => {
+    const key = form.querySelector("input[name=anim_format]:checked")?.value;
+    const fmt = allFormats[key] || {};
+    const suits = fmt.looks || [];
+    const cards = [...lookGrid.querySelectorAll("[data-anim-look-card]")];
+    cards.forEach(card => {
+      card.querySelector("[data-anim-fits]").hidden = !suits.includes(card.dataset.animLookCard);
+    });
+    cards.sort((a, b) => {
+      const ia = suits.indexOf(a.dataset.animLookCard), ib = suits.indexOf(b.dataset.animLookCard);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    }).forEach(card => lookGrid.appendChild(card));
+    const composited = fmt.engine === "compositor";
+    root.querySelectorAll("[data-anim-composited-only]").forEach(e => { e.hidden = !composited; });
+    root.querySelectorAll("[data-anim-generated-only]").forEach(e => { e.hidden = composited; });
+    estimateLine.hidden = composited;
+  };
+  form.querySelectorAll("input[name=anim_format]").forEach(r => r.addEventListener("change", () => {
+    showFormat();
+    // A format's best look, when the chosen one isn't among them.
+    const fmt = allFormats[form.querySelector("input[name=anim_format]:checked").value] || {};
+    if (fmt.looks && !fmt.looks.includes(lookKey())) {
+      const radio = form.querySelector(`input[name=anim_look][value="${fmt.looks[0]}"]`);
+      if (radio) { radio.checked = true; radio.dispatchEvent(new Event("change", {bubbles: true})); }
+    }
+  }));
+  showFormat();
+
   const ownCadence = root.querySelector("[data-anim-own-cadence]");
   form.querySelectorAll("input[name=anim_look]").forEach(r => r.addEventListener("change", () => {
     showPresetPalette();

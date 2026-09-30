@@ -24,5 +24,6 @@
     "grain": 0.3,
     "vignette": 0.25,
     "sharpen": 0.25
-  }
+  },
+  "surface": "a sheet of thick, textured off-white card"
 }

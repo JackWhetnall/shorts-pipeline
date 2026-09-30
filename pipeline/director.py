@@ -125,16 +125,20 @@ def _schema(media: list = MEDIA) -> dict:
 
 
 def direct(segments: list, subject: str, share: int, skip: set = frozenset(),
-           artwork: bool = False, animation: bool = False) -> list:
+           artwork: bool = False, animation: bool = False, own_diagrams: bool = False) -> list:
     """[{index, medium, template, brief, need, reason}] for every segment
     not in `skip` (already pictured), with the channel's bar applied to
     graphics: below it, footage. `artwork` offers museum paintings too,
     which are real pictures and so are never held to the bar. `animation`
-    offers generated animation in place of illustrations (decision 051)."""
+    offers generated animation in place of illustrations (decision 051);
+    `own_diagrams` is an animation format that draws its own labels and
+    diagrams (a tabletop, a canvas: decision 052), so templates and
+    diagrams, which would break its one continuous picture, aren't offered."""
     bar = need_threshold(share)
     todo = [i for i in range(len(segments)) if i not in skip]
     drawn = "animation" if animation else "illustration"
-    graphics = [m for m in GRAPHICS if m in (drawn, "template", "diagram")]
+    graphics = [m for m in GRAPHICS if m in ((drawn,) if animation and own_diagrams
+                                             else (drawn, "template", "diagram"))]
     media = ["footage", *(["artwork"] if artwork else []), *(graphics if bar is not None else [])]
     if media == ["footage"] or not todo:
         return [{"index": i, "medium": "footage", "template": "", "brief": segments[i].shot_brief,

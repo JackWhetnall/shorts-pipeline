@@ -362,10 +362,14 @@ ANIMATION_CADENCES = ("", "ones", "twos", "threes")
 
 @dataclass
 class Animation(_MappingLike):
-    """Generated animation in this channel's own look (pipeline.animation,
-    decision 051). Used for the segments the visual director gives to
-    animation, which on a fully animated channel (`scenes.share` 100) is
+    """Animation in this channel's own format and look (pipeline.animation,
+    decisions 051 and 052). Used for the segments the visual director gives
+    to animation, which on a fully animated channel (`scenes.share` 100) is
     all of them.
+
+    `format`: what kind of animated video (tabletop, canvas, story, theatre:
+    pipeline/animation/formats). Tabletop and canvas are composited from a
+    kit drawn once and need no video model; story and theatre use one.
 
     `look`: a preset in pipeline/animation/looks; `style_notes` and
     `palette` adjust it for this channel. `cast`: recurring characters,
@@ -378,6 +382,9 @@ class Animation(_MappingLike):
     """
 
     enabled: bool = False
+    # What kind of animated video (pipeline/animation/formats): a story in
+    # shots, objects on a tabletop, a narrated canvas, a paper theatre.
+    format: str = "story"
     look: str = "storybook_gouache"
     style_notes: str = ""
     palette: list = field(default_factory=list)
