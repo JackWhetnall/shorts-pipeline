@@ -1,13 +1,18 @@
 {% extends "base.html" %}
-{% block title %}{{ channel.channel_display_name }} Gallery{% endblock %}
+{% block title %}{{ channel.channel_display_name }} Videos{% endblock %}
 {% block content %}
 <a class="back-link" href="{{ url_for('channels.dashboard', key=key) }}">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
   {{ channel.channel_display_name }} dashboard
 </a>
-<h1>{{ channel.channel_display_name }} &mdash; Gallery</h1>
+<h1>{{ channel.channel_display_name }} &mdash; Videos</h1>
+<p class="meta">
+  {{ unpublished|length }} waiting for review &middot; {{ approved|length }} approved &middot;
+  {{ published|length }} published &middot;
+  <a href="{{ url_for('review.queue', channel=key) }}">Review them &rarr;</a>
+</p>
 
-{% if not unpublished and not published and not discarded %}
+{% if not unpublished and not published and not discarded and not approved %}
 <div class="empty-state">
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8l-6 4 6 4z"/></svg>
   <p><strong>No videos yet.</strong></p>
@@ -16,7 +21,7 @@
 {% else %}
 
 <div class="gallery-section-header">
-  <h2>Unpublished{% if unpublished %} <span class="badge">{{ unpublished|length }}</span>{% endif %}</h2>
+  <h2>Waiting for review{% if unpublished %} <span class="badge">{{ unpublished|length }}</span>{% endif %}</h2>
   {% if unpublished %}
   <button type="button" id="gallery-select-toggle-btn" class="btn-ghost" onclick="toggleSelectMode()">Select</button>
   {% endif %}
@@ -33,11 +38,41 @@
     <img class="gallery-thumb" src="{{ url_for('gallery.thumbnail', key=key, relpath=v.relpath) }}" alt="">
     <p class="gallery-item-title">{{ v.title }}</p>
     <p class="meta">{{ v.date_label }}</p>
+    <div class="card-action-row">
+      <form method="post" action="{{ url_for('gallery.approve', key=key, relpath=v.relpath) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost card-action">Approve</button>
+      </form>
+    </div>
   </div>
   {% endfor %}
 </div>
 {% else %}
-<p class="meta">Nothing waiting to be published.</p>
+<p class="meta">Nothing waiting for review.</p>
+{% endif %}
+
+<h2 class="gallery-section-spaced">Approved, ready to publish{% if approved %} <span class="badge">{{ approved|length }}</span>{% endif %}
+  <button type="button" class="info-dot" data-tooltip="Approved videos go out at the publishing plan's times (Settings, Publishing). With the plan off, or nowhere to publish, they wait here.">?</button>
+</h2>
+{% if approved %}
+<div class="gallery-grid">
+  {% for v in approved %}
+  <div class="card gallery-item">
+    <a class="card-link-overlay" href="{{ url_for('gallery.video_detail', key=key, relpath=v.relpath) }}"></a>
+    <img class="gallery-thumb" src="{{ url_for('gallery.thumbnail', key=key, relpath=v.relpath) }}" alt="">
+    <p class="gallery-item-title">{{ v.title }}</p>
+    <p class="meta">{{ v.slot_label }}</p>
+    <div class="card-action-row">
+      <form method="post" action="{{ url_for('gallery.unapprove', key=key, relpath=v.relpath) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost card-action">Back to review</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="meta">Nothing approved yet.</p>
 {% endif %}
 
 <h2 class="gallery-section-spaced">Published{% if published %} <span class="badge">{{ published|length }}</span>{% endif %}</h2>

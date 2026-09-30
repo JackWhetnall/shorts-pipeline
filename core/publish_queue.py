@@ -167,6 +167,13 @@ def _lane_key(channel_key: str, long: bool) -> str:
     return f"{channel_key}:long" if long else channel_key
 
 
+def can_publish(channel) -> bool:
+    """Whether the channel has anywhere to send a video: YouTube connected,
+    or TikTok or Instagram hand-offs on."""
+    return (youtube.connection(channel.key)["connected"]
+            or any(getattr(channel.publishing, f"post_{p}") for p in HANDOFF_PLATFORMS))
+
+
 def _slots_active(channel, long: bool = False) -> bool:
     plan = _lane(channel, long)
     return bool(plan.enabled and plan.slots and plan.weekdays)
@@ -181,7 +188,11 @@ def publish_due(channels: dict, now: datetime = None) -> list:
     results = []
     state = _load_state()
     for key, channel in channels.items():
-        if channel.archived:
+        # Approved videos wait, ready, until the channel's publishing plan
+        # is on. With it off, "no slots" used to mean "publish at once": an
+        # approved video was sent within minutes, found nowhere to go, and
+        # was put back in review.
+        if channel.archived or not channel.publishing.enabled or not can_publish(channel):
             continue
         for long in (False, True):
             videos = queued(channel, long=long)
@@ -242,10 +253,10 @@ def send(channel, video_path: Path) -> str:
             note += " (private until the Google audit; make it public in Studio)"
         messages.append(note)
     elif not platforms:
-        unqueue(video_path)
-        _note_on_report(video_path, "It was due to go out, but this channel has nowhere to "
-                                    "publish: connect YouTube or turn on a hand-off.")
-        return f"{channel.channel_display_name}: nowhere to publish"
+        # Still approved: it waits for somewhere to go, not for another look.
+        _note_on_report(video_path, "Approved and ready, but this channel has nowhere to "
+                                    "publish yet: connect YouTube or turn on a hand-off.")
+        return f"{channel.channel_display_name}: nowhere to publish yet"
 
     handoff = dict(info["handoff"])
     for platform in platforms:

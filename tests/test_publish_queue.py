@@ -93,12 +93,27 @@ class TestPublishing:
         assert len(publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 25, 9))) == 1
         assert publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 25, 9, 10)) == []
 
-    def test_without_a_plan_it_goes_out_on_the_next_check(self, world):
-        world.channel.publishing.enabled = False
+    def test_with_the_plan_on_and_no_times_it_goes_out_on_the_next_check(self, world):
+        world.channel.publishing.slots = []
         path = world.video("a")
         assert publish_queue.schedule_for(world.channel)[0][1] is None
         publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 24, 3))
         assert gallery.load_publish_info(path)["youtube_url"]
+
+    def test_with_the_plan_off_an_approved_video_waits_approved(self, world):
+        """Regression: with the plan off an approved video was sent at once,
+        found nowhere to go and was put back in review."""
+        world.channel.publishing.enabled = False
+        path = world.video("a")
+        assert publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 24, 18, 1)) == []
+        info = gallery.load_publish_info(path)
+        assert info["queued_at"] and not gallery.is_out(info)
+
+    def test_with_nowhere_to_publish_it_stays_approved(self, world):
+        world.state["connected"] = False
+        path = world.video("a")
+        assert publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 24, 18, 1)) == []
+        assert gallery.load_publish_info(path)["queued_at"]
 
     def test_a_failed_upload_goes_back_to_review_unpublished(self, world):
         path = world.video("a")

@@ -4,6 +4,8 @@ The gallery, individual video pages, and publish/discard tracking.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from flask import (
     Blueprint, abort, jsonify, redirect, render_template, request,
     send_from_directory, url_for,
@@ -31,16 +33,51 @@ def channel_gallery(key):
 
     active = [v for v in videos if not v["discarded"]]
     discarded = [v for v in videos if v["discarded"]]
+    approved = [v for v in active if v["queued"]]
+    _label_approved(channel, approved)
     return render_template(
         "gallery.html", key=key, channel=channel,
-        unpublished=[v for v in active if not v["published"]],
-        published=[v for v in active if v["published"]],
+        unpublished=[v for v in active if not v["out"] and not v["queued"]],
+        approved=approved,
+        published=[v for v in active if v["out"]],
         discarded=discarded,
         # Shown on the delete button, because "delete 19 videos" is a
         # different decision from "reclaim 416 MB" and the second one is
         # the reason anybody does it.
         discarded_bytes=sum(_disk_size(v) for v in discarded),
     )
+
+
+def _label_approved(channel, approved: list) -> None:
+    """When each approved video goes out, or what it's waiting for."""
+    from core import publish_queue
+    slots = {str(Path(p).resolve()): when for p, when in publish_queue.schedule_for(channel)}
+    waiting = ("Waits until the publishing plan is on" if not channel.publishing.enabled
+               else "Waits until YouTube is connected" if not publish_queue.can_publish(channel) else "")
+    for video in approved:
+        when = slots.get(str((OUTPUT_DIR / video["relpath"]).resolve()))
+        video["slot_label"] = waiting or (f"Goes out {when.strftime('%a %d %b, %H:%M')}" if when
+                                          else "Goes out on the next check")
+
+
+@bp.route("/channels/<key>/videos/<path:relpath>/approve", methods=["POST"])
+def approve(key, relpath):
+    from core import publish_queue
+    from core.errors import PipelineError
+    channel_or_404(key)
+    try:
+        publish_queue.enqueue(video_or_404(relpath), approved_by="you")
+    except PipelineError:
+        pass
+    return redirect(url_for("gallery.channel_gallery", key=key))
+
+
+@bp.route("/channels/<key>/videos/<path:relpath>/unapprove", methods=["POST"])
+def unapprove(key, relpath):
+    from core import publish_queue
+    channel_or_404(key)
+    publish_queue.unqueue(video_or_404(relpath))
+    return redirect(url_for("gallery.channel_gallery", key=key))
 
 
 def _disk_size(video: dict) -> int:

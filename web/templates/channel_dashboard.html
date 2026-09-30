@@ -55,7 +55,7 @@
 <div class="stat-row">
   <a class="stat-tile stat-tile-link" href="{{ url_for('gallery.channel_gallery', key=key) }}">
     <div class="stat-value">{{ video_count }}</div>
-    <div class="stat-label">video{{ 's' if video_count != 1 else '' }} created &mdash; open gallery</div>
+    <div class="stat-label">video{{ 's' if video_count != 1 else '' }} created &mdash; waiting, approved, published</div>
   </a>
   <div class="stat-tile">
     <div class="stat-value">{{ last_video_at or '—' }}</div>
