@@ -5,8 +5,9 @@ testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
 *Last updated: 30 Sep 2026. For now only The Pub Quiz Round publishes.
-New: animation formats for narrated channels (their own section below
-the quiz list).*
+New: a guided animation style builder for narrated channels, with minimal
+diagram styles and widescreen previews (its own section below the quiz
+list).*
 
 ---
 
@@ -233,67 +234,70 @@ post takes about a minute by hand.
 
 ## Animation (29-30 Sep)
 
-Narrated channels can now be animated in four **formats**, each in any
-**look** (decisions 051, 052). Nothing changes on a channel until you
-switch it on.
+A narrated channel's animated **style** is now built from eight plain
+questions, each offering only what makes sense after your answers so far
+(decisions 053, 054). There are 34 ready-made starting points, from felt
+science and meeple logic puzzles to stubby paper history and minimal
+maths on black (modelled on Quant_Prof). You can also describe a style in
+your own words. Nothing changes on a channel until you switch it on.
 
-- **Tabletop**: handmade objects on a table, labelled in handwriting.
-- **Narrated canvas**: a narrator avatar, icons and diagrams, the camera
-  travelling across one big picture.
-- **Cinematic story**: characters in shots.
-- **Paper theatre**: puppets on a paper stage, with names and dates.
+Most styles are **composited**: a few cents a video, no new account.
+Styles acted out in shots use a video model (about $4 a video) and need a
+fal key (D). The builder marks which is which.
 
-Tabletop and canvas cost a few cents a video and need nothing new. Story
-and theatre use a video model (about $4 a video) and need a fal key.
+### A. Look through the starting points (5 minutes)
+**Settings > Animation > Start from an example.** Each card is a real
+frame from the renderer on a subject of its own. Tell me which ones are
+wrong or weak; they're the easiest thing to tune.
 
-### A. Watch the four versions of one script (5 minutes)
-I made Curiosity Leak's "why yawns are contagious" four ways. Open
-**Curiosity Leak → Settings → Animation** and play them under *Try it on
-one of this channel's videos* (or see `cachenimation_previews\`):
-- **Tabletop, felt craft** (finished, $0.20);
-- **Narrated canvas, flat minimal** (finished, $0.35 including the
-  narrator, drawn once);
-- **Story, clean 2D cel** (the animatic: frames without motion);
-- and on Minute Pastor, **Paper theatre** on Deuteronomy 1:26 (animatic).
+### B. Build a style for one channel (10 minutes)
+**Settings > Animation** on the channel:
+1. **Start from an example** or **Describe it in your own words**, or just
+   answer the questions from the top.
+2. Change any answer. Later questions only offer what fits, and if a
+   change rules out a later answer, it says what it changed. **Material**
+   shows four example pictures of each; **See larger** steps through them.
+3. **See this style** makes a real frame of exactly that style on the
+   channel's subject (about a minute, 5-15 cents the first time, then
+   cached). Switch **Vertical short / Widescreen** to see the widescreen
+   version (it reuses the same moment, so it's nearly free). **Make it
+   move** films a few seconds (free for composited styles; a video-model
+   style needs the fal key).
+4. Optional: **style notes**, **colours**, and a **cast** (the first is
+   the host, for styles with one).
+5. **Save changes**, then **Make an animatic** or **Animate it** on one of
+   the channel's videos to see a whole video in the style.
 
-Tell me which direction is right for which channel, and what's wrong with
-each: that's what tunes the storyboards.
-
-### B. Choose a format and a look for one channel (10 minutes)
-**Settings → Animation** on the channel:
-1. Pick a **format**. Each card shows three frames from a real render.
-2. Pick a **look**. The ones that suit the format are marked and listed
-   first. Each card shows the same four subjects in that look; **See
-   larger** steps through them (arrow keys work), **Use this look**
-   picks one.
-3. For a story or theatre: optional **style notes**, **palette**, **Draw
-   style frames** (pick one) and a **cast**. For a canvas, the first cast
-   member is the narrator.
-4. **Save changes**, then **Make an animatic** or **Animate it** on one
-   of the channel's videos. For a tabletop or canvas, either button makes
-   the finished thing for a few cents.
+Suggestions:
+- **Curiosity Leak**: *Felt science table*, or *Minimal 3D in white space*.
+- **Wren's Guide**: *Cosy felt craft* or *Knitted wellbeing*.
+- **Minute Pastor**: *Engraved legends* or *Stubby paper history* (a
+  puppet play, composited), or *Storybook scripture* once there's a fal key.
+- **A maths or puzzle channel**: *Minimal maths on black* or *Meeple logic
+  puzzles*.
 
 ### C. Switch it on
-**Animate this channel's pictures in its own look** (top of Animation).
+**Animate this channel's pictures in its own style** (top of Animation).
 Then, in **Pictures**, set the slider to **Always** to animate the whole
-video. On a tabletop or canvas channel, that's the right setting: they
-draw their own diagrams and labels. Suggested starting points:
-- **Curiosity Leak**: Tabletop, felt craft; or Narrated canvas.
-- **Wren's Guide**: Tabletop in felt or clay (a practice is objects and
-  steps), or Story in storybook gouache with Wren as the cast.
-- **Minute Pastor**: Paper theatre (paper puppets or engraving) for
-  narrative passages, once there's a fal key.
+video. On a composited style that's the right setting: it draws its own
+diagrams and labels.
 
-### D. Only for story and theatre: a fal account and key (10 minutes)
+### D. Only for video-model styles: a fal account and key (10 minutes)
 The video models run on fal. OpenAI's Sora was shut down on 24 Sep.
-1. <https://fal.ai> → **Sign in** (Google or GitHub).
-2. **Dashboard → Billing**: add credit. $20 is several test videos; a
+1. <https://fal.ai> > **Sign in** (Google or GitHub).
+2. **Dashboard > Billing**: add credit. $20 is several test videos; a
    fully animated 50-second video is about $4 at the default settings.
-3. **Dashboard → Keys → Create key** (scope: API). Copy it.
-4. Save it as a Windows user variable: **Start → "Edit environment
-   variables for your account" → New**. Name `FAL_KEY`, value the key.
+3. **Dashboard > Keys > Create key** (scope: API). Copy it.
+4. Save it as a Windows user variable: **Start > "Edit environment
+   variables for your account" > New**. Name `FAL_KEY`, value the key.
 5. Sign out of Windows and back in, so the app restarts with it. **APIs**
    should show fal as set.
+
+### E. Decide about long widescreen explainers
+Every style can now render widescreen as well as vertical, but nothing
+yet makes a longer, more in-depth widescreen version of a video (its own
+script, assembly and upload slot). Say if you want that built, and for
+which channel first.
 
 ## Other channels (on hold while the quiz launches)
 

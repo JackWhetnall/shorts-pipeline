@@ -1,0 +1,251 @@
+# Starting points: named styles, each a set of answers to the questions in
+# grammar.yaml (decision 053). Choosing one fills the style builder, where
+# every answer can then be changed. `subject` and `hint` steer the example
+# picture drawn for the gallery (style/examples/<id>.jpg); they aren't part
+# of the style.
+#
+# Adding one is adding an entry; the tests check its answers are all
+# valid together.
+
+styles:
+
+- id: felt_science
+  label: Felt science table
+  description: Cute felt objects set down on a white table, labelled on handwritten tags.
+  suits: science for everyone, health, how the body works
+  subject: why yawns are contagious
+  answers: {approach: objects, stage: tabletop, material: felt, people: stubby, presenter: none, mood: playful, motion: stop_motion, words: tags}
+
+- id: meeple_logic
+  label: Meeple logic puzzles
+  description: Minimal matte 3D game pieces standing on a board, with clean labels and thought bubbles.
+  suits: logic puzzles, game theory, probability, strategy
+  subject: the hats logic puzzle
+  hint: four meeples in a line, each wearing a red or blue hat; the last one thinks "Red?"
+  answers: {approach: objects, stage: game_board, material: matte_3d, people: tokens, presenter: none, mood: clean, motion: smooth, words: clean}
+
+- id: wooden_game_theory
+  label: Wooden game theory
+  description: Wooden meeples and pieces on a game board, a payoff table drawn beside them.
+  suits: game theory, economics, decisions and incentives
+  subject: the prisoner's dilemma
+  hint: two wooden meeples facing each other above a small table of cooperate and betray
+  answers: {approach: objects, stage: game_board, material: wood, people: tokens, presenter: none, mood: cosy, motion: stop_motion, words: tags}
+
+- id: quant_minimal
+  label: Minimal maths on black
+  description: Formulas written in, charts and number lines on pure black, typeset like a maths paper.
+  suits: maths, probability, statistics, quant and interview puzzles, physics
+  subject: the expected number of coin flips until two heads in a row
+  hint: write the key equation, building it up line by line
+  answers: {approach: diagrams, stage: black, material: minimal_math, people: none, presenter: none, mood: minimal, motion: precise, words: typeset}
+
+- id: clean_white_explainer
+  label: Line icons on white
+  description: Monoline icons, pictogram people and crisp charts in clean white space.
+  suits: economics, personal finance, how things work, data stories
+  subject: how compound interest grows your savings
+  answers: {approach: diagrams, stage: white, material: line_icons, people: pictogram, presenter: none, mood: minimal, motion: precise, words: clean}
+
+- id: photo_documentary
+  label: Photos on black
+  description: Real photographs cut out on black, with spare labels, arrows and charts.
+  suits: the history of things, business, science news, documentary explainers
+  subject: how the shipping container changed world trade
+  answers: {approach: objects, stage: black, material: photo, people: realistic, presenter: none, mood: minimal, motion: precise, words: clean}
+
+- id: minimal_3d_white
+  label: Minimal 3D in white space
+  description: Smooth matte 3D shapes and faceless figures floating in white, calm and modern.
+  suits: technology, product explainers, health, modern science
+  subject: how a vaccine trains the immune system
+  answers: {approach: objects, stage: white, material: matte_3d, people: pictogram, presenter: none, mood: clean, motion: smooth, words: clean}
+
+- id: stubby_paper_history
+  label: Stubby paper history
+  description: Cute, round cut-paper people act out history on a toy-theatre stage, with name cards.
+  suits: history, biography, famous moments
+  subject: how Julius Caesar crossed the Rubicon
+  answers: {approach: acted, stage: puppet_stage, material: paper, people: stubby, mood: cosy, motion: puppetry, words: name_cards}
+
+- id: shadow_legends
+  label: Shadow-puppet legends
+  description: Silhouette puppets against glowing paper scenery, like a shadow play.
+  suits: myths, legends, folklore, ghost stories
+  subject: the legend of the Minotaur
+  answers: {approach: acted, stage: puppet_stage, material: paper, people: silhouettes, mood: eerie, motion: puppetry, words: name_cards}
+
+- id: felt_board_tales
+  label: Felt-board tales
+  description: Soft felt puppets on a felt stage, gentle and homely.
+  suits: fables, fairy tales, stories for children, parables
+  subject: the tortoise and the hare
+  answers: {approach: acted, stage: puppet_stage, material: felt, people: stubby, mood: cosy, motion: puppetry, words: name_cards}
+
+- id: engraved_legends
+  label: Engraved legends
+  description: Engraving-style puppets and scenery, like an old book brought to life.
+  suits: epics, the classics, scripture stories, medieval history
+  subject: Beowulf and Grendel
+  answers: {approach: acted, stage: puppet_stage, material: engraving, people: realistic, mood: vintage, motion: puppetry, words: name_cards}
+
+- id: diagram_host
+  label: Diagram essay with a host
+  description: A simple stick-figure host talks you through clean flat icons and diagrams on one big canvas.
+  suits: politics and systems, history explained, geography, essays and arguments
+  subject: why the Electoral College exists
+  answers: {approach: diagrams, stage: clean_canvas, material: flat_vector, people: stick, presenter: host, mood: clean, motion: snappy, words: clean}
+
+- id: whiteboard
+  label: Whiteboard explainer
+  description: Marker sketches drawn as you watch, wiped between ideas.
+  suits: business, money, study skills, step-by-step how-tos
+  subject: how compound interest works
+  answers: {approach: diagrams, stage: whiteboard, material: marker, people: stick, presenter: none, mood: clean, motion: drawn, words: marker}
+
+- id: chalk_maths
+  label: Chalkboard maths
+  description: Chalk diagrams and lettering on a dark board, calm and clear.
+  suits: maths, physics, proofs and puzzles
+  subject: why a triangle's angles add up to 180 degrees
+  answers: {approach: diagrams, stage: chalkboard, material: chalk, people: stick, presenter: none, mood: calm, motion: drawn, words: chalk_text}
+
+- id: notebook_doodles
+  label: Notebook doodles
+  description: Playful pencil doodles and notes on a squared page.
+  suits: biology, study notes, curiosities, school subjects
+  subject: how vaccines train your immune system
+  answers: {approach: diagrams, stage: notebook, material: pencil, people: stubby, presenter: none, mood: playful, motion: drawn, words: marker}
+
+- id: blueprint_engineering
+  label: Blueprint engineering
+  description: White technical drawings on deep blue, stencilled labels.
+  suits: engineering, architecture, how machines work
+  subject: how a suspension bridge holds itself up
+  answers: {approach: diagrams, stage: blueprint, material: blueprint_line, people: none, presenter: none, mood: clean, motion: drawn, words: stencil}
+
+- id: explorer_journal
+  label: Explorer's journal
+  description: Ink and watercolour sketches on aged paper, lettered like an old atlas.
+  suits: exploration, geography, natural history, travel
+  subject: how Magellan's voyage went around the world
+  answers: {approach: diagrams, stage: old_paper, material: ink_wash, people: realistic, presenter: none, mood: vintage, motion: drawn, words: ink_serif}
+
+- id: isometric_systems
+  label: Isometric systems
+  description: Little isometric scenes and tokens showing how a system fits together.
+  suits: cities, infrastructure, supply chains, economics
+  subject: how a city's water supply works
+  answers: {approach: diagrams, stage: clean_canvas, material: isometric, people: tokens, presenter: none, mood: clean, motion: snappy, words: clean}
+
+- id: neon_tech
+  label: Neon tech
+  description: Glowing neon diagrams on black, bold and fast.
+  suits: technology, computing, the internet, the future
+  subject: how the internet sends a message
+  answers: {approach: diagrams, stage: clean_canvas, material: neon, people: stick, presenter: none, mood: bold, motion: snappy, words: clean}
+
+- id: pixel_history
+  label: Pixel-art history
+  description: A pixel-art host and chunky pixel icons, like a classic game.
+  suits: gaming history, internet culture, retro technology
+  subject: the video game crash of 1983
+  answers: {approach: diagrams, stage: clean_canvas, material: pixel_art, people: stubby, presenter: host, mood: playful, motion: snappy, words: clean}
+
+- id: risograph_culture
+  label: Risograph culture
+  description: Bold spot-ink prints with grainy overprints and loud colour.
+  suits: music, art, design, pop culture
+  subject: how punk changed fashion
+  answers: {approach: diagrams, stage: clean_canvas, material: risograph, people: cartoon, presenter: none, mood: bold, motion: snappy, words: clean}
+
+- id: clay_kitchen
+  label: Clay kitchen science
+  description: Plasticine blobs and ingredients on a wooden board, with label-maker tape.
+  suits: cooking science, chemistry at home, food
+  subject: why bread rises
+  answers: {approach: objects, stage: tabletop, material: clay, people: blobs, presenter: none, mood: playful, motion: stop_motion, words: tape}
+
+- id: knitted_wellbeing
+  label: Knitted wellbeing
+  description: Chunky knitted pieces pinned to a woollen board, soft and cosy.
+  suits: wellbeing, sleep, habits, mental health
+  subject: why sleep helps memory
+  answers: {approach: objects, stage: pinboard, material: knitted, people: stubby, presenter: none, mood: cosy, motion: stop_motion_rough, words: tags}
+
+- id: paper_diorama
+  label: Paper-craft world
+  description: A little layered-paper landscape with pieces standing in it.
+  suits: geography, geology, nature, history of places
+  subject: how rivers carve valleys
+  answers: {approach: objects, stage: diorama, material: paper, people: cartoon, presenter: none, mood: playful, motion: stop_motion, words: tags}
+
+- id: origami_nature
+  label: Origami nature
+  description: Crisp folded-paper animals and objects on white, typed labels.
+  suits: animals, nature, calm curiosities
+  subject: how birds migrate
+  answers: {approach: objects, stage: tabletop, material: origami, people: none, presenter: none, mood: calm, motion: stop_motion, words: typewriter}
+
+- id: cardboard_inventions
+  label: Cardboard inventions
+  description: Cardboard-and-tape contraptions on a workbench, stencilled labels.
+  suits: engineering for beginners, inventions, physics
+  subject: how a lever multiplies force
+  answers: {approach: objects, stage: tabletop, material: cardboard, people: stubby, presenter: none, mood: playful, motion: stop_motion_rough, words: stencil}
+
+- id: brick_history
+  label: Brick-built history
+  description: Toy-brick models and figures on baseplates, labelled with tape.
+  suits: history, building, engineering, playful explainers
+  subject: how the pyramids were built
+  answers: {approach: objects, stage: diorama, material: toy_bricks, people: tokens, presenter: none, mood: playful, motion: stop_motion, words: tape}
+
+- id: cosy_felt_craft
+  label: Cosy felt witchcraft
+  description: Felt candles, herbs and jars on a linen table, candle-lit and a little mysterious.
+  suits: craft, folklore, rituals, cosy how-tos
+  subject: how to make a simple protection jar
+  answers: {approach: objects, stage: tabletop, material: felt, people: stubby, presenter: none, mood: eerie, motion: stop_motion, words: tags}
+
+- id: painted_history
+  label: Painted history drama
+  description: A painted anime film of the moment itself, with name cards.
+  suits: dramatic history, disasters, turning points
+  subject: the night the Titanic sank
+  answers: {approach: acted, stage: animated_film, material: anime_painted, people: realistic, mood: dramatic, motion: hand_drawn, words: name_cards}
+
+- id: noir_true_stories
+  label: Noir true stories
+  description: Graphic-novel ink, deep shadows and one accent colour.
+  suits: true crime, mysteries, espionage
+  subject: the Great Train Robbery of 1963
+  answers: {approach: acted, stage: animated_film, material: noir_ink, people: realistic, mood: dramatic, motion: hand_drawn, words: name_cards}
+
+- id: storybook_scripture
+  label: Storybook scripture
+  description: Gouache storybook pages gently brought to life.
+  suits: scripture, parables, reflection, fables
+  subject: the parable of the lost sheep
+  answers: {approach: acted, stage: storybook, material: gouache, people: cartoon, mood: calm, motion: hand_drawn, words: none}
+
+- id: claymation_stories
+  label: Claymation stories
+  description: Stubby clay characters on a handmade set, filmed like stop-motion.
+  suits: comedy, everyday science, stories with a twist
+  subject: why we have leap years
+  answers: {approach: acted, stage: miniature_set, material: clay, people: stubby, mood: cosy, motion: filmed_stop_motion, words: none}
+
+- id: soft3d_kids
+  label: Soft 3D kids' science
+  description: Rounded 3D characters in a bright, warm animated world.
+  suits: science for children, space, animals
+  subject: why the sky is blue
+  answers: {approach: acted, stage: animated_film, material: soft_3d, people: stubby, mood: playful, motion: animated_3d, words: none}
+
+- id: watercolour_nature
+  label: Watercolour documentary
+  description: Soft watercolour scenes of places and creatures, slow and cinematic.
+  suits: nature, places, travel, reflection
+  subject: the life of a coral reef
+  answers: {approach: scenic, stage: world, material: watercolour, people: none, mood: calm, motion: cinematic, words: none}

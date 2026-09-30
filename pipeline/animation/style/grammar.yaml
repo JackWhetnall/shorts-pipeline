@@ -1,0 +1,1372 @@
+# The style grammar: how a channel's animated style is chosen (decision 053).
+#
+# Eight questions, asked in order. Each option says when it makes sense
+# (`when`: every question named must have one of the listed answers; `not`:
+# none of them) and what it means (`sets`), and the style is compiled from
+# the options chosen, in question order: a later answer overrides an
+# earlier one, except the text fields listed under `append`, which add up.
+# `variants` apply extra `sets` when their own `when` matches, for what
+# depends on a combination (felt on a pinboard is a felt board).
+#
+# `when` may also be a list of such conditions, any one of which will do.
+# A question's `defaults` pick its answer when none is given (the first
+# whose `when` matches; otherwise its first valid option). A question
+# whose options are all ruled out isn't asked. Options that take
+# `custom: true` also take the user's own words.
+#
+# Adding an idea is adding an option here, with the conditions that keep it
+# sensible. Nothing else changes: the builder, the preview, the storyboard
+# and the renderer all read it from here.
+
+append: [image, guide, avoid, people, light, kit_view]
+
+questions:
+
+# ---------------------------------------------------------------------------
+- id: approach
+  short: Approach
+  ask: How does this channel show what it's explaining?
+  options:
+  - id: objects
+    label: Shows it with objects
+    hint: Things are set out, moved and labelled, like a teacher explaining with props.
+    phrase: explained with objects
+    sets:
+      engine: compositor
+      grammar: demonstration
+      continuity: move
+      areas: single
+      layouts: [hero, pair, row, grid, steps, cycle, group, travel, scale, lineup, table, statement]
+      guide: >-
+        Explain with objects. Concrete things stand for the ideas (a brain for the brain, a coin for
+        money, a little house for a home); they arrive as they're mentioned, get arranged, moved
+        and labelled, and arrows, rings and numbers make the explanation clear. Think like a
+        teacher explaining with things in front of them, and make it tactile and clever. An object a
+        later beat still needs stays and moves to its new place (keep the same key).
+  - id: diagrams
+    label: Draws it out
+    hint: Icons, formulas, charts and diagrams build up a picture as the narration explains.
+    phrase: drawn out as diagrams
+    sets:
+      engine: compositor
+      grammar: diagram
+      continuity: persist
+      areas: canvas
+      layouts: [hero, pair, row, grid, steps, cycle, group, travel, scale, lineup, table, statement, presenter]
+      diagrams: [formula, bullets, matrix, chart, number_line, plot, graph]
+      guide: >-
+        Draw the idea out. Every beat is a small diagram: icons, labels, arrows and numbers that
+        make the structure of the idea visible. Keep it witty and exact, like the best explainers
+        online: every icon earns its place, labels say exactly what's meant, and a visual joke is
+        welcome where it helps. Icons are single simple things, never scenes. Where the idea is
+        numbers, maths or structure, draw it exactly with a diagram: a formula written out line by
+        line, a chart, a number line, a curve, a graph of how things connect.
+  - id: acted
+    label: Acts it out
+    hint: Characters play out the story, the example or the moment in history.
+    phrase: acted out by characters
+    sets:
+      grammar: drama
+  - id: scenic
+    label: Takes you there
+    hint: Cinematic scenes of places, events and things, with no recurring characters.
+    phrase: shown as cinematic scenes
+    sets:
+      engine: generated
+      grammar: documentary
+      guide: >-
+        Take the viewer there. Each shot is a place, a thing or an event, shown with scale and
+        atmosphere; people appear only as part of the scene, never as recurring characters.
+
+# ---------------------------------------------------------------------------
+- id: stage
+  short: Stage
+  ask: Where does it happen?
+  options:
+  - id: tabletop
+    label: On a tabletop, from above
+    hint: A flat-lay. Objects are set down on a table and seen from directly overhead.
+    phrase: on a tabletop seen from above
+    when: {approach: [objects]}
+    sets:
+      view: top
+      entrance: drop
+      tilt: 4
+      shadow: {mode: contact, dx: 0.55, dy: 0.85, distance: 9, blur: 10, opacity: 0.42}
+      surface: >-
+        An empty tabletop seen from directly above, filling the whole frame edge to edge: {board}.
+        Soft, even daylight from the top left with a gentle falloff toward the bottom right.
+        Nothing on it at all: no objects, no text. Photographic, like the set of a stop-motion
+        animation.
+      kit_view: >-
+        Photographed from directly above, lying flat on a table, whole object visible with a margin
+        all round, soft even daylight from the top left, no cast shadow, isolated on a transparent
+        background.
+      guide: Everything happens on one tabletop seen from directly above; it's one continuous performance, never a cut.
+  - id: game_board
+    label: On a board or table, from a low angle
+    hint: Pieces stand up on a board and are seen from the side, like a game in progress.
+    phrase: standing on a board seen from a low angle
+    when: {approach: [objects]}
+    sets:
+      view: angle
+      entrance: drop
+      tilt: 0
+      shadow: {mode: ground, opacity: 0.35, blur: 12}
+      surface: >-
+        {board}, seen from a low three-quarter angle, the surface receding towards the top of the
+        frame into soft focus, the near part sharp and empty. Soft studio light from the top left.
+        Nothing standing on it: no pieces, no objects, no text.
+      kit_view: >-
+        Standing upright on its base, seen from a three-quarter view slightly from above, whole
+        piece visible with a margin, soft studio light from the top left, no cast shadow, isolated
+        on a transparent background.
+      guide: The pieces stand on a board seen from a low angle, like a game in progress; things further back are further up the frame.
+  - id: pinboard
+    label: Pinned to a board, face-on
+    hint: Pieces are pressed onto a board (felt board, cork, magnets) and seen straight on.
+    phrase: pinned to a board
+    when: {approach: [objects]}
+    sets:
+      view: front
+      entrance: pin
+      tilt: 3
+      shadow: {mode: contact, dx: 0.4, dy: 0.7, distance: 5, blur: 6, opacity: 0.35}
+      surface: >-
+        {board}, seen straight on and filling the whole frame, empty, softly and evenly lit from the
+        top left. No objects, no text.
+      kit_view: >-
+        Seen straight on, flat against a board, whole piece visible with a margin, soft even light,
+        no cast shadow, isolated on a transparent background.
+      guide: Pieces are pressed onto one board, seen straight on.
+  - id: diorama
+    label: In a little model world
+    hint: A handmade miniature landscape seen at an angle; pieces stand in it.
+    phrase: in a little model world
+    when: {approach: [objects]}
+    sets:
+      view: angle
+      entrance: drop
+      tilt: 0
+      shadow: {mode: ground, opacity: 0.32, blur: 14}
+      surface: >-
+        {board}, a small handmade landscape base seen from a three-quarter angle: gentle ground
+        with a little texture, a soft horizon at the top, open ground across the middle and front.
+        Soft warm light. No buildings, figures or objects standing on it, no text.
+      kit_view: >-
+        Standing upright on its own small base, seen from a three-quarter view slightly from above,
+        whole piece visible with a margin, soft light from the top left, no cast shadow, isolated
+        on a transparent background.
+      guide: The pieces stand in one small model landscape; things further back are further up the frame.
+
+  - id: clean_canvas
+    label: A clean canvas the camera travels across
+    hint: One big flat picture that builds up; the camera moves from idea to idea.
+    phrase: on a clean canvas the camera travels across
+    when: {approach: [diagrams]}
+    sets:
+      view: front
+      entrance: pop
+      tilt: 0
+      shadow: {mode: none}
+      kit_view: >-
+        A single icon, front view, simple bold shapes, centred with a margin all round, isolated on
+        a transparent background, no shadow.
+  - id: black
+    label: Plain black, nothing else
+    hint: Just the ideas on black, one at a time, like a maths animation or a sober documentary.
+    phrase: on plain black
+    when: {approach: [objects, diagrams]}
+    sets:
+      view: front
+      entrance: fade
+      continuity: fade
+      areas: single
+      tilt: 0
+      shadow: {mode: none}
+      canvas: "#000000"
+      dark_surface: true
+      diagrams: [formula, bullets, matrix, chart, number_line, plot, graph]
+      camera: still, with only the slowest push on a key moment
+      kit_view: >-
+        A single subject, face-on, centred with a generous margin, drawn to stand out on a black
+        background (light and bright colours, no black outlines), isolated on a transparent
+        background, no shadow, no ground.
+      guide: >-
+        Everything sits on plain black, one idea at a time, calm and exact; what's no longer needed
+        fades as the next idea is written in. Leave space: one diagram or one or two things at a time.
+  - id: white
+    label: Plain white, nothing else
+    hint: Just the ideas in clean white space, like a well-designed textbook page.
+    phrase: on plain white
+    when: {approach: [objects, diagrams]}
+    sets:
+      view: front
+      entrance: fade
+      continuity: fade
+      areas: single
+      tilt: 0
+      shadow: {mode: none}
+      canvas: "#FFFFFF"
+      dark_surface: false
+      diagrams: [formula, bullets, matrix, chart, number_line, plot, graph]
+      camera: still, with only the slowest push on a key moment
+      kit_view: >-
+        A single subject, face-on, centred with a generous margin, drawn to stand out on a white
+        background, isolated on a transparent background, no shadow, no ground.
+      guide: >-
+        Everything sits in clean white space, one idea at a time, calm and exact; what's no longer
+        needed fades as the next idea is written in. Leave space: one diagram or one or two things
+        at a time.
+  - id: whiteboard
+    label: A whiteboard, drawn as you watch
+    hint: Each idea is sketched in marker, then wiped for the next.
+    phrase: sketched on a whiteboard
+    when: {approach: [diagrams]}
+    sets:
+      view: front
+      entrance: draw
+      continuity: clear
+      areas: single
+      tilt: 0
+      shadow: {mode: none}
+      surface: >-
+        A clean white whiteboard seen straight on, filling the whole frame, with the faintest
+        ghosting of old marker and a soft reflection of room light. Nothing written on it.
+      kit_view: >-
+        A marker drawing on a white background, face-on, confident lines, whole drawing visible
+        with a margin, isolated on a transparent background.
+      guide: Each beat is a fresh sketch on the whiteboard; the board is wiped between beats.
+      dark_surface: false
+  - id: chalkboard
+    label: A chalkboard
+    hint: Chalk drawings and lettering on a dark board, wiped between ideas.
+    phrase: chalked on a blackboard
+    when: {approach: [diagrams]}
+    sets:
+      view: front
+      entrance: draw
+      continuity: clear
+      areas: single
+      tilt: 0
+      shadow: {mode: none}
+      dark_surface: true
+      surface: >-
+        A dark green-black school chalkboard seen straight on, filling the whole frame, with soft
+        smudges of old chalk dust and a worn wooden frame just out of view. Nothing written on it.
+      kit_view: >-
+        A chalk drawing on a dark background, face-on, soft powdery chalk lines, whole drawing
+        visible with a margin, isolated on a transparent background.
+      guide: Each beat is a fresh chalk drawing; the board is wiped between beats.
+  - id: notebook
+    label: A notebook page
+    hint: Doodles and notes on a lined or squared page, like the best student's notes.
+    phrase: doodled in a notebook
+    when: {approach: [diagrams]}
+    sets:
+      view: front
+      entrance: draw
+      continuity: clear
+      areas: single
+      tilt: 2
+      shadow: {mode: none}
+      surface: >-
+        An open notebook page seen straight on, filling the whole frame: faint squared grid lines on
+        warm white paper, a slight paper texture, soft daylight. Nothing written or drawn on it.
+      kit_view: >-
+        A doodle drawn on white paper, face-on, whole drawing visible with a margin, isolated on a
+        transparent background.
+      guide: Each beat is a fresh page of doodled notes.
+  - id: blueprint
+    label: Blueprint paper
+    hint: White technical lines on deep blue, for how things are built.
+    phrase: drawn as blueprints
+    when: {approach: [diagrams]}
+    sets:
+      view: front
+      entrance: draw
+      continuity: clear
+      areas: single
+      tilt: 0
+      shadow: {mode: none}
+      dark_surface: true
+      surface: >-
+        A sheet of deep blue blueprint paper seen straight on, filling the whole frame, with a faint
+        white technical grid and slightly worn edges. Nothing drawn on it.
+      kit_view: >-
+        A technical drawing in fine white lines on a blue background, face-on, whole drawing visible
+        with a margin, isolated on a transparent background.
+      guide: Each beat is a fresh technical drawing on the blueprint.
+  - id: old_paper
+    label: Old parchment
+    hint: Ink drawings and notes on aged paper, like an explorer's journal or an old atlas.
+    phrase: inked on old parchment
+    when: {approach: [diagrams]}
+    sets:
+      view: front
+      entrance: draw
+      continuity: clear
+      areas: single
+      tilt: 1
+      shadow: {mode: none}
+      surface: >-
+        A sheet of aged parchment seen straight on, filling the whole frame: warm tea-stained paper,
+        soft foxing and worn edges, gentle light. Nothing written or drawn on it.
+      kit_view: >-
+        An ink drawing on old paper, face-on, whole drawing visible with a margin, isolated on a
+        transparent background.
+      guide: Each beat is a fresh page of the old journal.
+
+  - id: puppet_stage
+    label: A toy-theatre stage, side-on
+    hint: Flat puppets perform in front of painted backdrops, like a toy theatre or a shadow play.
+    phrase: performed on a toy-theatre stage
+    when: {approach: [acted]}
+    sets:
+      engine: compositor
+      grammar: puppet_drama
+      continuity: scene
+      areas: single
+      view: front
+      entrance: puppet
+      tilt: 0
+      shadow: {mode: contact, dx: 0.3, dy: 0.5, distance: 12, blur: 14, opacity: 0.4}
+      layouts: [scene, statement]
+      backdrop: >-
+        A backdrop for a toy-theatre puppet show, made in {medium}: {scene}. Flat, layered painted
+        scenery filling the whole frame, seen straight on, with the stage floor open and clear
+        across the lower part of the picture where the puppets will stand. No figures or people,
+        no text.
+      kit_view: >-
+        A flat puppet, full body, side view facing right, standing, whole figure visible with a
+        margin, isolated on a transparent background, no shadow.
+      guide: >-
+        Stage it as a puppet play: each beat is a scene on the little stage with its backdrop,
+        up to three puppets and perhaps a prop, and a short caption card when someone, somewhere or
+        a year is introduced. Puppets walk on from the wings, turn to each other, speak in short
+        bubbles when a line helps, and leave. Keep scenes for several beats; change the backdrop
+        when the place changes.
+  - id: miniature_set
+    label: A handmade miniature set, filmed
+    hint: Handmade figures on a small real-looking set, shot like stop-motion film.
+    phrase: filmed on a handmade miniature set
+    when: {approach: [acted]}
+    sets:
+      engine: generated
+      camera: "a small real camera on a miniature set: slow slider moves, shallow focus pulls, locked-off shots"
+  - id: animated_film
+    label: An animated film world
+    hint: A drawn, painted or 3D animated world, directed shot by shot like a short film.
+    phrase: directed like an animated film
+    when: {approach: [acted]}
+    sets:
+      engine: generated
+  - id: storybook
+    label: The pages of a storybook
+    hint: Illustrated spreads, gently brought to life.
+    phrase: told as a living storybook
+    when: {approach: [acted]}
+    sets:
+      engine: generated
+      camera: gentle pans and slow push-ins across the illustration, like turning pages
+  - id: world
+    label: The world, cinematically
+    hint: Places and events shown with scale and atmosphere.
+    phrase: in cinematic scenes
+    when: {approach: [scenic]}
+    sets:
+      engine: generated
+      camera: cinematic slow moves, sweeping establishing shots and intimate details
+
+# ---------------------------------------------------------------------------
+- id: material
+  short: Material
+  ask: What is it all made of?
+  defaults:
+  - {when: {stage: [game_board]}, option: wood}
+  - {when: {stage: [clean_canvas]}, option: flat_vector}
+  - {when: {stage: [animated_film]}, option: cel_2d}
+  - {when: {stage: [storybook, world]}, option: gouache}
+  - {when: {stage: [puppet_stage]}, option: paper}
+  - {when: {stage: [miniature_set]}, option: clay}
+  - {when: {stage: [old_paper]}, option: engraving}
+  - {when: {stage: [black, white]}, option: minimal_math}
+  options:
+
+  # --- made by hand ----------------------------------------------------------
+  - id: felt
+    label: Felt
+    hint: Cut wool felt with stitched seams and embroidered details. Soft, cute, tactile.
+    phrase: in felt
+    when: {stage: [tabletop, pinboard, diorama, puppet_stage, miniature_set]}
+    sets:
+      image: >-
+        handmade felt craft: cut wool-felt pieces with visible fibres and soft fuzzy edges, neat
+        blanket-stitch and running-stitch details, small embroidered accents, simple rounded shapes
+      light: soft, even daylight, like a bright studio table
+      palette: ["#F4A6B8", "#FFD166", "#8FD3C7", "#7FA7E8", "#F6F1E7", "#3D3A4B"]
+      avoid: photorealism, glossy plastic, hard vector shapes
+      cadence: twos
+      texture: paper
+      grade: {contrast: 1.02, saturation: 1.02, warmth: 0.12, grain: 0.18, vignette: 0.12}
+      medium: felt
+      boards: {tabletop: a clean warm-white linen surface with a very subtle weave, pinboard: a soft felt board in a pale colour, diorama: a little felt landscape, default: soft felt}
+      motion: stop-motion felt animation, pieces nudged and set down by hand, slightly stepped timing
+  - id: clay
+    label: Clay (plasticine)
+    hint: Handmade plasticine with fingerprints and tool marks, lit like a stop-motion set.
+    phrase: in clay
+    when: {stage: [tabletop, game_board, diorama, miniature_set, world]}
+    sets:
+      image: >-
+        stop-motion claymation: handmade plasticine with visible fingerprints and tool marks, soft
+        rounded forms, a slightly matte surface
+      light: soft studio lighting with a warm bounce and gentle shadows
+      palette: ["#E07A5F", "#3D405B", "#81B29A", "#F2CC8F", "#F4F1DE", "#6D597A"]
+      avoid: smooth CGI, glossy plastic, photoreal humans
+      cadence: twos
+      texture: film
+      grade: {contrast: 1.0, saturation: 1.0, warmth: 0.2, grain: 0.2, vignette: 0.25}
+      medium: plasticine clay
+      boards: {tabletop: a pale, smooth wooden board with a soft grain, game_board: a smooth clay-coloured board, diorama: a little sculpted clay landscape, default: modelled clay}
+      motion: stop-motion clay animation, slightly stepped handmade movement, clay subtly shifting between frames
+  - id: paper
+    label: Cut paper
+    hint: Coloured card and paper, cut, layered and lit from the side.
+    phrase: in cut paper
+    when: {stage: [tabletop, pinboard, diorama, puppet_stage, miniature_set, storybook, clean_canvas, animated_film, world, white]}
+    sets:
+      image: >-
+        cut-paper craft: shapes cut from coloured card and textured paper with crisp or torn edges,
+        visible paper grain and fibres, layers with a small soft shadow between them
+      light: a warm side light raking across the paper, soft shadows between layers
+      palette: ["#D1495B", "#EDAE49", "#00798C", "#30638E", "#F3E9DC", "#003D5B"]
+      avoid: photorealism, glossy surfaces, drawn outlines
+      cadence: twos
+      texture: paper
+      grade: {contrast: 1.02, saturation: 0.98, warmth: 0.15, grain: 0.3, vignette: 0.22}
+      medium: cut paper and card
+      boards: {tabletop: a sheet of thick, textured off-white card, pinboard: a cork board, diorama: a little landscape of layered cut paper, default: layered paper}
+      motion: cut-out animation, paper pieces sliding and hinging, slightly stepped handmade timing
+  - id: wood
+    label: Wooden toys and game pieces
+    hint: Smooth turned and painted wood, like classic toys, meeples and peg dolls.
+    phrase: as wooden toys
+    when: {stage: [tabletop, game_board, diorama, miniature_set, puppet_stage]}
+    sets:
+      image: >-
+        painted wooden toys: smooth turned and cut wood with a soft satin finish, visible grain on
+        unpainted edges, simple chunky shapes and a few painted details
+      light: soft, warm studio light with gentle shadows
+      palette: ["#C8553D", "#F2A541", "#2A9D8F", "#264653", "#F4EDE0", "#8AB17D"]
+      avoid: photorealistic people, glossy plastic, fine detail
+      cadence: twos
+      texture: film
+      grade: {contrast: 1.02, saturation: 1.0, warmth: 0.18, grain: 0.12, vignette: 0.2}
+      medium: painted wood
+      boards: {tabletop: a pale birch-wood tabletop, game_board: a plain wooden game board with a faint painted grid, diorama: a little wooden landscape board, default: pale wood}
+      motion: wooden pieces hopped and slid by hand, with a satisfying clack as they land
+  - id: matte_3d
+    label: Minimal matte 3D
+    hint: Clean, smooth 3D shapes in soft matte colours; simple and precise.
+    phrase: in minimal matte 3D
+    when: {stage: [tabletop, game_board, diorama, clean_canvas, animated_film, world, black, white]}
+    sets:
+      image: >-
+        minimalist 3D render: everything reduced to simple geometric primitives (spheres,
+        capsules, cylinders, blocks, cones) with smooth matte surfaces and softly rounded edges;
+        figures simplified to smooth rounded forms with little or no facial detail, like game
+        pieces or designer toys; flat matte colours from a small restrained palette, soft
+        contact shadows, generous empty space, no texture, no clutter
+      light: soft global illumination with a gentle key light and soft ambient occlusion
+      palette: ["#E76F51", "#2A9D8F", "#E9C46A", "#264653", "#F1EFEA", "#8AB6D6"]
+      avoid: photorealism, texture, clutter, fine detail, detailed faces, realistic hair, animated-film characters
+      cadence: ones
+      texture: none
+      grade: {contrast: 1.0, saturation: 1.0, warmth: 0.05, grain: 0.03, vignette: 0.1}
+      medium: minimal matte 3D
+      boards: {tabletop: a smooth matte surface in a soft neutral colour, game_board: a smooth matte plane in a soft neutral colour, diorama: a smooth matte miniature landscape of simple rounded shapes, default: a smooth matte surface}
+      motion: smooth, precise 3D motion with gentle easing
+  - id: toy_bricks
+    label: Plastic building bricks
+    hint: Everything built from little plastic construction bricks.
+    phrase: built from toy bricks
+    when: {stage: [game_board, diorama, miniature_set]}
+    sets:
+      image: >-
+        built from plastic construction toy bricks: studded bricks and plates in bright primary
+        colours, slightly glossy plastic, chunky simplified forms (no brand markings)
+      light: bright, clean studio light with crisp shadows
+      palette: ["#D62828", "#F77F00", "#FCBF49", "#003049", "#EAE2B7", "#2A9D8F"]
+      avoid: brand logos, photoreal humans, text
+      cadence: twos
+      texture: film
+      grade: {contrast: 1.04, saturation: 1.05, warmth: 0.05, grain: 0.1, vignette: 0.15}
+      medium: plastic toy bricks
+      boards: {game_board: a large green studded baseplate, diorama: a landscape built on studded baseplates, default: studded baseplates}
+      motion: brick-built stop-motion, pieces snapping into place, stepped timing
+  - id: knitted
+    label: Knitted wool
+    hint: "Knitted and crocheted yarn: chunky stitches, cosy and homely."
+    phrase: in knitted wool
+    when: {stage: [tabletop, pinboard, miniature_set]}
+    sets:
+      image: >-
+        knitted and crocheted wool: chunky visible stitches, soft yarn fuzz, stuffed rounded shapes,
+        little embroidered faces where it suits
+      light: soft, cosy window light
+      palette: ["#E4A2A2", "#F2D0A4", "#A3C4BC", "#6D8A96", "#F7F1E8", "#4A4E69"]
+      avoid: hard edges, glossy surfaces, photorealism
+      cadence: twos
+      texture: paper
+      grade: {contrast: 1.0, saturation: 0.98, warmth: 0.2, grain: 0.15, vignette: 0.18}
+      medium: knitted wool
+      boards: {tabletop: a knitted blanket in a soft pale colour, pinboard: a knitted wall hanging, default: knitted wool}
+      motion: stop-motion knitted figures, soft squashy movement, stepped timing
+  - id: origami
+    label: Folded paper (origami)
+    hint: Crisp folded paper forms with clean creases.
+    phrase: in folded paper
+    when: {stage: [tabletop, diorama, miniature_set]}
+    sets:
+      image: >-
+        origami: crisp folded paper forms with clean creases and flat facets, plain and patterned
+        papers, soft shadows in the folds
+      light: soft daylight from the side that picks out every fold
+      palette: ["#E63946", "#F1FAEE", "#A8DADC", "#457B9D", "#1D3557", "#F4A261"]
+      avoid: drawn outlines, photoreal humans, text
+      cadence: twos
+      texture: paper
+      grade: {contrast: 1.03, saturation: 0.98, warmth: 0.05, grain: 0.15, vignette: 0.15}
+      medium: folded paper
+      boards: {tabletop: a sheet of plain white paper on a pale table, diorama: a landscape of folded paper, default: folded paper}
+      motion: folded-paper stop-motion, pieces unfolding and hopping, stepped timing
+  - id: cardboard
+    label: Cardboard and craft materials
+    hint: Corrugated card, tape, bottle caps and craft sticks, like a brilliant school project.
+    phrase: in cardboard and craft materials
+    when: {stage: [tabletop, diorama, miniature_set]}
+    sets:
+      image: >-
+        cardboard craft: corrugated cardboard with visible flutes on cut edges, brown paper tape,
+        bottle caps, craft sticks and marker details, handmade and inventive
+      light: warm workshop light from the side
+      palette: ["#C69C72", "#8C5E3C", "#E9D7B9", "#3E6990", "#E4572E", "#F6F0E4"]
+      avoid: glossy plastic, photorealism, polished finishes
+      cadence: threes
+      texture: paper
+      grade: {contrast: 1.03, saturation: 0.95, warmth: 0.18, grain: 0.22, vignette: 0.2}
+      medium: cardboard
+      boards: {tabletop: a scuffed wooden workbench, diorama: a landscape made of cardboard, default: cardboard}
+      motion: cardboard stop-motion, chunky stepped movement
+
+  # --- drawn and printed -----------------------------------------------------
+  - id: flat_vector
+    label: Flat vector
+    hint: Clean flat shapes and a small palette. Sharp, modern, readable.
+    phrase: in flat vector
+    when: {stage: [clean_canvas, animated_film, black, white]}
+    sets:
+      image: >-
+        clean flat vector illustration: simple geometric shapes, a small limited palette of flat
+        colours, no gradients or texture, crisp edges, generous negative space
+      light: flat and even, no cast shadows
+      palette: ["#2B2D42", "#EF233C", "#3A86FF", "#FFBE0B", "#F2EFE8", "#8D99AE"]
+      avoid: photorealism, texture, gradients, 3D shading
+      cadence: ones
+      texture: none
+      canvas: "#F2EFE8"
+      grade: {contrast: 1.0, saturation: 1.0, warmth: 0.0, grain: 0.0, vignette: 0.0}
+      medium: flat vector
+      motion: snappy motion-graphics timing, pops and smooth eases
+  - id: isometric
+    label: Isometric
+    hint: Little isometric scenes and objects, like a city-builder game.
+    phrase: in isometric illustration
+    when: {stage: [clean_canvas, white]}
+    sets:
+      image: >-
+        isometric vector illustration: objects drawn at a true isometric angle, clean flat faces
+        with a light and a shadow side, a small bright palette, tidy and precise
+      light: flat isometric lighting, one light face and one shaded face
+      palette: ["#264653", "#2A9D8F", "#E9C46A", "#F4A261", "#E76F51", "#F7F5F0"]
+      avoid: perspective, photorealism, clutter
+      cadence: ones
+      texture: none
+      canvas: "#F7F5F0"
+      grade: {contrast: 1.0, saturation: 1.02, warmth: 0.0, grain: 0.0, vignette: 0.0}
+      medium: isometric illustration
+  - id: line_art
+    label: Line drawing
+    hint: Elegant single-weight lines with one accent colour.
+    phrase: in line drawing
+    when: {stage: [clean_canvas, white]}
+    sets:
+      image: >-
+        clean line drawing: confident single-weight dark lines on white, minimal detail, one accent
+        colour used sparingly for emphasis
+      light: none, pure line
+      palette: ["#1F1F1F", "#E4572E", "#FAFAF7", "#9E9E9E", "#2E86AB", "#F6F4EF"]
+      avoid: shading, texture, gradients, photorealism
+      cadence: ones
+      texture: none
+      canvas: "#FAFAF7"
+      grade: {contrast: 1.0, saturation: 1.0, warmth: 0.0, grain: 0.0, vignette: 0.0}
+      medium: line drawing
+  - id: risograph
+    label: Risograph print
+    hint: Two or three spot inks, grainy overprints and halftones.
+    phrase: printed in risograph
+    when: {stage: [clean_canvas, animated_film, storybook]}
+    sets:
+      image: >-
+        risograph print: bold flat shapes in two or three overlapping spot-ink colours, grainy ink
+        texture, halftone dot shading, slight misregistration between layers
+      light: graphic rather than realistic, shading built from halftone and overprinting
+      palette: ["#FF48B0", "#0078BF", "#FFE800", "#00A95C", "#F7F1E3", "#1D1D1B"]
+      avoid: photorealism, smooth gradients, 3D render
+      cadence: twos
+      texture: paper
+      canvas: "#F7F1E3"
+      grade: {contrast: 1.05, saturation: 1.08, warmth: 0.0, grain: 0.5, vignette: 0.05}
+      medium: risograph print
+  - id: neon
+    label: Neon on dark
+    hint: Glowing neon lines and signs on a dark background.
+    phrase: in glowing neon
+    when: {stage: [clean_canvas, animated_film, world, black]}
+    sets:
+      image: >-
+        glowing neon: bright tube-light lines and shapes with a soft glow and bloom, on a very dark
+        background, a few saturated electric colours
+      light: the glow of the neon itself in darkness
+      palette: ["#FF2E88", "#00E5FF", "#FFE600", "#7CFF4F", "#0B0B14", "#F5F5F5"]
+      avoid: daylight, pastel colours, photorealism
+      cadence: ones
+      texture: film
+      canvas: "#0B0B14"
+      dark_surface: true
+      grade: {contrast: 1.05, saturation: 1.05, warmth: -0.05, grain: 0.15, vignette: 0.3}
+      medium: neon light
+  - id: pixel_art
+    label: Pixel art
+    hint: Chunky pixels and a limited palette, like a classic video game.
+    phrase: in pixel art
+    when: {stage: [clean_canvas, animated_film, world, black]}
+    sets:
+      image: >-
+        pixel art: crisp chunky pixels at a low resolution, a limited retro palette, clean
+        outlines and simple dithering, like a classic video game
+      light: simple flat pixel shading
+      palette: ["#1A1C2C", "#5D275D", "#B13E53", "#EF7D57", "#FFCD75", "#F4F4F4"]
+      avoid: smooth gradients, blur, photorealism, high resolution detail
+      cadence: twos
+      texture: none
+      canvas: "#F4F4F4"
+      grade: {contrast: 1.0, saturation: 1.0, warmth: 0.0, grain: 0.0, vignette: 0.0}
+      medium: pixel art
+  - id: marker
+    label: Marker pens
+    hint: Confident black marker with a few coloured highlights.
+    phrase: in marker pen
+    when: {stage: [whiteboard]}
+    sets:
+      image: >-
+        whiteboard marker drawing: confident black marker lines with slightly uneven pressure, a
+        few flat fills in red, blue and green marker, simple and clear
+      light: flat, like a lit whiteboard
+      palette: ["#1B1B1E", "#D7263D", "#1B998B", "#2E86AB", "#FFFFFF", "#F46036"]
+      avoid: shading, photorealism, texture, gradients
+      cadence: ones
+      texture: none
+      grade: {contrast: 1.0, saturation: 1.0, warmth: 0.0, grain: 0.05, vignette: 0.05}
+      medium: marker pen
+  - id: chalk
+    label: Chalk
+    hint: Powdery chalk lines and soft coloured chalk fills.
+    phrase: in chalk
+    when: {stage: [chalkboard]}
+    sets:
+      image: >-
+        chalk drawing: soft powdery white chalk lines with a hand-drawn wobble, a few pastel coloured
+        chalk fills, chalk dust texture
+      light: flat, like a lit classroom board
+      palette: ["#F4F1E8", "#F7D774", "#F29E9E", "#9ED8DB", "#A5D6A7", "#1E2A24"]
+      avoid: crisp vector lines, photorealism, gradients
+      cadence: twos
+      texture: film
+      dark_surface: true
+      grade: {contrast: 1.02, saturation: 0.95, warmth: 0.02, grain: 0.2, vignette: 0.2}
+      medium: chalk
+  - id: pencil
+    label: Pencil and pen
+    hint: Sketchy pencil and ink, like a notebook or a sketchbook.
+    phrase: in pencil and pen
+    when: {stage: [notebook, storybook, world, old_paper]}
+    sets:
+      image: >-
+        pencil and ink sketch: lively sketchy lines, cross-hatched shading, a little coloured pencil
+        here and there, the feel of a clever student's notebook
+      light: soft, suggested by hatching
+      palette: ["#2B2B2B", "#3A6EA5", "#C0392B", "#F2C14E", "#FBF8F1", "#6C757D"]
+      avoid: photorealism, glossy colour, 3D render
+      cadence: twos
+      texture: paper
+      grade: {contrast: 1.02, saturation: 0.95, warmth: 0.05, grain: 0.2, vignette: 0.1}
+      medium: pencil and ink
+  - id: blueprint_line
+    label: Technical line
+    hint: Precise white technical drawing with measurements and construction lines.
+    phrase: in technical drawing
+    when: {stage: [blueprint]}
+    sets:
+      image: >-
+        technical blueprint drawing: precise fine white lines, construction lines, dimension marks
+        without numbers, orthographic and cutaway views
+      light: none, pure line on blue
+      palette: ["#F4F8FF", "#9EC5FF", "#1D4E89", "#163A68", "#FFD166", "#0E2A4A"]
+      avoid: colour fills, shading, photorealism
+      cadence: ones
+      texture: paper
+      grade: {contrast: 1.02, saturation: 1.0, warmth: -0.05, grain: 0.15, vignette: 0.2}
+      medium: technical drawing
+  - id: engraving
+    label: Engraving and woodcut
+    hint: Fine hatched line or bold woodcut, like the plates in an old book.
+    phrase: in engraving
+    when: {stage: [old_paper, storybook, world, puppet_stage]}
+    sets:
+      image: >-
+        antique engraving: fine cross-hatched linework and stippling, or bold woodcut marks, dark
+        ink on warm aged paper, occasional muted hand-tinted colour
+      light: light and shade built from the density of hatching
+      palette: ["#2B2118", "#EADFC5", "#8C2F39", "#6B5B48", "#B4652E", "#3A5A78"]
+      avoid: photorealism, smooth gradients, bright modern colour
+      cadence: twos
+      texture: paper
+      grade: {contrast: 1.04, saturation: 0.85, warmth: 0.3, grain: 0.3, vignette: 0.35}
+      medium: engraving
+      boards: {puppet_stage: engraved and hand-tinted paper scenery, default: engraved paper}
+  - id: ink_wash
+    label: Ink and watercolour
+    hint: A loose ink line over bleeding washes, the paper breathing through.
+    phrase: in ink and watercolour
+    when: {stage: [notebook, storybook, world, animated_film, old_paper]}
+    sets:
+      image: >-
+        loose ink line with transparent watercolour washes, pigment blooming at the edges, plenty
+        of white paper showing through, expressive varied line weight
+      light: airy daylight suggested by untouched paper
+      palette: ["#3A5A78", "#A7C4BC", "#E9D8A6", "#BB3E03", "#FDFCF8", "#264653"]
+      avoid: photorealism, heavy opaque colour, hard vector shapes
+      cadence: twos
+      texture: paper
+      grade: {contrast: 0.98, saturation: 0.95, warmth: 0.05, grain: 0.25, vignette: 0.12}
+      medium: ink and watercolour
+  - id: cel_2d
+    label: 2D cartoon
+    hint: Crisp linework, flat colour and one shadow tone. The classic animated look.
+    phrase: as a 2D cartoon
+    when: {stage: [animated_film, world]}
+    sets:
+      image: >-
+        modern 2D cel animation: crisp even-weight linework, flat colour fills with a single
+        cel-shadow tone, bold simple shapes, clean graphic backgrounds with soft painted gradients
+      light: a clear key light with a single hard-edged cel shadow
+      palette: ["#FF6B4A", "#2EC4B6", "#FFB627", "#1F2233", "#FFF7EA", "#6C63FF"]
+      avoid: photorealism, painterly texture, muddy colour
+      cadence: twos
+      texture: none
+      grade: {contrast: 1.04, saturation: 1.05, warmth: 0.0, grain: 0.0, vignette: 0.1}
+      medium: 2D cartoon
+  - id: anime_painted
+    label: Painted anime film
+    hint: Lush painted backgrounds, luminous skies, cel-shaded characters.
+    phrase: as a painted anime film
+    when: {stage: [animated_film, world]}
+    sets:
+      image: >-
+        Japanese animated feature film still: lush hand-painted backgrounds with luminous clouds and
+        atmospheric depth, cel-shaded characters with clean linework, rich saturated light
+      light: dramatic golden-hour or blue-hour light, glowing rim light, soft bloom
+      palette: ["#2B4C7E", "#F2A65A", "#F7E1B5", "#5FA8D3", "#1B263B", "#E76F51"]
+      avoid: photorealism, 3D render, flat vector
+      cadence: twos
+      texture: film
+      grade: {contrast: 1.03, saturation: 1.06, warmth: 0.1, grain: 0.15, vignette: 0.15}
+      medium: painted anime
+  - id: gouache
+    label: Storybook gouache
+    hint: Opaque painted brushwork on textured paper; warm and gentle.
+    phrase: in storybook gouache
+    when: {stage: [storybook, animated_film, world]}
+    sets:
+      image: >-
+        hand-painted gouache illustration on textured paper: visible opaque brush strokes, soft
+        painted edges, simplified shapes with chosen detail, a picture-book finish
+      light: soft directional light with warm highlights and cool painted shadows
+      palette: ["#E8C9A0", "#C2703D", "#6E8B74", "#2F4858", "#F4EBDD", "#8C3B2E"]
+      avoid: photorealism, 3D render, glossy plastic, hard vector outlines
+      cadence: twos
+      texture: paper
+      grade: {contrast: 1.02, saturation: 0.97, warmth: 0.25, grain: 0.35, vignette: 0.25}
+      medium: gouache
+  - id: watercolour
+    label: Watercolour
+    hint: Soft washes and wet edges, light and airy.
+    phrase: in watercolour
+    when: {stage: [storybook, world]}
+    sets:
+      image: >-
+        watercolour painting: soft transparent washes, wet-in-wet blooms, granulating pigment,
+        white paper glowing through, delicate detail
+      light: soft natural light, luminous
+      palette: ["#6C9BD2", "#F2B880", "#9BC59D", "#E07A5F", "#FBFAF5", "#3D405B"]
+      avoid: hard outlines, photorealism, heavy opaque colour
+      cadence: twos
+      texture: paper
+      grade: {contrast: 0.98, saturation: 0.96, warmth: 0.08, grain: 0.22, vignette: 0.1}
+      medium: watercolour
+  - id: soft_3d
+    label: Soft 3D animated film
+    hint: Rounded, appealing 3D characters and warm light, like a family film.
+    phrase: in soft 3D
+    when: {stage: [animated_film, world]}
+    sets:
+      image: >-
+        stylised 3D animated film frame: rounded appealing forms, soft matte materials, gentle
+        subsurface glow, tidy environments, shallow depth of field
+      light: soft global illumination, a warm key light and gentle ambient occlusion
+      palette: ["#FFB5A7", "#A8DADC", "#F1FAEE", "#457B9D", "#FFD166", "#8E7DBE"]
+      avoid: photoreal humans, gritty textures, 2D outlines
+      cadence: ones
+      texture: film
+      grade: {contrast: 1.0, saturation: 1.02, warmth: 0.1, grain: 0.05, vignette: 0.12}
+      medium: soft 3D
+  - id: noir_ink
+    label: Graphic-novel ink
+    hint: Heavy blacks, hard shadows and one accent colour.
+    phrase: in graphic-novel ink
+    when: {stage: [animated_film, world]}
+    sets:
+      image: >-
+        graphic-novel illustration in heavy black ink: dramatic chiaroscuro with large solid blacks,
+        cross-hatched shadows, stark highlights, a single saturated accent colour
+      light: hard single-source light, deep shadows, silhouettes
+      palette: ["#0B0B0C", "#F2F2F2", "#C1121F", "#3A3A3C", "#8D99AE", "#FDF0D5"]
+      avoid: photorealism, pastel colour, soft cheerful light
+      cadence: twos
+      texture: film
+      grade: {contrast: 1.1, saturation: 0.95, warmth: -0.05, grain: 0.35, vignette: 0.35}
+      medium: graphic-novel ink
+
+  # --- minimal ----------------------------------------------------------------
+  - id: minimal_math
+    label: Crisp and minimal, like a maths animation
+    hint: Thin clean lines, flat bright colour and typeset maths; nothing decorative at all.
+    phrase: in crisp minimal graphics
+    when: {stage: [black, white, clean_canvas]}
+    sets:
+      image: >-
+        minimal flat vector graphic in the manner of a mathematics animation: simple geometric
+        shapes, flat bright colours, thin clean outlines, no texture, no shading, no gradients,
+        nothing decorative
+      light: none; flat colour only
+      palette: ["#FFFFFF", "#58C4DD", "#F9E45B", "#83C167", "#FC6255", "#B189E8"]
+      avoid: texture, shading, gradients, photorealism, 3D, clutter, decoration
+      cadence: ones
+      texture: none
+      grade: {contrast: 1.0, saturation: 1.0, warmth: 0.0, grain: 0.0, vignette: 0.0}
+      medium: minimal flat vector graphics
+      boards: {default: plain}
+      motion: precise, calm, eased movement; things are written and drawn in and fade out
+      sample: >-
+        shown on a plain pure black background with lots of empty black space: the subject reduced
+        to a few simple geometric shapes in thin white outlines and one or two flat bright accents,
+        no scenery or background detail at all
+  - id: line_icons
+    label: Simple line icons
+    hint: One even line weight, rounded ends, like a clean icon set. Very minimal.
+    phrase: in simple line icons
+    when: {stage: [black, white, clean_canvas]}
+    sets:
+      image: >-
+        minimal monoline icon: one even line weight with rounded ends, simple geometric forms, no
+        fill or a single flat accent fill, no shading, no texture, like a clean modern icon set
+      light: none; pure line
+      palette: ["#1F2933", "#FFFFFF", "#FF6B35", "#2EC4B6", "#FFD23F", "#8E8E93"]
+      avoid: shading, texture, gradients, photorealism, 3D, clutter
+      cadence: ones
+      texture: none
+      grade: {contrast: 1.0, saturation: 1.0, warmth: 0.0, grain: 0.0, vignette: 0.0}
+      medium: monoline icons
+      boards: {default: plain}
+      motion: clean, calm, eased movement
+  - id: photo
+    label: Real photos, cut out
+    hint: Real photographs of things, cleanly cut out, on a plain background. Sober and grown-up.
+    phrase: in cut-out photographs
+    when: {stage: [black, white, clean_canvas, pinboard, tabletop]}
+    sets:
+      image: >-
+        a real photograph of the subject, cleanly cut out: natural colour and light, crisp detail,
+        true materials, like a museum catalogue or a documentary graphic; not an illustration
+      light: soft, natural studio light
+      palette: ["#F5F5F0", "#1C1C1E", "#E4572E", "#2E86AB", "#F2A541", "#8E8E93"]
+      avoid: illustration, cartoon, painting, drawing, text, logos, watermarks, identifiable real people
+      cadence: ones
+      texture: none
+      grade: {contrast: 1.02, saturation: 0.98, warmth: 0.0, grain: 0.04, vignette: 0.0}
+      medium: cut-out photographs
+      boards: {tabletop: a plain pale wooden table, pinboard: a plain cork board, default: plain}
+      motion: calm, eased movement, like a documentary graphic
+  - id: custom
+    label: Something else
+    hint: Describe the material or medium in your own words.
+    phrase: in {custom}
+    custom: true
+    sets:
+      image: "{custom}"
+      cadence: twos
+      texture: paper
+      medium: "{custom}"
+
+# ---------------------------------------------------------------------------
+- id: people
+  short: People
+  ask: How are people shown?
+  defaults:
+  - {when: {approach: [scenic]}, option: none}
+  - {when: {material: [wood, matte_3d]}, option: tokens}
+  - {when: {material: [marker, chalk, line_art, blueprint_line]}, option: stick}
+  - {when: {material: [anime_painted, noir_ink, engraving, watercolour, photo]}, option: realistic}
+  - {when: {material: [minimal_math, line_icons]}, option: pictogram}
+  options:
+  - id: stubby
+    label: Cute, stubby and round
+    hint: Big round heads, little bodies, simple friendly faces.
+    phrase: with cute stubby round people
+    when: {material: [felt, clay, paper, wood, matte_3d, toy_bricks, knitted, cardboard, origami, flat_vector, isometric, risograph, pixel_art, marker, chalk, pencil, line_art, cel_2d, gouache, soft_3d, custom]}
+    sets:
+      people: >-
+        people are cute, stubby and round: a big round head, a small rounded body, short limbs,
+        simple dot eyes and a small friendly mouth
+      guide: People are cute, stubby little figures; show who someone is by one clear detail (a hat, a tool, a colour).
+  - id: tokens
+    label: Game pieces (meeples, pawns, peg dolls)
+    hint: People are simple tokens; who they are shows in what they wear or hold.
+    phrase: with game-piece people
+    when: {material: [wood, matte_3d, clay, felt, toy_bricks, flat_vector, isometric, minimal_math, custom]}
+    sets:
+      people: >-
+        people are simple game tokens: meeples (a round head and a star-shaped body) or peg dolls,
+        with no faces; who they are shows only in their colour and what they wear or hold
+      guide: >-
+        People are faceless game pieces, one colour each. Show a person's role or state with what
+        they wear or hold (a coloured hat, a card, a coin) and with where they stand; make each
+        variant its own object in the kit (a meeple wearing a red hat is a different object from
+        one wearing a blue hat).
+  - id: cartoon
+    label: Cartoon proportions
+    hint: Expressive, simplified people with big gestures.
+    phrase: with cartoon people
+    not: {material: [blueprint_line]}
+    sets:
+      people: "people have cartoon proportions: simplified, expressive faces and big readable gestures"
+  - id: realistic
+    label: True to life
+    hint: Real proportions and faces, drawn in the medium.
+    phrase: with true-to-life people
+    when: {material: [gouache, watercolour, ink_wash, pencil, engraving, anime_painted, noir_ink, cel_2d, paper, clay, photo, custom]}
+    sets:
+      people: >-
+        people have natural, true-to-life proportions and faces, rendered in the medium; ordinary,
+        anonymous people, never a real identifiable person
+  - id: stick
+    label: Stick figures
+    hint: Simple, expressive stick people.
+    phrase: with stick figures
+    when: {material: [marker, chalk, pencil, line_art, blueprint_line, flat_vector, neon, minimal_math, line_icons, custom]}
+    sets:
+      people: people are simple expressive stick figures with round heads, drawn in a few lines
+      guide: People are stick figures; their poses do the acting.
+  - id: blobs
+    label: Little blob creatures
+    hint: Round, faceful blobs instead of people. Very cute, very simple.
+    phrase: with little blob creatures
+    when: {material: [clay, felt, matte_3d, soft_3d, flat_vector, knitted, marker, minimal_math, line_icons, custom]}
+    sets:
+      people: people are little round blob creatures with two dot eyes and tiny arms, no clothes
+      guide: Instead of people there are little blob creatures; give them simple expressions.
+  - id: silhouettes
+    label: Silhouettes
+    hint: Solid dark shapes, like shadow puppets.
+    phrase: with silhouette people
+    when: {material: [paper, noir_ink, flat_vector, engraving, ink_wash, neon, photo, minimal_math, custom]}
+    sets:
+      people: people are solid dark silhouettes with crisp, expressive outlines, like shadow puppets
+      guide: People are silhouettes; profile and pose tell who they are.
+  - id: pictogram
+    label: Pictograms, like the people on signs
+    hint: A round head and a simple body in one flat colour; no face, no detail.
+    phrase: with pictogram people
+    when: {material: [minimal_math, line_icons, flat_vector, isometric, blueprint_line, neon, photo, matte_3d, custom]}
+    sets:
+      people: >-
+        people are simple pictograms like the figures on public signs: a round head and a rounded
+        body in one flat colour, no face, no clothes or detail
+      guide: People are pictograms; who someone is shows in their colour, their pose and what they hold.
+  - id: none
+    label: No people
+    hint: Objects, places and symbols only.
+    phrase: with no people
+    not: {approach: [acted]}
+    sets:
+      people: no people appear; use objects and symbols instead
+      guide: Show no people at all; objects and symbols stand in for them.
+  - id: custom
+    label: Something else
+    hint: Describe how people should look.
+    phrase: with {custom}
+    custom: true
+    sets:
+      people: "people look like this: {custom}"
+
+# ---------------------------------------------------------------------------
+- id: presenter
+  short: Host
+  ask: Is there a host on screen who talks to the viewer?
+  options:
+  - id: none
+    label: No, just the narration
+    hint: The pictures carry it; the voice stays off screen.
+    phrase: ""
+    when: {approach: [objects, diagrams]}
+  - id: host
+    label: Yes, a host character
+    hint: A simple character of the channel's own opens, points, shrugs and closes.
+    phrase: with a host character
+    when: [{approach: [diagrams]}, {stage: [game_board, diorama, black, white]}]
+    sets:
+      avatar: true
+      narrator: >-
+        the channel's host: a single simple character in the same style as everything else,
+        friendly and expressive, with one distinctive accessory
+
+# ---------------------------------------------------------------------------
+- id: mood
+  short: Mood
+  ask: What should it feel like?
+  defaults:
+  - {when: {material: [noir_ink]}, option: dramatic}
+  - {when: {material: [engraving]}, option: vintage}
+  - {when: {material: [minimal_math, line_icons]}, option: minimal}
+  - {when: {material: [matte_3d, flat_vector, isometric, line_art, blueprint_line]}, option: clean}
+  - {when: {approach: [scenic]}, option: calm}
+  options:
+  - id: playful
+    label: Cute and playful
+    hint: Bright, bouncy, full of little jokes.
+    phrase: cute and playful
+    not: {material: [noir_ink, engraving, blueprint_line]}
+    sets:
+      light: bright and cheerful
+      tone: "Keep it playful: small visual jokes, cheerful arrivals, nothing heavy."
+      energy: 65
+      grade: {saturation: 1.05}
+      palettes:
+      - ["#FF7AA2", "#FFD166", "#06D6A0", "#118AB2", "#FFF8F0", "#2B2D42"]
+      - ["#F4A6B8", "#FFD166", "#8FD3C7", "#7FA7E8", "#F6F1E7", "#3D3A4B"]
+  - id: clean
+    label: Clean and precise
+    hint: Orderly, clear and exact, nothing wasted.
+    phrase: clean and precise
+    sets:
+      light: clear and even
+      tone: "Keep it precise: tidy arrangements, exact labels, no clutter."
+      energy: 45
+      palettes:
+      - ["#2B2D42", "#EF233C", "#3A86FF", "#FFBE0B", "#F2EFE8", "#8D99AE"]
+      - ["#264653", "#2A9D8F", "#E9C46A", "#E76F51", "#F1EFEA", "#8AB6D6"]
+  - id: minimal
+    label: Minimal and spare
+    hint: Nothing on screen but the idea; lots of space and two or three colours.
+    phrase: minimal and spare
+    sets:
+      light: flat and neutral
+      tone: >-
+        Keep it spare and exact: one idea on screen at a time, generous empty space, nothing
+        decorative; colour only where it means something.
+      energy: 25
+      grade: {saturation: 1.0}
+      palettes:
+      - ["#FFFFFF", "#58C4DD", "#F9E45B", "#83C167", "#FC6255", "#B189E8"]
+      - ["#111111", "#E4572E", "#2E86AB", "#F2A541", "#6A994E", "#FFFFFF"]
+      - ["#EDEDED", "#FF3B30", "#0A84FF", "#FFD60A", "#30D158", "#1C1C1E"]
+  - id: cosy
+    label: Warm and cosy
+    hint: Soft light, warm colours, homely.
+    phrase: warm and cosy
+    sets:
+      light: warm, soft and golden
+      tone: Keep it warm and gentle, like a favourite teacher.
+      energy: 40
+      grade: {warmth: 0.25}
+      palettes:
+      - ["#E07A5F", "#F2CC8F", "#81B29A", "#3D405B", "#F4F1DE", "#B5838D"]
+      - ["#C8553D", "#F2A541", "#2A9D8F", "#264653", "#F4EDE0", "#8AB17D"]
+  - id: calm
+    label: Calm and gentle
+    hint: Quiet, spacious and unhurried.
+    phrase: calm and gentle
+    sets:
+      light: soft and quiet
+      tone: Keep it calm and spacious; let each picture breathe.
+      energy: 25
+      grade: {saturation: 0.95}
+      palettes:
+      - ["#6C9BD2", "#A7C4BC", "#E9D8A6", "#F4F1EA", "#3A5A78", "#C9ADA7"]
+  - id: dramatic
+    label: Dramatic and moody
+    hint: Deep shadows, big contrasts, tension.
+    phrase: dramatic and moody
+    sets:
+      light: dramatic, low and directional, with deep shadows
+      tone: Build tension; use scale, contrast and silence.
+      energy: 55
+      grade: {contrast: 1.08, vignette: 0.35}
+      palettes:
+      - ["#0B0B0C", "#F2F2F2", "#C1121F", "#3A3A3C", "#8D99AE", "#FDF0D5"]
+      - ["#1B263B", "#415A77", "#E0E1DD", "#F2A65A", "#0D1B2A", "#C1121F"]
+  - id: eerie
+    label: Eerie and mysterious
+    hint: Candlelight, mist and secrets.
+    phrase: eerie and mysterious
+    sets:
+      light: dim, with candlelight, moonlight and mist
+      tone: Keep it mysterious and a little eerie, never gory.
+      energy: 35
+      grade: {contrast: 1.05, saturation: 0.9, vignette: 0.35}
+      palettes:
+      - ["#1B1B2F", "#4B3F72", "#C084FC", "#E9D8A6", "#F3E9FF", "#2C6E49"]
+  - id: vintage
+    label: Old-fashioned and vintage
+    hint: Faded colour, printed textures, a sense of the past.
+    phrase: old-fashioned
+    sets:
+      light: soft and slightly faded
+      tone: Give it the feel of something old and treasured.
+      energy: 40
+      grade: {saturation: 0.88, warmth: 0.3}
+      palettes:
+      - ["#8C2F39", "#B4652E", "#EADFC5", "#3A5A78", "#2B2118", "#6B5B48"]
+  - id: bold
+    label: Bold and loud
+    hint: Saturated colour, strong contrast, big energy.
+    phrase: bold and loud
+    sets:
+      light: bright and punchy
+      tone: "Make it bold: big shapes, strong colour, confident moves."
+      energy: 80
+      grade: {contrast: 1.06, saturation: 1.1}
+      palettes:
+      - ["#FF006E", "#FB5607", "#FFBE0B", "#3A86FF", "#8338EC", "#FFFFFF"]
+
+# ---------------------------------------------------------------------------
+- id: motion
+  short: Motion
+  ask: How does it move?
+  defaults:
+  - {when: {stage: [whiteboard, chalkboard, notebook, blueprint, old_paper]}, option: drawn}
+  - {when: {stage: [clean_canvas]}, option: snappy}
+  - {when: {stage: [black, white]}, option: precise}
+  - {when: {stage: [puppet_stage]}, option: puppetry}
+  - {when: {stage: [miniature_set]}, option: filmed_stop_motion}
+  - {when: {stage: [world]}, option: cinematic}
+  - {when: {material: [soft_3d, matte_3d], stage: [animated_film]}, option: animated_3d}
+  options:
+  - id: stop_motion
+    label: Stop-motion, on twos
+    hint: Handmade and a little stepped, like pieces moved by hand between photographs.
+    phrase: in stop-motion
+    when: {material: [felt, clay, paper, wood, toy_bricks, knitted, origami, cardboard, custom]}
+    sets:
+      cadence: twos
+      jitter: 1.3
+  - id: stop_motion_rough
+    label: Stop-motion, chunkier
+    hint: "On threes: more handmade, more charm, a little rougher."
+    phrase: in chunky stop-motion
+    when: {material: [felt, clay, paper, wood, toy_bricks, knitted, origami, cardboard, custom]}
+    sets:
+      cadence: threes
+      jitter: 1.8
+  - id: puppetry
+    label: Puppetry
+    hint: Puppets glide, bob and turn on their rods.
+    phrase: moved like puppets
+    when: {stage: [puppet_stage]}
+    sets:
+      cadence: twos
+      jitter: 0.8
+  - id: smooth
+    label: Smooth and bouncy
+    hint: Fluid motion with a little overshoot and squash.
+    phrase: moving smoothly
+    when: {material: [matte_3d, flat_vector, isometric, soft_3d, felt, clay, wood, pixel_art, risograph, custom]}
+    not: {stage: [whiteboard, chalkboard, notebook, blueprint, old_paper]}
+    sets:
+      cadence: ones
+      jitter: 0
+  - id: precise
+    label: Written and drawn precisely
+    hint: Formulas are written in, lines drawn, things fade between ideas. Calm and exact, like a maths lecture.
+    phrase: written and drawn precisely
+    when: {stage: [black, white, clean_canvas, whiteboard, chalkboard, notebook, blueprint]}
+    sets:
+      cadence: ones
+      jitter: 0
+      motion: precise, calm, eased movement; things are written and drawn in and fade out
+  - id: snappy
+    label: Snappy motion graphics
+    hint: Crisp pops, slides and quick eases.
+    phrase: with snappy motion graphics
+    when: {stage: [clean_canvas, black, white]}
+    sets:
+      cadence: ones
+      jitter: 0
+      entrance: pop
+  - id: drawn
+    label: Drawn as you watch
+    hint: Each thing appears as if being drawn.
+    phrase: drawn as you watch
+    when: {stage: [whiteboard, chalkboard, notebook, blueprint, old_paper, clean_canvas, black, white]}
+    sets:
+      entrance: draw
+      cadence: ones
+      jitter: 0
+  - id: hand_drawn
+    label: Hand-drawn animation
+    hint: Drawn frame by frame, held on twos like classic animation.
+    phrase: hand-animated
+    when: {stage: [animated_film, storybook, world], material: [cel_2d, anime_painted, gouache, watercolour, ink_wash, pencil, noir_ink, risograph, engraving, flat_vector, paper, custom]}
+    sets:
+      cadence: twos
+      motion: hand-drawn 2D animation held on twos, lines and texture stable, gentle secondary motion
+  - id: animated_3d
+    label: Smooth 3D animation
+    hint: Fluid, polished movement like an animated feature.
+    phrase: in smooth 3D animation
+    when: {stage: [animated_film, world], material: [soft_3d, matte_3d, custom]}
+    sets:
+      cadence: ones
+      motion: polished 3D animation with appealing arcs, squash and stretch, springy secondary motion
+  - id: filmed_stop_motion
+    label: Stop-motion, filmed
+    hint: Real handmade stop-motion on a miniature set.
+    phrase: in filmed stop-motion
+    when: {stage: [miniature_set, world], material: [felt, clay, paper, wood, toy_bricks, knitted, origami, cardboard, custom]}
+    sets:
+      cadence: twos
+      motion: stop-motion animation on a miniature set, slightly stepped handmade movement
+  - id: cinematic
+    label: Cinematic and flowing
+    hint: Slow camera moves, atmosphere, weather and light in motion.
+    phrase: with a flowing cinematic camera
+    when: {stage: [animated_film, storybook, world, miniature_set]}
+    sets:
+      cadence: ones
+      motion: cinematic motion, slow flowing camera moves, drifting atmosphere, light and weather in motion
+
+# ---------------------------------------------------------------------------
+- id: words
+  short: Words on screen
+  ask: How do labels and names appear on screen?
+  defaults:
+  - {when: {material: [minimal_math]}, option: typeset}
+  - {when: {stage: [clean_canvas, black, white]}, option: clean}
+  - {when: {stage: [blueprint]}, option: stencil}
+  - {when: {stage: [old_paper]}, option: ink_serif}
+  - {when: {stage: [game_board], material: [matte_3d, toy_bricks]}, option: clean}
+  - {when: {approach: [scenic]}, option: none}
+  options:
+  - id: tags
+    label: Handwritten paper tags
+    hint: Little paper labels with handwriting, set down beside things.
+    phrase: labelled on handwritten tags
+    when: {stage: [tabletop, game_board, pinboard, diorama]}
+    sets:
+      labels: {font: Ink Free, weight: 700, size: 64, title_size: 72, tag: "#FFFDF5", write: true, rough: true, line: 7}
+  - id: tape
+    label: Label-maker tape
+    hint: Embossed tape strips, white letters on colour.
+    phrase: labelled with label-maker tape
+    when: {stage: [tabletop, game_board, pinboard, diorama]}
+    sets:
+      labels: {font: Consolas, weight: 700, size: 52, title_size: 62, tag: "#1D1D1F", tag_text: "#FFFFFF", upper: true, tracking: 3, write: false, rough: false, line: 7}
+  - id: marker
+    label: Marker handwriting
+    hint: Written straight on in marker, with hand-drawn arrows.
+    phrase: annotated in marker
+    when: {stage: [whiteboard, notebook, tabletop, pinboard, clean_canvas, white]}
+    sets:
+      labels: {font: Ink Free, weight: 700, size: 66, title_size: 80, tag: null, write: true, rough: true, line: 7}
+  - id: chalk_text
+    label: Chalk lettering
+    hint: Handwritten in chalk.
+    phrase: lettered in chalk
+    when: {stage: [chalkboard]}
+    sets:
+      labels: {font: Segoe Print, weight: 700, size: 60, title_size: 76, tag: null, write: true, rough: true, line: 6, chalk: true}
+  - id: clean
+    label: Clean bold labels
+    hint: Crisp, bold, modern type.
+    phrase: with clean bold labels
+    when: {stage: [clean_canvas, game_board, tabletop, diorama, blueprint, black, white]}
+    sets:
+      labels: {font: Segoe UI Black, weight: 900, size: 58, title_size: 72, tag: null, write: false, rough: false, line: 8}
+  - id: typeset
+    label: Typeset, like a maths paper
+    hint: Words and maths set in the classic LaTeX face, written in as they're said.
+    phrase: typeset like a maths paper
+    when: {stage: [black, white, clean_canvas, notebook, blueprint, whiteboard, old_paper]}
+    sets:
+      labels: {font: Computer Modern, weight: 400, size: 62, title_size: 70, tag: null, write: true, rough: false, line: 4}
+  - id: typewriter
+    label: Typewritten slips
+    hint: Typed labels on little slips of paper.
+    phrase: labelled on typewritten slips
+    when: {stage: [tabletop, pinboard, old_paper, clean_canvas]}
+    sets:
+      labels: {font: Courier New, weight: 700, size: 52, title_size: 64, tag: "#F6F0E1", write: false, rough: false, line: 6}
+  - id: stencil
+    label: Stencilled
+    hint: Bold stencil lettering, industrial and technical.
+    phrase: stencilled
+    when: {stage: [blueprint, tabletop, clean_canvas]}
+    sets:
+      labels: {font: Stencil, weight: 400, size: 60, title_size: 76, tag: null, write: false, rough: false, line: 6, upper: true}
+  - id: ink_serif
+    label: Old-fashioned ink lettering
+    hint: Elegant serif lettering, like a map or an old book.
+    phrase: lettered like an old book
+    when: {stage: [old_paper, clean_canvas]}
+    sets:
+      labels: {font: Book Antiqua, weight: 700, size: 58, title_size: 74, tag: null, write: true, rough: false, line: 5}
+  - id: name_cards
+    label: Name cards
+    hint: A small printed card names a person, place or year as they're introduced.
+    phrase: with name cards
+    when: {approach: [acted, scenic]}
+    sets:
+      captions: true
+      labels: {font: Constantia, weight: 700, size: 50, title_size: 70, tag: "#F3E9D2", write: false, rough: false, line: 6}
+      guide: Give a beat or shot a short name card when a person, a place or a year is introduced; only what the narration says.
+  - id: none
+    label: No labels, only the captions
+    hint: The pictures speak for themselves.
+    phrase: without labels
+    sets:
+      labels: {font: Segoe UI Black, weight: 900, size: 58, title_size: 72, tag: null, write: false, rough: false, line: 8}
+      no_labels: true
+      guide: Use no labels or titles; the pictures alone carry it.

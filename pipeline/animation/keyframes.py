@@ -22,13 +22,13 @@ from pathlib import Path
 
 from core import job_context
 from core.logging_setup import get_logger
-from pipeline.animation import images, look as looks
+from pipeline.animation import frame as frames, images, look as looks
 from pipeline.llm import call_json
 
 log = get_logger(__name__)
 
 MAX_ELEMENT_REFS = 3
-CHECK_SIZE = (360, 640)
+CHECK_SIZE = (640, 640)         # the longer side; a vertical frame comes out 360x640
 
 
 def references(shot: dict, board: dict, sheets: dict) -> list:
@@ -61,7 +61,7 @@ def prompt_for(shot: dict, board: dict, look: dict, refs: list, fix: list = None
     if board.get("colour_script"):
         lines.append(f"The film's colour script, for this moment's light: {board['colour_script']}")
     lines.append(looks.style_text(look))
-    lines.append(looks.FRAME_RULES)
+    lines.append(looks.frame_rules(look))
     if fix:
         lines.append("Fix these problems from the last attempt: " + "; ".join(fix))
     return "\n".join(lines)
@@ -79,7 +79,7 @@ def draw(shot: dict, board: dict, look: dict, style_ref: Path, sheets: dict, fol
         return out
     return images.draw(prompt_for(shot, board, look, refs, fix), out, model,
                        references=[style_ref] + [sheets[k] for k, _ in refs],
-                       operation="animation_keyframe")
+                       size=frames.get(look.get("frame")).image, operation="animation_keyframe")
 
 
 def draw_all(shots: list, board: dict, look: dict, style_ref: Path, sheets: dict, folder: Path,

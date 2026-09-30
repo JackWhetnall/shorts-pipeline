@@ -110,8 +110,8 @@ def run(plan):
 
 
 def _draws_diagrams(channel) -> bool:
-    from pipeline.animation import formats
-    return formats.composited(formats.resolve(channel.animation.format))
+    from pipeline.animation import style
+    return style.composited(style.compile(channel.animation)[0])
 
 
 def _animation_ready(plan) -> bool:

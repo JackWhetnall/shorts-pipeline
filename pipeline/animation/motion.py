@@ -22,7 +22,7 @@ from pathlib import Path
 
 from core import costs
 from core.logging_setup import get_logger
-from pipeline.animation import fal, look as looks, models
+from pipeline.animation import fal, frame as frames, look as looks, models
 from pipeline.animation.keyframes import thumbnail
 from pipeline.llm import call_json
 
@@ -54,7 +54,8 @@ def animate(shot: dict, board: dict, look: dict, first_frame: Path, video: model
         return out
     seconds = shot["generate"]
     request = video.request(prompt_for(shot, board, look, avoid), fal.data_uri(first_frame),
-                            seconds, quality, seed=random.randint(1, 2 ** 31 - 1))
+                            seconds, quality, seed=random.randint(1, 2 ** 31 - 1),
+                            aspect_ratio=frames.get(look.get("frame")).aspect_ratio)
     log.info(f"  [animation] shot {shot['index']}: {seconds}s on {video.label} "
              f"({shot['camera'][:40]})")
     result = fal.run(video.endpoint, request, what=f"shot {shot['index'] + 1}")

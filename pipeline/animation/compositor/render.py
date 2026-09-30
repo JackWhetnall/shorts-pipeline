@@ -16,6 +16,7 @@ from pathlib import Path
 
 from core.errors import PipelineError
 from core.paths import FRAME_HEIGHT, FRAME_WIDTH
+from pipeline.animation.compositor import mathtext
 from pipeline.scenes import render as capture
 
 HERE = Path(__file__).parent
@@ -32,6 +33,7 @@ FACES = {
     "Constantia": ("constanb.ttf",),
     "Book Antiqua": ("BKANT.TTF", "ANTQUAB.TTF"),
     "Rockwell": ("ROCKB.TTF",),
+    "Computer Modern": ("cmr10.ttf",),              # matplotlib's copy (compositor.mathtext)
 }
 FONT_DIRS = (Path(r"C:\Windows\Fonts"),
              Path.home() / "AppData" / "Local" / "Microsoft" / "Windows" / "Fonts")
@@ -48,8 +50,9 @@ def _data_uri(path: Path) -> str:
 def font_face(name: str) -> str:
     """An @font-face rule embedding `name`, or "" when its file isn't here
     (the page then falls back to the system's own copy, if any)."""
+    folders = FONT_DIRS + ((mathtext.font_path().parent,) if name == "Computer Modern" else ())
     for filename in FACES.get(name, ()):
-        for folder in FONT_DIRS:
+        for folder in folders:
             path = folder / filename
             if path.exists():
                 data = base64.b64encode(path.read_bytes()).decode()
@@ -58,19 +61,37 @@ def font_face(name: str) -> str:
     return ""
 
 
+def size(stage: dict) -> tuple:
+    """(width, height) of the frame a stage is made for; a stage from
+    before widescreen (decision 054) is vertical."""
+    frame = stage.get("frame") or {}
+    return int(frame.get("w", FRAME_WIDTH)), int(frame.get("h", FRAME_HEIGHT))
+
+
+def _all_assets(stage: dict, assets: dict) -> dict:
+    """The pictures the page needs: the kit's, and the typeset maths the
+    stage's diagrams name."""
+    return {**assets, **{name: Path(p) for name, p in (stage.get("math") or {}).items()}}
+
+
 def build_html(stage: dict, assets: dict) -> str:
     font = stage["labels"]["font"]
+    w, h = size(stage)
+    assets = _all_assets(stage, assets)
+    faces = font_face(font)
+    if font != "Computer Modern" and stage.get("math"):
+        faces += font_face("Computer Modern")      # a diagram's plain numbers match its maths
     payload = {
-        "STAGE": {"width": FRAME_WIDTH, "height": FRAME_HEIGHT, **stage,
+        "STAGE": {"width": w, "height": h, **{k: v for k, v in stage.items() if k != "math"},
                   "labels": {**stage["labels"], "font": f"'{font}', 'Segoe UI', sans-serif"}},
         "ASSETS": {name: _data_uri(p) for name, p in assets.items()},
     }
     data = "\n".join(f"window.{k} = {json.dumps(v)};".replace("</", "<\\/")
                      for k, v in payload.items())
     return ("<!doctype html><html><head><meta charset='utf-8'><style>"
-            f"{font_face(font)}"
+            f"{faces}"
             "html,body{margin:0;background:#000;overflow:hidden}"
-            f"#frame{{position:relative;width:{FRAME_WIDTH}px;height:{FRAME_HEIGHT}px;"
+            f"#frame{{position:relative;width:{w}px;height:{h}px;"
             "overflow:hidden}</style></head><body><div id='frame'></div>"
             f"<script>{data}</script><script>{RUNTIME.read_text(encoding='utf-8')}</script>"
             "</body></html>")
@@ -78,16 +99,17 @@ def build_html(stage: dict, assets: dict) -> str:
 
 def render(stage: dict, assets: dict, out_path: Path) -> Path:
     """The whole stage to an mp4 (no audio) of stage["duration"] seconds."""
-    missing = [n for n, p in assets.items() if not Path(p).exists()]
+    missing = [n for n, p in _all_assets(stage, assets).items() if not Path(p).exists()]
     if missing:
         raise PipelineError(f"missing pictures: {missing}",
                             user_message="A picture the animation needs is missing.")
-    return capture.render_page(build_html(stage, assets), float(stage["duration"]), out_path)
+    return capture.render_page(build_html(stage, assets), float(stage["duration"]), out_path,
+                               size=size(stage))
 
 
 def still(stage: dict, assets: dict, t: float, out_path: Path = None) -> bytes:
     """One frame at `t`, as JPEG bytes (and saved to `out_path` if given)."""
-    return capture.page_frame(build_html(stage, assets), t, out_path)
+    return capture.page_frame(build_html(stage, assets), t, out_path, size=size(stage))
 
 
 def caption_png(text: str, labels: dict, out_path: Path) -> Path:

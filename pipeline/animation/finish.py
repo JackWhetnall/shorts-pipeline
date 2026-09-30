@@ -28,8 +28,7 @@ import subprocess
 from pathlib import Path
 
 from core.logging_setup import get_logger
-from core.paths import FRAME_HEIGHT as H, FRAME_WIDTH as W
-from pipeline.animation import look as looks, models
+from pipeline.animation import frame as frames, look as looks, models
 
 log = get_logger(__name__)
 
@@ -69,6 +68,12 @@ def texture_filters(look: dict) -> list:
             f"c2s={max(1, strength // 3)}:c2f={flags}"]
 
 
+def _size(look: dict) -> tuple:
+    """(width, height) of the frame the look is being made for."""
+    f = frames.get(look.get("frame"))
+    return f.w, f.h
+
+
 def shot_filter(look: dict, speed: float) -> str:
     """The -vf chain for one shot, source frames in, finished frames out."""
     chain = [f"setpts=PTS/{speed:.5f}"]
@@ -76,8 +81,9 @@ def shot_filter(look: dict, speed: float) -> str:
     if fps < 24:
         chain.append(f"fps={fps}")
     sharpen = (look.get("grade") or {}).get("sharpen", 0.15)
-    chain += [f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos",
-              f"crop={W}:{H}", "setsar=1",
+    w, h = _size(look)
+    chain += [f"scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos",
+              f"crop={w}:{h}", "setsar=1",
               f"unsharp=5:5:{sharpen:.3f}:5:5:0"]
     chain += grade_filters(look)
     chain += texture_filters(look)
@@ -110,10 +116,11 @@ def still_shot(image: Path, out: Path, seconds: float, look: dict, hold: float =
     out more than it must."""
     total = seconds + hold
     frames = max(2, round(total * FPS))
+    w, h = _size(look)
     zoom = f"zoompan=z='1+0.06*on/{frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':" \
-           f"d={frames}:s={W}x{H}:fps={FPS}"
-    chain = [f"scale={W * 2}:{H * 2}:force_original_aspect_ratio=increase:flags=lanczos",
-             f"crop={W * 2}:{H * 2}", zoom, "setsar=1"]
+           f"d={frames}:s={w}x{h}:fps={FPS}"
+    chain = [f"scale={w * 2}:{h * 2}:force_original_aspect_ratio=increase:flags=lanczos",
+             f"crop={w * 2}:{h * 2}", zoom, "setsar=1"]
     chain += grade_filters(look) + texture_filters(look) + ["format=yuv420p"]
     out.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([_ffmpeg(), "-v", "error", "-y", "-loop", "1", "-i", str(image),

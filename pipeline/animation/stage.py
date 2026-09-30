@@ -27,8 +27,8 @@ from pathlib import Path
 
 from core.errors import PipelineError
 from core.logging_setup import get_logger
-from pipeline.animation import (bible, finish, formats, keyframes, look as looks, models, motion,
-                                storyboard)
+from pipeline.animation import bible, finish, keyframes, models, motion, storyboard, style
+from pipeline.animation.compositor import theme
 
 log = get_logger(__name__)
 
@@ -82,13 +82,15 @@ def make(plan, indices: list, briefs: dict, folder: Path, tail: float,
     `animate=False` stops before the video model: every shot is its
     checked keyframe, held and pushed in, cut to the narration. That is
     an animatic, for judging a look and a storyboard for a few cents
-    (tools/animate.py, the settings page's preview)."""
+    (tools/animate.py, the settings page's preview).
+
+    The frame is the plan's (`plan.frame`: "vertical" for a short, "wide"
+    for a widescreen video; decision 054), vertical when it has none."""
     result = Result()
     channel = plan.channel
     settings = channel.animation
-    look = looks.resolve(settings)
-    fmt = formats.resolve(getattr(settings, "format", ""))
-    if formats.composited(fmt):
+    fmt, look = style.compile(settings, frame=getattr(plan, "frame", None))
+    if style.composited(fmt):
         # Tabletop and canvas: drawn once, composited, costing cents; no
         # video model and nothing to hold back for the budget.
         from pipeline.animation import compose
@@ -175,7 +177,7 @@ def _captions(clip, shots, window, fmt, look, folder) -> Path:
     them (drawn in the format's face, in the look's ink)."""
     from pipeline.animation.compositor import render as compositor
 
-    labels = formats.style_for(fmt, look)["labels"]
+    labels = theme.theme(fmt, look)["labels"]
     captions = []
     for s in shots:
         if not s.get("caption"):

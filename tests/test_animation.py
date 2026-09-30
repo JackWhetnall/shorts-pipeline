@@ -1,7 +1,8 @@
 """
-Generated animation (pipeline.animation, decision 051): the look, the
-model registry's arithmetic, the storyboard made safe, the budget, the
-finish, the two HTTP clients and the wiring into the visuals stage.
+Generated animation (pipeline.animation, decision 051): the compiled
+look, the model registry's arithmetic, the storyboard made safe, the
+budget, the finish, the two HTTP clients and the wiring into the visuals
+stage. The style grammar and its builder are tests/test_style.py.
 
 Every model and service is faked; nothing here spends money.
 """
@@ -18,7 +19,7 @@ import pytest
 
 from core.channels import ChannelConfig, channel_from_dict, channel_to_sparse_dict
 from core.errors import ConfigError, ExternalServiceError, MissingCredentialError
-from pipeline.animation import fal, finish, images, look as looks, models, stage, storyboard
+from pipeline.animation import fal, finish, images, look as looks, models, stage, storyboard, style
 from pipeline.plan import Segment, WordTiming
 
 
@@ -38,17 +39,26 @@ class TestChannelSetting:
     def test_round_trips_only_what_changed(self):
         channel = ChannelConfig(key="x")
         channel.animation.enabled = True
-        channel.animation.look = "paper_cutout"
+        channel.animation.style = {"approach": "acted", "stage": "puppet_stage"}
         channel.animation.cast = [{"name": "Wren", "description": "a young witch"}]
         raw = channel_to_sparse_dict(channel)
-        assert raw["animation"] == {"enabled": True, "look": "paper_cutout",
+        assert raw["animation"] == {"enabled": True,
+                                    "style": {"approach": "acted", "stage": "puppet_stage"},
                                     "cast": [{"name": "Wren", "description": "a young witch"}]}
         again = channel_from_dict("x", raw)
-        assert again.animation.look == "paper_cutout" and again.animation.pace == 50
+        assert again.animation.style["stage"] == "puppet_stage" and again.animation.pace == 50
+
+    def test_settings_from_before_the_style_grammar_still_load(self):
+        """format, look and cadence were replaced by `style` (decision 053);
+        a config that still has them loads, and they go on the next save."""
+        again = channel_from_dict("x", {"animation": {"enabled": True, "format": "tabletop",
+                                                      "look": "felt_craft", "cadence": "twos"}})
+        assert again.animation.enabled is True and again.animation.style == {}
+        assert "format" not in channel_to_sparse_dict(again)["animation"]
 
     @pytest.mark.parametrize("field,value,message", [
         ("energy", 140, "0 to 100"), ("quality", "ultra", "quality"),
-        ("cadence", "fours", "cadence"), ("budget", -1.0, "budget")])
+        ("style", "felt", "style"), ("budget", -1.0, "budget")])
     def test_bad_values_are_refused_by_name(self, field, value, message):
         channel = ChannelConfig(key="x", voice="a" * 20, style_prompt="p", topics=["t"])
         setattr(channel.animation, field, value)
@@ -62,42 +72,53 @@ class TestChannelSetting:
             channel.validate()
 
 
-# --- the look -------------------------------------------------------------------
+# --- the compiled look -------------------------------------------------------------
+
+def compiled(sid: str, **settings) -> dict:
+    """The look a starting point compiles to, with any channel settings."""
+    return style.compile(SimpleNamespace(style=style.starting_point(sid)["answers"],
+                                         **settings))[1]
+
 
 class TestLook:
-    def test_every_preset_is_complete(self):
-        needed = {"key", "label", "description", "suits", "image", "light", "camera", "motion",
-                  "palette", "avoid", "cadence", "grade"}
-        for key, preset in looks.presets().items():
-            assert needed <= set(preset), key
-            assert preset["cadence"] in looks.CADENCE_FPS, key
-            assert all(looks.HEX_RE.match(c) for c in preset["palette"]), key
+    def test_every_starting_point_compiles_to_a_complete_look(self):
+        needed = {"key", "label", "description", "image", "light", "camera", "motion",
+                  "palette", "avoid", "cadence", "grade", "identity"}
+        for sp in style.starting_points():
+            look = compiled(sp["id"])
+            assert needed <= set(look), sp["id"]
+            assert look["cadence"] in looks.CADENCE_FPS, sp["id"]
+            assert all(looks.HEX_RE.match(c) for c in look["palette"]), sp["id"]
 
-    def test_channel_notes_palette_and_cadence_apply(self):
-        look = looks.resolve(SimpleNamespace(look="risograph", style_notes="  mostly  pink ",
-                                             palette=["#112233", "red"], cadence="threes"))
+    def test_channel_notes_and_palette_apply(self):
+        look = compiled("risograph_culture", style_notes="  mostly  pink ",
+                        palette=["#112233", "red"])
         assert look["notes"] == "mostly pink"
         assert look["palette"] == ["#112233"]
-        assert look["cadence"] == "threes"
         assert "mostly pink" in looks.style_text(look)
 
-    def test_an_unknown_look_falls_back(self):
-        assert looks.resolve(SimpleNamespace(look="nope"))["key"] == looks.DEFAULT_LOOK
-
     def test_finish_zero_is_a_neutral_grade(self):
-        look = looks.resolve(SimpleNamespace(look="graphic_noir", finish=0))
+        look = compiled("noir_true_stories", finish=0)
         assert look["grade"]["contrast"] == 1.0 and look["grade"]["grain"] == 0.0
         assert finish.grade_filters(look) == [] and finish.texture_filters(look) == []
 
-    def test_style_frames_are_redrawn_only_when_the_look_changes(self):
-        a = looks.resolve(SimpleNamespace(look="clean_cel", energy=10, pace=90))
-        b = looks.resolve(SimpleNamespace(look="clean_cel", energy=90, pace=10))
-        c = looks.resolve(SimpleNamespace(look="clean_cel", style_notes="thicker lines"))
+    def test_pictures_are_redrawn_only_when_how_things_look_changes(self):
+        """Energy, pace, motion and labels don't change a single picture;
+        the notes, the material and the people do."""
+        a = compiled("painted_history", energy=10, pace=90)
+        b = compiled("painted_history", energy=90, pace=10)
+        c = compiled("painted_history", style_notes="thicker lines")
         assert a["identity"] == b["identity"] != c["identity"]
+        answers = dict(style.starting_point("felt_science")["answers"])
+        base = style.compile(SimpleNamespace(style=answers))[1]["identity"]
+        for question, option, same in [("motion", "snappy", True), ("words", "marker", True),
+                                       ("material", "clay", False), ("people", "tokens", False)]:
+            other = style.compile(SimpleNamespace(style={**answers, question: option}))[1]
+            assert (other["identity"] == base) is same, question
 
     def test_paper_looks_keep_their_texture_still(self):
-        paper = looks.resolve(SimpleNamespace(look="storybook_gouache"))
-        film = looks.resolve(SimpleNamespace(look="graphic_noir"))
+        paper = compiled("storybook_scripture")
+        film = compiled("noir_true_stories")
         assert "t+u" not in finish.texture_filters(paper)[0]
         assert "t+u" in finish.texture_filters(film)[0]
 
@@ -126,6 +147,70 @@ class TestModels:
         veo = models.VIDEO_MODELS["veo31_lite"].request("p", "data:x", 6, "draft")
         assert veo["duration"] == "6s" and veo["generate_audio"] is False
         assert veo["aspect_ratio"] == "9:16" and veo["resolution"] == "720p"
+        wide = models.VIDEO_MODELS["veo31_lite"].request("p", "data:x", 6, "draft",
+                                                         aspect_ratio="16:9")
+        assert wide["aspect_ratio"] == "16:9"
+
+
+class TestWidescreen:
+    """The generated path made for a widescreen video (decision 054)."""
+
+    def test_the_look_carries_its_frame_into_prompts_and_the_finish(self):
+        wide = style.compile(SimpleNamespace(style=style.starting_point("painted_history")["answers"]),
+                             frame="wide")[1]
+        assert wide["frame"] == "wide" and "16:9" in looks.frame_rules(wide)
+        assert "9:16" in looks.frame_rules(compiled("painted_history"))
+        assert "scale=1920:1080" in finish.shot_filter(wide, 1.0)
+        assert "scale=1080:1920" in finish.shot_filter(compiled("painted_history"), 1.0)
+
+    def test_keyframes_are_drawn_wide_and_the_video_model_asked_for_it(self, monkeypatch, tmp_path):
+        from pipeline.animation import keyframes, motion
+        wide = style.compile(SimpleNamespace(style=style.starting_point("painted_history")["answers"]),
+                             frame="wide")[1]
+        seen = {}
+        monkeypatch.setattr(keyframes.images, "draw",
+                            lambda prompt, out, model, **kw: seen.update(kw) or out)
+        shot = {"index": 0, "framing": "wide", "image": "a ship", "elements": []}
+        keyframes.draw(shot, {"elements": {}}, wide, tmp_path / "ref.jpg", {}, tmp_path, None)
+        assert seen["size"] == (1536, 864)
+
+        requests = []
+        monkeypatch.setattr(motion.fal, "data_uri", lambda path: "data:x")
+        monkeypatch.setattr(motion.fal, "run", lambda endpoint, body, what="": requests.append(body)
+                            or {"video": {"url": "https://x/v.mp4"}})
+        monkeypatch.setattr(motion.fal, "download", lambda url, out: out)
+        monkeypatch.setattr(motion.costs, "record_fal", lambda *a, **k: None)   # no real cost log
+        shot = {"index": 0, "generate": 6, "camera": "slow push", "motion": "waves roll",
+                "elements": []}
+        motion.animate(shot, {"elements": {}}, wide, tmp_path / "kf.jpg",
+                       models.VIDEO_MODELS["veo31_lite"], "standard", tmp_path)
+        assert requests[0]["aspect_ratio"] == "16:9"
+
+    def test_the_storyboard_is_told_the_frame(self, monkeypatch):
+        seen = {}
+        monkeypatch.setattr(storyboard, "call_json",
+                            lambda system, user, schema, **kw: seen.update(user=user) or {})
+        wide = style.compile(SimpleNamespace(style=style.starting_point("painted_history")["answers"]),
+                             frame="wide")[1]
+        segments = [Segment(text="one two", start=0.0, end=2.0)]
+        words = words_for("one two", step=1.0)
+        storyboard.write(segments, words, storyboard.spans(segments, [(0, 0)], words),
+                         subject="s", look=wide, cast=[], avoid=[], briefs={},
+                         limits={"least": 1, "most": 2, "target": 1, "shortest": 2, "longest": 6,
+                                 "mean": 4})
+        assert "THE FRAME: Widescreen (16:9)" in seen["user"]
+
+    def test_a_plan_says_which_frame_it_is_made_for(self, monkeypatch, tmp_path):
+        from pipeline.animation import compose
+        seen = {}
+        monkeypatch.setattr(compose, "make", lambda plan, ranges, folder, tail, look, fmt, result:
+                            seen.update(frame=fmt["frame"], look=look["frame"]) or result)
+        plan = visuals_plan(tmp_path, start="felt_science")
+        stage.make(plan, [0], {}, tmp_path, tail=0.5)
+        assert seen == {"frame": "vertical", "look": "vertical"}
+        plan.frame = "wide"
+        stage.make(plan, [0], {}, tmp_path, tail=0.5)
+        assert seen == {"frame": "wide", "look": "wide"}
 
     def test_estimate_counts_the_video_model_and_the_pictures(self):
         est = models.estimate(50, 5.5, models.VIDEO_MODELS["h3_max"],
@@ -263,12 +348,12 @@ class TestStage:
 
 class TestFinish:
     def test_the_cadence_holds_frames_before_scaling(self):
-        vf = finish.shot_filter(looks.resolve(SimpleNamespace(look="stop_motion_clay")), 1.1)
+        vf = finish.shot_filter(compiled("knitted_wellbeing"), 1.1)       # stop-motion on threes
         assert vf.startswith("setpts=PTS/1.10000,fps=8,scale=1080:1920")
         assert vf.endswith("fps=30,format=yuv420p")
 
     def test_on_ones_nothing_is_held(self):
-        vf = finish.shot_filter(looks.resolve(SimpleNamespace(look="soft_3d")), 1.0)
+        vf = finish.shot_filter(compiled("soft3d_kids"), 1.0)
         assert "fps=24" not in vf and "fps=12" not in vf
 
 
@@ -421,10 +506,13 @@ class TestDirector:
         assert "animation" not in seen["enum"]
 
 
-def visuals_plan(tmp_path, enabled=True):
+def visuals_plan(tmp_path, enabled=True, start="painted_history"):
+    """A plan whose channel animates in a starting point's style (by
+    default one that needs a video model)."""
     channel = ChannelConfig(key="demo")
     channel.scenes.share = 100
     channel.animation.enabled = enabled
+    channel.animation.style = dict(style.starting_point(start)["answers"])
     segments = [Segment(text="one two three", start=0.0, end=3.0),
                 Segment(text="four five six", start=3.0, end=6.0)]
     return SimpleNamespace(
@@ -486,11 +574,12 @@ from tests.test_web import client, config_path, csrf  # noqa: E402,F401  (fixtur
 
 
 class TestSettingsPage:
-    def test_the_section_renders_with_every_look(self, client):
+    def test_the_section_renders_with_the_style_builder(self, client):
         body = client.get("/channels/test_channel/settings").get_data(as_text=True)
-        assert 'id="section-animation"' in body
-        for preset in looks.presets().values():
-            assert preset["label"] in body
+        assert 'id="section-animation"' in body and "data-style-questions" in body
+        assert "data-anim-grammar" in body and "What is it all made of?" in body
+        for sp in style.starting_points():
+            assert f'data-style-start="{sp["id"]}"' in body
 
     def test_a_quiz_channel_has_no_animation_section(self, client, config_path):
         from core.channels import load_channels, save_channel
@@ -505,9 +594,11 @@ class TestSettingsPage:
         response = client.post("/channels/test_channel/settings", data={
             "csrf_token": csrf(client), "content_mode": "topic", "voice": "21m00Tcm4TlvDq8ikWAM",
             "style_prompt": "Write something.", "topics": "coffee",
-            "anim_present": "1", "anim_enabled": "on", "anim_look": "paper_cutout",
+            "anim_present": "1", "anim_enabled": "on", "anim_style_approach": "acted",
+            "anim_style_stage": "puppet_stage", "anim_style_material": "paper",
+            "anim_style_people": "stubby",
             "anim_style_notes": "  always   dusk ", "anim_energy": "70", "anim_pace": "30",
-            "anim_finish": "80", "anim_cadence": "threes", "anim_quality": "draft",
+            "anim_finish": "80", "anim_quality": "draft",
             "anim_video_model": "veo31_lite", "anim_image_model": "gpt_image_2",
             "anim_budget": "3.5", "anim_cast_name_0": "Wren", "anim_cast_desc_0": "a witch",
             "anim_cast_name_1": "", "anim_palette_custom": "on",
@@ -515,10 +606,12 @@ class TestSettingsPage:
         })
         assert response.status_code == 302
         a = load_channels(config_path)["test_channel"].animation
-        assert (a.enabled, a.look, a.style_notes, a.energy, a.pace, a.finish) == (
-            True, "paper_cutout", "always dusk", 70, 30, 80)
-        assert (a.cadence, a.quality, a.video_model, a.image_model, a.budget) == (
-            "threes", "draft", "veo31_lite", "gpt_image_2", 3.5)
+        assert (a.enabled, a.style_notes, a.energy, a.pace, a.finish) == (
+            True, "always dusk", 70, 30, 80)
+        assert {k: a.style[k] for k in ("approach", "stage", "material", "people")} == {
+            "approach": "acted", "stage": "puppet_stage", "material": "paper", "people": "stubby"}
+        assert (a.quality, a.video_model, a.image_model, a.budget) == (
+            "draft", "veo31_lite", "gpt_image_2", 3.5)
         assert a.cast == [{"name": "Wren", "description": "a witch"}]
         assert a.palette == [f"#10203{i}" for i in range(6)]
 
@@ -541,7 +634,8 @@ class TestSettingsPage:
         monkeypatch.setattr("core.paths.CHANNELS_DIR", tmp_path / "channels")
         response = client.post("/api/channels/test_channel/animation/bible",
                                headers={"X-CSRF-Token": csrf(client)},
-                               json={"look": "risograph", "style_notes": "pink"})
+                               json={"style": {"material": "risograph"},
+                                     "style_notes": "pink"})
         assert response.get_json() == {"frames": [], "chosen": 0, "cast": {}, "prompts": [],
                                        "stale": False}
 
@@ -565,7 +659,14 @@ class TestSettingsPage:
         assert response.get_json() == {"job_id": "job1"}
         assert started[0][1]["type"] == "animation_preview" and started[0][1]["animate"] is False
 
-    def test_animating_a_preview_needs_the_key(self, client, tmp_path, monkeypatch):
+    def test_animating_a_preview_needs_the_key(self, client, config_path, tmp_path,
+                                               monkeypatch):
+        """For a style animated by a video model; a composited one needs no
+        key (tests/test_compositor.py)."""
+        from core.channels import load_channels, save_channel
+        channel = load_channels(config_path)["test_channel"]
+        channel.animation.style = dict(style.starting_point("painted_history")["answers"])
+        save_channel(channel, config_path)
         monkeypatch.delenv("FAL_KEY", raising=False)
         video = tmp_path / "out" / "v.mp4"
         video.parent.mkdir(parents=True, exist_ok=True)
@@ -616,10 +717,10 @@ class TestPreviewJob:
         assert job_eta._durations(job) == {}
 
 
-# --- each look's example pictures -------------------------------------------------
+# --- each material's example pictures ---------------------------------------------
 
-class TestLookExamples:
-    def test_every_look_is_drawn_with_the_same_subjects(self, monkeypatch, tmp_path):
+class TestMaterialExamples:
+    def test_every_material_is_drawn_with_the_same_subjects(self, monkeypatch, tmp_path):
         from pipeline.animation import samples
         monkeypatch.setattr(samples, "SAMPLES_DIR", tmp_path)
         monkeypatch.setattr(samples, "CACHE_DIR", tmp_path / "cache")
@@ -638,10 +739,11 @@ class TestLookExamples:
         from PIL import Image
         assert Image.open(made[0]).size == samples.SIZE
         subject = samples.SUBJECTS[0][1]
-        assert sum(subject in p for p in prompts) == 2           # the same subject in both looks
+        assert sum(subject in p for p in prompts) == 2           # the same subject in both
         assert samples.draw(["risograph"]) == []                   # nothing missing: nothing drawn
         assert [label for _, label, _ in samples.available("risograph")] == \
             [label for label, _ in samples.SUBJECTS]
+        assert samples.draw(["custom"]) == []                      # "something else" has none
 
     def test_one_refused_picture_does_not_stop_the_rest(self, monkeypatch, tmp_path):
         from pipeline.animation import samples
@@ -656,26 +758,25 @@ class TestLookExamples:
         monkeypatch.setattr(samples, "_draw_one", fake_one)
         assert len(samples.draw(["engraving"])) == len(samples.SUBJECTS) - 1
 
-    def test_the_cards_show_the_examples_and_the_route_serves_them(self, client, monkeypatch,
-                                                                   tmp_path):
+    def test_the_builder_shows_the_examples_and_the_route_serves_them(self, client, monkeypatch,
+                                                                     tmp_path):
         from pipeline.animation import samples
         monkeypatch.setattr(samples, "SAMPLES_DIR", tmp_path)
-        samples.path("clean_cel", 0).write_bytes(b"\xff\xd8jpeg")
+        samples.path("felt", 0).write_bytes(b"\xff\xd8jpeg")
         body = client.get("/channels/test_channel/settings").get_data(as_text=True)
-        assert "/animation/looks/clean_cel/1.jpg" in body
-        assert 'data-anim-look-zoom="clean_cel"' in body
-        assert 'data-anim-look-zoom="risograph"' not in body          # none drawn: no viewer
-        assert client.get("/animation/looks/clean_cel/1.jpg").data == b"\xff\xd8jpeg"
-        assert client.get("/animation/looks/clean_cel/2.jpg").status_code == 404
-        assert client.get("/animation/looks/clean_cel/9.jpg").status_code == 404
-        assert client.get("/animation/looks/nope/1.jpg").status_code == 404
+        assert "/animation/materials/felt/1.jpg" in body
+        assert "/animation/materials/felt/2.jpg" not in body         # not drawn: not offered
+        assert client.get("/animation/materials/felt/1.jpg").data == b"\xff\xd8jpeg"
+        assert client.get("/animation/materials/felt/2.jpg").status_code == 404
+        assert client.get("/animation/materials/felt/9.jpg").status_code == 404
+        assert client.get("/animation/materials/nope/1.jpg").status_code == 404
 
     def test_the_shipped_examples_are_complete(self):
-        """Every look carries its four examples in the repository, so the
-        picker is never a wall of text on a fresh install."""
+        """Every material carries its four examples in the repository, so
+        the builder is never a wall of text on a fresh install."""
         from pipeline.animation import samples
-        missing = [(k, n + 1) for k in looks.presets() for n in range(len(samples.SUBJECTS))
-                   if not samples.path(k, n).exists()]
+        missing = [(m, n + 1) for m in samples.materials() for n in range(len(samples.SUBJECTS))
+                   if not samples.path(m, n).exists()]
         assert not missing, missing
 
 

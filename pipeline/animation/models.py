@@ -63,7 +63,10 @@ class VideoModel:
         return round(seconds * self.price.get(quality, self.price["standard"]), 4)
 
     def request(self, prompt: str, image_url: str, seconds: int, quality: str,
-                seed: int = None, last_image_url: str = None) -> dict:
+                seed: int = None, last_image_url: str = None,
+                aspect_ratio: str = "9:16") -> dict:
+        """The model's request. MiniMax takes its shape from the first
+        frame; Veo is told it ("9:16" for a short, "16:9" widescreen)."""
         if self.shape == "minimax":
             body = {"prompt": prompt, "image_url": image_url, "duration": int(seconds),
                     "resolution": self.resolution[quality],
@@ -74,7 +77,7 @@ class VideoModel:
                 body["end_image_url"] = last_image_url
         elif self.shape == "veo":
             body = {"prompt": prompt, "image_url": image_url, "duration": f"{int(seconds)}s",
-                    "resolution": self.resolution[quality], "aspect_ratio": "9:16",
+                    "resolution": self.resolution[quality], "aspect_ratio": aspect_ratio,
                     "generate_audio": False}
         else:
             raise ValueError(f"unknown request shape {self.shape!r}")

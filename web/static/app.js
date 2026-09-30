@@ -3074,32 +3074,396 @@ async function startLongform(channelKey, button) {
   });
 }
 
-// --- Generated animation settings (web.blueprints.animation) ----------------
-// The buttons act on the form as it stands, saved or not: style frames are
-// filed by what they were drawn from, so trying a look and switching back
-// finds the earlier frames again.
+// --- Animation settings and the style builder (web.blueprints.animation) ----
+// The style is answers to the questions in pipeline/animation/style/
+// grammar.yaml, asked in order. Each question offers only the options whose
+// conditions hold for the answers before it; an answer an earlier change
+// rules out is replaced by the question's default and the change is said.
+// styleFits and styleNormalise are pipeline.animation.style's `valid` and
+// `normalise`, and must agree with them (tests/test_style.py checks the
+// server side; the server normalises whatever it's sent before saving).
+//
+// The buttons act on the form as it stands, saved or not: previews and
+// style frames are filed by what they were made from, so trying a style
+// and switching back finds the earlier ones again.
+
+function styleMatches(condition, answers) {
+  if (!condition) return true;
+  if (Array.isArray(condition)) return !condition.length || condition.some(c => styleMatches(c, answers));
+  return Object.entries(condition).every(([q, allowed]) => [].concat(allowed).includes(answers[q]));
+}
+function styleAnyListed(condition, answers) {
+  if (Array.isArray(condition)) return condition.some(c => styleAnyListed(c, answers));
+  return Object.entries(condition).some(([q, listed]) => [].concat(listed).includes(answers[q]));
+}
+function styleFits(option, answers) {
+  if ("when" in option && !styleMatches(option.when, answers)) return false;
+  if ("not" in option && styleAnyListed(option.not, answers)) return false;
+  return true;
+}
+function styleDefault(question, answers) {
+  const offered = question.options.filter(o => styleFits(o, answers)).map(o => o.id);
+  for (const rule of question.defaults || []) {
+    if (offered.includes(rule.option) && styleMatches(rule.when, answers)) return rule.option;
+  }
+  return offered.length ? offered[0] : null;
+}
+// {answers, changed}. `lenient` keeps a "something else" whose words
+// haven't been typed yet (the server would replace it on saving).
+function styleNormalise(questions, given, lenient = false) {
+  const custom = given.custom || {};
+  const answers = {}, changed = [];
+  for (const q of questions) {
+    const offered = q.options.filter(o => styleFits(o, answers)).map(o => o.id);
+    if (!offered.length) continue;
+    const g = given[q.id];
+    const option = q.options.find(o => o.id === g);
+    if (offered.includes(g) && (lenient || !option.custom || (custom[q.id] || "").trim())) {
+      answers[q.id] = g;
+    } else {
+      if (g) changed.push(q.id);
+      answers[q.id] = styleDefault(q, answers);
+    }
+  }
+  answers.custom = {};
+  for (const q of questions) {
+    const option = q.options.find(o => o.id === answers[q.id]);
+    if (option && option.custom && (custom[q.id] || "").trim()) answers.custom[q.id] = custom[q.id].trim();
+  }
+  return {answers, changed};
+}
+
 function initAnimationSettings() {
   const root = document.querySelector("[data-animation-settings]");
   if (!root) return;
   const channel = root.dataset.channel;
   const form = root.closest("form");
-  const presets = JSON.parse(root.querySelector("[data-anim-presets]").textContent);
-  const framesBox = root.querySelector("[data-anim-frames]");
-  const framesStatus = root.querySelector("[data-anim-frames-status]");
-  const castStatus = root.querySelector("[data-anim-cast-status]");
-  const estimateLine = root.querySelector("[data-anim-estimate]");
-  const customPalette = root.querySelector("[data-anim-palette-custom]");
-  const paletteInputs = [...root.querySelectorAll("[data-anim-palette]")];
+  const falReady = root.dataset.falReady === "1";
+  const read = sel => JSON.parse(root.querySelector(sel).textContent);
+  const questions = read("[data-anim-grammar]").questions;
+  const starts = read("[data-anim-starts]");
+  const materialPictures = read("[data-anim-materials]");
+  let server = read("[data-anim-state]");
+  const $ = sel => root.querySelector(sel);
+  const $$ = sel => [...root.querySelectorAll(sel)];
+  const option = (qid, oid) => questions.find(q => q.id === qid)?.options.find(o => o.id === oid);
 
-  const lookKey = () => form.querySelector("input[name=anim_look]:checked")?.value;
+  const framesBox = $("[data-anim-frames]");
+  const framesStatus = $("[data-anim-frames-status]");
+  const castStatus = $("[data-anim-cast-status]");
+  const estimateLine = $("[data-anim-estimate]");
+  const customPalette = $("[data-anim-palette-custom]");
+  const paletteInputs = $$("[data-anim-palette]");
+  const list = $("[data-style-questions]");
+
+  // --- the questions ---------------------------------------------------------
+  // Every option is in the page; the ones that don't fit are hidden (and
+  // disabled, so they can't be submitted).
+  const exampleFor = (qid, oid, answers) => {
+    // A starting point's example showing this option, preferring one that
+    // shares the most answers already given.
+    let best = null, bestScore = -1;
+    for (const sp of starts) {
+      if (!sp.example || sp.answers[qid] !== oid) continue;
+      const score = questions.filter(q => answers[q.id] && sp.answers[q.id] === answers[q.id]).length;
+      if (score > bestScore) { best = sp; bestScore = score; }
+    }
+    return best;
+  };
+  const SHOWS_EXAMPLE = ["approach", "stage", "people", "presenter", "words"];
+
+  questions.forEach((q, index) => {
+    const li = document.createElement("li");
+    li.className = "style-q";
+    li.dataset.q = q.id;
+    li.innerHTML = `
+      <button type="button" class="style-q-head" data-style-toggle aria-expanded="false">
+        <span class="style-q-num"></span>
+        <span class="style-q-ask">${escapeHtml(q.ask)}</span>
+        <span class="style-q-answer" data-style-answer></span>
+      </button>
+      <div class="style-q-body">
+        <p class="hint warning-text style-q-changed-note" data-style-changed-note hidden></p>
+        <div class="style-options ${q.id === "material" ? "style-options-wide" : ""}">
+          ${q.options.map(o => `
+          <label class="style-option" data-option="${escapeHtml(o.id)}">
+            ${q.id === "material" ? `<span class="style-option-thumbs">${
+              (materialPictures[o.id] || []).map(p => `<img src="${escapeHtml(p.url)}" alt="${escapeHtml(o.label)}: ${escapeHtml(p.label)}" loading="lazy">`).join("")
+              || (o.custom ? "" : `<span class="hint">No examples yet</span>`)}</span>` : ""}
+            ${SHOWS_EXAMPLE.includes(q.id) ? `<span class="style-option-example" data-style-example></span>` : ""}
+            <span class="style-option-text">
+              <span class="style-option-title">
+                <input type="radio" name="anim_style_${escapeHtml(q.id)}" value="${escapeHtml(o.id)}">
+                <strong>${escapeHtml(o.label)}</strong>
+                ${q.id === "material" && (materialPictures[o.id] || []).length
+                  ? `<button type="button" class="btn-ghost btn-small" data-style-zoom="${escapeHtml(o.id)}">See larger</button>` : ""}
+              </span>
+              ${o.hint ? `<span class="hint">${escapeHtml(o.hint)}</span>` : ""}
+              ${(o.palettes || [])[0] ? `<span class="style-swatches">${o.palettes[0].map(c =>
+                `<i style="background:${escapeHtml(c)}"></i>`).join("")}</span>` : ""}
+            </span>
+          </label>`).join("")}
+        </div>
+        ${q.options.some(o => o.custom) ? `
+        <label class="field-row style-custom" data-style-custom hidden>
+          <span class="field-label">In a few words</span>
+          <input type="text" name="anim_style_custom_${escapeHtml(q.id)}" maxlength="300"
+                 placeholder="What it is, as you'd tell an illustrator">
+        </label>` : ""}
+        <p class="hint style-q-note" data-style-note></p>
+      </div>`;
+    list.appendChild(li);
+  });
+  const item = qid => list.querySelector(`[data-q="${qid}"]`);
+  const customInput = qid => item(qid).querySelector(`[name="anim_style_custom_${qid}"]`);
+
+  const given = () => {
+    const out = {custom: {}};
+    for (const q of questions) {
+      const checked = item(q.id).querySelector(`input[name="anim_style_${q.id}"]:checked`);
+      if (checked) out[q.id] = checked.value;
+      const words = customInput(q.id);
+      if (words && words.value.trim()) out.custom[q.id] = words.value.trim();
+    }
+    return out;
+  };
+
+  const setAnswers = style => {
+    for (const q of questions) {
+      item(q.id).querySelectorAll(`input[name="anim_style_${q.id}"]`).forEach(r => {
+        r.disabled = false;
+        r.checked = r.value === style[q.id];
+      });
+      const words = customInput(q.id);
+      if (words) words.value = (style.custom || {})[q.id] || "";
+    }
+  };
+
+  let openQ = null;
+  const open = qid => {
+    openQ = qid;
+    list.querySelectorAll(".style-q").forEach(li => {
+      li.classList.toggle("open", li.dataset.q === qid);
+      li.querySelector("[data-style-toggle]").setAttribute("aria-expanded", String(li.dataset.q === qid));
+    });
+    const li = qid && item(qid);
+    if (li) li.scrollIntoView({block: "nearest", behavior: "smooth"});
+  };
+  const nextAfter = qid => {
+    const shown = questions.filter(q => !item(q.id).hidden).map(q => q.id);
+    return shown[shown.indexOf(qid) + 1] || null;
+  };
+
+  // Brings the page in line with the answers: offered options, defaults
+  // for anything ruled out, the heads, the sentence and the card.
+  let changedNotes = {};
+  const sync = () => {
+    const before = given();
+    const {answers, changed} = styleNormalise(questions, before, true);
+    for (const qid of changed) {
+      const was = option(qid, before[qid]), now = option(qid, answers[qid]);
+      const q = questions.find(x => x.id === qid);
+      changedNotes[qid] = was && now
+        ? `${q.short} is now “${now.label}”: “${was.label}” doesn't fit the answers above.` : "";
+    }
+    const upto = {};
+    let number = 0;
+    for (const q of questions) {
+      const li = item(q.id);
+      const offered = q.options.filter(o => styleFits(o, upto));
+      li.hidden = offered.length <= 1;
+      if (!li.hidden) number += 1;
+      li.querySelector(".style-q-num").textContent = number;
+      li.querySelectorAll(".style-option").forEach(label => {
+        const fits = offered.some(o => o.id === label.dataset.option);
+        label.hidden = !fits;
+        const radio = label.querySelector("input");
+        radio.disabled = !fits;
+        radio.checked = radio.value === answers[q.id];
+        const slot = label.querySelector("[data-style-example]");
+        if (slot) {
+          const ex = fits && exampleFor(q.id, label.dataset.option, upto);
+          const img = slot.querySelector("img");
+          if (!ex) slot.innerHTML = "";
+          else if (!img || img.dataset.sp !== ex.id) {
+            slot.innerHTML = `<img src="${escapeHtml(ex.example)}" alt="" data-sp="${escapeHtml(ex.id)}" loading="lazy" title="Seen in: ${escapeHtml(ex.label)}">`;
+          }
+        }
+      });
+      const chosen = option(q.id, answers[q.id]);
+      const words = (answers.custom || {})[q.id] || customInput(q.id)?.value.trim();
+      li.querySelector("[data-style-answer]").textContent =
+        chosen ? (chosen.custom ? (words || "Something else (say what)") : chosen.label) : "";
+      const custom = li.querySelector("[data-style-custom]");
+      if (custom) custom.hidden = !(chosen && chosen.custom);
+      const hiddenCount = q.options.length - offered.length;
+      li.querySelector("[data-style-note]").textContent = hiddenCount
+        ? `${hiddenCount} other option${hiddenCount === 1 ? "" : "s"} ${hiddenCount === 1 ? "doesn't" : "don't"} fit the answers above, so ${hiddenCount === 1 ? "it isn't" : "they aren't"} offered.`
+        : "";
+      const note = li.querySelector("[data-style-changed-note]");
+      note.textContent = changedNotes[q.id] || "";
+      note.hidden = !changedNotes[q.id];
+      li.classList.toggle("style-q-changed", Boolean(changedNotes[q.id]));
+      if (answers[q.id]) upto[q.id] = answers[q.id];
+    }
+    const changedLine = $("[data-style-changed]");
+    const names = questions.filter(q => changedNotes[q.id]).map(q => q.short.toLowerCase());
+    changedLine.textContent = names.length
+      ? `Changed to fit your new answer: ${names.join(", ")} (see ${names.length === 1 ? "that question" : "those questions"}).` : "";
+    changedLine.hidden = !names.length;
+    showStyle(answers);
+    return answers;
+  };
+
+  // --- the sentence, the engine and the picture ------------------------------
+  const phrase = (answers, qid) => {
+    const o = option(qid, answers[qid]);
+    return o ? (o.phrase || "").replace("{custom}", (answers.custom || {})[qid] || "").trim() : "";
+  };
+  const summary = answers => {
+    const head = ["approach", "stage", "material"].map(q => phrase(answers, q)).filter(Boolean).join(", ");
+    const extras = ["people", "presenter"].map(q => phrase(answers, q)).filter(Boolean);
+    const tail = ["mood", "motion", "words"].map(q => phrase(answers, q)).filter(Boolean);
+    let s = head + (extras.length ? ", " + extras.join(", ") : "");
+    if (tail.length) s += "; " + tail.join(", ");
+    s = s.trim();
+    return s ? s[0].toUpperCase() + s.slice(1) + "." : "";
+  };
+  const merged = (answers, key, fallback) => {
+    let value = fallback;
+    for (const q of questions) {
+      const o = option(q.id, answers[q.id]);
+      if (o && key in o) value = o[key];
+    }
+    return value;
+  };
+  const title = answers => {
+    const m = option("material", answers.material);
+    const material = answers.material === "custom"
+      ? ((answers.custom || {}).material || "Custom").slice(0, 30) : (m?.label || "").split(/[,(]/)[0].trim();
+    const stage = (option("stage", answers.stage)?.label || "").split(/[,(]/)[0].trim();
+    return material && stage ? `${material}: ${stage.toLowerCase()}` : material || stage;
+  };
+  const composited = answers => merged(answers, "engine", "generated") === "compositor";
+
+  let current = {};
+  let ready = false;
+  let frameKey = "vertical";           // what previews are made for: a short, or widescreen
+  const showStyle = answers => {
+    current = answers;
+    $("[data-style-title]").textContent = title(answers);
+    $("[data-style-summary]").textContent = summary(answers);
+    const comp = composited(answers);
+    $("[data-style-engine]").innerHTML = comp
+      ? `<span class="style-engine-badge composited">Composited</span> Made from pictures drawn once and kept, filmed on this computer: a few cents a video, no video model.`
+      : `<span class="style-engine-badge generated">Video model</span> Each shot is drawn and then animated by a video model: see Quality and cost below for the price.${falReady ? "" : " Needs <code>FAL_KEY</code>; until then, videos use still pictures in this style."}`;
+    $$("[data-anim-composited-only]").forEach(e => { e.hidden = !comp; });
+    $$("[data-anim-generated-only]").forEach(e => { e.hidden = comp; });
+    const avatar = Boolean(merged(answers, "avatar", false));
+    $("[data-anim-host-hint]").hidden = !avatar;
+    $("[data-anim-cast-block]").hidden = comp && !avatar;
+    const moving = $("[data-style-preview=moving]");
+    moving.disabled = !comp && !falReady;
+    moving.title = moving.disabled ? "Needs FAL_KEY (see APIs)" : (comp
+      ? "Films a few seconds of the preview on this computer; costs nothing more."
+      : "Animates the preview with the video model: a few tens of cents.");
+    const animate = $("[data-anim-animate]");
+    if (animate) {
+      animate.disabled = !comp && !falReady;
+      animate.title = animate.disabled ? "Needs FAL_KEY" : "";
+    }
+    showPalettes(answers);
+    showPicture();
+    if (ready) refresh();
+  };
+
+  // The picture beside the questions: this style's own preview if one has
+  // been made (in the frame chosen above it); otherwise the nearest
+  // example, and says which it is.
+  const showPicture = () => {
+    const box = $("[data-style-picture]");
+    const caption = $("[data-style-caption]");
+    const answers = current;
+    const own = server.style && server.frame === frameKey &&
+      ["approach", "stage", "material", "people", "mood", "motion", "words", "presenter"]
+        .every(q => (server.style[q] || null) === (answers[q] || null));
+    const wideNote = frameKey === "wide" ? " Examples are vertical shorts; See this style to make it widescreen." : "";
+    const put = (html, text, key, wide = false) => {
+      if (box.dataset.key !== key) { box.innerHTML = html; box.dataset.key = key; }
+      box.classList.toggle("wide", wide);
+      caption.textContent = text;
+    };
+    const which = frameKey === "wide" ? "widescreen" : "vertical";
+    if (own && server.preview?.moving) {
+      put(`<video src="${escapeHtml(server.preview.moving)}" autoplay loop muted playsinline></video>`,
+          `This style, moving, ${which}, on the channel's subject.`, server.preview.moving,
+          frameKey === "wide");
+      return;
+    }
+    if (own && server.preview?.still) {
+      put(`<img src="${escapeHtml(server.preview.still)}" alt="A frame of this style">`,
+          `A ${which} frame of this style, made by the real renderer on the channel's subject.`,
+          server.preview.still, frameKey === "wide");
+      return;
+    }
+    const same = q => starts.filter(sp => sp.example && q.every(k => sp.answers[k] === answers[k]));
+    const exact = same(["approach", "stage", "material", "people", "presenter", "mood"])[0];
+    const close = exact || same(["approach", "stage", "material"])[0];
+    if (close) {
+      put(`<img src="${escapeHtml(close.example)}" alt="${escapeHtml(close.label)}">`,
+          (exact ? `This style, from the examples (“${close.label}”, on its own subject). See it on yours below.`
+                 : `The nearest example, “${close.label}”: the same stage and material, but not every answer. See this exact style below.`) + wideNote,
+          close.example);
+      return;
+    }
+    const pictures = materialPictures[answers.material] || [];
+    if (pictures.length) {
+      put(`<img src="${escapeHtml(pictures[0].url)}" alt="">`,
+          `The material on its own, not yet on this stage. See this exact style below.` + wideNote,
+          pictures[0].url);
+      return;
+    }
+    put(`<span class="hint">Not seen yet</span>`, "See this style to make a frame of it.", "none");
+  };
+
+  // --- colours ---------------------------------------------------------------
+  const showPalettes = answers => {
+    const own = option("material", answers.material)?.palette || [];
+    const mood = option("mood", answers.mood);
+    const rows = [];
+    if (own.length) rows.push({label: `${option("material", answers.material).label}'s own`, colours: own});
+    (mood?.palettes || []).forEach((p, i) => rows.push({label: `${mood.label}${i ? ` (${i + 1})` : ""}`, colours: p}));
+    $("[data-style-palettes]").innerHTML = rows.map((r, i) => `
+      <button type="button" class="style-palette" data-style-palette="${i}" title="Use these colours">
+        <span class="style-swatches">${r.colours.map(c => `<i style="background:${escapeHtml(c)}"></i>`).join("")}</span>
+        <span class="hint">${escapeHtml(r.label)}</span>
+      </button>`).join("");
+    $("[data-style-palettes]")._rows = rows;
+    if (!customPalette.checked) fillPalette(own);
+  };
+  const fillPalette = colours => paletteInputs.forEach((input, i) => { if (colours[i]) input.value = colours[i]; });
+  customPalette.addEventListener("change", () => {
+    paletteInputs.forEach(i => { i.disabled = !customPalette.checked; });
+    if (!customPalette.checked) fillPalette(option("material", current.material)?.palette || []);
+    refresh();
+  });
+
+  // --- the form as it stands, for the server --------------------------------
   const state = () => ({
-    look: lookKey(),
+    style: given(),
     style_notes: form.querySelector("[name=anim_style_notes]").value,
     palette: customPalette.checked ? paletteInputs.map(i => i.value) : [],
-    cast: [...root.querySelectorAll("[data-anim-cast-row]")].map(row => ({
+    cast: $$("[data-anim-cast-row]").map(row => ({
       name: row.querySelector("[data-anim-cast-name]").value,
       description: row.querySelector("[data-anim-cast-desc]").value,
     })).filter(c => c.name.trim()),
+    energy: form.querySelector("[name=anim_energy]").value,
+    pace: form.querySelector("[name=anim_pace]").value,
+    finish: form.querySelector("[name=anim_finish]").value,
+    video_model: form.querySelector("[name=anim_video_model]")?.value,
+    quality: form.querySelector("[name=anim_quality]")?.value,
+    subject: $("[data-style-subject]").value,
+    frame: frameKey,
   });
   const post = async (url, body) => {
     const res = await apiFetch(url, {method: "POST", headers: {"Content-Type": "application/json"},
@@ -3109,157 +3473,257 @@ function initAnimationSettings() {
     return data;
   };
 
-  const render = bible => {
+  const renderBible = bible => {
     framesBox.innerHTML = bible.frames.length ? bible.frames.map(f => `
       <button type="button" class="anim-frame ${f.index === bible.chosen ? "chosen" : ""}"
               data-anim-choose="${f.index}" title="Use this one">
         <img src="${escapeHtml(f.url)}" alt="Style frame ${f.index + 1}">
       </button>`).join("")
-      : `<p class="hint">${bible.stale ? "The look has changed since its frames were drawn." : "Not drawn yet."}</p>`;
-    root.querySelectorAll("[data-anim-cast-row]").forEach(row => {
+      : `<p class="hint">${bible.stale ? "The style has changed since its frames were drawn." : "Not drawn yet."}</p>`;
+    $$("[data-anim-cast-row]").forEach(row => {
       const name = row.querySelector("[data-anim-cast-name]").value.trim();
-      const slot = row.querySelector(".anim-sheet");
       const url = bible.cast[name];
-      slot.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}'s model sheet">` : "";
+      row.querySelector(".anim-sheet").innerHTML =
+        url ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(name)}'s model sheet">` : "";
     });
+  };
+  const showServer = data => {
+    server = data;
+    renderBible(data.bible);
+    showPicture();
   };
 
   let refreshTimer = null;
   const refresh = () => {
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(async () => {
-      try { render(await post(`/api/channels/${channel}/animation/bible`, state())); }
-      catch (err) { framesStatus.textContent = err.message; }
-    }, 600);
+      try { showServer(await post(`/api/channels/${channel}/animation/style`, state())); }
+      catch (err) { $("[data-style-preview-status]").textContent = err.message; }
+    }, 450);
   };
 
-  // A preset's own palette fills the swatches until you choose your own.
-  const showPresetPalette = () => {
-    if (customPalette.checked) return;
-    const palette = presets[lookKey()]?.palette || [];
-    paletteInputs.forEach((input, i) => { if (palette[i]) input.value = palette[i]; });
-  };
-  customPalette.addEventListener("change", () => {
-    paletteInputs.forEach(i => { i.disabled = !customPalette.checked; });
-    showPresetPalette();
-  });
-  // The format decides which looks suit it (marked, and listed first) and
-  // whether the video-model settings apply at all.
-  const allFormats = JSON.parse(root.querySelector("[data-anim-formats]").textContent);
-  const lookGrid = root.querySelector(".anim-looks");
-  const showFormat = () => {
-    const key = form.querySelector("input[name=anim_format]:checked")?.value;
-    const fmt = allFormats[key] || {};
-    const suits = fmt.looks || [];
-    const cards = [...lookGrid.querySelectorAll("[data-anim-look-card]")];
-    cards.forEach(card => {
-      card.querySelector("[data-anim-fits]").hidden = !suits.includes(card.dataset.animLookCard);
+  // --- the frame previews are made for, and seeing one larger --------------
+  $$("[data-style-frame]").forEach(button => button.addEventListener("click", () => {
+    frameKey = button.dataset.styleFrame;
+    $$("[data-style-frame]").forEach(b => {
+      b.classList.toggle("active", b === button);
+      b.setAttribute("aria-pressed", String(b === button));
     });
-    cards.sort((a, b) => {
-      const ia = suits.indexOf(a.dataset.animLookCard), ib = suits.indexOf(b.dataset.animLookCard);
-      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-    }).forEach(card => lookGrid.appendChild(card));
-    const composited = fmt.engine === "compositor";
-    root.querySelectorAll("[data-anim-composited-only]").forEach(e => { e.hidden = !composited; });
-    root.querySelectorAll("[data-anim-generated-only]").forEach(e => { e.hidden = composited; });
-    estimateLine.hidden = composited;
-  };
-  form.querySelectorAll("input[name=anim_format]").forEach(r => r.addEventListener("change", () => {
-    showFormat();
-    // A format's best look, when the chosen one isn't among them.
-    const fmt = allFormats[form.querySelector("input[name=anim_format]:checked").value] || {};
-    if (fmt.looks && !fmt.looks.includes(lookKey())) {
-      const radio = form.querySelector(`input[name=anim_look][value="${fmt.looks[0]}"]`);
-      if (radio) { radio.checked = true; radio.dispatchEvent(new Event("change", {bubbles: true})); }
-    }
-  }));
-  showFormat();
-
-  const ownCadence = root.querySelector("[data-anim-own-cadence]");
-  form.querySelectorAll("input[name=anim_look]").forEach(r => r.addEventListener("change", () => {
-    showPresetPalette();
-    if (ownCadence) ownCadence.textContent = `The look's own (${presets[lookKey()]?.cadence || "twos"})`;
+    showPicture();
     refresh();
   }));
-  root.querySelectorAll("[data-anim-bible-field]").forEach(f => f.addEventListener("change", refresh));
+  $("[data-style-picture]").addEventListener("click", () => {
+    const picture = $("[data-style-picture]").querySelector("img, video");
+    if (!picture) return;
+    viewer.classList.add("single");
+    viewer.querySelector("[data-anim-viewer-title]").textContent = $("[data-style-title]").textContent;
+    viewer.querySelector("[data-anim-viewer-description]").textContent = $("[data-style-caption]").textContent;
+    const large = picture.cloneNode();
+    if (large.tagName === "VIDEO") { large.controls = true; large.muted = true; large.autoplay = true; large.loop = true; }
+    const examples = viewer.querySelector("[data-anim-viewer-examples]");
+    examples.innerHTML = "";
+    examples.appendChild(large);
+    viewer.showModal();
+  });
 
-  // The looks, full size, one after another; "Use this look" picks it.
-  const examples = JSON.parse(root.querySelector("[data-anim-examples]").textContent);
-  const viewer = root.querySelector("[data-anim-viewer]");
-  const shown = Object.keys(presets).filter(k => (examples[k] || []).length);
-  let viewing = 0;
-  const showLook = index => {
-    viewing = (index + shown.length) % shown.length;
-    const key = shown[viewing];
-    viewer.querySelector("[data-anim-viewer-title]").textContent = presets[key].label;
-    viewer.querySelector("[data-anim-viewer-description]").textContent =
-      `${presets[key].description} Suits ${presets[key].suits}.`;
-    viewer.querySelector("[data-anim-viewer-examples]").innerHTML = examples[key].map(ex => `
-      <figure><img src="${escapeHtml(ex.url)}" alt="${escapeHtml(presets[key].label)}: ${escapeHtml(ex.label)}">
-        <figcaption class="hint">${escapeHtml(ex.label)}</figcaption></figure>`).join("");
-    viewer.querySelector("[data-anim-viewer-count]").textContent =
-      `${viewing + 1} of ${shown.length}${key === lookKey() ? " (chosen)" : ""}`;
+  // --- starting points and descriptions -------------------------------------
+  const startStatus = $("[data-style-start-status]");
+  const useAnswers = (style, said) => {
+    changedNotes = {};
+    const {answers} = styleNormalise(questions, style, true);
+    setAnswers(answers);
+    const mood = option("mood", answers.mood);
+    if (mood && mood.energy !== undefined) form.querySelector("[name=anim_energy]").value = mood.energy;
+    sync();
+    open(null);
+    startStatus.textContent = said;
+    list.scrollIntoView({block: "start", behavior: "smooth"});
   };
   root.addEventListener("click", event => {
-    const zoom = event.target.closest("[data-anim-look-zoom]");
-    if (zoom) {
-      event.preventDefault();
-      showLook(shown.indexOf(zoom.dataset.animLookZoom));
-      viewer.showModal();
+    const opener = event.target.closest("[data-style-open]");
+    if (opener) {
+      $$("[data-style-panel]").forEach(p => {
+        p.hidden = p.dataset.stylePanel !== opener.dataset.styleOpen || !p.hidden;
+      });
+      return;
     }
+    const start = event.target.closest("[data-style-start]");
+    if (start) {
+      const sp = starts.find(s => s.id === start.dataset.styleStart);
+      $("[data-style-panel=starts]").hidden = true;
+      useAnswers(sp.answers, `Filled in from “${sp.label}”. Change any answer below; each offers only what fits.`);
+    }
+  });
+  $("[data-style-describe-go]").addEventListener("click", async event => {
+    const button = event.currentTarget;
+    const status = $("[data-style-describe-status]");
+    const text = $("[data-style-describe]").value;
+    button.disabled = true;
+    status.textContent = "Reading it and choosing the answers, about 15 seconds…";
+    try {
+      const data = await post(`/api/channels/${channel}/animation/describe`, {text});
+      const notes = form.querySelector("[name=anim_style_notes]");
+      if (data.notes && !notes.value.includes(data.notes)) {
+        notes.value = notes.value.trim() ? `${notes.value.trim()} ${data.notes}` : data.notes;
+      }
+      if (data.palette && data.palette.length) {
+        customPalette.checked = true;
+        paletteInputs.forEach(i => { i.disabled = false; });
+        fillPalette(data.palette);
+      }
+      const why = $("[data-style-why]");
+      why.textContent = data.why;
+      why.hidden = !data.why;
+      status.textContent = "";
+      useAnswers(data.style, `Built from your description${data.notes ? ", with style notes for what the options can't say" : ""}. Change anything below.`);
+    } catch (err) {
+      status.textContent = err.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  // --- answering -------------------------------------------------------------
+  list.addEventListener("click", event => {
+    const head = event.target.closest("[data-style-toggle]");
+    if (head) {
+      const qid = head.closest(".style-q").dataset.q;
+      open(openQ === qid ? null : qid);
+    }
+  });
+  list.addEventListener("change", event => {
+    const radio = event.target.closest("input[type=radio]");
+    if (!radio) return;
+    const qid = radio.name.replace("anim_style_", "");
+    changedNotes = {};
+    const answers = sync();
+    if (qid === "mood") {
+      const mood = option("mood", answers.mood);
+      if (mood && mood.energy !== undefined) form.querySelector("[name=anim_energy]").value = mood.energy;
+    }
+    const chosen = option(qid, radio.value);
+    if (chosen && chosen.custom) {
+      customInput(qid)?.focus();
+      return;
+    }
+    open(nextAfter(qid));
+  });
+  let typing = null;
+  list.addEventListener("input", event => {
+    if (!event.target.name?.startsWith("anim_style_custom_")) return;
+    clearTimeout(typing);
+    typing = setTimeout(sync, 300);
+  });
+  list.addEventListener("keydown", event => {
+    if (event.key === "Enter" && event.target.name?.startsWith("anim_style_custom_")) {
+      event.preventDefault();
+      open(nextAfter(event.target.name.replace("anim_style_custom_", "")));
+    }
+  });
+
+  // Materials, full size, one after another (only the ones on offer).
+  const viewer = $("[data-anim-viewer]");
+  let viewing = 0, shown = [];
+  const showMaterial = index => {
+    viewing = (index + shown.length) % shown.length;
+    const o = option("material", shown[viewing]);
+    viewer.querySelector("[data-anim-viewer-title]").textContent = o.label;
+    viewer.querySelector("[data-anim-viewer-description]").textContent = o.hint || "";
+    viewer.querySelector("[data-anim-viewer-examples]").innerHTML = (materialPictures[o.id] || []).map(p => `
+      <figure><img src="${escapeHtml(p.url)}" alt="${escapeHtml(o.label)}: ${escapeHtml(p.label)}">
+        <figcaption class="hint">${escapeHtml(p.label)}</figcaption></figure>`).join("");
+    viewer.querySelector("[data-anim-viewer-count]").textContent =
+      `${viewing + 1} of ${shown.length} that fit${o.id === current.material ? " (chosen)" : ""}`;
+  };
+  list.addEventListener("click", event => {
+    const zoom = event.target.closest("[data-style-zoom]");
+    if (!zoom) return;
+    event.preventDefault();
+    shown = [...item("material").querySelectorAll(".style-option:not([hidden])")]
+      .map(l => l.dataset.option).filter(id => (materialPictures[id] || []).length);
+    viewer.classList.remove("single");
+    showMaterial(shown.indexOf(zoom.dataset.styleZoom));
+    viewer.showModal();
+  });
+  viewer.addEventListener("click", event => {
     const step = event.target.closest("[data-anim-viewer-step]");
-    if (step) showLook(viewing + Number(step.dataset.animViewerStep));
+    if (step) showMaterial(viewing + Number(step.dataset.animViewerStep));
     if (event.target.closest("[data-anim-viewer-close]")) viewer.close();
     if (event.target.closest("[data-anim-viewer-use]")) {
-      const radio = form.querySelector(`input[name=anim_look][value="${shown[viewing]}"]`);
+      const radio = item("material").querySelector(`input[value="${shown[viewing]}"]`);
       radio.checked = true;
       radio.dispatchEvent(new Event("change", {bubbles: true}));
       viewer.close();
-      radio.closest("[data-anim-look-card]").scrollIntoView({block: "center", behavior: "smooth"});
     }
     if (event.target === viewer) viewer.close();          // a click on the backdrop
   });
   viewer.addEventListener("keydown", event => {
-    if (event.key === "ArrowRight") showLook(viewing + 1);
-    if (event.key === "ArrowLeft") showLook(viewing - 1);
+    if (event.key === "ArrowRight") showMaterial(viewing + 1);
+    if (event.key === "ArrowLeft") showMaterial(viewing - 1);
   });
 
+  // --- previews, frames, cast, trials -----------------------------------------
   root.addEventListener("click", async event => {
+    const palette = event.target.closest("[data-style-palette]");
+    const previewStyle = event.target.closest("[data-style-preview]");
     const draw = event.target.closest("[data-anim-draw-frames]");
     const choose = event.target.closest("[data-anim-choose]");
     const cast = event.target.closest("[data-anim-draw-cast]");
-    const previewButton = event.target.closest("[data-anim-preview]");
+    const trial = event.target.closest("[data-anim-preview]");
+    const previewStatus = $("[data-style-preview-status]");
     try {
-      if (draw) {
+      if (palette) {
+        customPalette.checked = true;
+        paletteInputs.forEach(i => { i.disabled = false; });
+        fillPalette($("[data-style-palettes]")._rows[Number(palette.dataset.stylePalette)].colours);
+        refresh();
+      } else if (previewStyle) {
+        const moving = previewStyle.dataset.stylePreview === "moving";
+        $$("[data-style-preview]").forEach(b => { b.disabled = true; });
+        previewStatus.textContent = composited(current)
+          ? (moving ? "Filming a few seconds of it, a minute or two…"
+                    : "Writing a moment, drawing what it needs and filming a frame: about a minute…")
+          : (moving ? "Animating it with the video model, a minute or two…"
+                    : "Drawing a frame of it, about 30 seconds…");
+        showServer(await post(`/api/channels/${channel}/animation/style-preview`,
+                              {...state(), moving}));
+        previewStatus.textContent = "";
+      } else if (draw) {
         draw.disabled = true;
         framesStatus.textContent = "Drawing three frames, about a minute…";
-        render(await post(`/api/channels/${channel}/animation/frames`, state()));
+        renderBible(await post(`/api/channels/${channel}/animation/frames`, state()));
         framesStatus.textContent = "Click a frame to choose it.";
       } else if (choose) {
-        render(await post(`/api/channels/${channel}/animation/choose`,
-                          {...state(), index: Number(choose.dataset.animChoose)}));
+        renderBible(await post(`/api/channels/${channel}/animation/choose`,
+                               {...state(), index: Number(choose.dataset.animChoose)}));
       } else if (cast) {
         cast.disabled = true;
         castStatus.textContent = "Drawing model sheets, about 20 seconds each…";
-        render(await post(`/api/channels/${channel}/animation/cast`, state()));
+        renderBible(await post(`/api/channels/${channel}/animation/cast`, state()));
         castStatus.textContent = "Drawn. Save to keep the cast.";
-      } else if (previewButton) {
-        const status = root.querySelector("[data-anim-preview-status]");
-        previewButton.disabled = true;
+      } else if (trial) {
+        trial.disabled = true;
         await post(`/api/channels/${channel}/animation/preview`, {
-          video: root.querySelector("[data-anim-video]").value,
-          animate: previewButton.dataset.animPreview === "1",
+          video: $("[data-anim-video]").value,
+          animate: trial.dataset.animPreview === "1",
         });
-        status.innerHTML = `Started. Follow it on <a href="/activity">Activity</a>; it appears here when done.`;
+        $("[data-anim-preview-status]").innerHTML =
+          `Started. Follow it on <a href="/activity">Activity</a>; it appears here when done.`;
       }
     } catch (err) {
-      (cast ? castStatus : framesStatus).textContent = err.message;
-      if (previewButton) root.querySelector("[data-anim-preview-status]").textContent = err.message;
+      if (previewStyle) previewStatus.textContent = err.message;
+      else if (cast) castStatus.textContent = err.message;
+      else if (trial) $("[data-anim-preview-status]").textContent = err.message;
+      else framesStatus.textContent = err.message;
     } finally {
+      if (previewStyle) $$("[data-style-preview]").forEach(b => { b.disabled = b.dataset.stylePreview === "moving" && !composited(current) && !falReady; });
       if (draw) draw.disabled = false;
       if (cast) cast.disabled = false;
+      if (trial) trial.disabled = false;
     }
   });
+  $$("[data-anim-bible-field]").forEach(f => f.addEventListener("change", refresh));
+  $("[data-style-subject]").addEventListener("change", refresh);
 
   const updateEstimate = async () => {
     const params = new URLSearchParams({
@@ -3277,6 +3741,19 @@ function initAnimationSettings() {
       estimateLine.classList.toggle("warning-text", data.over);
     } catch (err) { /* the line keeps its last value */ }
   };
-  root.querySelectorAll("[data-anim-estimate-field]").forEach(f => f.addEventListener("change", updateEstimate));
+  $$("[data-anim-estimate-field]").forEach(f => f.addEventListener("change", updateEstimate));
+
+  // The saved style, with every question closed: a list of its answers.
+  // A channel with none yet starts at the examples.
+  // A saved style an edit to the grammar has since ruled out was repaired
+  // on the server; say so where it happened.
+  for (const qid of server.changed || []) {
+    const q = questions.find(x => x.id === qid);
+    if (q) changedNotes[qid] = `${q.short} was changed to fit the other answers since this style was saved.`;
+  }
+  setAnswers(server.style);
+  sync();
+  ready = true;
+  if (root.dataset.styleNew === "1") $("[data-style-panel=starts]").hidden = false;
 }
 document.addEventListener("DOMContentLoaded", initAnimationSettings);

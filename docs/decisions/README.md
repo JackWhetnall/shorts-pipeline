@@ -64,4 +64,6 @@ reason for a change stays true forever.
 | [049](049-fact-store.md) | A fact store from Wikidata, gathered ahead of any script, levels measured from fame | Active; now the fallback to 050 |
 | [050](050-question-bank.md) | A question bank of classic pub-quiz questions, written and checked ahead; rounds come from it first | Active |
 | [051](051-generated-animation.md) | Generated animation: a look, a bible of style frames and cast, a storyboard, keyframes checked before a video model animates them | Active; replaces illustrations where switched on |
-| [052](052-animation-formats.md) | Animation formats: tabletop, narrated canvas, story, paper theatre; a compositor with designed layouts, a reusable kit and exact labels | Active; extends 051 |
+| [052](052-animation-formats.md) | Animation formats: tabletop, narrated canvas, story, paper theatre; a compositor with designed layouts, a reusable kit and exact labels | Formats and looks superseded by 053; the compositor stands |
+| [053](053-style-grammar.md) | A channel's animated style is answers to eight questions, each offering only what fits the answers before; starting points, descriptions and a real preview | Active; replaces 052's formats and looks |
+| [054](054-minimal-diagrams-and-widescreen.md) | Minimal diagram styles (typeset formulas, charts, number lines, plots, graphs that build across beats) and one style for vertical and widescreen | Active; extends 053 |

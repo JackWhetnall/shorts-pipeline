@@ -21,10 +21,11 @@ env/
 *.jpeg
 *.gif
 *.webp
-# ...except each animation look's example pictures, which are part of the
-# look (pipeline/animation/samples.py).
-!pipeline/animation/looks/samples/*.jpg
-!pipeline/animation/formats/examples/*.jpg
+# ...except the animation style's example pictures, which are part of what
+# its options mean: each material's four (pipeline/animation/samples.py) and
+# each starting point's one (pipeline/animation/style/gallery.py).
+!pipeline/animation/style/materials/*.jpg
+!pipeline/animation/style/examples/*.jpg
 
 # Generated output and local state. The code that produces these is
 # tracked; what it produces is not. footage/ is a data directory now —

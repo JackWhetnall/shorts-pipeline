@@ -356,42 +356,37 @@ class Scenes(_MappingLike):
 # video model draws at. pipeline.animation.models turns each into a
 # model's own setting and price.
 ANIMATION_QUALITIES = ("draft", "standard", "high")
-# "" is the look's own: stop-motion on threes, painted styles on twos.
-ANIMATION_CADENCES = ("", "ones", "twos", "threes")
 
 
 @dataclass
 class Animation(_MappingLike):
-    """Animation in this channel's own format and look (pipeline.animation,
-    decisions 051 and 052). Used for the segments the visual director gives
-    to animation, which on a fully animated channel (`scenes.share` 100) is
+    """Animation in this channel's own style (pipeline.animation, decisions
+    051 to 053). Used for the segments the visual director gives to
+    animation, which on a fully animated channel (`scenes.share` 100) is
     all of them.
 
-    `format`: what kind of animated video (tabletop, canvas, story, theatre:
-    pipeline/animation/formats). Tabletop and canvas are composited from a
-    kit drawn once and need no video model; story and theatre use one.
+    `style`: the channel's answers to the style questions
+    (pipeline/animation/style/grammar.yaml), {question: option}, with the
+    user's own words for any "something else" under "custom". The pipeline
+    compiles them (pipeline.animation.style.compile); a missing or
+    no-longer-valid answer takes the question's default, so a hand-edited
+    or outdated style still renders.
 
-    `look`: a preset in pipeline/animation/looks; `style_notes` and
-    `palette` adjust it for this channel. `cast`: recurring characters,
-    [{"name", "description"}], drawn once per look and kept on-model in
-    every video. `energy` (how much moves) and `pace` (how often it cuts)
-    run 0-100; `finish` is how much of the look's grade and grain is laid
-    over the result, 0 (none) to 100 (the look's own). `budget` caps what
-    one video may spend on animation, in dollars; the storyboard is
-    planned inside it.
+    `style_notes` and `palette` adjust the style for this channel. `cast`:
+    recurring characters, [{"name", "description"}], drawn once per style;
+    on a style with a host, the first is the host. `energy` (how much moves)
+    and `pace` (how often it cuts) run 0-100; `finish` is how much of the
+    style's grade and grain is laid over the result. `budget` caps what one
+    video may spend on generated animation, in dollars.
     """
 
     enabled: bool = False
-    # What kind of animated video (pipeline/animation/formats): a story in
-    # shots, objects on a tabletop, a narrated canvas, a paper theatre.
-    format: str = "story"
-    look: str = "storybook_gouache"
+    style: dict = field(default_factory=dict)
     style_notes: str = ""
     palette: list = field(default_factory=list)
     cast: list = field(default_factory=list)
     energy: int = 50
     pace: int = 50
-    cadence: str = ""
     finish: int = 100
     quality: str = "standard"
     video_model: str = "h3_max"
@@ -646,8 +641,8 @@ class ChannelConfig:
         if a.quality not in ANIMATION_QUALITIES:
             raise ConfigError(f"{where} has animation quality {a.quality!r}. It must be one of: "
                               f"{', '.join(ANIMATION_QUALITIES)}.")
-        if a.cadence not in ANIMATION_CADENCES:
-            raise ConfigError(f"{where} has animation cadence {a.cadence!r}, which isn't recognised.")
+        if not isinstance(a.style, dict):
+            raise ConfigError(f"{where} has an animation style that isn't a set of answers.")
         if a.budget < 0:
             raise ConfigError(f"{where} has an animation budget below $0.")
         if any(not isinstance(c, dict) or not str(c.get("name") or "").strip() for c in a.cast):

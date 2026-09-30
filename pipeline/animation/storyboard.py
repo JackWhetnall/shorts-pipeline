@@ -22,7 +22,7 @@ and the whole is fitted to the budget.
 from __future__ import annotations
 
 from core.logging_setup import get_logger
-from pipeline.animation import models
+from pipeline.animation import frame as frames, models
 from pipeline.llm import SystemBlock, call_json
 
 log = get_logger(__name__)
@@ -37,8 +37,9 @@ MAX_TOKENS = 16000
 EFFORT = "medium"
 
 GUIDE = """
-You are the director and storyboard artist of a short vertical animated film: a YouTube Short,
-TikTok or Reel narrated by one voice. The narration is finished and timed. Your job is the
+You are the director and storyboard artist of an animated film narrated by one voice: a vertical
+YouTube Short, or a longer widescreen video (THE FRAME says which). The narration is finished and
+timed. Your job is the
 picture: a sequence of shots that an image model will draw (the first frame of each shot) and a
 video model will animate. Make it genuinely good animation, the kind a viewer stops scrolling for
 and a channel is proud of, not a slideshow illustrating each sentence.
@@ -87,10 +88,10 @@ Write shots the models will get right.
 WRITING EACH SHOT
 - image: the first frame, literally, as a painter would need it: who and what is where in the
   frame, pose and expression, the setting, the light and time of day, the colour emphasis. Name
-  recurring characters, places and objects by their element names. The frame is vertical 9:16:
-  stack the composition vertically, the subject in the upper two thirds, the bottom third
-  quieter (captions sit there). One to three sentences. No style words: the look is applied
-  separately.
+  recurring characters, places and objects by their element names. Compose for THE FRAME: a
+  vertical 9:16 frame stacks the composition, the subject in the upper two thirds; a widescreen
+  16:9 frame composes across its width. Either way the bottom of the frame stays quieter
+  (captions sit there). One to three sentences. No style words: the look is applied separately.
 - motion: what happens during the shot, from that frame, in order: the action, the secondary
   motion, the camera move. One or two sentences with concrete verbs, possible in the shot's
   length.
@@ -200,7 +201,9 @@ def write(segments: list, words: list, windows: list, *, subject: str, look: dic
     fmt = fmt or {}
     user = [
         f"The video is about: {subject}",
-        f"FORMAT: {fmt['label']}. {fmt['guide']}" if fmt.get("guide") else "",
+        f"THE FRAME: {frames.get(look.get('frame')).label}.",
+        f"HOW TO THINK: {fmt['guide']}" if fmt.get("guide") else "",
+        f"How people look: {look['people']}" if look.get("people") else "",
         f"The channel's look: {look['label']}. {look['description']} Its camera: "
         f"{look['camera']}. How things move in it: {look['motion']}.",
         f"Energy: {look['energy']}/100 (0 calm, 100 lively).",

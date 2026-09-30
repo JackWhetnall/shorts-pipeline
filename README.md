@@ -28,16 +28,21 @@ Then set the keys you need:
 | `FAL_KEY` | Generated animation: the video models | [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) |
 
 Only the first two are required to make a video. Animation (a channel's
-settings → Animation) needs both of the last two. Without `FAL_KEY` it can
-still make animatics, the storyboard's frames cut to a video's narration,
-to judge a look:
+settings, Animation) needs `OPENAI_API_KEY` for its pictures. Composited
+styles (objects, diagrams, plain backgrounds, puppet plays) need nothing
+more; styles animated by a video model need `FAL_KEY`, and without it can
+still make still previews and animatics:
 
 ```bash
-python tools/animate.py looks
-python tools/animate.py estimate curiosity_leak --seconds 50
-python tools/animate.py animatic curiosity_leak output/curiosity_leak/<date>/<video>.mp4 --look clean_cel
-``` Without the footage
-keys, generation falls back to clips already in the library.
+python tools/animate.py styles                                   # the starting points
+python tools/animate.py questions                                # every question and option
+python tools/animate.py preview curiosity_leak --start quant_minimal
+python tools/animate.py preview curiosity_leak --set stage=white --wide
+python tools/animate.py animatic curiosity_leak output/curiosity_leak/<date>/<video>.mp4
+```
+
+Without the footage keys, generation falls back to clips already in the
+library.
 
 **`/apis`** shows which of these are actually set, what this installation
 has spent through each, and a link to each provider's billing page. It

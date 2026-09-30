@@ -120,13 +120,12 @@ def run(channel, video_path: Path, animate: bool) -> Path:
     from pipeline.animation import stage
 
     plan = plan_for(channel, video_path)
-    from pipeline.animation import formats, look as looks
-    fmt = formats.resolve(channel.animation.format)
-    look = looks.resolve(channel.animation)
-    # A composited format has no video model: its preview is the real thing.
-    kind = "animated" if animate or formats.composited(fmt) else "animatic"
+    from pipeline.animation import style
+    fmt, look = style.compile(channel.animation)
+    # A composited style has no video model: its preview is the real thing.
+    kind = "animated" if animate or style.composited(fmt) else "animatic"
     home = preview_dir(channel.key)
-    folder = home / f"{plan.stem}_{fmt['key']}_{look['key']}_{kind}"
+    folder = home / f"{plan.stem}_{look['key']}_{kind}"
     indices = list(range(len(plan.script.segments)))
     briefs = {i: s.shot_brief for i, s in enumerate(plan.script.segments)}
     result = stage.make(plan, indices, briefs, folder, tail=0.0, animate=animate)
@@ -135,7 +134,7 @@ def run(channel, video_path: Path, animate: bool) -> Path:
                                                              "within the budget.")
     picture = Path(result.clips[0]["clip"])
     start = plan.script.segments[result.clips[0]["first"]].start
-    out = home / f"{plan.stem}_{fmt['key']}_{look['key']}_{kind}.mp4"
+    out = home / f"{plan.stem}_{look['key']}_{kind}.mp4"
     import imageio_ffmpeg
     subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-y",
                     "-i", str(picture), "-ss", f"{start:.3f}", "-i", str(plan.voiceover.audio_path),

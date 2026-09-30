@@ -107,36 +107,49 @@ pipeline/     The generation stages. No web dependency at all.
                 diagram, with the channel's slider as the bar (decision 040).
   visuals       Carries out the director's plan; failures fall back to footage.
   illustrate    One image in the channel's style, pushed in.
-  animation/    Animation in a channel's own format and look (decisions 051, 052).
-    formats/      Four formats (tabletop, canvas, story, theatre): each a grammar,
-                  its engine, stage, kit and label style; formats/examples/ holds
-                  three real frames of each.
-    formats       Loading them, and a format + look as the compositor's style.
-    looks/        Thirteen art directions: medium, light, camera, motion, cadence,
-                  grade; looks/samples/ holds each one's four example pictures.
-    samples       The examples: the same four subjects drawn in every look.
-    look          A channel's look: preset + notes, palette and sliders.
+  animation/    Animation in a channel's own style (decisions 051-054).
+    style/        The style: answers to eight questions (053).
+      grammar.yaml  Every question and option, what each means for the engines and
+                    the drawing, and when it makes sense (conditions on earlier
+                    answers). Adding an idea is adding an option here.
+      __init__      Conditions, `normalise` (fill and repair answers), `compile`
+                    (answers -> the engines' fmt and look), the sentence.
+      starting_points.yaml  34 named styles; examples/ holds one real frame of each.
+      materials/    Four example pictures of every material, the same subjects.
+      describe      A style from a description, limited to the grammar's options.
+      preview       One real frame (or a few seconds) of exactly the style chosen.
+      gallery       Draws the starting points' examples.
+    frame         Vertical short or widescreen: sizes, content box, prompts (054).
+    samples       The materials' example pictures.
+    look          Prompt text from a compiled look: style, frame rules, motion.
     models        The picture and video models, their prices, request shapes, and
                   the arithmetic of fitting generated seconds to narration.
     fal, images   The two generation clients (fal's queue; OpenAI's reference edits).
     bible         Style frames, the style sheet drawn from the chosen one, and the
-                  cast's model sheets, per channel and look.
+                  cast's model sheets, per channel and style.
     storyboard    One call directs the film; `settle` makes it safe and affordable.
     keyframes     First frames with their references, checked before animating.
     motion        Keyframes animated on fal, checked, a broken shot made again once.
     finish        Retime, cadence, upscale, grade, grain; shots cut together.
     stage         Budget, bible, board, frames, motion, finish; resumable, degrading.
     preview       Animatics and animated previews of a finished video's script.
-    beats         The composited formats' storyboard: beats of designed layouts,
-                  exact labels, objects arriving on their words; `settle`.
-    kit           Objects drawn once per channel and look (cut-outs, reused by name),
-                  the tabletop's surface, the canvas narrator's poses.
-    compose       A composited format end to end: beats, kit, stage, render, finish.
+    beats         The composited styles' storyboard: beats of designed layouts and
+                  diagrams, exact labels, things arriving on their words; `settle`.
+    kit           Things drawn once per channel and style (cut-outs, reused by name),
+                  backdrops and the surface per frame, the host's poses.
+    compose       A composited style end to end: beats, kit, stage, render, finish.
     compositor/   The motion-design engine, filmed in Chrome:
       runtime.js    Sprites, shadows, stop-motion stepping, labels, arrows, rings,
-                    badges, a narrator, a camera; `__seek(t)`, deterministic.
-      layouts       Eleven designed arrangements, placed and sized by rule.
-      script        Beats to a timed stage: arrivals, continuity, exits, camera.
+                    bubbles, tables, diagram strokes, bars, dots and typeset maths,
+                    a host, a camera; `__seek(t)`, deterministic.
+      layouts       Fifteen designed arrangements in the frame's content box.
+      diagrams      Formulas, bullets, matrices, charts, number lines, plots and
+                    graphs as primitives, drawn exactly and at no picture cost (054).
+      mathtext      LaTeX typeset in Computer Modern by matplotlib, cached.
+      expr          Curves' expressions, parsed against an allow-list, never run.
+      theme         A compiled style as the stage's inks, labels, rate and shadows.
+      script        Beats to a timed stage: arrivals, continuity (move, fade,
+                    persist, clear, scene), exits, diagrams that build, camera.
       render        The page (fonts embedded) to video; paper-label captions.
   templates/    Designed motion-graphics templates (HTML/CSS, a seekable
                 engine, per-channel theme), filled by one small model call.
@@ -316,32 +329,41 @@ prompt instruction is the backstop for imagery a keyword wouldn't catch.
 
 A channel with `animation.enabled` gets animation wherever the director
 would have drawn a still illustration; at the slider's "Always", the
-whole video. The channel chooses a **format**, what kind of animated
-video it is, and a **look**, what it's made of. Any look goes with any
-format. See decisions [051](docs/decisions/051-generated-animation.md)
-and [052](docs/decisions/052-animation-formats.md).
+whole video. Its **style** is answers to eight questions: how it explains,
+where, made of what, how people look, a host or not, the mood, the motion,
+the words on screen. Each question offers only what fits the answers
+before it (`pipeline/animation/style/grammar.yaml`). The settings page
+builds a style question by question, from one of 34 starting points or
+from a description, and previews exactly what was chosen, as a vertical
+short or widescreen. See decisions
+[051](docs/decisions/051-generated-animation.md),
+[052](docs/decisions/052-animation-formats.md),
+[053](docs/decisions/053-style-grammar.md) and
+[054](docs/decisions/054-minimal-diagrams-and-widescreen.md).
 
-| Format | Stage | Drawn once | Rendered by |
+A style compiles to one of two engines:
+
+| Engine | Styles | Drawn once | Per video |
 |---|---|---|---|
-| Tabletop | one surface from above; objects carried between beats | objects, the surface | the compositor |
-| Narrated canvas | a large canvas; each beat an area the camera travels to | icons, the narrator's poses | the compositor |
-| Cinematic story | a world, in shots | style frames, cast sheets | a video model |
-| Paper theatre | a toy theatre, side-on; name/date captions | as story | a video model |
+| The compositor (`compose`) | objects and diagrams on a tabletop, board, pinboard, model world, canvas, whiteboard, chalkboard, notebook, blueprint, parchment or plain black/white; puppet plays on a toy-theatre stage | the channel's kit of cut-outs, the surface, backdrops, the host | the beats storyboard (~5 cents) and anything new to the kit; no video model, no FAL_KEY |
+| Generated (`stage`) | acted or cinematic stories in an animated film, storybook, open world or miniature set | style frames, cast sheets | a storyboard, keyframes and a video model on fal |
 
-**Composited formats** (`compose`) cost cents a video and need no
-FAL_KEY. The beats storyboard chooses designed layouts and fills them;
-the layouts place everything; the kit supplies the channel's own
-pictures; the script times it all to the narration's words; the
-compositor films it; the finish grades it. On these channels the
-director offers no templates or diagrams, which would break the one
-continuous picture.
+**Composited styles.** The beats storyboard chooses designed layouts and
+fills them; the layouts place everything in the frame's content box; the
+kit supplies the channel's own pictures; diagrams (formulas, charts,
+number lines, plots, graphs) are drawn exactly by the compositor, and a
+diagram continued into the next beat builds on itself; the script times
+it all to the narration's words, with the style's continuity (move, fade,
+persist, clear, scene) and entrance; the compositor films it; the finish
+grades it. On these channels the director offers no templates or
+diagrams, which would break the one continuous picture.
 
-**Generated formats** (story, theatre) need `FAL_KEY` and work like a
-small studio (`stage`):
+**Generated styles** need `FAL_KEY` and work like a small studio
+(`stage`):
 
-- **Look.** One of ten art directions plus the channel's notes, palette
-  and sliders (energy, pace, cadence, finish).
-- **Bible.** Drawn once per channel and look: three style frames (one
+- **Look.** The compiled style (medium, light, palette, people, motion,
+  cadence, grade) plus the channel's notes, palette and sliders.
+- **Bible.** Drawn once per channel and style: three style frames (one
   chosen), a style sheet of unrelated studies drawn from the chosen frame,
   and a model sheet per cast member. The style sheet, not the frame, is
   the reference every picture is drawn with: a scene given as a style
@@ -356,16 +378,24 @@ small studio (`stage`):
   default). Continued takes start from the last frame. Checked by vision,
   a broken shot made again once if the budget allows.
 - **Finish.** Local ffmpeg. Retimed onto the narration by at most a
-  quarter, held on the look's cadence, upscaled, graded and grained
+  quarter, held on the style's cadence, upscaled, graded and grained
   identically, then cut together.
+
+**Frames.** The same style makes a vertical short (1080x1920) or a
+widescreen video (1920x1080), chosen per render by `plan.frame`
+(`pipeline/animation/frame.py`). Layouts, surfaces, backdrops, keyframe
+sizes, the video model's aspect and the finish all follow it; the kit is
+shared. The long-form explainer pipeline that would make widescreen plans
+isn't built yet.
 
 Everything is written to the video's working folder and reused on a
 retry. A shot the model can't make is held as its keyframe; stretches
 the budget can't cover go back to other pictures from the end; both are
-noted on the video's report. Animatics (keyframes cut to narration, no
-video model) and animated previews of a finished video's script run as
-background jobs from the settings page or `tools/animate.py`, and land
-in `cache/animation_previews/`, never in `output/`.
+noted on the video's report. Style previews land in
+`cache/style_previews/`; animatics and animated previews of a finished
+video's script run as background jobs from the settings page or
+`tools/animate.py`, and land in `cache/animation_previews/`, never in
+`output/`.
 
 ## Jobs
 

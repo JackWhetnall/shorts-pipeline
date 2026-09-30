@@ -77,6 +77,12 @@ the UI rather than becoming log noise.
 - **YouTube upload** is not built. It needs an OAuth client the account
   owner has to create; the pipeline has a natural place for it as a
   post-render stage.
+- **Long widescreen explainers** — every animation style renders
+  widescreen as well as vertical (`plan.frame = "wide"`, decision
+  [054](docs/decisions/054-minimal-diagrams-and-widescreen.md)), but
+  nothing yet makes a longer, more in-depth widescreen video from a seed
+  (its script, assembly, captions and upload slot). The owner wants the
+  option.
 - **Cross-channel sameness** — per-channel pacing helps, but there is no
   measurement of whether two channels are converging on the same
   structure. Worth building once more than one channel publishes
