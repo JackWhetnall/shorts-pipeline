@@ -132,6 +132,12 @@
 
   {% if topic.subtopics %}
   {% set scripted = topic.subtopics|selectattr('script')|list|length %}
+  <div class="plan-rename">
+    <input type="text" id="rename-title-{{ topic.id }}" value="{{ topic.title }}" placeholder="{{ noun|capitalize }} name">
+    <button type="button" class="btn-ghost" onclick="planRename('{{ key }}', '{{ topic.id }}', this)">Rename</button>
+    <button type="button" class="btn-ghost danger-text" data-has-videos="1"
+            onclick="planRemove('{{ key }}', '{{ topic.id }}', this)">Remove</button>
+  </div>
   <div class="actions">
     {% if scripted < topic.subtopics|length %}
     <button type="button" class="btn-ghost" id="write-scripts-{{ topic.id }}"

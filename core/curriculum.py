@@ -309,10 +309,17 @@ def rename_topic(channel_key: str, topic_id: str, title: str, summary: str = Non
     if title.lower() in {t["title"].strip().lower() for t in data["topics"] if t["id"] != topic_id}:
         raise CurriculumError(f"topic {title!r} exists",
                               user_message=f'The plan already has a topic called "{title}".')
+    old = topic["title"]
     topic["title"] = title
     if summary is not None:
         topic["summary"] = summary.strip()
     topic.pop("placeholder", None)
+    # Its videos still to make take the new name ("Flags: Easy"); those
+    # already made keep the name they went out under.
+    for row in data["subtopics"]:
+        if row["topic"] == topic_id and row["status"] in (PENDING, SKIPPED) \
+                and row["title"].startswith(f"{old}:"):
+            row["title"] = title + row["title"][len(old):]
     save(data)
     return topic
 
@@ -331,16 +338,24 @@ def set_topic_picture(channel_key: str, topic_id: str, kind: str) -> dict:
     return topic
 
 
-def remove_topic(channel_key: str, topic_id: str) -> None:
-    """Only a topic with nothing in it: one with subtopics carries the
-    record of what has been made, and scripts that cost money."""
+def remove_topic(channel_key: str, topic_id: str, with_subtopics: bool = False) -> list:
+    """Take a topic out of the plan. One with subtopics only when asked
+    (`with_subtopics`): its videos still to make go with it, and those
+    already made stay on record (their history, and what's been asked).
+    Returns the subtopics removed."""
     data = load(channel_key)
     _topic(data, topic_id)
-    if any(s["topic"] == topic_id for s in data["subtopics"]):
+    mine = [s for s in data["subtopics"] if s["topic"] == topic_id]
+    if mine and not with_subtopics:
         raise CurriculumError(f"topic {topic_id} has subtopics", user_message=(
-            "Only an empty topic can be removed. Skip its videos instead."))
+            "This topic has videos in it; confirm to remove it with them."))
+    gone = [s for s in mine if s["status"] in (PENDING, SKIPPED)]
+    data["subtopics"] = [s for s in data["subtopics"] if s not in gone]
     data["topics"] = [t for t in data["topics"] if t["id"] != topic_id]
+    if data.get("up_next") in {s["id"] for s in gone}:
+        data["up_next"] = ""
     save(data)
+    return gone
 
 
 def set_topic_count(channel_key: str, count: int) -> str:

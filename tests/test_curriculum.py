@@ -2052,6 +2052,23 @@ class TestGrowingThePlan:
             curriculum.remove_topic("c", "u01")                     # it has videos
         assert curriculum.find("c", "t0001")["script"] == {"segments": []}
 
+    def test_a_topic_with_videos_can_be_renamed_and_removed(self, planned):
+        """The owner: "there is no way to delete/edit the category names once
+        they are made"."""
+        topic = curriculum.find_topic("c", "u01")
+        subs = curriculum.subtopics("c", topic_id="u01")
+        curriculum.claim("c", subs[0]["id"])                            # one video made
+        old = topic["title"]
+        for s in subs:
+            curriculum._set("c", s["id"], title=f"{old}: {s['title']}")
+        curriculum.rename_topic("c", "u01", "Flags")
+        after = {s["id"]: s for s in curriculum.subtopics("c", topic_id="u01")}
+        assert after[subs[1]["id"]]["title"].startswith("Flags:")      # still to make: renamed
+        assert after[subs[0]["id"]]["title"].startswith(f"{old}:")     # made: keeps its name
+        gone = curriculum.remove_topic("c", "u01", with_subtopics=True)
+        assert len(gone) == len(subs) - 1 and curriculum.find_topic("c", "u01") is None
+        assert curriculum.find("c", subs[0]["id"])["status"] == curriculum.USED   # on record
+
     def test_the_topic_count_adds_placeholders_and_only_removes_empty_ones(self, planned):
         assert curriculum.set_topic_count("c", 5) == ""
         topics = curriculum.load("c")["topics"]

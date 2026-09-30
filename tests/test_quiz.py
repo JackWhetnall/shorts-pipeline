@@ -23,7 +23,7 @@ from pipeline.plan import Seed, WordTiming
 
 def _round(n=3, prefix="Q"):
     def answer_for(i):
-        return f"A{i + 1}" if prefix == "Q" else f"{prefix}{i + 1}"
+        return f"A{i + 1}" if prefix == "Q" else f"Z{prefix[::-1]}{i + 1}"
     return {"intro": "Today's quiz is all about science, and it's easy. Starting with question one...",
             "questions": [{"lead_in": f"Question {i + 1}." if i else "",
                            "question": f"{prefix} question number {i + 1}?",
@@ -388,7 +388,7 @@ class TestLadder:
         easy = plan.find("Science: Easy")
         quiz.write_script(Seed(type="topic", topic=easy["title"], topic_id=easy["id"]), plan.channel)
         assert "The Medium round, level 4 (must be harder" in plan.prompts[0]
-        assert "Made question number 1? (Made1)" in plan.prompts[0]
+        assert "Made question number 1? (ZedaM1)" in plan.prompts[0]
 
 
 class TestScale:

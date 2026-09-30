@@ -3048,8 +3048,11 @@ async function planPicture(channelKey, topicId, select) {
 }
 
 async function planRemove(channelKey, topicId, button) {
-  if (!confirm("Remove this empty topic from the plan?")) return;
-  const data = await planPost(`/api/channels/${channelKey}/curriculum/${topicId}/remove`, {}, button);
+  const full = button.dataset.hasVideos === "1";
+  if (!confirm(full ? "Remove this from the plan, with the videos still to make in it? Videos already made are kept."
+                    : "Remove this empty topic from the plan?")) return;
+  const data = await planPost(`/api/channels/${channelKey}/curriculum/${topicId}/remove`,
+                              {with_subtopics: full}, button);
   if (data) window.location.reload();
 }
 

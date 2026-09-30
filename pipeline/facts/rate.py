@@ -35,6 +35,7 @@ question estimate:
 - `kid`: whether a typical ten-year-old could answer it or at least make
   a good guess.
 
+
 Reference points (share of UK adults who get it right):
 - How many legs does a spider have? 97
 - What is the capital of France? 95
@@ -76,7 +77,9 @@ def level_for(percent: float, kid: bool) -> float:
 
 def rate(questions: list) -> list:
     """[(percent, kid)] for [{question, answer}], None where a rating
-    didn't come back."""
+    didn't come back. (Asked to flag giveaways too, it flagged easy
+    questions: "Which country colonised Hong Kong?" A giveaway is caught
+    by its wording instead, bank.gives_away.)"""
     from pipeline.llm import call_json
     out = []
     for start in range(0, len(questions), CHUNK):

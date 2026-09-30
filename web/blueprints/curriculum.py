@@ -238,10 +238,13 @@ def add_subtopics_by_hand(key, topic_id):
 def rename_topic(key, topic_id):
     channel_or_404(key)
     data = request.get_json(force=True, silent=True) or {}
+    old = (curriculum.find_topic(key, topic_id) or {}).get("title", "")
     try:
-        curriculum.rename_topic(key, topic_id, data.get("title", ""), data.get("summary"))
+        topic = curriculum.rename_topic(key, topic_id, data.get("title", ""), data.get("summary"))
     except PipelineError as exc:
         return jsonify({"error": exc.user_message}), 400
+    from pipeline.facts import bank, store
+    bank.rename_category(store.connect(), old, topic["title"])
     return jsonify({"ok": True})
 
 
@@ -263,10 +266,16 @@ def set_picture(key, topic_id):
 @bp.route("/api/channels/<key>/curriculum/<topic_id>/remove", methods=["POST"])
 def remove_topic(key, topic_id):
     channel_or_404(key)
+    data = request.get_json(force=True, silent=True) or {}
     try:
-        curriculum.remove_topic(key, topic_id)
+        gone = curriculum.remove_topic(key, topic_id, with_subtopics=bool(data.get("with_subtopics")))
     except PipelineError as exc:
         return jsonify({"error": exc.user_message}), 400
+    # What its unmade scripts had taken goes back to the bank.
+    scripts = [s["script"] for s in gone if s.get("script")]
+    if scripts:
+        from pipeline.facts import bank, store
+        bank.release(store.connect(), key, scripts)
     return jsonify({"ok": True})
 
 

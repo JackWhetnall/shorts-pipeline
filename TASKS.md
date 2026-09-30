@@ -86,6 +86,14 @@ Once a few categories are in, try **Add it** with one of your own (e.g.
 "Harry Potter") to see a new category tagged and filled, and make a
 short or two to hear the questions.
 
+### 4b-ii. Approving now sticks; see each channel's Videos page
+Approved videos used to bounce back to Review because the publishing plan
+was off. Now they wait as "Approved, ready to publish" until the plan is
+on (step 12) and YouTube is connected (step 8). The channel dashboard's
+video tile opens its **Videos** page: waiting for review, approved,
+published, discarded, with Approve and Back to review buttons. Re-approve
+the video that bounced back.
+
 ### 4c. Clear the old written scripts (1 minute)
 Thirteen quiz rounds were written ahead by earlier versions (before the
 question bank and the difficulty fix). **Topic plan → Clear written

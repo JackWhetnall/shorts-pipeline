@@ -159,6 +159,28 @@ def malformed(question: str) -> bool:
         bool(words) and words[-1] == "called" and bool({"name", "term", "word"} & set(words[:6])))
 
 
+# Words an answer can share with its question without giving itself away
+# ("Which is the largest ocean?" "The Pacific Ocean").
+GENERIC = frozenset("""ocean sea river mount mountain mountains island islands lake city country
+state kingdom empire republic desert bay gulf strait peak range forest national saint""".split())
+
+
+def gives_away(question: str, answer: str) -> bool:
+    """The question says its answer: every meaningful word of the answer is
+    already in it, word or stem ("Which continent is at the centre of the
+    African Union's flag?" Africa; "In which country is the Monaco Grand
+    Prix held?" Monaco)."""
+    # Letters of any alphabet ("Crécy" is one word), and numbers always
+    # count: "26.2 miles" doesn't give itself away by saying "miles".
+    asked = re.findall(r"[^\W_]+", (question or "").lower())
+    words = [w for w in re.findall(r"[^\W_]+", (answer or "").lower())
+             if w.isdigit() or (w not in STOPWORDS and w not in GENERIC and len(w) > 2)]
+    if not words:
+        return False
+    stem = lambda w: w[:max(4, len(w) - 2)] if len(w) > 4 else w
+    return all(any(a == w or (len(w) > 3 and a.startswith(stem(w))) for a in asked) for w in words)
+
+
 def same_answer(a: str, b: str) -> bool:
     """The same answer, however written: equal once reduced, or one the
     other with words left off ("The Pacific", "Pacific Ocean")."""
@@ -238,7 +260,7 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
     existing = _existing(conn, {answer_key(q.get("answer", "")) for q in data.get("questions") or []})
     for q in data.get("questions") or []:
         question, answer = " ".join((q.get("question") or "").split()), " ".join((q.get("answer") or "").split())
-        if not question or not answer or len(answer) > 60 or malformed(question):
+        if not question or not answer or len(answer) > 60 or malformed(question)                 or gives_away(question, answer):
             continue
         if is_repeat(question, answer, existing + batch):
             repeats += 1
@@ -258,12 +280,12 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
     measured = {id(q): r for q, r in zip(passed, ratings) if r}
     kept = rejected = 0
     for q, verdict in zip(fresh, verdicts):
-        status = "ok" if verdict == "ok" else "rejected"
-        kept += status == "ok"
-        rejected += status != "ok"
         if id(q) in measured:
             percent, kid = measured[id(q)]
             q = {**q, "level": rate.level_for(percent, kid), "known_pct": percent, "kid_guess": int(kid)}
+        status = "ok" if verdict == "ok" else "rejected"
+        kept += status == "ok"
+        rejected += status != "ok"
         add(conn, q, category, area, status, verdict, "written", categories)
     log.info(f"  [bank] {category} / {area} near {level:g}: {kept} kept, {rejected} rejected, "
              f"{repeats} repeats")
@@ -352,6 +374,17 @@ def _spread(rows: list, count: int, rng) -> list:
             shapes[r["shape"]] += 1
             places[r["area"]] += 1
     return out
+
+
+def rename_category(conn, old: str, new: str) -> None:
+    """A category renamed on the topic plan keeps its questions and areas."""
+    if not old or old.lower() == (new or "").lower():
+        return
+    with conn:
+        conn.execute("UPDATE OR IGNORE question_tags SET category = ? WHERE lower(category) = lower(?)", (new, old))
+        conn.execute("DELETE FROM question_tags WHERE lower(category) = lower(?)", (old,))
+        if not conn.execute("SELECT 1 FROM bank_areas WHERE lower(category) = lower(?)", (new,)).fetchone():
+            conn.execute("UPDATE bank_areas SET category = ? WHERE lower(category) = lower(?)", (new, old))
 
 
 def release(conn, channel_key: str, scripts: list) -> int:

@@ -171,6 +171,34 @@ scripts" removes every script written ahead for a video not yet made
 fact store what they had taken. Each video is then written afresh when
 it's made.
 
+## Revised: no giveaways; categories editable; approved means approved
+
+**Giveaways.** A Tricky round asked "Which continent appears at the
+centre of the flag of the African Union?" (Africa).
+- `bank.gives_away` refuses any question whose answer's meaningful words
+  are all in the question already, as words or stems. Generic words
+  ("ocean", "city") don't count, numbers always count, and accented
+  letters stay inside words.
+- It applies when the bank is written, to the whole bank (22 refused),
+  and to rounds written without the bank.
+- Asking the rater to flag giveaways was tried: it flagged 168 questions,
+  treating easy as giving away ("Which country colonised Hong Kong?"),
+  and was dropped.
+
+**Categories.** A quiz category with rounds in it can now be renamed
+(its rounds still to make, and its bank questions, follow the name;
+those made keep theirs) or removed (its rounds still to make go, and
+what their scripts had taken goes back to the bank; made videos stay on
+record). "Flags & Countries" became Flags, a picture round of flags, and
+Countries, a picture round of outlines.
+
+**Approved videos.** With the publishing plan off, an approved video
+was "published at once", found nowhere to go and was put back in review.
+Now nothing goes out until the plan is on and the channel can publish
+somewhere; approved videos wait. The channel's Videos page shows each
+stage: waiting for review (Approve), approved (when it goes out or what
+it waits for; Back to review), published, discarded.
+
 ## Tried and rejected
 
 - **Copying free quiz sites.** See above.

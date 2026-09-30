@@ -1118,6 +1118,11 @@ def _write_checked(channel, category: str, difficulty: str, extra: str = "",
     for i in round_clashes(questions):
         log.info(f"  [quiz] Q{i + 1} clashes with an earlier question in this round")
         verdicts[i] = "clash"
+    from pipeline.facts.bank import gives_away
+    for i, q in enumerate(questions):
+        if not kind and gives_away(q["question"], q["answer"]):
+            log.info(f"  [quiz] Q{i + 1} gives its answer away")
+            verdicts[i] = "gives away"
 
     # Replace what didn't pass from a fresh set of candidates, keeping those
     # that pass. Once for a text round; up to three times for a picture

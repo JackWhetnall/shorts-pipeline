@@ -241,3 +241,28 @@ def test_clearing_written_scripts_gives_their_questions_back(monkeypatch, tmp_pa
     assert data["subtopics"][1]["script"] is not None          # a made video's script stays
     assert bank.release(conn, "pub", removed) == 2
     assert conn.execute("SELECT COUNT(*) FROM question_used").fetchone()[0] == 0
+
+
+def test_a_renamed_category_keeps_its_questions(tmp_path):
+    import json
+    conn = store.connect(tmp_path / "f.db")
+    _stock(conn, 4, "Flags & Countries")
+    with conn:
+        conn.execute("INSERT INTO bank_areas (category, areas) VALUES ('Flags & Countries', ?)", (json.dumps(["A"]),))
+    bank.rename_category(conn, "Flags & Countries", "Flags")
+    assert len(bank.pool(conn, "pub", "Flags")) == 4 and not bank.pool(conn, "pub", "Flags & Countries")
+    assert bank._stored_areas(conn, "Flags") == ["A"]
+
+
+def test_a_question_that_says_its_answer_is_refused():
+    """Regression: "Which continent appears at the centre of the flag of the
+    African Union?" (Africa) went out in a Tricky round."""
+    assert bank.gives_away("Which continent appears at the centre of the flag of the African Union?", "Africa")
+    assert bank.gives_away("In which country is the famous Monaco Grand Prix held?", "Monaco")
+    assert bank.gives_away("Which Czech city gave its name to the lager style Pilsner?", "Pilsen")
+    # Sharing only a generic word, a number's unit, or part of a longer answer is fine.
+    assert not bank.gives_away("Which ocean is the largest on Earth?", "The Pacific Ocean")
+    assert not bank.gives_away("Roughly how many miles long is a marathon race?", "26.2 miles")
+    assert not bank.gives_away("In which battle of 1346 did the longbow prove decisive?", "Battle of Crécy")
+    assert not bank.gives_away("What was the title of the first Harry Potter book?",
+                               "Harry Potter and the Philosopher's Stone")
