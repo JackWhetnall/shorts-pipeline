@@ -190,9 +190,10 @@ def create_app(debug: bool = False) -> Flask:
 
     from web.blueprints import (
         animation, backgrounds, channels, curriculum, facts, footage, gallery, jobs as jobs_bp,
-        logos, music, phone, pitch, quiz_review, remake, review, scenes, services, setup,
+        logos, music, phone, pitch, profile, quiz_review, remake, review, scenes, services, setup,
         style_setup, voice_lab, youtube,
     )
+    app.register_blueprint(profile.bp)
     app.register_blueprint(remake.bp)
     app.register_blueprint(phone.bp)
     app.register_blueprint(quiz_review.bp)

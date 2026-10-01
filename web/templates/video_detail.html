@@ -14,7 +14,7 @@
       {% if links.youtube_url %}<a class="btn btn-ghost" href="{{ links.youtube_url }}" target="_blank" rel="noopener">YouTube</a>{% endif %}
       {% if links.tiktok_url %}<a class="btn btn-ghost" href="{{ links.tiktok_url }}" target="_blank" rel="noopener">TikTok</a>{% endif %}
       {% if links.instagram_url %}<a class="btn btn-ghost" href="{{ links.instagram_url }}" target="_blank" rel="noopener">Instagram</a>{% endif %}
-      {% if not published and not discarded %}<a class="btn btn-primary" href="#publish-form">Publish video</a>{% endif %}
+      {% if not out and not discarded %}<a class="btn btn-primary" href="#publish-card">Publish video</a>{% endif %}
       {% if not discarded %}<a class="btn-ghost" href="#discard-form">Discard</a>{% endif %}
     </div>
 
@@ -33,6 +33,56 @@
     </div>
     {% endif %}
 
+    {% if not discarded and not out %}
+    <div class="card" id="publish-card" data-relpath="{{ relpath }}" data-socials="{{ hand_off|join(',') }}">
+      <h2>Publish</h2>
+      <p class="meta">Check the title and description, then publish in one click:
+        {% if youtube.connected %}it's uploaded to YouTube{% else %}<strong>YouTube isn't connected</strong>
+          (<a href="{{ url_for('youtube.connect', key=key) }}" target="_blank" rel="noopener">connect it</a>, then reload)
+          so it can't be uploaded from here{% endif %}{% if hand_off %}, and
+        {{ hand_off|map('capitalize')|join(' and ') }} {{ 'opens' if hand_off|length == 1 else 'open' }} in
+        this channel's browser profile with the video selected in its folder and the caption on your clipboard{% endif %}.</p>
+
+      <label class="review-field">Title
+        <input type="text" id="detail-title" value="{{ title_text }}" maxlength="100">
+      </label>
+      <label class="review-field">Description
+        <textarea id="detail-description" rows="7">{{ description_text }}</textarea>
+      </label>
+      <div class="actions">
+        <button type="button" class="btn-ghost" onclick="copyField('detail-title', this)">Copy title</button>
+        <button type="button" class="btn-ghost" onclick="copyField('detail-description', this)">Copy description</button>
+        <button type="button" class="btn-ghost" onclick="detailReveal(this)"
+                title="Opens the video's folder with this exact file selected">Show the file</button>
+        <a class="btn-ghost" href="{{ url_for('review.download', relpath=relpath) }}"
+           title="Downloads it named after its title">Download</a>
+      </div>
+      {% if youtube.connected %}
+      <label class="review-field">YouTube privacy
+        <select id="detail-privacy">
+          <option value="public">Public</option>
+          <option value="unlisted">Unlisted</option>
+          <option value="private">Private</option>
+        </select>
+      </label>
+      {% endif %}
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="detail-publish-btn" onclick="detailPublish(this)"
+                {% if not youtube.connected and not hand_off %}disabled title="Connect YouTube first"{% endif %}>Publish now</button>
+      </div>
+      <p class="hint" id="detail-publish-note" role="status"></p>
+    </div>
+    {% elif out and not discarded %}
+    <div class="card">
+      <h2>Published</h2>
+      <div class="actions">
+        <button type="button" class="btn-ghost" onclick="detailReveal(this)">Show the file</button>
+        <a class="btn-ghost" href="{{ url_for('review.download', relpath=relpath) }}">Download</a>
+        {% if hand_off %}<a class="btn-ghost" href="{{ url_for('review.handoff_page') }}">To post</a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     {% if meta_text %}
     <div class="card">
       <h2>Script</h2>
@@ -46,7 +96,7 @@
          title="Make it again keeping its script, voice and pictures, and making again only the parts you pick">Remake as is</a>
     </p>
     <div class="card" id="publish-form">
-      <h2>Platform links
+      <h2>Posted it yourself? Add the links
         <button type="button" class="info-dot" data-tooltip="Leave a platform blank if you haven't posted there — this video counts as published as soon as any one link is set.">?</button>
       </h2>
       <div class="actions">

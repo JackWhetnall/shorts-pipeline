@@ -143,6 +143,19 @@ def start_post(channel, video_path: Path, platform: str) -> dict:
     return {"caption": caption(video_path), "where": where, "platform": LABELS[platform]}
 
 
+def start_all(channel, video_path: Path, platforms: list) -> dict:
+    """What publishing by hand does for the social platforms: the video
+    selected in Explorer, and one browser window (the channel's profile)
+    with each platform's upload page open, ready to drag it in."""
+    platforms = [p for p in platforms if p in PLATFORMS]
+    if not platforms:
+        return {"where": "", "platforms": []}
+    reveal(video_path)
+    where = open_pages(channel, [UPLOAD_URLS[p] for p in platforms])
+    log.info(f"{channel.key}: opened {', '.join(platforms)} in {where} for {Path(video_path).name}")
+    return {"where": where, "platforms": [LABELS[p] for p in platforms]}
+
+
 def set_up_profile(channel) -> str:
     """Give the channel its own Chrome profile (created on first launch)
     and open both platforms' login pages in it. Returns the folder."""

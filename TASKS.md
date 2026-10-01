@@ -150,6 +150,24 @@ only the movement). Everything else, voice and footage included, is
 kept. Videos made before today can only be remade this way if they're
 quiz shorts.
 
+### 4d-iii. Publish by hand, in one click (and the channel profile)
+Open an approved video (**Videos** page, or Review). The **Publish** card
+shows its title and description to check and edit, then **Publish now**
+uploads to YouTube through the API, and opens TikTok and Instagram in the
+channel's browser profile with the video selected in its folder and the
+caption on your clipboard. Post it on each, then **To post** → mark
+posted. YouTube has to be connected first (step 8). **Show the file**
+opens its folder with it selected, and **Download** names it by its title.
+
+The channel's dashboard has a new step, **Write the channel description
+and make the banner**. It needs the Anthropic credit working (4c-ii) for
+the words (about a cent); the banner is free. On the page: paste the
+About text and keywords into YouTube Studio → Customisation, the bios
+into TikTok and Instagram, and upload the banner (Studio → Customisation
+→ Branding). Put your YouTube, TikTok and Instagram links in **Settings →
+Publishing** (and Patreon or merch in **Money**) first, and they appear
+in the text.
+
 ### 4e. Use it from your phone (5 minutes, optional)
 1. On the PC, click **Phone** in the top bar, then **Turn on phone
    access**. The app restarts itself within a minute (once nothing is

@@ -63,6 +63,7 @@ LAUNCH = (
 )
 
 GROW = (
+    ("profile", "Write the channel description and make the banner", "you"),
     ("tiktok", "Post to TikTok from this PC", "you"),
     ("instagram", "Post to Instagram from this PC", "you"),
     ("audit", "Pass Google's API audit, so uploads go out public", "you"),
@@ -150,7 +151,11 @@ def stages(channel, state: dict = None) -> tuple:
                       "Clean videos would queue themselves; flagged ones would still wait."),
     }
     socials, money = channel.socials, channel.monetization
+    from core import banner, channel_profile
+    profile_done = bool(channel_profile.load(channel.key).get("about")) and banner.exists(channel.key)
     grow_facts = {
+        "profile": (profile_done, "The About text, the TikTok and Instagram bios, and a YouTube banner, "
+                                  "written for you to paste." if not profile_done else ""),
         "tiktok": (plan.post_tiktok or bool(socials.tiktok_url), ""),
         "instagram": (plan.post_instagram or bool(socials.instagram_url), ""),
         "audit": (False, "Mark it done once Google has approved the audit."),

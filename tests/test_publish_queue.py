@@ -165,3 +165,97 @@ class TestGeneration:
         monkeypatch.setattr(scheduler.voice_quota, "has_room_for", lambda n: True)
         assert scheduler.generation_block(
             "c", world.channel, state={"queued": 1, "waiting": 1}, active={}) is None
+
+
+class TestPublishNow:
+    """Publishing by hand from the video's page or Review: the owner, who
+    had to go through the schedule or paste links, wanted one click that
+    sends it to YouTube and opens TikTok and Instagram."""
+
+    def test_it_uploads_to_youtube_and_hands_off_to_the_plans_platforms(self, world):
+        world.channel.publishing.post_tiktok = True
+        path = world.video("a", queued=False)
+        result = publish_queue.publish_now(world.channel, path, privacy="unlisted")
+        info = gallery.load_publish_info(path)
+        assert world.state["uploads"] == ["Title a"] and info["youtube_url"] == result["youtube_url"]
+        assert result["pending"] == ["tiktok"] and gallery.is_out(info)
+
+    def test_without_a_plan_a_channel_with_a_browser_profile_gets_both(self, world):
+        world.channel.publishing.posting_profile = "Profile 3"
+        path = world.video("a", queued=False)
+        assert publish_queue.publish_now(world.channel, path)["pending"] == ["tiktok", "instagram"]
+
+    def test_a_failed_upload_changes_nothing(self, world):
+        world.channel.publishing.post_tiktok = True
+        path = world.video("a", queued=False)
+        world.state["fail"] = True
+        with pytest.raises(ExternalServiceError):
+            publish_queue.publish_now(world.channel, path)
+        info = gallery.load_publish_info(path)
+        assert not gallery.is_out(info) and not info["handoff"] and not info["youtube_url"]
+
+    def test_it_is_never_uploaded_twice(self, world):
+        world.channel.publishing.post_tiktok = True
+        path = world.video("a", queued=False)
+        publish_queue.publish_now(world.channel, path)
+        again = publish_queue.publish_now(world.channel, path)
+        assert len(world.state["uploads"]) == 1 and "already on YouTube" in again["messages"][0]
+
+    def test_with_nowhere_to_send_it_says_so(self, world):
+        world.state["connected"] = False
+        path = world.video("a", queued=False)
+        with pytest.raises(publish_queue.NowhereToPublish) as caught:
+            publish_queue.publish_now(world.channel, path)
+        assert "nowhere to publish" in caught.value.user_message
+
+    def test_a_discarded_video_isnt_published(self, world):
+        path = world.video("a", queued=False)
+        gallery.set_discarded(path, True, reason="other")
+        with pytest.raises(Exception) as caught:
+            publish_queue.publish_now(world.channel, path)
+        assert "discarded" in caught.value.user_message and world.state["uploads"] == []
+
+    def test_a_long_video_goes_to_youtube_only(self, world):
+        world.channel.publishing.post_tiktok = True
+        path = world.video("a", queued=False)
+        monkey = pytest.MonkeyPatch()
+        monkey.setattr(gallery, "is_long", lambda p: True)
+        try:
+            assert publish_queue.publish_now(world.channel, path)["pending"] == []
+        finally:
+            monkey.undo()
+
+    def test_the_route_saves_the_text_publishes_and_opens_the_social_pages(self, world, monkeypatch):
+        from core import posting
+        from web import create_app
+        world.channel.publishing.post_tiktok = True
+        world.channel.publishing.post_instagram = True
+        path = world.video("a", queued=False)
+        opened = []
+        monkeypatch.setattr(posting, "start_all", lambda channel, video, platforms: opened.append(
+            (video.name, platforms)) or {"where": "Chrome (Shorts c)", "platforms": ["TikTok", "Instagram"]})
+        monkeypatch.setattr("web.blueprints.review.video_or_404", lambda relpath: path)
+        monkeypatch.setattr("web.blueprints.review.load_channels", lambda validate=True: {"c": world.channel})
+        client = create_app().test_client()
+        client.get("/m/sign-in")
+        with client.session_transaction() as s:
+            token = s["_csrf_token"]
+        res = client.post("/api/videos/x/publish-now", headers={"X-CSRF-Token": token},
+                          json={"title": "My title", "description": "My words"})
+        data = res.get_json()
+        assert res.status_code == 200 and data["opened"]["platforms"] == ["TikTok", "Instagram"]
+        assert world.state["uploads"] == ["My title"] and data["caption"] == "My title\n\nMy words"
+        assert opened == [("a.mp4", ["tiktok", "instagram"])]
+        # From a phone, nothing is opened on the PC; it waits in To post.
+        from core import phone_access
+        monkeypatch.setattr(phone_access, "PATH", world.tmp / "phone.json")
+        phone_access.set_enabled(True)
+        again = world.video("b", queued=False)
+        monkeypatch.setattr("web.blueprints.review.video_or_404", lambda relpath: again)
+        opened.clear()
+        with client.session_transaction() as s:
+            s["phone"] = phone_access.token()
+        res = client.post("/api/videos/x/publish-now", headers={"X-CSRF-Token": token}, json={},
+                          environ_base={"REMOTE_ADDR": "192.168.1.20"})
+        assert res.status_code == 200 and opened == []
+        assert res.get_json()["pending"] == ["tiktok", "instagram"]

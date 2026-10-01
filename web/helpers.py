@@ -56,6 +56,7 @@ STAGE_LINKS = {
     "plan": ("channels.settings", {"_anchor": "section-publishing"}),
     "shadow": ("review.queue", {}),
     "autopilot": ("channels.settings", {"_anchor": "section-publishing"}),
+    "profile": ("profile.page", {}),
     "tiktok": ("channels.settings", {"_anchor": "section-publishing"}),
     "instagram": ("channels.settings", {"_anchor": "section-publishing"}),
     "audit": ("youtube.setup", {}),

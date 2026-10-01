@@ -1231,10 +1231,10 @@ function renderReview() {
   }
   document.getElementById("review-flags").innerHTML = flags.join("");
 
-  // Only offered for channels that are actually connected — an upload
-  // button that always fails is worse than no button.
+  // Offered until it has a YouTube link. Without a YouTube connection it
+  // still hands off to TikTok and Instagram, or says there's nowhere to go.
   const uploadCard = document.getElementById("review-upload-card");
-  uploadCard.hidden = !item.youtube_connected || Boolean((item.links || {}).youtube_url);
+  uploadCard.hidden = Boolean((item.links || {}).youtube_url);
   document.getElementById("review-upload-note").textContent = "";
   document.getElementById("review-upload-btn").disabled = false;
 
@@ -1248,6 +1248,61 @@ function renderReview() {
 // Uploads the current video, then drains it from the queue the same way
 // Publish does — recording the returned link IS what marks it published,
 // so there is one notion of "published" rather than two.
+// --- Publishing from a video's own page -------------------------------
+
+async function detailReveal(button) {
+  const card = document.getElementById("publish-card");
+  const relpath = card ? card.dataset.relpath : location.pathname.split("/videos/")[1];
+  const res = await apiFetch(`/api/videos/${relpath}/reveal`, {method: "POST"});
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    alert(data.error || "Couldn't open the folder.");
+  }
+}
+
+// Saves the title and description, uploads to YouTube through the API,
+// and, for each social platform the channel posts to, opens its upload
+// page in the channel's browser profile (core.posting.start_all).
+async function detailPublish(button) {
+  const card = document.getElementById("publish-card");
+  const note = document.getElementById("detail-publish-note");
+  const title = document.getElementById("detail-title").value.trim();
+  const description = document.getElementById("detail-description").value;
+  if (!title) { note.textContent = "Give it a title first."; return; }
+  note.textContent = "";
+  // On the click itself, before anything async: a browser only lets the
+  // clipboard be written while it still counts as the click's own doing.
+  if (card.dataset.socials) {
+    navigator.clipboard.writeText([title, description].filter(Boolean).join("\n\n")).catch(() => {});
+  }
+  const privacy = document.getElementById("detail-privacy");
+  await withButtonLoading(button, "Publishing…", async () => {
+    let res, data;
+    try {
+      res = await apiFetch(`/api/videos/${card.dataset.relpath}/publish-now`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({title, description, privacy: privacy ? privacy.value : "public"}),
+      });
+      data = await res.json();
+    } catch (err) {
+      note.textContent = "Couldn't reach the app to publish.";
+      return;
+    }
+    if (!res.ok) { note.textContent = data.error || "Publishing failed."; return; }
+    const parts = data.messages.slice();
+    if (data.opened && data.opened.platforms.length) {
+      parts.push(`opened ${data.opened.platforms.join(" and ")} in ${data.opened.where}; the file is selected in its folder and the caption is on your clipboard. Post it there, then mark it posted on the To post page`);
+    }
+    note.innerHTML = "Published: " + parts.map(escapeHtml).join(". ") + ".";
+    if (data.locked_private) {
+      alert("Uploaded, but YouTube made it private because the API project hasn't passed Google's "
+          + "compliance audit. Make it public in YouTube Studio:\n\n" + data.youtube_url);
+    }
+    button.hidden = true;
+  });
+}
+
 async function reviewUploadYouTube() {
   const item = reviewCurrent();
   if (!item) return;
@@ -1257,26 +1312,33 @@ async function reviewUploadYouTube() {
   const note = document.getElementById("review-upload-note");
   note.textContent = "";
 
-  await withButtonLoading(button, "Uploading…", async () => {
-    const res = await apiFetch(`/api/videos/${item.relpath}/upload-youtube`, {
+  const title = document.getElementById("review-title").value;
+  const description = document.getElementById("review-description").value;
+  // Before anything async, so the browser still allows the clipboard write.
+  navigator.clipboard.writeText([title, description].filter(Boolean).join("\n\n")).catch(() => {});
+  await withButtonLoading(button, "Publishing…", async () => {
+    const res = await apiFetch(`/api/videos/${item.relpath}/publish-now`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
-        channel_key: item.channel_key,
         privacy: document.getElementById("review-privacy").value,
-        title: document.getElementById("review-title").value,
-        description: document.getElementById("review-description").value,
+        title, description,
       }),
     });
     const data = await res.json();
-    if (!res.ok) { note.textContent = data.error || "The upload failed."; return; }
+    if (!res.ok) { note.textContent = data.error || "Publishing failed."; return; }
 
     if (data.locked_private) {
       // Expected on an unaudited project, and confusing if unexplained —
       // say it here rather than letting them find a private video later.
       alert("Uploaded, but YouTube forced it to private because the API "
           + "project hasn't passed a compliance audit. Make it public in "
-          + "YouTube Studio:\n\n" + data.url);
+          + "YouTube Studio:\n\n" + data.youtube_url);
+    }
+    if (data.opened && data.opened.platforms.length) {
+      alert(`Published. ${data.opened.platforms.join(" and ")} opened in ${data.opened.where}: the file is `
+          + "selected in its folder and the caption is on your clipboard. Post it there, then mark it "
+          + "posted on the To post page.");
     }
     reviewDrop();
   });

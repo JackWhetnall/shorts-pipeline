@@ -187,6 +187,56 @@ def approve(relpath):
     return jsonify({"ok": True, "slot_label": _when_label(when, queued=True)})
 
 
+def _channel_of(target: Path):
+    key = gallery._channel_key_for(target)
+    channel = load_channels(validate=False).get(key) if key else None
+    if channel is None:
+        raise PipelineError("unknown channel", user_message="Couldn't tell which channel this video belongs to.")
+    return channel
+
+
+@bp.route("/api/videos/<path:relpath>/publish-now", methods=["POST"])
+def publish_now(relpath):
+    """Publish by hand, in one click: save the title and description, upload
+    to YouTube through the API, hand the video to TikTok and Instagram and,
+    from this PC, open their pages in the channel's browser profile with
+    the video selected in Explorer. The page has already put the caption
+    on the clipboard."""
+    from core import phone_access
+    target = video_or_404(relpath)
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        channel = _channel_of(target)
+        if "title" in data or "description" in data:
+            gallery.save_title_and_description(target, data.get("title", ""), data.get("description", ""))
+        result = publish_queue.publish_now(channel, target, privacy=data.get("privacy", "public"))
+    except PipelineError as exc:
+        log.warning(f"Publishing {relpath} failed: {exc}")
+        return jsonify({"error": exc.user_message}), 400
+    opened = {"where": "", "platforms": []}
+    if result["pending"] and phone_access.is_local(request.remote_addr):
+        try:
+            opened = posting.start_all(channel, target, result["pending"])
+        except OSError as exc:
+            log.warning(f"Couldn't open the browser or Explorer: {exc}")
+    return jsonify({"ok": True, **result, "opened": opened, "caption": posting.caption(target)})
+
+
+@bp.route("/api/videos/<path:relpath>/reveal", methods=["POST"])
+def reveal(relpath):
+    """Show the file in Explorer, selected: no hunting through dated
+    folders for the right mp4 among its sidecars. From this PC only."""
+    from core import phone_access
+    if not phone_access.is_local(request.remote_addr):
+        return jsonify({"error": "That opens a window on the PC, so it only works from the PC."}), 403
+    try:
+        posting.reveal(video_or_404(relpath))
+    except OSError as exc:
+        log.warning(f"Couldn't open Explorer: {exc}")
+        return jsonify({"error": "Couldn't open Explorer on this PC."}), 500
+    return jsonify({"ok": True})
+
+
 @bp.route("/api/videos/<path:relpath>/unqueue", methods=["POST"])
 def unqueue(relpath):
     publish_queue.unqueue(video_or_404(relpath))
@@ -261,5 +311,10 @@ def download(relpath):
     output/<channel>/<date>/ for the right mp4 among its sidecars.
     """
     from flask import send_file
+    from core.paths import slugify
     target = video_or_404(relpath)
-    return send_file(target, as_attachment=True, download_name=target.name)
+    # Named by its title, not its stem: the file lands in Downloads among
+    # others, and "countries_tricky_2.mp4" says little.
+    title = gallery.load_publish_info(target)["title"] or target.stem
+    return send_file(target, as_attachment=True,
+                     download_name=f"{slugify(title, fallback=target.stem)}{target.suffix}")

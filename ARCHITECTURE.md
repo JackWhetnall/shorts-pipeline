@@ -435,6 +435,22 @@ median rather than mean (one stalled download shouldn't rewrite every
 future estimate). Retried jobs are excluded: they reuse their checkpoints
 and measure nothing.
 
+## Publishing by hand, and a channel's profile
+
+`publish_queue.put_out` uploads a video to YouTube through the API (once)
+and hands it off to TikTok and Instagram. The schedule calls it through
+`send`; the video page and Review call it through `publish_now`
+(`/api/videos/<path>/publish-now`), which also opens the social pages in
+the channel's browser profile with the file selected (`posting.start_all`).
+
+`core/channel_profile.py` writes a channel's tagline, YouTube About text,
+TikTok and Instagram bios and keywords in one model call and keeps them
+in `channels/<key>/profile.json`; the links are always read from the
+channel's settings, not written by the model. `core/banner.py` draws the
+YouTube banner from the channel's logo, colours and typeface. Both are on
+the Channel profile page. See decision
+[058](docs/decisions/058-publish-by-hand-and-channel-profile.md).
+
 ## Remaking a video
 
 A finished job's checkpoints (script, voice track and timings, footage

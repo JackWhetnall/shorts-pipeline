@@ -12,6 +12,7 @@ from flask import (
 )
 
 from core import gallery as gallery_core
+from core import publish_queue, youtube
 from core.logging_setup import get_logger
 from core.paths import OUTPUT_DIR
 from web.helpers import channel_or_404, format_date, format_iso_date, video_or_404
@@ -120,6 +121,11 @@ def video_detail(key, relpath):
         meta_text=(gallery_core.read_text_tolerantly(meta_path)
                    if meta_path.exists() else None),
         cost=gallery_core.load_cost_summary(target),
+        title_text=links["title"] or gallery_core.video_title(target.name),
+        description_text=links["description"],
+        youtube=youtube.connection(key),
+        hand_off=publish_queue.hand_off_platforms(channel, target, manual=True),
+        out=gallery_core.is_out(links),
     )
 
 

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}{{ channel.channel_display_name }} — Channel profile{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('channels.dashboard', key=key) }}">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  {{ channel.channel_display_name }}
+</a>
+<h1>Channel profile</h1>
+<p class="subtitle">The descriptions to paste into YouTube, TikTok and Instagram, and the YouTube banner. Written from the
+  channel's name, its host brief and its topics; the links are filled in from its settings.</p>
+
+<div class="card" id="profile-generate">
+  <div class="actions" style="margin-top: 0">
+    <button type="button" class="btn btn-primary" id="profile-generate-btn" onclick="profileGenerate(this)"
+            {% if words %}data-again="1"{% endif %}>{{ 'Write them again' if words else 'Write the descriptions and make the banner' }}</button>
+    <span class="hint">About a cent. {% if words %}This replaces what's below, including your edits.{% endif %}</span>
+  </div>
+  <p class="hint" id="profile-note" role="status"></p>
+</div>
+
+{% if links.missing %}
+<p class="meta info-banner">Add {{ links.missing|join(', ') }} in
+  <a href="{{ url_for('channels.settings', key=key, _anchor='section-publishing') }}">Settings, Publishing</a>
+  and they appear below. {% if not links.support %}Patreon, merch and affiliate links go in
+  <a href="{{ url_for('channels.settings', key=key, _anchor='section-money') }}">Settings, Money</a>.{% endif %}</p>
+{% endif %}
+
+{% if words %}
+<div class="card">
+  <h2>YouTube banner</h2>
+  <p class="meta">{{ banner_size[0] }}&times;{{ banner_size[1] }}. Upload it in
+    <a href="https://studio.youtube.com" target="_blank" rel="noopener">YouTube Studio</a> &rarr; Customisation &rarr;
+    Branding &rarr; Banner image. Everything that matters sits inside the middle {{ banner_safe[0] }}&times;{{ banner_safe[1] }},
+    which is all a phone shows.</p>
+  <label class="review-field">Tagline
+    <input type="text" id="profile-tagline" value="{{ words.tagline }}" maxlength="{{ limits.tagline }}"
+           onchange="profileSave({tagline: this.value}, true)">
+  </label>
+  <div class="profile-banners">
+    {% for variant, label, made in variants %}{% if made %}
+    <figure>
+      <img src="{{ url_for('profile.banner_image', key=key, variant=variant) }}?t={{ words.generated_at or 0 }}{{ words.tagline|length }}"
+           alt="{{ label }}" loading="lazy">
+      <figcaption><a class="btn-ghost" href="{{ url_for('profile.banner_image', key=key, variant=variant, download=1) }}">Download: {{ label }}</a></figcaption>
+    </figure>
+    {% endif %}{% endfor %}
+  </div>
+  {% if not has_logo %}<p class="hint">No logo yet, so the banner is just the name. <a href="{{ url_for('logos.logo_page', key=key) }}">Choose a logo</a>, then press Draw again.</p>{% endif %}
+  <div class="actions"><button type="button" class="btn-ghost" onclick="profileBanner(this)">Draw the banner again</button></div>
+</div>
+
+<div class="card">
+  <h2>YouTube &ldquo;About&rdquo; text</h2>
+  <p class="meta">Customisation &rarr; Basic info &rarr; Description. The links are added from this channel's settings.</p>
+  <textarea id="profile-about" rows="14" readonly>{{ about }}</textarea>
+  <div class="actions">
+    <button type="button" class="btn-ghost" onclick="copyField('profile-about', this)">Copy</button>
+  </div>
+  <details>
+    <summary class="hint">Edit the words (the links stay as they are)</summary>
+    <textarea id="profile-about-words" rows="8" maxlength="{{ limits.about }}">{{ words.about }}</textarea>
+    <button type="button" class="btn-ghost" onclick="profileSave({about: document.getElementById('profile-about-words').value})">Save</button>
+  </details>
+  {% if words.keywords %}
+  <label class="review-field">Channel keywords (Customisation &rarr; Basic info &rarr; Keywords)
+    <input type="text" id="profile-keywords" value="{{ words.keywords|join(', ') }}" readonly>
+  </label>
+  <div class="actions"><button type="button" class="btn-ghost" onclick="copyField('profile-keywords', this)">Copy keywords</button></div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>TikTok bio</h2>
+  <textarea id="profile-tiktok" rows="2" maxlength="{{ limits.tiktok }}" oninput="profileCount(this, {{ limits.tiktok }})"
+            onchange="profileSave({tiktok_bio: this.value})">{{ words.tiktok_bio }}</textarea>
+  <p class="hint"><span id="profile-tiktok-count">{{ words.tiktok_bio|length }}</span> / {{ limits.tiktok }}</p>
+  <div class="actions"><button type="button" class="btn-ghost" onclick="copyField('profile-tiktok', this)">Copy</button></div>
+</div>
+
+<div class="card">
+  <h2>Instagram bio</h2>
+  <textarea id="profile-instagram" rows="3" maxlength="{{ limits.instagram }}" oninput="profileCount(this, {{ limits.instagram }})"
+            onchange="profileSave({instagram_bio: this.value})">{{ words.instagram_bio }}</textarea>
+  <p class="hint"><span id="profile-instagram-count">{{ words.instagram_bio|length }}</span> / {{ limits.instagram }}</p>
+  <div class="actions"><button type="button" class="btn-ghost" onclick="copyField('profile-instagram', this)">Copy</button></div>
+  {% if bio_link %}
+  <label class="review-field">The one link a TikTok or Instagram bio can carry
+    <input type="text" id="profile-biolink" value="{{ bio_link }}" readonly>
+  </label>
+  <div class="actions"><button type="button" class="btn-ghost" onclick="copyField('profile-biolink', this)">Copy link</button></div>
+  {% else %}
+  <p class="hint">Once the YouTube channel's link is in Settings, it shows here to put in the bio.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+<style>
+  .profile-banners { display: grid; gap: var(--sp-4); margin: var(--sp-3) 0; }
+  .profile-banners img { width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+  .profile-banners figure { margin: 0; }
+  .profile-banners figcaption { margin-top: var(--sp-2); }
+  #profile-about, #profile-about-words, #profile-tiktok, #profile-instagram { width: 100%; box-sizing: border-box; }
+</style>
+
+<script>
+  const profileKey = {{ key|tojson }};
+
+  async function profilePost(path, body) {
+    const res = await apiFetch(`/api/channels/${profileKey}/profile/${path}`, {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body || {})});
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "That didn't work.");
+    return data;
+  }
+
+  async function profileGenerate(button) {
+    if (button.dataset.again && !confirm("Write them again? This replaces what's below, including any edits you made.")) return;
+    const note = document.getElementById("profile-note");
+    note.textContent = "";
+    await withButtonLoading(button, "Writing…", async () => {
+      try { await profilePost("generate"); location.reload(); }
+      catch (err) { note.textContent = err.message; }
+    });
+  }
+
+  async function profileSave(fields, redraw) {
+    try { await profilePost("save", fields); if (redraw) location.reload(); }
+    catch (err) { alert(err.message); }
+  }
+
+  async function profileBanner(button) {
+    await withButtonLoading(button, "Drawing…", async () => {
+      try { await profilePost("banner"); location.reload(); } catch (err) { alert(err.message); }
+    });
+  }
+
+  function profileCount(field, limit) {
+    const counter = document.getElementById(field.id + "-count");
+    if (counter) counter.textContent = field.value.length;
+  }
+</script>
+{% endblock %}

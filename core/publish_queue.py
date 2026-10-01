@@ -210,33 +210,47 @@ def publish_due(channels: dict, now: datetime = None) -> list:
     return results
 
 
-def send(channel, video_path: Path) -> str:
-    """Put one video out on every platform this channel uses.
+class NowhereToPublish(PipelineError):
+    """No YouTube connection and no hand-off to anywhere else."""
 
-    YouTube failing is not the end of the video: it goes back to review
-    with the reason, the same as anything else a person needs to look at.
-    """
+
+def hand_off_platforms(channel, video_path: Path, manual: bool = False) -> list:
+    """The platforms a video is handed off to after YouTube: the ones the
+    channel's plan posts to. A video published by hand also goes to both
+    when the channel has a browser profile for posting but no plan, since
+    it's the owner asking. TikTok and Instagram are for shorts; a long
+    video is YouTube only."""
+    if gallery.is_long(video_path):
+        return []
+    chosen = [p for p in HANDOFF_PLATFORMS if getattr(channel.publishing, f"post_{p}")]
+    if not chosen and manual and channel.publishing.posting_profile:
+        chosen = list(HANDOFF_PLATFORMS)
+    return chosen
+
+
+def put_out(channel, video_path: Path, privacy: str = "public", platforms: list = None) -> dict:
+    """Put one video out: uploaded to YouTube through the channel's
+    connection (unless it already has a YouTube link), then handed off to
+    each of `platforms` (default: the plan's) in To post. Raises
+    PipelineError if the YouTube upload fails, before anything is handed
+    off, and NowhereToPublish with nowhere to send it. Returns
+    {"messages", "youtube_url", "locked_private", "pending"} (`pending`:
+    platforms handed off and not yet posted)."""
     info = gallery.load_publish_info(video_path)
     title = info["title"] or video_path.stem.replace("_", " ")
     description = info["description"]
     messages = []
     long = gallery.is_long(video_path)
-    # TikTok and Instagram are for shorts; a long video is YouTube only.
-    platforms = [] if long else [p for p in HANDOFF_PLATFORMS
-                                 if getattr(channel.publishing, f"post_{p}")]
+    platforms = hand_off_platforms(channel, video_path) if platforms is None else \
+        ([] if long else list(platforms))
+    youtube_url, locked_private = info["youtube_url"], False
 
     # YouTube first: if the upload fails the video goes back to review, and
     # it mustn't already be sitting in the phone folder for TikTok.
-    if youtube.connection(channel.key)["connected"]:
-        try:
-            result = youtube.upload(channel.key, video_path, title, description,
-                                    privacy="public")
-        except PipelineError as exc:
-            log.warning(f"{channel.key}: queued upload failed: {exc}")
-            unqueue(video_path)
-            _note_on_report(video_path, f"The scheduled upload failed: {exc.user_message} "
-                                        f"It's back in review.")
-            return f"{channel.channel_display_name}: upload failed ({exc.user_message})"
+    if info["youtube_url"]:
+        messages.append(f"already on YouTube: {info['youtube_url']}")
+    elif youtube.connection(channel.key)["connected"]:
+        result = youtube.upload(channel.key, video_path, title, description, privacy=privacy)
         thumb = video_path.with_name(f"{video_path.stem}_thumb.jpg")
         if long and thumb.exists() and result.get("id"):
             try:
@@ -246,17 +260,17 @@ def send(channel, video_path: Path) -> str:
                 log.warning(f"{channel.key}: thumbnail not set: {exc}")
                 messages.append(f"thumbnail not set ({exc.user_message})")
         links = {f: info[f] for f in gallery.PUBLISH_LINK_FIELDS}
-        links["youtube_url"] = result["url"]
+        links["youtube_url"] = youtube_url = result["url"]
         gallery.save_publish_info(video_path, links)
+        locked_private = bool(result.get("locked_private"))
         note = f"on YouTube: {result['url']}"
-        if result.get("locked_private"):
+        if locked_private:
             note += " (private until the Google audit; make it public in Studio)"
         messages.append(note)
     elif not platforms:
-        # Still approved: it waits for somewhere to go, not for another look.
-        _note_on_report(video_path, "Approved and ready, but this channel has nowhere to "
-                                    "publish yet: connect YouTube or turn on a hand-off.")
-        return f"{channel.channel_display_name}: nowhere to publish yet"
+        raise NowhereToPublish("nowhere to publish", user_message=(
+            "This channel has nowhere to publish yet: connect YouTube, or turn on TikTok or "
+            "Instagram hand-off."))
 
     handoff = dict(info["handoff"])
     for platform in platforms:
@@ -264,10 +278,49 @@ def send(channel, video_path: Path) -> str:
             handoff[platform] = {"at": _now().isoformat(), "posted_at": None}
     if handoff != info["handoff"]:
         gallery.save_queue_state(video_path, handoff=handoff)
-        messages.append("waiting in To post for " + " and ".join(
-            PLATFORM_LABELS[p] for p in handoff if not handoff[p].get("posted_at")))
+    pending = [p for p in handoff if not handoff[p].get("posted_at")]
+    if handoff != info["handoff"]:
+        messages.append("waiting in To post for " + " and ".join(PLATFORM_LABELS[p] for p in pending))
+    return {"messages": messages, "youtube_url": youtube_url, "locked_private": locked_private,
+            "pending": pending, "title": title}
 
-    summary = f"{channel.channel_display_name}: \"{title}\" " + "; ".join(messages)
+
+def publish_now(channel, video_path: Path, privacy: str = "public") -> dict:
+    """Publish a video now, by hand: the same as its slot coming up, for a
+    video you've just looked at and are ready to send. Nothing is changed
+    if YouTube refuses it. See `put_out`."""
+    info = gallery.load_publish_info(video_path)
+    if info["discarded"]:
+        raise PipelineError(f"{video_path} is discarded", user_message=(
+            "That video is discarded. Restore it first if you want to publish it."))
+    result = put_out(channel, video_path, privacy=privacy,
+                     platforms=hand_off_platforms(channel, video_path, manual=True))
+    log.info(f"{channel.channel_display_name}: published \"{result['title']}\" by hand: "
+             + "; ".join(result["messages"]))
+    return result
+
+
+def send(channel, video_path: Path) -> str:
+    """Put one video out on every platform this channel uses.
+
+    YouTube failing is not the end of the video: it goes back to review
+    with the reason, the same as anything else a person needs to look at.
+    """
+    try:
+        result = put_out(channel, video_path)
+    except NowhereToPublish:
+        # Still approved: it waits for somewhere to go, not for another look.
+        _note_on_report(video_path, "Approved and ready, but this channel has nowhere to "
+                                    "publish yet: connect YouTube or turn on a hand-off.")
+        return f"{channel.channel_display_name}: nowhere to publish yet"
+    except PipelineError as exc:
+        log.warning(f"{channel.key}: queued upload failed: {exc}")
+        unqueue(video_path)
+        _note_on_report(video_path, f"The scheduled upload failed: {exc.user_message} "
+                                    f"It's back in review.")
+        return f"{channel.channel_display_name}: upload failed ({exc.user_message})"
+
+    summary = f"{channel.channel_display_name}: \"{result['title']}\" " + "; ".join(result["messages"])
     log.info(summary)
     return summary
 
