@@ -100,6 +100,17 @@ question bank and the difficulty fix). **Topic plan → Clear written
 scripts (13)**. Each is written afresh from the bank when its video is
 made. Discard any quiz still in Review that came from them.
 
+### 4c-ii. Anthropic credit (2 minutes)
+On 1 Oct the app's Anthropic key still reported "credit balance is too low"
+after you'd added credit, so the credit probably went to a different
+organisation from the one the key belongs to. At
+<https://console.anthropic.com> → **Plans & Billing**, check the organisation
+shown in the top-left is the one whose key is in your `ANTHROPIC_API_KEY`
+(**API keys** page lists the keys per organisation/workspace). Then press
+**Retry** on the failed Mythology attempt, or **Discard this attempt** to
+start fresh. The two shorts made while credit was out (Sport: Tricky) had
+their automatic checks skipped, so watch that one yourself.
+
 ### 4d. Check a round's questions (5 minutes)
 Each question can now be judged on its own, with a bad one swapped out
 rather than the whole round written again.

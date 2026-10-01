@@ -90,6 +90,9 @@ class Job:
     # leave it out of the history rather than learning that a video takes
     # four seconds to make.
     retried: bool = False
+    # A failed or interrupted attempt the owner has discarded: no longer
+    # offered for retry on the Create page, Activity or the phone.
+    dismissed: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -403,6 +406,22 @@ def start_job(channel_key: str, seed: dict, job_id: str = None) -> str:
     return job_id
 
 
+def dismiss_job(job_id: str) -> None:
+    """Discard a failed or interrupted attempt: it stops being offered for
+    retry, and the work it had saved for a retry goes (the lines it voiced
+    stay in the voice cache, which only remakes read)."""
+    with _lock:
+        job = _jobs.get(job_id)
+        if job is None:
+            raise JobError("no such job", user_message="That job no longer exists.")
+        if job.status not in RETRYABLE_STATES:
+            raise JobError(f"status {job.status}", user_message="Only a failed or interrupted attempt "
+                                                                 "can be discarded.")
+        job.dismissed = True
+    _persist(job_id)
+    job_context.clear_checkpoints(job_id)
+
+
 def retry_job(job_id: str) -> str:
     """Re-run a failed or interrupted job under the SAME id.
 
@@ -482,7 +501,8 @@ def latest_failed_for_channel(channel_key: str):
     job id."""
     with _lock:
         candidates = [j for j in _jobs.values()
-                      if j.channel_key == channel_key and j.status in RETRYABLE_STATES]
+                      if j.channel_key == channel_key and j.status in RETRYABLE_STATES
+                      and not j.dismissed]
         if not candidates:
             return None
         best = max(candidates, key=lambda j: j.finished_at or j.queued_at or 0)
@@ -527,7 +547,7 @@ def recent_finished(limit: int = 6) -> list:
     interrupted alike. An empty queue with nothing else on the page reads
     as "nothing happened"; these say what just did."""
     with _lock:
-        done = [j for j in _jobs.values() if j.status not in RUNNING_STATES]
+        done = [j for j in _jobs.values() if j.status not in RUNNING_STATES and not j.dismissed]
         done.sort(key=lambda j: j.finished_at or j.queued_at or 0, reverse=True)
         return [_with_extras(j) for j in done[:limit]]
 

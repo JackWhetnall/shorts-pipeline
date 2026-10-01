@@ -17,9 +17,14 @@
 {% else %}
 <p class="meta">Nothing right now.</p>
 {% endfor %}
-{% for job in recent if job.status in ('failed', 'interrupted') %}
+{% for job in recent if job.status in ('error', 'interrupted') %}
 <div class="card"><strong>{{ job.title }}</strong>
-  <div class="meta danger-text">{{ job.channel_name }} &middot; {{ job.error or 'Stopped before it finished.' }}</div></div>
+  <div class="meta danger-text">{{ job.channel_name }} &middot; {{ job.error or 'Stopped before it finished.' }}</div>
+  <form method="post" class="row" style="margin-top: var(--sp-2)">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-primary" formaction="{{ url_for('phone.job_action', job_id=job.id, action='retry') }}">Retry</button>
+    <button type="submit" class="danger-text" formaction="{{ url_for('phone.job_action', job_id=job.id, action='discard') }}">Discard</button>
+  </form></div>
 {% endfor %}
 
 <h2>Waiting for review</h2>

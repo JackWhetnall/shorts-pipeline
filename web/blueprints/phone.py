@@ -73,6 +73,21 @@ def discard(relpath):
     return redirect(url_for("phone.review", note="Discarded. Its topic goes back in the plan."))
 
 
+@bp.route("/m/jobs/<job_id>/<action>", methods=["POST"])
+def job_action(job_id, action):
+    """Retry a failed attempt, or discard it."""
+    try:
+        if action == "retry":
+            jobs.retry_job(job_id)
+            return _home("Trying again.")
+        if action == "discard":
+            jobs.dismiss_job(job_id)
+            return _home("Discarded.")
+    except PipelineError as exc:
+        return _home(exc.user_message)
+    abort(404)
+
+
 @bp.route("/m/make/<key>", methods=["POST"])
 def make(key):
     """The next video, or the round picked, straight to making: no seed

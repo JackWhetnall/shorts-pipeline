@@ -119,6 +119,12 @@ def retry(job_id):
     return jsonify({"job_id": job_id})
 
 
+@bp.route("/api/jobs/<job_id>/dismiss", methods=["POST"])
+def dismiss(job_id):
+    jobs_core.dismiss_job(job_id)
+    return jsonify({"ok": True})
+
+
 @bp.route("/api/channels/<key>/current-job")
 def current_job(key):
     """Lets a page reconnect to a job still in flight after navigating

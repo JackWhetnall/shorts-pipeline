@@ -95,6 +95,19 @@ def gate_agreement(channel) -> tuple:
     return decided, agreed
 
 
+def _shadow_detail(decided: int, agreed: int, ok: bool) -> str:
+    """Where the shadow run stands: not enough videos reviewed yet, or
+    enough but the checks and you disagreed too often."""
+    if ok:
+        return f"The checks agreed with you on {agreed} of {decided}."
+    if decided < SHADOW_MIN_DECIDED:
+        return (f"{decided} of {SHADOW_MIN_DECIDED} reviewed so far; the checks agreed with you on "
+                f"{agreed}.")
+    need = int(SHADOW_MIN_AGREEMENT * 100)
+    return (f"The checks agreed with you on {agreed} of {decided} ({round(100 * agreed / decided)}%); "
+            f"they need to reach {need}%. Keep reviewing: each video you decide counts.")
+
+
 def stages(channel, state: dict = None) -> tuple:
     """(launch, grow): lists of Stage, launch in order."""
     state = state or gallery.video_state_counts(channel.output_dir)
@@ -130,10 +143,7 @@ def stages(channel, state: dict = None) -> tuple:
                  (f"Publishes at {', '.join(plan.slots) or 'once approved'}, "
                   f"keeping {plan.buffer} ready.") if plan.enabled else
                  "Pick publishing times and how many videos to keep ready."),
-        "shadow": (shadow_ok,
-                   f"{decided} of {SHADOW_MIN_DECIDED} reviewed; the checks agreed with you on "
-                   f"{agreed}." if not shadow_ok else
-                   f"The checks agreed with you on {agreed} of {decided}."),
+        "shadow": (shadow_ok, _shadow_detail(decided, agreed, shadow_ok)),
         "autopilot": (channel.autopilot.mode == "when_clean",
                       "Clean videos queue themselves; flagged ones wait for you."
                       if channel.autopilot.mode == "when_clean" else

@@ -364,6 +364,15 @@ def _as_service_error(exc: Exception) -> Exception:
             user_message=("ANTHROPIC_API_KEY was rejected. Check that it's set "
                           "correctly and still valid."),
         )
+    if status == 400 and "credit balance is too low" in str(exc).lower():
+        # Billing, not a bug: the account has no credit. It was reported as
+        # a malformed request, and adding credits seemed not to help.
+        return ExternalServiceError(
+            "The AI service (Claude)", str(exc), status=status,
+            user_message=("The Anthropic account has run out of credit. Add credit under Plans & "
+                          "Billing at console.anthropic.com, in the same organisation as the API "
+                          "key this app uses (the APIs page shows which), wait a minute or two, "
+                          "then press Retry."))
     if status == 400:
         # Almost always a request this code built wrongly, so say that
         # rather than implying the user did something.

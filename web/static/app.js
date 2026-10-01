@@ -330,6 +330,8 @@ function showJobBanner(message, retryable) {
   if (msgEl) msgEl.textContent = message;
   el.classList.remove("hidden");
   if (btn) btn.classList.toggle("hidden", !retryable);
+  const dismiss = document.getElementById("job-dismiss-btn");
+  if (dismiss) dismiss.classList.toggle("hidden", !retryable);
 }
 
 function hideJobBanner() {
@@ -337,6 +339,31 @@ function hideJobBanner() {
   if (el) el.classList.add("hidden");
   const btn = document.getElementById("job-retry-btn");
   if (btn) btn.classList.add("hidden");
+  const dismiss = document.getElementById("job-dismiss-btn");
+  if (dismiss) dismiss.classList.add("hidden");
+}
+
+// Forgets a failed or interrupted attempt, so this page goes back to
+// making a new video instead of showing the failure every time.
+async function dismissCurrentJob() {
+  if (!currentJobId) return;
+  if (!confirm("Discard this failed attempt? What it had saved for a retry is deleted.")) return;
+  const btn = document.getElementById("job-dismiss-btn");
+  await withButtonLoading(btn, "Discarding…", async () => {
+    let res;
+    try {
+      res = await apiFetch(`/api/jobs/${currentJobId}/dismiss`, {method: "POST"});
+    } catch (err) {
+      alert("Couldn't reach the server to discard this attempt.");
+      return;
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't discard this attempt.");
+      return;
+    }
+    window.location.reload();
+  });
 }
 
 // Re-runs the currently-viewed job in place, reusing whatever it already
@@ -929,7 +956,18 @@ function activityFinishedRow(job) {
       <h3>${escapeHtml(job.title)}</h3>
       <p class="review-flag review-flag-warn">${escapeHtml(job.error || "Something went wrong.")}</p>
       <button type="button" class="btn-ghost" onclick="activityRetry('${job.id}', this)">Retry</button>
+      <button type="button" class="btn-ghost danger-text" onclick="activityDismiss('${job.id}', this)">Discard</button>
     </div>`;
+}
+
+async function activityDismiss(jobId, button) {
+  await withButtonLoading(button, "Discarding…", async () => {
+    const res = await apiFetch(`/api/jobs/${jobId}/dismiss`, {method: "POST"});
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't discard that attempt.");
+    }
+  });
 }
 
 async function activityRetry(jobId, button) {
