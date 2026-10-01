@@ -1067,7 +1067,7 @@
       <p class="hint">
         <a href="{{ url_for('youtube.setup') }}">YouTube upload setup</a>
         {%- if youtube_upload.configured %} &middot;
-        <a href="{{ url_for('youtube.connect', key=channel.key) }}">{{ 'Reconnect' if youtube_upload.connected else 'Connect' }} this channel</a>
+        <a href="{{ url_for('youtube.connect', key=channel.key) }}" target="_blank" rel="noopener">{{ 'Reconnect' if youtube_upload.connected else 'Connect' }} this channel</a>
         {%- endif %}
       </p>
     </fieldset>

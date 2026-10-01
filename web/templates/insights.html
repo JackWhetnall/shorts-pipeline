@@ -42,7 +42,7 @@
   {% if needs_reconnect %}
   <p class="meta info-banner">
     Reconnect to see numbers:
-    {% for key, name in needs_reconnect %}<a href="{{ url_for('youtube.connect', key=key) }}">{{ name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+    {% for key, name in needs_reconnect %}<a href="{{ url_for('youtube.connect', key=key) }}" target="_blank" rel="noopener">{{ name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
     &mdash; connected before reading statistics was part of the permission.
   </p>
   {% endif %}

@@ -57,7 +57,12 @@
     <p><code>{{ redirect_uri }}</code></p>
     <span class="hint">This is derived from the address you are reading this
       page on. Run the app on a different port and you will need to register
-      that one too.</span>
+      that one too. <code>localhost</code> and <code>127.0.0.1</code> count as
+      different addresses to Google, so register the one you use. If Google
+      says <em>Error 400: redirect_uri_mismatch</em>, this is what's missing:
+      in the console open <strong>Google Auth Platform &rarr; Clients</strong>,
+      click this client, add the address above under <strong>Authorised
+      redirect URIs</strong>, and save (it can take a few minutes to apply).</span>
   </li>
 </ol>
 
@@ -111,7 +116,7 @@
         {% endif %}
       </td>
       <td class="actions">
-        <a class="btn-ghost" href="{{ url_for('youtube.connect', key=row.key) }}">
+        <a class="btn-ghost" href="{{ url_for('youtube.connect', key=row.key) }}" target="_blank" rel="noopener">
           {{ 'Reconnect' if row.connected else 'Connect' }}
         </a>
         {% if row.connected %}
