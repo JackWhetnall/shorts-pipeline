@@ -32,6 +32,11 @@ Windows, project at `C:\Users\JackW\Documents\YT\`, Python 3.10, Git Bash.
 - **Logging** — `get_logger(__name__)`, never `print()`. The job runner
   routes log records to the right job by contextvar; a `print()` bypasses
   that and vanishes from the UI.
+- **Per-channel data** — a channel's key is the name its data is filed
+  under. Anything new stored per channel (a file, a table, a log field)
+  must be added to `core.channel_data.migrate`, with a test, or renaming
+  the channel strands it (decision
+  [057](docs/decisions/057-rename-carries-all-data.md)).
 - **Paths** — from `core.paths`. Don't recompute `PROJECT_ROOT`, don't
   write another `slugify`, and put anything user-supplied through
   `safe_join`.

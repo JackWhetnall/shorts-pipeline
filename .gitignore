@@ -72,3 +72,6 @@ config/channels.json.v1.bak
 .idea/
 .DS_Store
 Thumbs.db
+
+# Full copies taken before risky operations (tools / by hand).
+backups/

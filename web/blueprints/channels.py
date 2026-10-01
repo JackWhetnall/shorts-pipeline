@@ -458,7 +458,11 @@ def rename(key):
     except ConfigError as exc:
         return redirect(url_for("channels.dashboard", key=key,
                                 rename_error=exc.user_message))
-    return redirect(url_for("channels.dashboard", key=result["new_key"]))
+    problems = result.get("problems") or []
+    return redirect(url_for(
+        "channels.dashboard", key=result["new_key"],
+        rename_error=("Renamed, but some of its data couldn't be moved across: " + "; ".join(problems)
+                      + ". Nothing is lost; it is still filed under the old name.") if problems else None))
 
 
 @bp.route("/channels/<key>/archive", methods=["POST"])

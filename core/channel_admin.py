@@ -180,7 +180,13 @@ def rename_channel(old_key: str, new_display_name: str) -> dict:
             shutil.move(str(old_output), str(PROJECT_ROOT / new_output_dir))
 
     log.info(f"Renamed channel {old_key} -> {new_key}")
-    return {"new_key": new_key, "output_dir_migrated": migrate_output}
+    # Everything else filed under the old name: its topic plan, question
+    # memory, history, costs, usage and jobs (core.channel_data).
+    from core import channel_data
+    problems = channel_data.migrate(old_key, new_key, output_moved=migrate_output)
+    for problem in problems:
+        log.warning(f"Rename {old_key} -> {new_key}: {problem}")
+    return {"new_key": new_key, "output_dir_migrated": migrate_output, "problems": problems}
 
 
 def delete_channel(key: str) -> Path:
