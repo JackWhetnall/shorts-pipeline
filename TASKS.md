@@ -214,10 +214,37 @@ it's in Testing that connection dies around 1 Oct.
 1. <https://console.cloud.google.com/> → your project → **Google Auth
    Platform → Audience** (older layout: *OAuth consent screen*).
 2. If *Publishing status* says **Testing**, click **Publish app** and
-   confirm. Leave the home page, privacy policy and terms fields empty.
-   When you next connect, Google shows "Google hasn't verified this app".
-   That's expected for a personal tool: **Advanced → Go to (app name)**.
+   confirm. Google now insists on a **homepage and a privacy policy URL**
+   first (my earlier "leave them empty" was out of date). Do step 7a to
+   get those. When you next connect, Google shows "Google hasn't verified
+   this app". That's expected for a personal tool: **Advanced → Go to (app
+   name)**.
 3. If it already says **In production**, nothing to do.
+
+### 7a. Make the homepage and privacy policy pages (10 minutes)
+Google needs two public web addresses. I've written the pages (the
+`site` folder in the project); they just need putting on the web. GitHub
+Pages does that for free. Use a **new, separate public repository**, not
+your main one, so the project itself stays private.
+1. Open `site\privacy.html` in a text editor and replace
+   `REPLACE-WITH-YOUR-SUPPORT-EMAIL` with your support email (the one in
+   the Google console). That address will be public on the page.
+2. <https://github.com/new> → name it `shorts-pipeline-site`, **Public**,
+   tick *Add a README*, **Create repository**.
+3. On its page: **Add file → Upload files**, drag in `index.html` and
+   `privacy.html` from the `site` folder, **Commit changes**.
+4. **Settings → Pages**: *Source* = **Deploy from a branch**, *Branch* =
+   **main**, folder **/ (root)**, **Save**. After a minute or two the page
+   shows its address, which will be
+   `https://jackwhetnall.github.io/shorts-pipeline-site/`. Open it and
+   `.../privacy.html` to check they load.
+5. In the Google console, **Google Auth Platform → Branding**: set
+   *Application home page* to the first address and *Application privacy
+   policy link* to `.../privacy.html`. If it asks for an *Authorized
+   domain*, add `jackwhetnall.github.io`. Make sure the app name matches
+   the one on the page ("Shorts Pipeline") or change the page's title to
+   whatever you called it. **Save**.
+6. Back in **Audience**, **Publish app** again.
 
 ### 8. Connect the channel to the app (2 minutes)
 **The Pub Quiz Round → Settings → Publishing → Automatic YouTube uploads
