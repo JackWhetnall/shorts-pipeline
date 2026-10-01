@@ -18,6 +18,7 @@ import json
 from pathlib import Path
 
 import pytest
+from core.errors import PipelineError
 
 from core import channel_profile, gallery, posting, publish_queue
 from core.channels import ChannelConfig
@@ -123,3 +124,56 @@ def test_descriptions_that_talk_about_production_are_written_again(monkeypatch, 
     words = channel_profile.generate(channel)
     assert words["about"] == "Get the one nobody else in the room knew."
     assert "on-screen" in asked[1] and "Show matching" not in asked[0]          # no host brief given
+
+
+# --- opening the right account's upload page (from the first version) ----------------
+# Nothing is launched: `subprocess.Popen` and `webbrowser.open` are recorded.
+# What matters: the channel's own profile is the one opened, arguments go as
+# a list rather than through a shell, and with no profile the default
+# browser still works.
+
+@pytest.fixture
+def launched(monkeypatch):
+    calls = {"popen": [], "web": []}
+    monkeypatch.setattr(posting.subprocess, "Popen", lambda args: calls["popen"].append(args))
+    monkeypatch.setattr(posting.webbrowser, "open", lambda url: calls["web"].append(url))
+    monkeypatch.setattr(posting, "_exe", lambda browser: f"C:/{browser}.exe" if browser else None)
+    return calls
+
+
+def _pastor(**plan):
+    channel = ChannelConfig(key="minute_pastor", voice="21m00Tcm4TlvDq8ikWAM", style_prompt="x")
+    for name, value in plan.items():
+        setattr(channel.publishing, name, value)
+    return channel
+
+
+def test_opens_the_channels_own_profile_with_the_video_ready(launched, world):
+    _, video = world
+    channel = _pastor(posting_browser="chrome", posting_profile="Shorts minute_pastor")
+    result = posting.start_post(channel, video, "tiktok")
+    # Only the browser: no Explorer window (the path goes on the clipboard instead).
+    assert launched["popen"] == [["C:/chrome.exe", "--profile-directory=Shorts minute_pastor",
+                                  posting.UPLOAD_URLS["tiktok"]]]
+    assert Path(result["file"]).exists() and result["platform"] == "TikTok"
+
+
+def test_without_a_profile_it_uses_the_default_browser(launched, world):
+    posting.start_post(_pastor(), world[1], "instagram")
+    assert launched["web"] == [posting.UPLOAD_URLS["instagram"]]
+
+
+def test_an_unknown_platform_is_refused(launched, world):
+    with pytest.raises(PipelineError):
+        posting.start_post(_pastor(), world[1], "myspace")
+    assert launched["popen"] == [] and launched["web"] == []
+
+
+def test_setting_up_a_profile_names_it_for_the_channel_and_opens_both_logins(launched):
+    channel = _pastor()
+    folder = posting.set_up_profile(channel)
+    assert folder == "Shorts minute_pastor"
+    assert channel.publishing.posting_browser == "chrome"
+    args = launched["popen"][0]
+    assert f"--profile-directory={folder}" in args
+    assert posting.LOGIN_URLS["tiktok"] in args and posting.LOGIN_URLS["instagram"] in args
