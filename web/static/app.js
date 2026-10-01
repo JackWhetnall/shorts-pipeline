@@ -1270,19 +1270,14 @@ async function detailPublish(button) {
   const description = document.getElementById("detail-description").value;
   if (!title) { note.textContent = "Give it a title first."; return; }
   note.textContent = "";
-  // On the click itself, before anything async: a browser only lets the
-  // clipboard be written while it still counts as the click's own doing.
-  if (card.dataset.socials) {
-    navigator.clipboard.writeText([title, description].filter(Boolean).join("\n\n")).catch(() => {});
-  }
-  const privacy = document.getElementById("detail-privacy");
+  const privacyField = document.getElementById("detail-privacy");
   await withButtonLoading(button, "Publishing…", async () => {
     let res, data;
     try {
       res = await apiFetch(`/api/videos/${card.dataset.relpath}/publish-now`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({title, description, privacy: privacy ? privacy.value : "public"}),
+        body: JSON.stringify({title, description, privacy: privacyField ? privacyField.value : "public"}),
       });
       data = await res.json();
     } catch (err) {
@@ -1290,16 +1285,12 @@ async function detailPublish(button) {
       return;
     }
     if (!res.ok) { note.textContent = data.error || "Publishing failed."; return; }
-    const parts = data.messages.slice();
-    if (data.opened && data.opened.platforms.length) {
-      parts.push(`opened ${data.opened.platforms.join(" and ")} in ${data.opened.where}; the file is selected in its folder and the caption is on your clipboard. Post it there, then mark it posted on the To post page`);
-    }
-    note.innerHTML = "Published: " + parts.map(escapeHtml).join(". ") + ".";
     if (data.locked_private) {
       alert("Uploaded, but YouTube made it private because the API project hasn't passed Google's "
           + "compliance audit. Make it public in YouTube Studio:\n\n" + data.youtube_url);
     }
-    button.hidden = true;
+    // The page now shows the TikTok and Instagram steps.
+    location.reload();
   });
 }
 
@@ -1314,8 +1305,6 @@ async function reviewUploadYouTube() {
 
   const title = document.getElementById("review-title").value;
   const description = document.getElementById("review-description").value;
-  // Before anything async, so the browser still allows the clipboard write.
-  navigator.clipboard.writeText([title, description].filter(Boolean).join("\n\n")).catch(() => {});
   await withButtonLoading(button, "Publishing…", async () => {
     const res = await apiFetch(`/api/videos/${item.relpath}/publish-now`, {
       method: "POST",
@@ -1335,10 +1324,10 @@ async function reviewUploadYouTube() {
           + "project hasn't passed a compliance audit. Make it public in "
           + "YouTube Studio:\n\n" + data.youtube_url);
     }
-    if (data.opened && data.opened.platforms.length) {
-      alert(`Published. ${data.opened.platforms.join(" and ")} opened in ${data.opened.where}: the file is `
-          + "selected in its folder and the caption is on your clipboard. Post it there, then mark it "
-          + "posted on the To post page.");
+    if (data.next) {
+      // The TikTok and Instagram steps are on the video's own page.
+      window.location.href = data.next;
+      return;
     }
     reviewDrop();
   });
@@ -2834,55 +2823,61 @@ document.addEventListener("DOMContentLoaded", initScriptNotebook);
 // Posting to TikTok / Instagram from this PC (core.posting)
 // ---------------------------------------------------------------------
 
-// The caption goes on the clipboard here, in the click itself: that's
-// where the browser allows it. Then the server opens the channel's
-// browser profile at the upload page and the video in Explorer.
-async function openPost(relpath, platform, captionText, statusEl, button) {
-  let copied = false;
-  try { await navigator.clipboard.writeText(captionText); copied = true; } catch (e) { /* said below */ }
-  await withButtonLoading(button, "Opening…", async () => {
-    const res = await apiFetch(`/api/videos/${relpath}/start-post`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({platform}),
-    });
-    const data = await res.json();
-    if (!res.ok) { statusEl.textContent = data.error || "Couldn't open it."; return; }
-    statusEl.textContent = `${data.platform} upload opened in ${data.where}. The video is selected in the Explorer window: drag it in, `
-      + (copied ? "paste the caption (Ctrl+V), and post." : "copy the caption from the page, and post.");
-  });
+// --- The posting steps (_post_steps.html) -----------------------------
+// Each button writes the clipboard on the click itself, before anything
+// async: a browser only allows that while it still counts as the click.
+
+function postParts(el) {
+  const steps = el.closest(".post-steps");
+  const platform = el.closest(".post-platform");
+  return {steps, platform, relpath: steps.dataset.relpath, file: steps.dataset.file,
+          key: platform ? platform.dataset.platform : "",
+          status: platform ? platform.querySelector(".post-status") : null,
+          caption: platform ? platform.querySelector(".post-caption-text").value : ""};
 }
 
-function startPost(button, platform) {
-  const card = button.closest(".handoff-item");
-  openPost(card.dataset.relpath, platform, card.querySelector(".handoff-caption").value,
-           card.querySelector(".handoff-status"), button);
+async function postOpen(button) {
+  const p = postParts(button);
+  let copied = true;
+  try { await navigator.clipboard.writeText(p.file); } catch (e) { copied = false; }
+  const res = await apiFetch(`/api/videos/${p.relpath}/start-post`, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({platform: p.key})});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { p.status.textContent = data.error || "Couldn't open it."; return; }
+  p.status.textContent = copied
+    ? `Opened in ${data.where}. The video's location is copied: on ${data.platform}, choose the video, then Ctrl+V and Enter.`
+    : `Opened in ${data.where}. Copy the video's location with the button, then on ${data.platform} choose the video, Ctrl+V and Enter.`;
 }
 
-async function reviewStartPost(button, platform) {
-  const item = reviewCurrent();
-  if (!item) return;
-  await reviewSaveMeta();
-  const title = document.getElementById("review-title").value;
-  const description = document.getElementById("review-description").value;
-  const caption = [title, description].filter(Boolean).join("\n\n");
-  openPost(item.relpath, platform, caption, document.getElementById("review-post-status"), button);
+async function postCopy(button, what) {
+  const p = postParts(button);
+  const text = what === "file" ? p.file : p.caption;
+  try {
+    await navigator.clipboard.writeText(text);
+    const original = button.textContent;
+    button.textContent = "Copied";
+    setTimeout(() => { button.textContent = original; }, 1500);
+    if (p.status) p.status.textContent = what === "file"
+      ? "The video's location is copied: Ctrl+V into the file box, then Enter."
+      : "The caption is copied: paste it into the caption box.";
+  } catch (e) {
+    if (p.status) p.status.textContent = "Couldn't copy. Select the text and copy it by hand: " + text;
+  }
 }
 
-async function markPosted(event, form) {
+async function postDone(event, form) {
   event.preventDefault();
-  const card = form.closest(".handoff-item");
+  const p = postParts(form);
   const button = form.querySelector("button");
   await withButtonLoading(button, "Saving…", async () => {
-    const res = await apiFetch(`/api/videos/${card.dataset.relpath}/posted`, {
+    const res = await apiFetch(`/api/videos/${p.relpath}/posted`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({platform: form.platform.value, url: form.url.value}),
+      body: JSON.stringify({platform: p.key, url: form.url.value}),
     });
-    const data = await res.json();
-    if (!res.ok) { alert(data.error || "Couldn't save that."); return; }
-    form.closest(".handoff-row").remove();
-    if (!card.querySelector(".handoff-form")) card.remove();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { p.status.textContent = data.error || "Couldn't save that."; return; }
+    location.reload();
   });
 }
 

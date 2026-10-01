@@ -228,7 +228,7 @@ def hand_off_platforms(channel, video_path: Path, manual: bool = False) -> list:
     return chosen
 
 
-def put_out(channel, video_path: Path, privacy: str = "public", platforms: list = None) -> dict:
+def put_out(channel, video_path: Path, privacy: str = "public", platforms: list = None) -> dict:  # noqa: C901
     """Put one video out: uploaded to YouTube through the channel's
     connection (unless it already has a YouTube link), then handed off to
     each of `platforms` (default: the plan's) in To post. Raises
@@ -250,7 +250,9 @@ def put_out(channel, video_path: Path, privacy: str = "public", platforms: list 
     if info["youtube_url"]:
         messages.append(f"already on YouTube: {info['youtube_url']}")
     elif youtube.connection(channel.key)["connected"]:
-        result = youtube.upload(channel.key, video_path, title, description, privacy=privacy)
+        from core import posting
+        result = youtube.upload(channel.key, video_path, title,
+                                posting.with_youtube_hashtags(channel, video_path, description), privacy=privacy)
         thumb = video_path.with_name(f"{video_path.stem}_thumb.jpg")
         if long and thumb.exists() and result.get("id"):
             try:
@@ -279,6 +281,12 @@ def put_out(channel, video_path: Path, privacy: str = "public", platforms: list 
     if handoff != info["handoff"]:
         gallery.save_queue_state(video_path, handoff=handoff)
     pending = [p for p in handoff if not handoff[p].get("posted_at")]
+    if pending:
+        try:
+            from core import posting
+            posting.stage(channel, video_path)
+        except OSError as exc:  # it's made again when its posting steps are shown
+            log.warning(f"{channel.key}: couldn't put the video in the ready-to-post folder: {exc}")
     if handoff != info["handoff"]:
         messages.append("waiting in To post for " + " and ".join(PLATFORM_LABELS[p] for p in pending))
     return {"messages": messages, "youtube_url": youtube_url, "locked_private": locked_private,
@@ -340,6 +348,9 @@ def mark_posted(video_path: Path, platform: str, url: str = "") -> dict:
         links = {f: info[f] for f in gallery.PUBLISH_LINK_FIELDS}
         links[f"{platform}_url"] = url.strip()
         gallery.save_publish_info(video_path, links)
+    if all(h.get("posted_at") for h in handoff.values()):
+        from core import posting
+        posting.unstage(video_path)
     return gallery.load_publish_info(video_path)
 
 

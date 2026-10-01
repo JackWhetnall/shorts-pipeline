@@ -2122,6 +2122,16 @@ td.actions > * + * { margin-left: var(--sp-2); }
 
 /* To post: one row per platform still to post. */
 .handoff-actions { flex-direction: column; align-items: stretch; }
+.handoff-head { display: flex; gap: var(--sp-4); align-items: center; }
+.handoff-thumb { width: 4.5rem; aspect-ratio: 9 / 16; object-fit: cover; border-radius: var(--radius-sm); }
+.post-platform { border-top: 1px solid var(--border); padding-top: var(--sp-3); margin-top: var(--sp-3); }
+.post-platform h3 { margin: 0 0 var(--sp-2); }
+.post-platform.is-posted { opacity: .75; }
+.post-step-list { margin: 0 0 var(--sp-3); padding-left: 1.3rem; line-height: 1.6; }
+.post-caption textarea { width: 100%; box-sizing: border-box; margin-top: var(--sp-2); }
+.post-done { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; margin-top: var(--sp-3); }
+.post-done input[type="url"] { min-width: 18rem; margin-top: var(--sp-2); }
+.post-file { word-break: break-all; }
 .handoff-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; }
 .handoff-form { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .handoff-form input[type="url"] { flex: 1; min-width: 12rem; }

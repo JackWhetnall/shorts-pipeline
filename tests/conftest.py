@@ -25,3 +25,11 @@ def _isolated_script_history(tmp_path, monkeypatch):
     monkeypatch.setattr("pipeline.quiz.QUESTION_BANK_DIR", tmp_path / "question_banks")
     # And the fact store (pipeline.facts): empty unless a test fills it.
     monkeypatch.setattr("pipeline.facts.store.DB_PATH", tmp_path / "facts.db")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_ready_to_post(tmp_path, monkeypatch):
+    """Publishing puts a video in the owner's Videos\Shorts to post folder
+    (core.posting.stage); no test may touch the real one."""
+    monkeypatch.setattr("core.posting.READY_DIR", tmp_path / "ready_to_post")
+    monkeypatch.setattr("core.posting.STAGED_INDEX", tmp_path / "staged_posts.json")

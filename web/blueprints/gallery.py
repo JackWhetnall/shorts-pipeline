@@ -126,7 +126,20 @@ def video_detail(key, relpath):
         youtube=youtube.connection(key),
         hand_off=publish_queue.hand_off_platforms(channel, target, manual=True),
         out=gallery_core.is_out(links),
+        post=_post_plan(channel, target, links),
     )
+
+
+def _post_plan(channel, target, links):
+    """The TikTok and Instagram steps, for a video handed off to them."""
+    if not links.get("handoff"):
+        return None
+    from core import posting
+    try:
+        return posting.plan(channel, target)
+    except OSError as exc:
+        log.warning(f"Couldn't prepare the posting steps: {exc}")
+        return None
 
 
 @bp.route("/channels/<key>/videos/<path:relpath>/discard-one", methods=["POST"])

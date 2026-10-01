@@ -150,6 +150,18 @@ only the movement). Everything else, voice and footage included, is
 kept. Videos made before today can only be remade this way if they're
 quiz shorts.
 
+### 4d-iv. Fix which Chrome profile posts (2 minutes)
+Pub Quiz Buzz was set to post from Chrome's **Default** profile, which is
+signed in to a different Google account (cwcraigwatkins@...). That's why
+the wrong profile opened. In **Settings → Publishing**, pick the profile
+where you're signed in to the channel's TikTok and Instagram. The list
+now says who's signed in to each; the one the app made for this channel
+says "made for pub_quiz_buzz". Then open **To post**: the Impossible
+Science video is waiting there, with the steps for each platform.
+
+The channel descriptions have been written again for viewers (no more
+countdown clocks); see the **Channel profile** page.
+
 ### 4d-iii. Publish by hand, in one click (and the channel profile)
 Open an approved video (**Videos** page, or Review). The **Publish** card
 shows its title and description to check and edit, then **Publish now**

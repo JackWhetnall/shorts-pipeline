@@ -1,0 +1,41 @@
+{# The posting steps for one video (core.posting.plan): `post` is the plan,
+   `relpath` the video. Used by the To post page and a published video's page. #}
+<div class="post-steps" data-relpath="{{ relpath }}" data-file="{{ post.file }}">
+  {% if post.youtube_url %}
+  <p class="meta post-done-line">&#10003; On YouTube: <a href="{{ post.youtube_url }}" target="_blank" rel="noopener">{{ post.youtube_url }}</a></p>
+  {% endif %}
+  <p class="meta">Opens in <strong>{{ post.where }}</strong>{% if channel_key %} &middot;
+    <a href="{{ url_for('channels.settings', key=channel_key, _anchor='section-publishing') }}">change</a>{% endif %}.
+    Sign in to the channel's own TikTok and Instagram there once, and it stays signed in.</p>
+  {% for p in post.platforms %}
+  <div class="post-platform {{ 'is-posted' if p.posted }}" data-platform="{{ p.key }}">
+    <h3>{{ p.label }}{% if p.posted %} <span class="service-ok">&#10003; Posted</span>{% endif %}</h3>
+    {% if p.posted %}
+      {% if p.url %}<p class="meta"><a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.url }}</a></p>{% endif %}
+    {% else %}
+    <ol class="post-step-list">
+      {% for step in p.steps %}<li>{{ step|safe }}</li>{% endfor %}
+    </ol>
+    <div class="actions">
+      <button type="button" class="btn btn-primary" onclick="postOpen(this)">Open {{ p.label }}</button>
+      <button type="button" class="btn-ghost" onclick="postCopy(this, 'caption')">Copy caption</button>
+      <button type="button" class="btn-ghost" onclick="postCopy(this, 'file')" title="{{ post.file }}">Copy the video's location again</button>
+    </div>
+    <details class="post-caption">
+      <summary class="hint">See or change the caption</summary>
+      <textarea rows="6" class="post-caption-text">{{ p.caption }}</textarea>
+    </details>
+    <form class="post-done" onsubmit="postDone(event, this)">
+      <button type="submit" class="btn-ghost">I've posted it</button>
+      <details>
+        <summary class="hint">Add the post's link (optional)</summary>
+        <input type="url" name="url" placeholder="Paste the {{ p.label }} post's address, so this page links to it">
+      </details>
+    </form>
+    <p class="hint post-status" role="status"></p>
+    {% endif %}
+  </div>
+  {% endfor %}
+  <p class="hint">The video is <code class="post-file">{{ post.file }}</code>, in a folder that only ever holds videos
+    waiting to be posted. It's taken out once it's posted everywhere.</p>
+</div>

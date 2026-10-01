@@ -81,13 +81,6 @@
         <a class="btn-ghost" id="review-questions" href="#" hidden
            title="The round's questions laid out: keep each, or move it easier or harder, or take it out, and swap in another">Check the questions</a>
       </div>
-      <div class="actions">
-        <button type="button" class="btn-ghost" onclick="reviewStartPost(this, 'tiktok')"
-                title="Opens this channel's browser profile at TikTok's upload page, the video in Explorer, and copies the caption">Post to TikTok</button>
-        <button type="button" class="btn-ghost" onclick="reviewStartPost(this, 'instagram')"
-                title="Opens this channel's browser profile on Instagram, the video in Explorer, and copies the caption">Post to Instagram</button>
-      </div>
-      <p class="hint" id="review-post-status"></p>
     </div>
 
     <details class="card">
@@ -97,9 +90,8 @@
 
     <div class="card" id="review-upload-card" hidden>
       <p class="meta">Publish in one click: this title and description go to
-        YouTube through the API, then TikTok and Instagram open in the
-        channel's browser profile (if it posts there) with the file selected
-        and the caption on your clipboard.</p>
+        YouTube through the API, then the video's page shows the steps for
+        TikTok and Instagram (if the channel posts there).</p>
       <label class="review-field">Privacy
         <select id="review-privacy">
           <option value="public">Public</option>

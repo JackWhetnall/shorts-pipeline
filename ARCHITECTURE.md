@@ -443,6 +443,14 @@ and hands it off to TikTok and Instagram. The schedule calls it through
 (`/api/videos/<path>/publish-now`), which also opens the social pages in
 the channel's browser profile with the file selected (`posting.start_all`).
 
+TikTok and Instagram are then posted by hand as numbered steps per
+platform (`posting.plan`, `_post_steps.html`, on To post and the video's
+page): the upload page opens with the video's path on the clipboard to
+paste into the file picker, and each platform has its own caption and
+hashtags (`posting.hashtags`). Videos waiting are hard-linked into
+`Videos\Shorts to post` (`posting.stage`) and removed once posted. See
+decision [059](docs/decisions/059-posting-steps.md).
+
 `core/channel_profile.py` writes a channel's tagline, YouTube About text,
 TikTok and Instagram bios and keywords in one model call and keeps them
 in `channels/<key>/profile.json`; the links are always read from the

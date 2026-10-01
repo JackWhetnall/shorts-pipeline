@@ -198,11 +198,8 @@ def _channel_of(target: Path):
 @bp.route("/api/videos/<path:relpath>/publish-now", methods=["POST"])
 def publish_now(relpath):
     """Publish by hand, in one click: save the title and description, upload
-    to YouTube through the API, hand the video to TikTok and Instagram and,
-    from this PC, open their pages in the channel's browser profile with
-    the video selected in Explorer. The page has already put the caption
-    on the clipboard."""
-    from core import phone_access
+    to YouTube through the API, and hand the video to TikTok and Instagram,
+    whose posting steps show on its page."""
     target = video_or_404(relpath)
     data = request.get_json(force=True, silent=True) or {}
     try:
@@ -213,13 +210,11 @@ def publish_now(relpath):
     except PipelineError as exc:
         log.warning(f"Publishing {relpath} failed: {exc}")
         return jsonify({"error": exc.user_message}), 400
-    opened = {"where": "", "platforms": []}
-    if result["pending"] and phone_access.is_local(request.remote_addr):
-        try:
-            opened = posting.start_all(channel, target, result["pending"])
-        except OSError as exc:
-            log.warning(f"Couldn't open the browser or Explorer: {exc}")
-    return jsonify({"ok": True, **result, "opened": opened, "caption": posting.caption(target)})
+    # TikTok and Instagram are then posted step by step from the video's
+    # page (or To post), which the page goes to next.
+    return jsonify({"ok": True, **result,
+                    "next": url_for("gallery.video_detail", key=channel.key, relpath=relpath)
+                    if result["pending"] else ""})
 
 
 @bp.route("/api/videos/<path:relpath>/reveal", methods=["POST"])
@@ -251,8 +246,7 @@ def handoff_page():
     rows = publish_queue.awaiting_posts(channels)
     for row in rows:
         row["relpath"] = str(row["video_path"].relative_to(gallery.OUTPUT_DIR)).replace("\\", "/")
-        plan = channels[row["channel_key"]].publishing
-        row["has_profile"] = bool(plan.posting_browser and plan.posting_profile)
+        row["post"] = posting.plan(channels[row["channel_key"]], row["video_path"])
     return render_template("handoff.html", rows=rows, labels=posting.LABELS)
 
 

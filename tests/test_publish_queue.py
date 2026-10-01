@@ -225,15 +225,14 @@ class TestPublishNow:
         finally:
             monkey.undo()
 
-    def test_the_route_saves_the_text_publishes_and_opens_the_social_pages(self, world, monkeypatch):
+    def test_the_route_saves_the_text_publishes_and_leads_to_the_posting_steps(self, world, monkeypatch, tmp_path):
         from core import posting
         from web import create_app
+        monkeypatch.setattr(posting, "READY_DIR", tmp_path / "ready")
+        monkeypatch.setattr(posting, "STAGED_INDEX", tmp_path / "staged.json")
         world.channel.publishing.post_tiktok = True
         world.channel.publishing.post_instagram = True
         path = world.video("a", queued=False)
-        opened = []
-        monkeypatch.setattr(posting, "start_all", lambda channel, video, platforms: opened.append(
-            (video.name, platforms)) or {"where": "Chrome (Shorts c)", "platforms": ["TikTok", "Instagram"]})
         monkeypatch.setattr("web.blueprints.review.video_or_404", lambda relpath: path)
         monkeypatch.setattr("web.blueprints.review.load_channels", lambda validate=True: {"c": world.channel})
         client = create_app().test_client()
@@ -243,19 +242,7 @@ class TestPublishNow:
         res = client.post("/api/videos/x/publish-now", headers={"X-CSRF-Token": token},
                           json={"title": "My title", "description": "My words"})
         data = res.get_json()
-        assert res.status_code == 200 and data["opened"]["platforms"] == ["TikTok", "Instagram"]
-        assert world.state["uploads"] == ["My title"] and data["caption"] == "My title\n\nMy words"
-        assert opened == [("a.mp4", ["tiktok", "instagram"])]
-        # From a phone, nothing is opened on the PC; it waits in To post.
-        from core import phone_access
-        monkeypatch.setattr(phone_access, "PATH", world.tmp / "phone.json")
-        phone_access.set_enabled(True)
-        again = world.video("b", queued=False)
-        monkeypatch.setattr("web.blueprints.review.video_or_404", lambda relpath: again)
-        opened.clear()
-        with client.session_transaction() as s:
-            s["phone"] = phone_access.token()
-        res = client.post("/api/videos/x/publish-now", headers={"X-CSRF-Token": token}, json={},
-                          environ_base={"REMOTE_ADDR": "192.168.1.20"})
-        assert res.status_code == 200 and opened == []
-        assert res.get_json()["pending"] == ["tiktok", "instagram"]
+        assert res.status_code == 200 and world.state["uploads"] == ["My title"]
+        assert data["pending"] == ["tiktok", "instagram"] and data["next"]
+        # The video is waiting, under its title, in the ready-to-post folder.
+        assert [f.name for f in (tmp_path / "ready").iterdir()] == ["Chan - My title.mp4"]

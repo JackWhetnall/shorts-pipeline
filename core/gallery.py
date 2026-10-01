@@ -281,6 +281,12 @@ def set_discarded(video_path: Path, discarded: bool, reason: str = None) -> None
     # goes back in the queue rather than leaving a hole in the syllabus.
     _sync_curriculum(video_path, "released" if discarded else "published")
     _sync_script_history(video_path, bool(discarded))
+    if discarded:
+        try:
+            from core import posting
+            posting.unstage(video_path)
+        except Exception:  # noqa: BLE001 - never blocks the decision itself
+            log.debug("Could not remove %s from the ready-to-post folder", video_path, exc_info=True)
 
     now_footage_reject = bool(discarded) and info["discard_reason"] == "footage"
     if now_footage_reject and not was_footage_reject:

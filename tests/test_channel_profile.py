@@ -57,7 +57,9 @@ def test_the_words_come_from_the_model_and_are_kept(channel, monkeypatch):
         return _words()
     monkeypatch.setattr(llm, "call_json", fake)
     words = channel_profile.generate(channel)
-    assert "Pub Quiz Buzz" in seen["user"] and "Science, Sport" in seen["user"] and "A warm host." in seen["user"]
+    assert "Pub Quiz Buzz" in seen["user"] and "Science, Sport" in seen["user"]
+    # Not the host brief: it's how the videos are written, and was echoed back as production talk.
+    assert "A warm host." not in seen["user"]
     assert channel_profile.load("quiz")["about"] == words["about"] and words["generated_at"]
 
 
