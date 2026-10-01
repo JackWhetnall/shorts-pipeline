@@ -774,7 +774,9 @@ def run(plan):
     checkpoint = job_context.load_json_checkpoint("voiceover")
     cached_audio = job_context.checkpoint_artifact_path("voiceover.mp3")
     if checkpoint and cached_audio and cached_audio.exists():
-        log.info("[2/5] Reusing the voiceover from the interrupted attempt.")
+        log.info("[2/5] Keeping the voiceover of the video this remakes."
+                 if getattr(getattr(plan, "seed", None), "remake_of", "")
+                 else "[2/5] Reusing the voiceover from the interrupted attempt.")
         shutil.copyfile(cached_audio, plan.audio_path)
         fps = checkpoint["fps"]
         samples = decode_audio_file(str(plan.audio_path), fps=fps)

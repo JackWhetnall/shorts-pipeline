@@ -16,7 +16,7 @@ from pathlib import Path
 
 from flask import Blueprint, abort, redirect, render_template, request, url_for
 
-from core import curriculum, gallery, jobs
+from core import curriculum, gallery
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from web.helpers import all_channels, channel_or_404, video_or_404
@@ -171,9 +171,10 @@ def undo_draft(relpath):
 @bp.route("/videos/<path:relpath>/questions/remake", methods=["POST"])
 def remake(relpath):
     """Discard this short and make it again from its draft: the same round
-    and number, with the swapped questions, voicing only what changed."""
-    from pipeline import quiz, quiz_review
-    from pipeline.plan import Seed
+    and number, with the swapped questions, voicing only what changed
+    (core.remake)."""
+    from core import remake as remaking
+    from pipeline import quiz_review
     video = video_or_404(relpath)
     channel = _channel_of(video)
     path = quiz_review.draft_path(video)
@@ -185,20 +186,15 @@ def remake(relpath):
         return _back("quiz_review.made", "This video isn't on the topic plan, so it can't be remade from "
                                          "here. Make it again from Create video.", relpath=relpath)
     drafted = quiz_review.draft(channel, video)
-    number = int((quiz_review.round_of_video(video) or {}).get("number") or 0)
-    gallery.set_discarded(video, True, reason="script")
-    quiz.forget(channel.key, video.stem)
+    # On the plan too: if it can't be made now, the round keeps its new
+    # questions for whenever it is.
     curriculum.set_script(channel.key, row["id"], drafted)
-    path.unlink()
-    seed = Seed(type="topic", topic=row["title"], topic_id=row["id"], number=number, remake_of=video.stem)
     try:
-        jobs.start_job(channel.key, seed.to_jsonable())
+        remaking.start(channel, video, script=drafted)
     except PipelineError as exc:
-        # The round waits on the plan with its new questions; making it
-        # later (by hand or on schedule) uses them.
-        return redirect(url_for("gallery.channel_gallery", key=channel.key,
-                                note=f"{exc.user_message} The round is saved with its new questions "
-                                     f"and is made next time."))
+        return _back("quiz_review.made", f"{exc.user_message} The new questions are saved on the "
+                                         f"topic plan.", relpath=relpath)
+    path.unlink(missing_ok=True)
     if _phone():
         return redirect(url_for("phone.home", note="Remaking it; it'll be back in review when it's done."))
     return redirect(url_for("jobs.activity"))

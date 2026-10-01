@@ -435,6 +435,21 @@ median rather than mean (one stalled download shouldn't rewrite every
 future estimate). Retried jobs are excluded: they reuse their checkpoints
 and measure nothing.
 
+## Remaking a video
+
+A finished job's checkpoints (script, voice track and timings, footage
+picks, the pictures made and which kind each segment got) move beside the
+video as `<stem>_remake/`, and its working folder of paid-for pictures
+(`<stem>_scenes/`) is kept (a quiz board's isn't). **Remake as is**
+(`core/remake.py`, `web/blueprints/remake.py`) starts a new job with its
+checkpoints filled from that kit, under a new name, less the parts picked
+to make again: an illustration or template for its segment
+(`visuals._remake`), or single animated shots, whose files are removed so
+the animation stage, which reuses everything else in its folder,
+generates only those. A quiz board is always filmed again. Kits are
+swept once their video has gone out, a week after it was discarded, or
+after a month. See decision [056](docs/decisions/056-remake-as-is.md).
+
 ## Deleting output
 
 Discarded videos and their sidecars can be removed, from

@@ -40,6 +40,10 @@ def run(plan):
     if share <= 0 and not paintings:
         return plan
 
+    remake = job_context.load_json_checkpoint("remake_visuals")
+    if remake is not None:
+        return _remake(plan, remake)
+
     restored = stage._restore()
     if restored is not None:
         plan.scene_clips, plan.scenes_fell_back, plan.scene_notes = restored
@@ -66,47 +70,79 @@ def run(plan):
         return plan
     plan.visual_plan = directions
 
-    narration = "\n".join(f"[{i}] {s.text}" for i, s in enumerate(segments))
-    hook_end = stage._hook_end(plan)
-    tail = channel.pacing.crossfade
     for d in directions:
-        if d["medium"] in ("footage", "animation"):
-            continue
-        i = d["index"]
-        segment = segments[i]
-        words = writer.words_for(plan.voiceover.word_timings, segment.start, segment.end)
-        not_before = hook_end if i == 0 else 0.0
-        stem = folder / f"seg{i}_{d['medium']}"
-        log.info(f"  [visuals] segment {i}: {d['medium']} "
-                 f"{d.get('template') or ''} ({d.get('reason', '')[:60]})")
-        credit = ""
-        try:
-            if d["medium"] == "artwork":
-                (clip, credit), notes = artwork.make(d["brief"], segment.text, segment.duration + tail,
-                                                     stem.with_suffix(".mp4")), []
-            else:
-                clip, notes = _make(d, words, segment.duration, narration, style, props_dir, stem,
-                                    tail, not_before, hook_end, i)
-        except Exception as exc:  # noqa: BLE001 - degrades to footage and is flagged, never silent
-            if not isinstance(exc, PipelineError):
-                log.exception(f"  [visuals] segment {i} failed unexpectedly")
-            log.warning(f"  [visuals] segment {i} fell back to footage: {exc}")
-            plan.scenes_fell_back += 1
-            plan.scene_notes.append(f"Segment {i + 1}'s {d['medium']} couldn't be made; "
-                                    f"it uses footage instead.")
-            continue
-        entry = {"first": i, "last": i, "clip": str(clip), "kind": d["medium"]}
-        if credit:
-            entry["credit"] = credit
-            plan.art_credits.append(credit)
-        plan.scene_clips.append(entry)
-        plan.scene_clips.sort(key=lambda c: c["first"])
-        plan.scene_notes.extend(f"Segment {i + 1}: {n}" for n in notes)
-
+        if d["medium"] not in ("footage", "animation"):
+            _segment(plan, d, folder, style, props_dir)
     _animate(plan, [d for d in directions if d["medium"] == "animation"], folder / "animation",
-             tail)
+             channel.pacing.crossfade)
     stage._save(plan)
     return plan
+
+
+def _remake(plan, data: dict):
+    """A remake that makes some of its pictures again (core.remake): the
+    rest are the earlier video's, and the director isn't asked again, so
+    each part redone is the same kind of thing as before."""
+    channel = plan.channel
+    plan.scene_clips = list(data.get("keep") or [])
+    plan.scenes_fell_back, plan.scene_notes = 0, list(data.get("notes") or [])
+    plan.visual_plan = directions = list(data.get("directions") or [])
+    plan.art_credits = [c["credit"] for c in plan.scene_clips if c.get("credit")]
+    plan.animation = data.get("animation") or {}
+    style = art.resolve(channel.scenes.art)
+    folder = plan.out_dir / f"{plan.stem}_scenes"
+    redo = set(data.get("redo") or [])
+    log.info(f"[3/5] Remaking {len(redo)} picture(s){' and the animation' if data.get('animate') else ''}; "
+             f"keeping the rest")
+    for d in directions:
+        if d["index"] in redo and d["medium"] not in ("footage", "animation"):
+            _segment(plan, d, folder, style, channel_props_dir(channel.key, style["key"]))
+    if data.get("animate"):
+        # Every animated stretch again, from its folder: only the shots
+        # taken out of it are generated, the rest are reused as they are.
+        _animate(plan, [d for d in directions if d["medium"] == "animation"], folder / "animation",
+                 channel.pacing.crossfade)
+    stage._save(plan)
+    return plan
+
+
+def _segment(plan, d: dict, folder, style: dict, props_dir) -> None:
+    """One segment's picture, made and added to the plan's clips; footage
+    and flagged if it can't be made."""
+    segments = plan.script.segments
+    narration = "\n".join(f"[{i}] {s.text}" for i, s in enumerate(segments))
+    hook_end = stage._hook_end(plan)
+    tail = plan.channel.pacing.crossfade
+    i = d["index"]
+    segment = segments[i]
+    words = writer.words_for(plan.voiceover.word_timings, segment.start, segment.end)
+    not_before = hook_end if i == 0 else 0.0
+    stem = folder / f"seg{i}_{d['medium']}"
+    log.info(f"  [visuals] segment {i}: {d['medium']} "
+             f"{d.get('template') or ''} ({d.get('reason', '')[:60]})")
+    credit = ""
+    try:
+        if d["medium"] == "artwork":
+            (clip, credit), notes = artwork.make(d["brief"], segment.text, segment.duration + tail,
+                                                 stem.with_suffix(".mp4")), []
+        else:
+            clip, notes = _make(d, words, segment.duration, narration, style, props_dir, stem,
+                                tail, not_before, hook_end, i)
+    except Exception as exc:  # noqa: BLE001 - degrades to footage and is flagged, never silent
+        if not isinstance(exc, PipelineError):
+            log.exception(f"  [visuals] segment {i} failed unexpectedly")
+        log.warning(f"  [visuals] segment {i} fell back to footage: {exc}")
+        plan.scenes_fell_back += 1
+        plan.scene_notes.append(f"Segment {i + 1}'s {d['medium']} couldn't be made; "
+                                f"it uses footage instead.")
+        return
+    entry = {"first": i, "last": i, "clip": str(clip), "kind": d["medium"]}
+    if credit:
+        entry["credit"] = credit
+        plan.art_credits.append(credit)
+    plan.scene_clips.append(entry)
+    plan.scene_clips.sort(key=lambda c: c["first"])
+    plan.scene_notes.extend(f"Segment {i + 1}: {n}" for n in notes)
 
 
 def _draws_diagrams(channel) -> bool:

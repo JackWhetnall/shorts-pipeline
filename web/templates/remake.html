@@ -1,0 +1,60 @@
+{% extends "m_base.html" if phone else "base.html" %}
+{% block title %}Remake — {{ title }}{% endblock %}
+{% block content %}
+<style>
+  .rm-parts { list-style: none; padding: 0; display: grid; gap: var(--sp-3); margin: var(--sp-3) 0; }
+  .rm-part { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+             padding: var(--sp-3) var(--sp-4); display: flex; gap: var(--sp-3); align-items: flex-start; }
+  .rm-part img { width: 7rem; border-radius: var(--radius-sm); flex: none; }
+  .rm-part label { display: flex; gap: var(--sp-2); align-items: center; }
+  .rm-kept { margin: var(--sp-2) 0; padding-left: 1.2rem; }
+</style>
+<a class="back-link" href="{{ url_for('phone.review') if phone else url_for('review.queue') }}">&larr; Review</a>
+<h1>Remake &ldquo;{{ title }}&rdquo;</h1>
+{% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
+
+{% if out %}
+<p class="meta">This video has gone out, so it isn't remade from here.</p>
+{% elif not about.possible %}
+<p class="meta">{{ about.why }}</p>
+{% else %}
+<p class="meta">The video is made again with the same script{% if about.quiz %} and number{% endif %}. This one is
+  discarded, and the new one comes to Review.</p>
+<ul class="rm-kept meta">
+  <li>{% if about.voice_kept %}The voice is kept exactly: nothing is voiced again.
+      {% elif about.voice_characters %}The voice: about {{ about.voice_characters }} characters are voiced again (this
+      video was made before every line's voice was kept).
+      {% else %}The voice is reused line by line: nothing is voiced again.{% endif %}</li>
+  {% if about.footage_kept %}<li>The footage picks are kept.</li>{% endif %}
+  {% if about.quiz %}<li>The board is filmed again, with any fixes since it was made.</li>{% endif %}
+  {% if about.parts %}<li>Every picture made for it is kept, except any you tick below.</li>{% endif %}
+</ul>
+
+<form method="post" action="{{ url_for('remake.start', relpath=relpath) }}"
+      onsubmit="this.querySelector('button[type=submit]').disabled = true;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if phone %}<input type="hidden" name="m" value="1">{% endif %}
+  {% if about.parts %}
+  <h2>Make again</h2>
+  <ul class="rm-parts">
+    {% for p in about.parts %}
+    <li class="rm-part">
+      {% if p.picture %}<img src="{{ url_for('remake.picture', relpath=relpath, part=p.id) }}" alt="">{% endif %}
+      <div>
+        <label><input type="checkbox" name="redo" value="{{ p.id }}"> {{ p.label }}</label>
+        {% if p.caption %}<p class="meta">{{ p.caption }}</p>{% endif %}
+        {% if p.kind == 'shot' %}
+        <label class="meta"><input type="checkbox" name="redraw" value="{{ p.id }}"> Draw its picture again too
+          <button type="button" class="info-dot" data-tooltip="Unticked, the shot is animated again from the same picture: for when the movement came back wrong. Ticked, the picture is drawn again first: for when the picture itself is wrong.">?</button></label>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <div class="actions">
+    <button type="submit" class="btn-primary">Remake it</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

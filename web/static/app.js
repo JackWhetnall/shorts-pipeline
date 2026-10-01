@@ -1108,6 +1108,8 @@ function renderReview() {
   document.getElementById("review-created").textContent = item.created_label || "";
   document.getElementById("review-script").textContent = item.meta_text || "(no script recorded)";
   document.getElementById("review-download").href = `/videos/${item.relpath}/download`;
+  const remakeLink = document.getElementById("review-remake");
+  if (remakeLink) remakeLink.href = `/videos/${item.relpath}/remake`;
   const questions = document.getElementById("review-questions");
   if (questions) {
     questions.hidden = !item.is_quiz;

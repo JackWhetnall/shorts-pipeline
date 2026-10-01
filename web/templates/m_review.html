@@ -21,9 +21,10 @@
   {% if v.footage_degraded %}{% set _ = flags.append('Footage picked without scoring') %}{% endif %}
   {% if (v.report or {}).get('quiz_unverified') %}{% set _ = flags.append('Questions the fact check didn\'t pass: ' ~ v.report.quiz_unverified|join(', ')) %}{% endif %}
   {% if flags %}<ul class="flags">{% for f in flags %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
-  {% if v.is_quiz %}
-  <p><a class="btn-ghost" href="{{ url_for('quiz_review.made', relpath=v.relpath, m='1') }}">Check the questions</a></p>
-  {% endif %}
+  <p class="row">
+    {% if v.is_quiz %}<a class="btn-ghost" href="{{ url_for('quiz_review.made', relpath=v.relpath, m='1') }}">Check the questions</a>{% endif %}
+    <a class="btn-ghost" href="{{ url_for('remake.page', relpath=v.relpath, m='1') }}">Remake as is</a>
+  </p>
   <div class="row">
     <form method="post" action="{{ url_for('phone.approve', relpath=v.relpath) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

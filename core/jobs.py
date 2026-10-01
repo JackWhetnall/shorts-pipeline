@@ -38,8 +38,10 @@ from pathlib import Path
 
 from core import job_context
 from core.errors import JobError, friendly_message
-from core.logging_setup import JobLogHandler, configure
+from core.logging_setup import JobLogHandler, configure, get_logger
 from core.paths import JOB_STATE_DIR
+
+log = get_logger(__name__)
 
 # How many recent log lines the UI keeps in memory per job. The full log
 # is always on disk; this only bounds what a poll response carries.
@@ -257,7 +259,14 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
                 job.warnings.append(f"Originality check: {plan.similarity.summary}")
         _persist(job_id)
         _autopilot(job_id, channel, plan)
-        # Nothing checkpointed is needed once the real output exists.
+        # What it was made of goes beside the video, for a remake that
+        # keeps most of it (core.remake). Nothing else needs it now.
+        if seed.get("type") not in ("longform", "animation_preview"):
+            try:
+                from core import remake
+                remake.keep(job_id, plan.video_path, seed)
+            except Exception:  # noqa: BLE001 - the video is made; only remaking it cheaply is lost
+                log.exception("Could not keep what this video was made of for a remake")
         job_context.clear_checkpoints(job_id)
     except Exception as exc:  # noqa: BLE001 - a failed render must not kill the thread
         with _lock:
@@ -364,9 +373,11 @@ def _refuse_if_stale() -> None:
         raise JobError("code changed since start", user_message=UPDATING)
 
 
-def start_job(channel_key: str, seed: dict) -> str:
+def start_job(channel_key: str, seed: dict, job_id: str = None) -> str:
     """Queue or start a job. Raises JobError if this channel already has
-    one in flight, or if the app is waiting to restart onto new code."""
+    one in flight, or if the app is waiting to restart onto new code.
+    `job_id` is given by a remake, whose checkpoints are written before it
+    starts (core.remake)."""
     install()
     _refuse_if_stale()
     with _lock:
@@ -377,7 +388,7 @@ def start_job(channel_key: str, seed: dict) -> str:
                 user_message="This channel already has a video being generated.",
             )
         running_now = any(j.status == "running" for j in _jobs.values())
-        job_id = uuid.uuid4().hex
+        job_id = job_id or uuid.uuid4().hex
         now = time.time()
         _jobs[job_id] = Job(
             id=job_id, channel_key=channel_key, seed=seed,

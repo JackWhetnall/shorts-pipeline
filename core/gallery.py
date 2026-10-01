@@ -51,8 +51,9 @@ DISCARD_REASONS = (
     ("settings", "Channel settings need adjusting"),
     ("other", "Just not good enough"),
 )
-DISCARD_REASON_IDS = tuple(r[0] for r in DISCARD_REASONS)
-DISCARD_REASON_LABELS = dict(DISCARD_REASONS)
+# Set by a remake (core.remake), never chosen: the video was made again.
+DISCARD_REASON_IDS = tuple(r[0] for r in DISCARD_REASONS) + ("remade",)
+DISCARD_REASON_LABELS = {**dict(DISCARD_REASONS), "remade": "Remade"}
 
 
 def resolve_output_dir(output_dir: str) -> Path:
@@ -520,6 +521,7 @@ def list_videos(output_dir: str) -> list:
 SIDECAR_SUFFIXES = (
     "audio.mp3", "meta.txt", "description.txt", "publish.json",
     "thumb.jpg", "cost.json", "report.json", "stats.json", "quiz.json",
+    "script.json", "script_draft.json",
 )
 
 
@@ -552,6 +554,8 @@ def purge(video_path: Path, channel_key: str = "") -> dict:
     _write_tombstone(video_path, info, channel_key, freed)
     for path in files:
         path.unlink()
+    from core import remake
+    remake.forget(video_path)
     return {"files": len(files), "bytes": freed}
 
 

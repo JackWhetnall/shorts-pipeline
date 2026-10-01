@@ -125,6 +125,20 @@ Rounds written ahead of their video can be checked the same way before
 they're made: **Topic plan → Check questions** beside the round. Create
 video isn't affected: it still writes and makes without stopping.
 
+### 4d-ii. Remake the country round (2 minutes)
+Long picture questions now wrap instead of running off the card. To get
+that into the country round already made: in **Review**, open it and
+press **Remake as is**, then **Remake it**. It keeps the script, the number
+(#5) and the voice (nothing is voiced again); only the board is filmed
+again. The old one is discarded for you.
+
+The same button works on any video from now on. If one animated shot or
+illustration comes back wrong, tick just that part on the remake page
+(with **Draw its picture again too** if the picture itself is wrong, not
+only the movement). Everything else, voice and footage included, is
+kept. Videos made before today can only be remade this way if they're
+quiz shorts.
+
 ### 4e. Use it from your phone (5 minutes, optional)
 1. On the PC, click **Phone** in the top bar, then **Turn on phone
    access**. The app restarts itself within a minute (once nothing is

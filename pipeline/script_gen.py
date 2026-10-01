@@ -660,7 +660,8 @@ def run(plan):
 
     cached = job_context.load_json_checkpoint("script")
     if cached:
-        log.info("[1/5] Reusing the script from the interrupted attempt.")
+        log.info("[1/5] Using the script of the video this remakes." if getattr(plan.seed, "remake_of", "")
+                 else "[1/5] Reusing the script from the interrupted attempt.")
         plan.script = Script.from_jsonable(cached)
         return plan
 

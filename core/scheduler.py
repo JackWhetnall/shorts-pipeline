@@ -202,11 +202,21 @@ def tick() -> None:
                        ("long quizzes", lambda: fill_long_quizzes(channels)),
                        ("category quizzes", lambda: fill_category_quizzes(channels)),
                        ("fact store", lambda: _keep_facts(channels)),
-                       ("statistics", lambda: _refresh_audience(channels))):
+                       ("statistics", lambda: _refresh_audience(channels)),
+                       ("remake kits", lambda: _sweep_kits(channels))):
         try:
             duty()
         except Exception as exc:  # noqa: BLE001 - the ticker must never die
             log.warning(f"Scheduler {name} step failed: {exc}")
+
+
+def _sweep_kits(channels: dict) -> None:
+    """What finished videos were made of, kept for remakes, once no remake
+    will use it (core.remake)."""
+    from core import remake
+    removed = remake.sweep(channels)
+    if removed:
+        log.info(f"Removed {removed} remake kit(s) no longer needed")
 
 
 def _refresh_audience(channels: dict) -> None:

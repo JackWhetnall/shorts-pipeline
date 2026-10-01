@@ -216,10 +216,15 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
             quiz.save_round(plan)
         except Exception:  # noqa: BLE001 - the short is finished; only its reuse in a long quiz is lost
             log.exception("Could not save this round's timings for long quizzes")
-        try:
-            quiz.save_script(plan)
-        except Exception:  # noqa: BLE001 - the short is finished; only swapping its questions is lost
-            log.exception("Could not save this round's script for question review")
+
+
+    # The whole script beside the video: a quiz's questions are reviewed
+    # and swapped from it, and any video can be remade from it (core.remake).
+    try:
+        from pipeline import quiz
+        quiz.save_script(plan)
+    except Exception:  # noqa: BLE001 - the video is finished; only remaking it from its script is lost
+        log.exception("Could not save this video's script beside it")
 
     # Seed the editable title and description. Stored on the video rather
     # than only in the meta file, so the review screen can show them,

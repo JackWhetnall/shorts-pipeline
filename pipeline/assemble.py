@@ -887,11 +887,13 @@ def run(plan):
 
 
 def remove_working_files(plan) -> None:
-    """The render's intermediate clips (animated scenes, illustrations,
-    paintings, a quiz board), once the finished video exists. Kept until
-    then, because a retry after a failed render reuses them; after it they
-    only took up space (a quiz board is as big as the video)."""
+    """A quiz board's working folder, once the finished video exists: it's
+    as big as the video and free to film again. Pictures that cost money
+    (animated scenes, illustrations, paintings) stay, so a remake can keep
+    them and make again only what's asked (core.remake, which removes
+    them once the video has gone out)."""
     import shutil
     folder = Path(plan.out_dir) / f"{plan.stem}_scenes"
-    if folder.is_dir():
+    made = [c for c in getattr(plan, "scene_clips", None) or [] if c.get("kind") != "quiz"]
+    if folder.is_dir() and not made:
         shutil.rmtree(folder, ignore_errors=True)

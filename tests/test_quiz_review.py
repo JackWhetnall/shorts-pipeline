@@ -291,17 +291,15 @@ def test_remaking_discards_the_short_and_makes_its_round_again_from_the_draft(co
     monkeypatch.setattr(page.curriculum, "subtopics", lambda key: [
         {"id": "t9", "title": "Science: Medium", "video_stem": "science_medium"}])
     monkeypatch.setattr(page.curriculum, "set_script", lambda key, sid, s: done.update(script=(sid, s)))
-    monkeypatch.setattr(page.gallery, "set_discarded", lambda v, on, reason=None: done.update(discard=reason))
-    monkeypatch.setattr(page.jobs, "start_job", lambda key, seed: done.update(seed=seed) or "job1")
+    from core import remake
+    monkeypatch.setattr(remake, "start", lambda channel, v, script=None: done.update(remade=(v, script)))
     client = create_app().test_client()
     client.get("/m/sign-in")
     with client.session_transaction() as s:
         token = s["_csrf_token"]
     assert client.post("/videos/x/questions/remake", data={"csrf_token": token}).status_code == 302
-    assert done["discard"] == "script"
     assert done["script"][0] == "t9" and done["script"][1]["quiz"]["questions"][1]["question"].startswith("Which organ")
-    assert done["seed"]["topic_id"] == "t9" and done["seed"]["number"] == 7
-    assert done["seed"]["remake_of"] == "science_medium"
+    assert done["remade"][0] == video and done["remade"][1] == done["script"][1]
     assert not quiz_review.draft_path(video).exists()
 
 

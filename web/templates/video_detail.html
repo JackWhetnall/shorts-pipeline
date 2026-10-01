@@ -41,6 +41,10 @@
     {% endif %}
 
     {% if not discarded %}
+    <p class="actions">
+      <a class="btn-ghost" href="{{ url_for('remake.page', relpath=relpath) }}"
+         title="Make it again keeping its script, voice and pictures, and making again only the parts you pick">Remake as is</a>
+    </p>
     <div class="card" id="publish-form">
       <h2>Platform links
         <button type="button" class="info-dot" data-tooltip="Leave a platform blank if you haven't posted there — this video counts as published as soon as any one link is set.">?</button>
