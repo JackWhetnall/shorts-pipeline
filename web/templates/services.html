@@ -70,7 +70,12 @@
         {% else %}
           <span class="service-missing">Not set up</span>
         {% endif %}
-        {% if row.env_var %}<span class="hint"><code>{{ row.env_var }}</code></span>{% endif %}
+        {% if row.env_var %}<span class="hint"><code>{{ row.env_var }}</code>{% if row.key_tail %}, key ending <code>&hellip;{{ row.key_tail }}</code>{% endif %}</span>{% endif %}
+        {% if row.key == 'anthropic' and row.configured %}
+        <span class="hint"><button type="button" class="btn-ghost" onclick="testService('{{ row.key }}', this)"
+          title="Sends a tiny real request (a fraction of a cent) and shows exactly what the provider answers, so a key that's set but out of credit, or from another organisation, shows up here">Test the key</button></span>
+        <span class="hint" id="test-{{ row.key }}" role="status"></span>
+        {% endif %}
       </td>
       <td class="num">{{ format_usd(row.recent_usd) if row.recent_usd is not none else '—' }}</td>
       <td class="num">{{ format_usd(row.total_usd) if row.total_usd is not none else '—' }}</td>
@@ -86,6 +91,25 @@
     {% endfor %}
   </tbody>
 </table>
+
+<script>
+  async function testService(key, button) {
+    const out = document.getElementById("test-" + key);
+    out.textContent = "Testing…";
+    out.className = "hint";
+    button.disabled = true;
+    try {
+      const res = await apiFetch(`/api/services/${key}/test`, {method: "POST"});
+      const data = await res.json();
+      out.textContent = data.message || "No answer.";
+      out.className = "hint " + (data.ok ? "service-ok" : "service-missing");
+    } catch (err) {
+      out.textContent = "Couldn't reach the app to run the test.";
+      out.className = "hint service-missing";
+    }
+    button.disabled = false;
+  }
+</script>
 
 <p class="hint">
   A dash means this app never bills through that service &mdash; Pexels and

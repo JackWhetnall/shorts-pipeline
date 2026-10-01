@@ -2084,7 +2084,11 @@ button.topic-row.selected:hover {
 .service-table td { vertical-align: top; }
 .service-table .hint { display: block; margin-top: 2px; }
 .service-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-.service-table td.actions { white-space: nowrap; }
+/* A table cell holding buttons: `.actions` is a flex row with a top margin
+   for buttons under a form, and on a cell it took the cell out of the row's
+   layout, so the last column sat lower than the rest. */
+td.actions { display: table-cell; margin: 0; vertical-align: middle; white-space: nowrap; }
+td.actions > * + * { margin-left: var(--sp-2); }
 
 .service-ok { color: var(--success); font-weight: 600; font-size: 0.88rem; }
 .service-missing { color: var(--danger); font-weight: 600; font-size: 0.88rem; }

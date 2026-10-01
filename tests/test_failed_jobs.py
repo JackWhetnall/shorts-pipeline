@@ -63,3 +63,31 @@ def test_the_checklist_says_which_condition_isnt_met():
     low = launch._shadow_detail(20, 15, False)
     assert "20 of 5" not in low and "15 of 20 (75%)" in low and "80%" in low
     assert launch._shadow_detail(20, 18, True) == "The checks agreed with you on 18 of 20."
+
+
+# --- the APIs page's key test --------------------------------------------------
+
+def test_the_key_test_reports_what_the_provider_says(monkeypatch):
+    from core import services
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-api03-abcdefghijklmnopqrstXwAA")
+
+    class Client:
+        class messages:
+            @staticmethod
+            def create(**kw):
+                raise _Rejected("Your credit balance is too low to access the Anthropic API.")
+    monkeypatch.setattr(llm, "client", lambda: Client)
+    result = services.test_key("anthropic")
+    assert not result["ok"] and "run out of credit" in result["message"]
+
+    class Fine:
+        class messages:
+            @staticmethod
+            def create(**kw):
+                return object()
+    monkeypatch.setattr(llm, "client", lambda: Fine)
+    assert services.test_key("anthropic")["ok"]
+    assert services.key_tail(services.SERVICES[0]) == "XwAA"
+    monkeypatch.delenv("ANTHROPIC_API_KEY")
+    assert "isn't set" in services.test_key("anthropic")["message"]
+    assert not services.test_key("elevenlabs")["ok"]

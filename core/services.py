@@ -105,6 +105,33 @@ def _configured(service: Service) -> bool:
     return False
 
 
+def key_tail(service: Service) -> str:
+    """The last four characters of the key in use: what the provider's own
+    console shows beside each key, so the two can be compared without the
+    key being shown."""
+    key = os.environ.get(service.env_var or "", "").strip()
+    return key[-4:] if len(key) > 12 else ""
+
+
+def test_key(key: str) -> dict:
+    """Whether a service's key really works right now: one tiny real
+    request (a few tokens, a fraction of a cent) and the provider's own
+    answer in plain words. "Set up" only says a key exists; an exhausted
+    account or a key from another organisation looks the same until
+    something is asked of it. Only Anthropic can be tested so far."""
+    if key != "anthropic":
+        return {"ok": False, "message": "This service can't be tested from here."}
+    if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        return {"ok": False, "message": "ANTHROPIC_API_KEY isn't set for the app."}
+    from pipeline import llm
+    try:
+        llm.client().messages.create(model="claude-haiku-4-5-20251001", max_tokens=5,
+                                     messages=[{"role": "user", "content": "hi"}])
+    except Exception as exc:  # noqa: BLE001 - whatever it was, say it in words
+        return {"ok": False, "message": llm._as_service_error(exc).user_message}
+    return {"ok": True, "message": "Anthropic accepted a test request: the key and its credit work."}
+
+
 def _spend(records: list, service: Service, since: float = None) -> float:
     return sum(
         r.get("cost_usd") or 0.0 for r in records
@@ -131,6 +158,7 @@ def collect() -> dict:
             "what_for": service.what_for,
             "env_var": service.env_var,
             "configured": _configured(service),
+            "key_tail": key_tail(service),
             "free": service.free,
             "dashboard_url": service.dashboard_url,
             "dashboard_label": service.dashboard_label,
