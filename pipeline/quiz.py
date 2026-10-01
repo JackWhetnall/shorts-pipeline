@@ -1271,7 +1271,7 @@ BOARD_CSS = f"""
   letter-spacing: .1em; margin-bottom: 18px; }}
 .qtext {{ font-family: var(--display); font-weight: var(--dw); font-size: 66px; line-height: 1.15;
   color: var(--on-card); width: 100%; max-height: 300px; overflow: hidden; }}
-.qtext.small {{ font-size: 44px; max-height: 60px; white-space: nowrap; }}
+.qtext.small {{ font-size: 44px; line-height: 1.2; max-height: 116px; text-wrap: balance; }}
 .pic {{ width: 100%; height: 270px; display: flex; align-items: center; justify-content: center;
   margin-bottom: 14px; }}
 .pic img {{ max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; }}
@@ -1337,7 +1337,7 @@ def picture_uri(q: dict, style: dict = None) -> str:
 PICTURE_CARD_H, PICTURE_LIST_TOP = 700, 950
 PICTURE_CSS = f"""
 .qcard {{ height: {PICTURE_CARD_H}px; }}
-.qcard .pic {{ height: {PICTURE_CARD_H - 240}px; }}
+.qcard .pic {{ height: {PICTURE_CARD_H - 300}px; }}
 .rows {{ top: {PICTURE_LIST_TOP}px; height: {LIST_BOTTOM - PICTURE_LIST_TOP}px; }}
 .row .n {{ font-size: 40px; }} .row .a {{ font-size: 40px; }}
 .timer {{ top: {PICTURE_LIST_TOP + 40}px; }}

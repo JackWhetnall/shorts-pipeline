@@ -526,8 +526,8 @@ only its host lines are rewritten. It works on a round written ahead
 it, `_script_draft.json`, then "Remake with these changes"). Made shorts
 keep their script (`_script.json`); older ones are rebuilt from
 `_meta.txt` and `_quiz.json`. A remake (`Seed.remake_of`) reuses the
-voice of every unchanged line from `cache/voice_segments/`
-(`tts.segment_key`). See decision
+voice of every unchanged line from `cache/voice_segments/` (`tts.segment_key`), and retrying a job whose voiceover failed partway
+reuses every line it already got (the `voiced_segments` checkpoint). See decision
 [055](docs/decisions/055-question-review-and-phone.md).
 
 **The fact store** (`pipeline/facts/`, `facts/facts.db`) is the fallback

@@ -121,3 +121,23 @@ releasing a moved question at once is safe.
   world.
 - **No code on the home network**: anyone on the Wi-Fi (guests, a
   compromised device) could discard or make videos, which spends money.
+
+## Later (1 Oct): a hiccup at the voice service costs only what it hit
+
+A video failed because ElevenLabs didn't answer one line within a minute.
+The message said retrying usually works, and the retry voiced all 23
+lines again. Two changes:
+- **A request that times out or can't connect is now tried again by
+  itself**, with the same backoff as rate limiting (up to five more
+  tries). Before, only error statuses were retried, and a timeout failed
+  the video at once.
+- **Every line is kept as it lands**, in the voice cache above. The job
+  also records which lines it has (a `voiced_segments` checkpoint), so
+  retrying it reuses those and voices only the rest. The quota check
+  counts only those too. A new job still voices everything afresh, for
+  the reason given above.
+
+Picture questions also wrap now. They had been held to one line, and a
+78-character country question ran off the card even at the smallest
+size. They now wrap to two or three lines, with the picture a little
+smaller to make room.

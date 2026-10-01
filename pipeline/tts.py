@@ -31,6 +31,7 @@ import difflib
 import os
 import re
 import shutil
+import threading
 import time
 from pathlib import Path
 
@@ -315,22 +316,44 @@ def words_from_alignment(alignment: dict) -> list:
 
 # --- synthesis --------------------------------------------------------
 
+REQUEST_TIMEOUT = 60           # seconds for one segment's answer
+
+
 def _post_with_backoff(voice_id: str, payload: dict):
+    """One synthesis request, tried again on anything that's the service
+    having a moment: rate limiting, a server error, or no answer in time.
+    A request that timed out once failed the whole video, with a message
+    saying retrying usually works; now it is retried here."""
     delay = RATE_LIMIT_BACKOFF_BASE
     for attempt in range(RATE_LIMIT_MAX_RETRIES + 1):
-        response = requests.post(
-            TTS_URL.format(voice_id=voice_id),
-            headers={"xi-api-key": _api_key(), "Content-Type": "application/json"},
-            json=payload, timeout=60,
-        )
+        try:
+            response = requests.post(
+                TTS_URL.format(voice_id=voice_id),
+                headers={"xi-api-key": _api_key(), "Content-Type": "application/json"},
+                json=payload, timeout=REQUEST_TIMEOUT,
+            )
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            if attempt == RATE_LIMIT_MAX_RETRIES:
+                raise ExternalServiceError(
+                    "The voice service (ElevenLabs)",
+                    f"{type(exc).__name__} after {attempt + 1} attempts",
+                    user_message=("The voice service didn't answer, after several tries. The lines "
+                                  "already voiced are kept: Retry voices only the rest."),
+                ) from exc
+            log.info(f"  [tts] ElevenLabs didn't answer ({type(exc).__name__}, attempt "
+                     f"{attempt + 1}/{RATE_LIMIT_MAX_RETRIES}), waiting {delay:.0f}s...")
+            time.sleep(delay)
+            delay *= 2
+            continue
         if response.status_code == 429 or response.status_code >= 500:
             if attempt == RATE_LIMIT_MAX_RETRIES:
                 raise ExternalServiceError(
                     "The voice service (ElevenLabs)",
                     f"HTTP {response.status_code} after {attempt + 1} attempts",
                     status=response.status_code,
-                    user_message=("The voice service kept rate-limiting or failing. "
-                                  "Waiting a few minutes and retrying usually works."),
+                    user_message=("The voice service kept rate-limiting or failing. The lines "
+                                  "already voiced are kept: wait a few minutes, then Retry voices "
+                                  "only the rest."),
                 )
             retry_after = response.headers.get("Retry-After")
             wait = float(retry_after) if retry_after else delay
@@ -544,9 +567,10 @@ def narration_characters(segments: list, citation: str, pacing, source_index: in
 
 
 # Every segment's voice is kept a while, keyed by exactly what was said and
-# how, so remaking a video with a few lines changed (a quiz with questions
-# swapped) pays only for those lines. Only a remake reads it: a video
-# discarded for its voice is voiced afresh.
+# how. Two things read it: a remake (a quiz with questions swapped) pays
+# only for the lines that changed, and a job that failed partway through
+# its voiceover reuses, when retried, every line it had already got. A new
+# video doesn't: one discarded for its voice is voiced afresh.
 VOICE_CACHE_DIR = CACHE_DIR / "voice_segments"
 VOICE_CACHE_DAYS = 60
 
@@ -588,10 +612,22 @@ def keep_segment(key: str, audio_path, word_timings: list) -> None:
 
 def characters_to_voice(segments: list, citation: str, pacing, source_index: int, voice_id: str,
                         speed: float, say_as: dict = None, reuse: bool = False) -> int:
-    """What this narration will bill, less the lines a remake reuses."""
-    return sum(len(apply_pronunciation_overrides(text))
-               for text, _, _ in build_plan(segments, citation, pacing, source_index)
-               if not (reuse and cached_segment(segment_key(text, voice_id, speed, say_as))))
+    """What this narration will bill, less the lines that will be reused."""
+    voiced = _voiced_in_this_job()
+    total = 0
+    for text, _, _ in build_plan(segments, citation, pacing, source_index):
+        key = segment_key(text, voice_id, speed, say_as)
+        if not ((reuse or key in voiced) and cached_segment(key)):
+            total += len(apply_pronunciation_overrides(text))
+    return total
+
+
+VOICED_CHECKPOINT = "voiced_segments"
+
+
+def _voiced_in_this_job() -> set:
+    """The segments this job has voiced already, on an earlier attempt."""
+    return set((job_context.load_json_checkpoint(VOICED_CHECKPOINT) or {}).get("keys") or [])
 
 
 def _stitch(results, segments, out_audio_path: str):
@@ -674,13 +710,27 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
         preview = text if len(text) <= 50 else text[:47] + "..."
         job_context.report_detail("tts", i, {"preview": preview, "status": "pending"})
 
+    voiced = _voiced_in_this_job()
+    voiced_lock = threading.Lock()
+
+    def remember(key: str) -> None:
+        # Each line as it lands, so a failure partway through costs only
+        # the lines not yet voiced when it's retried.
+        with voiced_lock:
+            voiced.add(key)
+            try:
+                job_context.save_json_checkpoint(VOICED_CHECKPOINT, {"keys": sorted(voiced)})
+            except Exception:  # noqa: BLE001 - checkpointing is best-effort
+                pass
+
     def synth_one(item):
         i, (text, pause, segment_index) = item
         preview = text if len(text) <= 50 else text[:47] + "..."
         key = segment_key(text, voice_id, speed, say_as)
-        kept = cached_segment(key) if reuse else None
+        kept = cached_segment(key) if reuse or key in voiced else None
         if kept:
-            log.info(f'  [tts] reusing {i + 1}/{len(plan)} from the video this remakes: "{preview}"')
+            source = "the video this remakes" if reuse and key not in voiced else "the earlier attempt"
+            log.info(f'  [tts] reusing {i + 1}/{len(plan)} from {source}: "{preview}"')
             job_context.report_detail("tts", i, {"status": "done"})
             return (pause, segment_index) + kept
         log.info(f'  [tts] synthesizing {i + 1}/{len(plan)}: "{preview}"')
@@ -694,6 +744,7 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
             job_context.report_detail("tts", i, {"status": "error"})
             raise
         keep_segment(key, segment_paths[i], timings)
+        remember(key)
         job_context.report_detail("tts", i, {"status": "done"})
         return pause, segment_index, timings, samples
 
