@@ -195,18 +195,20 @@ def keep_up(channels: dict) -> bool:
     _last_auto = time.time()
 
     def work(conn, say):
-        # Imported questions first: no sense writing new ones while
-        # thousands are waiting (pipeline.facts.intake).
+        # Imported questions, within their own daily budget
+        # (pipeline.facts.intake); then writing where rounds are short, within
+        # the bank's. Both: imports barely reach the easy levels (most
+        # sources' "easy" is rated hard), which only writing fills.
         from pipeline.facts import intake
+        results = []
         if intake.pending(conn):
             names = []
             for channel in quizzes:
                 names += [n for n in quiz_categories(channel) if n not in names]
             spent = intake.spent_since(time.time() - 86400)
-            if spent < intake.DAILY_USD:
-                return intake.process(conn, names, intake.DAILY_USD - spent, say)
-            return "Today's import budget is spent; more tomorrow."
-        results = [stock_bank(conn, channel, say) for channel in quizzes]
+            results.append(intake.process(conn, names, intake.DAILY_USD - spent, say)
+                           if spent < intake.DAILY_USD else "Today's import budget is spent; more tomorrow.")
+        results += [stock_bank(conn, channel, say) for channel in quizzes]
         results += [stock(conn, channel, say) for channel in quizzes]
         harvest.refresh(conn, progress=say)
         return " ".join(results)
