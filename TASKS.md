@@ -150,6 +150,23 @@ only the movement). Everything else, voice and footage included, is
 kept. Videos made before today can only be remade this way if they're
 quiz shorts.
 
+### 4d-vi. The question bank fills itself; watch it on the Facts page
+Questions are being imported from the Open Trivia Database and the
+pub-quiz websites. Each is rewritten in our own words, fact-checked,
+rated and filed into categories. The app processes up to $3 worth a day
+by itself (about 2,500 questions a day). The **Facts** page, under
+**Imported questions**, shows each source's progress and has a
+**Process** button if you want it faster.
+
+Each category on the **Topic plan** now shows how many full sets of
+rounds are ready ("3 sets ready", "running low", "running dry").
+**Plan another set** adds a round at every difficulty with its questions
+already chosen, at no cost. A category with no full set ready can't
+start another until the bank fills it.
+
+To add websites, edit `config/quiz_sources.txt` (one page per line). A
+site whose robots.txt says no is skipped automatically.
+
 ### 4d-v. Check what each quiz category covers (5 minutes)
 Renaming Mythology to Ancient History had kept all its mythology
 questions, which is how Bigfoot got into an Ancient History round. Every

@@ -76,3 +76,31 @@ because "level 2" alone produced questions rated 4 to 6.
 - **Ignoring robots.txt** to read Reddit's thread: Reddit disallows it.
 - **The Haiku-sorts, Sonnet-checks filing for imports**, which would cost
   four times as much at this scale (see 060).
+
+## Later the same day: one call per batch
+
+A trial of the steps above (100 questions, $0.35) showed two problems:
+- **Haiku's rewrites kept questions that only work with options.** "Which
+  soft drink was introduced before the others?" got past the fact check.
+- **The separate fact check was the biggest cost.**
+
+Processing is now **one Sonnet call per 25 questions**. It rewrites,
+judges whether the answer is certainly right and the only one, rates the
+difficulty against the rater's own reference points, and files the
+question into the rounds it fits. That's about $1.20 per 1,000 raw
+questions instead of $3.50, with better wording. Judging its own rewrite
+is acceptable here because nothing is being written to hit a level: the
+bias that made an independent rater necessary for written batches doesn't
+arise.
+
+New local checks:
+- a rewrite that still mentions "these", "the following" or "the others"
+  is dropped;
+- a website's question reworded less than 80% from the original is
+  dropped. Open Trivia DB's licence allows close adaptation.
+
+Batches are now claimed before they're worked on. The app's hourly run
+and a run by hand once processed the same rows side by side, paying
+twice. The first trial's questions were taken out again and put back
+through the new pipeline; of the old pipeline's output, one question
+leaned on its options and was rejected.
