@@ -38,8 +38,8 @@ wanted:
      - only the same site, and only pages that look like quiz pages, up
        to 60 per site.
 
-     Haiku reads each page's questions and answers out (about half a cent
-     a page). The page's own wording is never kept in the bank.
+     Haiku reads each page's questions and answers out (about 3 cents
+     a page, long pages being read in parts). The page's own wording is never kept in the bank.
 2. **Process** them, 25 at a time, within a budget:
    - drop what the bank already has;
    - **rewrite each in our own words** as a question read aloud (Haiku),

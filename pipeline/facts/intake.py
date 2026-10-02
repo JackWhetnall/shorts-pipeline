@@ -5,7 +5,7 @@ Two steps, so nothing is spent until it's wanted:
 
 1. **Gather** raw questions into the `intake` table: the Open Trivia
    Database (free to download) and pub-quiz websites (reading a page's
-   questions costs about half a cent). See pipeline.facts.sources.
+   questions costs about 3 cents, long pages being read in parts). See pipeline.facts.sources.
 2. **Process** them, a batch at a time, within a budget:
    - drop the ones the bank already has;
    - rewrite each as a question read aloud in a British pub quiz, in our

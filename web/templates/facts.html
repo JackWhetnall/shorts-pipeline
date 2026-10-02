@@ -73,7 +73,7 @@
   <form method="post" action="{{ url_for('facts.import_questions', what='web') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="btn-ghost" {{ 'disabled' if busy }}
-            title="Reads the pages listed below, politely; about half a cent a page">Read the quiz websites</button>
+            title="Reads the pages listed below, politely; about 3 cents a page (long pages are read in several parts)">Read the quiz websites</button>
   </form>
   <form method="post" action="{{ url_for('facts.import_questions', what='process') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
