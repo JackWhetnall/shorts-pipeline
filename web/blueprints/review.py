@@ -16,6 +16,7 @@ force the queue to thread a key through every button for no benefit.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
@@ -115,6 +116,34 @@ def queue():
         total_waiting=len(items),
         discard_reasons=gallery.DISCARD_REASONS,
     )
+
+
+@bp.route("/queued")
+def queued_page():
+    """Everything approved, in the order it will go out, with when: a grid
+    rather than flicking through Review one video at a time."""
+    rows = []
+    for key, channel in load_channels(validate=False).items():
+        plan = channel.publishing
+        for path, when in publish_queue.schedule_for(channel):
+            info = gallery.load_publish_info(path)
+            waits = publish_queue.waiting_for(channel, path)
+            if waits:
+                label = f"Waits for #{waits}, still in review"
+            elif not plan.enabled:
+                label = "Waits until the publishing plan is on"
+            elif not publish_queue.can_publish(channel):
+                label = "Waits until YouTube is connected"
+            else:
+                label = _when_label(when, queued=True)
+            rows.append({"channel_key": key, "channel": channel.channel_display_name,
+                         "relpath": str(path.relative_to(gallery.OUTPUT_DIR)).replace("\\", "/"),
+                         "title": info["title"] or gallery.video_title(path.name),
+                         "number": publish_queue.number_of(path), "when": when, "label": label,
+                         "long": gallery.is_long(path)})
+    far = datetime.max.replace(tzinfo=timezone.utc)
+    rows.sort(key=lambda r: (r["when"] or far, r["channel"], r["number"]))
+    return render_template("queued.html", rows=rows)
 
 
 @bp.route("/insights")

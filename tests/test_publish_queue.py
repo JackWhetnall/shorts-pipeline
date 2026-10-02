@@ -246,3 +246,45 @@ class TestPublishNow:
         assert data["pending"] == ["tiktok", "instagram"] and data["next"]
         # The video is waiting, under its title, in the ready-to-post folder.
         assert [f.name for f in (tmp_path / "ready").iterdir()] == ["Chan - My title.mp4"]
+
+
+class TestNumberOrder:
+    """The owner: videos must go out #1, #2, #3, not in approval order."""
+
+    def _numbered(self, world, name, number, queued=True):
+        import json
+        path = world.video(name, queued=False)
+        path.with_name(f"{name}_quiz.json").write_text(json.dumps({"number": number}))
+        if queued:
+            publish_queue.enqueue(path, approved_by="you")
+        return path
+
+    def test_numbered_shorts_go_out_in_number_order_whatever_order_they_were_approved(self, world):
+        three = self._numbered(world, "c", 3)
+        one = self._numbered(world, "a", 1)
+        two = self._numbered(world, "b", 2)
+        plain = world.video("plain")
+        assert publish_queue.queued(world.channel) == [one, two, three, plain]
+
+    def test_a_number_waits_while_a_lower_one_is_still_in_review(self, world):
+        self._numbered(world, "two", 2, queued=False)          # made, not yet approved
+        three = self._numbered(world, "three", 3)
+        assert publish_queue.waiting_for(world.channel, three) == 2
+        assert publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 24, 18, 1)) == []
+        assert world.state["uploads"] == []
+
+    def test_discarding_the_lower_number_releases_the_wait(self, world):
+        two = self._numbered(world, "two", 2, queued=False)
+        three = self._numbered(world, "three", 3)
+        gallery.set_discarded(two, True, reason="other")
+        assert publish_queue.waiting_for(world.channel, three) == 0
+        assert len(publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 24, 18, 1))) == 1
+
+    def test_the_going_out_page_lists_them_in_order_with_the_wait(self, world, monkeypatch):
+        from web import create_app
+        self._numbered(world, "two", 2, queued=False)
+        self._numbered(world, "three", 3)
+        self._numbered(world, "one", 1)
+        monkeypatch.setattr("web.blueprints.review.load_channels", lambda validate=True: {"c": world.channel})
+        html = create_app().test_client().get("/queued").get_data(as_text=True)
+        assert html.index("#1") < html.index("#3") and "Waits for #2, still in review" in html

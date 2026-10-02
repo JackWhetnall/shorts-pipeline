@@ -2671,6 +2671,10 @@ function renderNotebookPanel() {
     <div class="actions">
       <button type="button" class="btn-ghost" data-regenerate-btn>Regenerate</button>
       <button type="button" class="btn-ghost" data-edit-btn>Edit</button>
+      ${current.status === "pending"
+        ? `<button type="button" class="btn-ghost danger-text" data-delete-btn
+             title="The video is written afresh when it's made; any questions it had go back to the bank">Delete this script</button>`
+        : ""}
     </div>
     <div class="notebook-instruction">
       <label>Regenerate with instructions
@@ -2688,6 +2692,23 @@ function renderNotebookPanel() {
   panel.querySelector("[data-edit-btn]").addEventListener("click", () => {
     notebookState.editing = true;
     renderNotebookPanel();
+  });
+  const deleteBtn = panel.querySelector("[data-delete-btn]");
+  if (deleteBtn) deleteBtn.addEventListener("click", (e) => deleteNotebookScript(e.target));
+}
+
+async function deleteNotebookScript(button) {
+  const current = notebookState.subtopics[notebookState.selectedIndex];
+  if (!confirm(`Delete the script for "${current.title}"? It's written afresh when the video is made.`)) return;
+  await withButtonLoading(button, "Deleting…", async () => {
+    const res = await apiFetch(
+      `/api/channels/${notebookState.key}/curriculum/${current.id}/delete-script`, {method: "POST"});
+    const data = await res.json().catch(() => ({}));
+    const status = document.getElementById("notebook-status");
+    if (!res.ok) { if (status) status.textContent = data.error || "Couldn't delete that script."; return; }
+    current.script = null;
+    renderNotebookPanel();
+    renderNotebookTabsOnly();
   });
 }
 

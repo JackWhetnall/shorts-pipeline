@@ -2139,3 +2139,33 @@ def test_a_quiz_categorys_rounds_are_listed_easiest_first(monkeypatch):
     ordered = [s["title"] for s in _in_order(channel, topics)[0]["subtopics"]]
     assert ordered == ["Music: Easy", "Music: Hard", "Music: Tricky", "Music: Impossible",
                        "Music: Easy (round 2)"]
+
+
+def test_one_script_or_one_topics_scripts_can_be_deleted(monkeypatch, tmp_path):
+    """The owner could only clear every written script at once."""
+    from web import create_app
+    import web.blueprints.curriculum as page
+    from core.channels import ChannelConfig
+    data = {"version": 2, "channel": "c", "topics": [{"id": "t1", "title": "Science"}, {"id": "t2", "title": "Music"}],
+            "subtopics": [
+                {"id": "s1", "topic": "t1", "title": "Science: Easy", "status": curriculum.PENDING,
+                 "script": {"quiz": {"questions": [{"bank_id": 5}]}}},
+                {"id": "s2", "topic": "t1", "title": "Science: Hard", "status": curriculum.PENDING, "script": {"x": 1}},
+                {"id": "s3", "topic": "t2", "title": "Music: Easy", "status": curriculum.PENDING, "script": {"x": 1}},
+                {"id": "s4", "topic": "t1", "title": "Science: Tricky", "status": curriculum.USED, "script": {"x": 1}}]}
+    monkeypatch.setattr(curriculum, "load", lambda key: data)
+    monkeypatch.setattr(curriculum, "save", lambda d: None)
+    monkeypatch.setattr(curriculum, "exists", lambda key: True)
+    monkeypatch.setattr(page, "channel_or_404", lambda key: ChannelConfig(key="c"))
+    released = []
+    monkeypatch.setattr(page, "_release", lambda scripts, key: released.extend(scripts))
+    client = create_app().test_client()
+    client.get("/m/sign-in")
+    with client.session_transaction() as s:
+        token = s["_csrf_token"]
+    assert client.post("/api/channels/c/curriculum/s1/delete-script", headers={"X-CSRF-Token": token}).status_code == 200
+    assert data["subtopics"][0]["script"] is None and released == [{"quiz": {"questions": [{"bank_id": 5}]}}]
+    assert client.post("/api/channels/c/curriculum/s4/delete-script", headers={"X-CSRF-Token": token}).status_code == 400
+    client.post("/channels/c/curriculum/t1/clear-topic-scripts", data={"csrf_token": token})
+    scripts = {s["id"]: s["script"] for s in data["subtopics"]}
+    assert scripts["s2"] is None and scripts["s3"] == {"x": 1} and scripts["s4"] == {"x": 1}

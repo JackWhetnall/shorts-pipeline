@@ -73,9 +73,20 @@ def unqueue(video_path: Path) -> dict:
     return gallery.save_queue_state(video_path, queued_at=None, approved_by=None)
 
 
+def number_of(video_path: Path) -> int:
+    """A quiz short's number on screen (#4), or 0 for a video without one."""
+    sidecar = Path(video_path).with_name(f"{Path(video_path).stem}_quiz.json")
+    try:
+        return int(json.loads(sidecar.read_text(encoding="utf-8")).get("number") or 0)
+    except (OSError, ValueError):
+        return 0
+
+
 def queued(channel, long: bool = False) -> list:
     """This channel's queued videos, first in line first: its shorts, or
-    with `long` its long videos, which go out in their own slots."""
+    with `long` its long videos, which go out in their own slots. Numbered
+    shorts go in number order (#1, #2, #3), whatever order they were
+    approved in; anything without a number in approval order after them."""
     directory = gallery.resolve_output_dir(channel.output_dir)
     if not directory.exists():
         return []
@@ -83,8 +94,27 @@ def queued(channel, long: bool = False) -> list:
     for path in gallery.videos_in(directory, long=long):
         info = gallery.load_publish_info(path)
         if gallery.is_queued(info):
-            items.append((info["queued_at"], path))
-    return [path for _, path in sorted(items)]
+            number = number_of(path)
+            items.append(((0, number) if number else (1, 0), info["queued_at"], path))
+    return [path for _, _, path in sorted(items, key=lambda row: (row[0], row[1]))]
+
+
+def waiting_for(channel, video_path: Path) -> int:
+    """The lowest-numbered short of this channel still waiting for review
+    below this one's number, or 0. A numbered short waits for it, so the
+    numbers go out in order; discarding or publishing it releases the wait."""
+    number = number_of(video_path)
+    if not number:
+        return 0
+    directory = gallery.resolve_output_dir(channel.output_dir)
+    lower = []
+    for path in gallery.videos_in(directory):
+        other = number_of(path)
+        if other and other < number:
+            info = gallery.load_publish_info(path)
+            if not info["discarded"] and not gallery.is_out(info) and not gallery.is_queued(info):
+                lower.append(other)
+    return min(lower) if lower else 0
 
 
 # --- slots -----------------------------------------------------------
@@ -204,8 +234,12 @@ def publish_due(channels: dict, now: datetime = None) -> list:
                 last = _parse(state.get(lane, {}).get("last_slot"))
                 if due is None or (last is not None and due <= last) or now - due > MISSED_SLOT_GRACE:
                     continue
+                if waiting_for(channel, videos[0]):
+                    continue        # an earlier number is still in review; this slot waits for it
                 state.setdefault(lane, {})["last_slot"] = due.isoformat()
                 _save_state(state)
+            elif waiting_for(channel, videos[0]):
+                continue
             results.append(send(channel, videos[0]))
     return results
 

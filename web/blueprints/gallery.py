@@ -78,6 +78,9 @@ def unapprove(key, relpath):
     from core import publish_queue
     channel_or_404(key)
     publish_queue.unqueue(video_or_404(relpath))
+    back = request.form.get("next", "")
+    if back.startswith("/") and not back.startswith("//"):
+        return redirect(back)
     return redirect(url_for("gallery.channel_gallery", key=key))
 
 

@@ -40,7 +40,7 @@
     <button type="button" data-review-state="all" class="active" onclick="setReviewState(this)">To review</button>
     <button type="button" data-review-state="flagged" onclick="setReviewState(this)">Needs a look</button>
     <button type="button" data-review-state="clean" onclick="setReviewState(this)">Passed checks</button>
-    <button type="button" data-review-state="queued" onclick="setReviewState(this)">Queued</button>
+    <a class="segmented-link" href="{{ url_for('review.queued_page') }}">Going out &rarr;</a>
   </div>
 </div>
 

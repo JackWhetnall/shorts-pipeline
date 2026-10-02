@@ -544,6 +544,43 @@ def save_category(key):
     return redirect(url_for("curriculum.categories", key=key, note=note) + f"#cat-{name}")
 
 
+@bp.route("/api/channels/<key>/curriculum/<subtopic_id>/delete-script", methods=["POST"])
+def delete_script(key, subtopic_id):
+    """Delete one written-ahead script: the video is written afresh when
+    it's made, and the questions it had go back to the bank."""
+    channel_or_404(key)
+    row = curriculum.find(key, subtopic_id)
+    if row is None:
+        abort(404, description="That video is no longer in the plan.")
+    if row["status"] != curriculum.PENDING:
+        return jsonify({"error": "This one has been made; its script is the video's record."}), 400
+    _release([row.get("script")], key)
+    curriculum.set_script(key, subtopic_id, None)
+    return jsonify({"ok": True})
+
+
+@bp.route("/channels/<key>/curriculum/<topic_id>/clear-topic-scripts", methods=["POST"])
+def clear_topic_scripts(key, topic_id):
+    """Delete the written-ahead scripts of one topic's videos still to make."""
+    channel_or_404(key)
+    rows = [s for s in curriculum.subtopics(key, topic_id=topic_id)
+            if s["status"] == curriculum.PENDING and s.get("script")]
+    _release([s["script"] for s in rows], key)
+    for row in rows:
+        curriculum.set_script(key, row["id"], None)
+    topic = curriculum.find_topic(key, topic_id) or {}
+    return redirect(url_for("curriculum.page", key=key,
+                            note=f"Cleared {len(rows)} written script{'s' if len(rows) != 1 else ''} in "
+                                 f"{topic.get('title', 'that topic')}.") + f"#{topic_id}")
+
+
+def _release(scripts: list, key: str) -> None:
+    scripts = [s for s in scripts if s]
+    if scripts:
+        from pipeline.facts import bank, store
+        bank.release(store.connect(), key, scripts)
+
+
 @bp.route("/channels/<key>/curriculum/clear-scripts", methods=["POST"])
 def clear_scripts(key):
     """Clear every script written ahead for a video not yet made, so each is

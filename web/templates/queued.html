@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Going out{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('review.queue') }}">&larr; Review</a>
+<h1>Going out</h1>
+<p class="subtitle">Everything approved, in the order it goes out. A channel's numbered shorts go in number order, and
+  one waits if a lower number is still in review.</p>
+{% if not rows %}
+<div class="empty-state"><p><strong>Nothing approved yet.</strong></p><p>Approve videos in Review and they line up here.</p></div>
+{% else %}
+<div class="gallery-grid">
+  {% for v in rows %}
+  <div class="card gallery-item">
+    <a class="card-link-overlay" href="{{ url_for('gallery.video_detail', key=v.channel_key, relpath=v.relpath) }}"></a>
+    <img class="gallery-thumb" src="{{ url_for('gallery.thumbnail', key=v.channel_key, relpath=v.relpath) }}" alt="">
+    <p class="gallery-item-title">{% if v.number %}<span class="queued-number">#{{ v.number }}</span> {% endif %}{{ v.title }}</p>
+    <p class="meta">{{ v.channel }}{% if v.long %} &middot; long video{% endif %}</p>
+    <p class="meta {{ 'danger-text' if v.label.startswith('Waits') }}">{{ v.label }}</p>
+    <div class="card-action-row">
+      <form method="post" action="{{ url_for('gallery.unapprove', key=v.channel_key, relpath=v.relpath) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ url_for('review.queued_page') }}">
+        <button type="submit" class="btn-ghost card-action">Back to review</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
