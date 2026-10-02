@@ -555,6 +555,15 @@ and used once per channel. A round from the bank has only its host's
 lines written. It's topped up hourly within a daily limit (`facts.keep`).
 See decision [050](docs/decisions/050-question-bank.md).
 
+**Category scopes** (`pipeline/facts/scope.py`): each quiz category has a
+scope, a sentence of what it covers and one of what it doesn't, written
+once from pub-quiz convention and editable (Topic plan → What each
+category covers). Areas and batches are written to it, and the bank is
+sorted to it: Haiku files each question under the categories it fits,
+then Sonnet checks each category's questions against its own definition.
+A new, edited or renamed category is sorted again before its next round.
+See decision [060](docs/decisions/060-category-scopes.md).
+
 **Question review** (`pipeline/quiz_review.py`, `web/blueprints/quiz_review.py`)
 lays a round's questions out to judge one by one: fine, too easy, too
 hard, or wrong. Too easy or too hard moves the question in the bank to

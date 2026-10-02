@@ -63,14 +63,6 @@
   <div class="stat"><span class="stat-num">{{ progress.runway_days }}</span> days of runway</div>
 </div>
 {% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
-{% if written %}
-<form method="post" action="{{ url_for('curriculum.clear_scripts', key=key) }}" class="actions"
-      onsubmit="return confirm('Clear all {{ written }} scripts written ahead? Each video is written afresh when it is made. Videos already made are not touched.');">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <button type="submit" class="btn-ghost danger-text">Clear written scripts ({{ written }})</button>
-  <button type="button" class="info-dot" data-tooltip="Scripts written ahead by an earlier version of the writing. Cleared, each video is written afresh from the question bank when it's made, and the questions they had taken go back into it.">?</button>
-</form>
-{% endif %}
 
 {% if progress.running_low %}
 <p class="error-banner">
@@ -289,8 +281,23 @@
   <p class="hint" id="plan-add-status"></p>
 </div>
 
+{% if quiz %}
+<p class="hint"><a href="{{ url_for('curriculum.categories', key=key) }}">What each category covers &rarr;</a>
+  The rules deciding which questions go in which round.</p>
+{% endif %}
+
 <fieldset class="card danger-zone">
   <legend>Start over</legend>
+  {% if written %}
+  <form method="post" action="{{ url_for('curriculum.clear_scripts', key=key) }}"
+        onsubmit="return confirm('Clear all {{ written }} scripts written ahead? Each video is written afresh when it is made. Videos already made are not touched.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="meta">{{ written }} video{{ 's' if written != 1 }} {{ 'has' if written == 1 else 'have' }} a script
+      written ahead. Clearing them means each is written afresh when it's made, and the questions they had
+      taken go back into the bank.</p>
+    <button type="submit" class="btn-ghost danger-text">Clear the written scripts</button>
+  </form>
+  {% endif %}
   <p class="meta">
     Deleting the plan loses the record of what has been covered. The channel
     goes back to picking at random from its topic list.

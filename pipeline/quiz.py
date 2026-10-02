@@ -1004,8 +1004,14 @@ def _bank_questions(channel, category: str, difficulty: str, count: int, borrow:
     the bank nor clash with each other (decision 050). Without `borrow`,
     only questions written for this category, over enough of its areas."""
     try:
-        from pipeline.facts import bank, store
-        rows = bank.for_round(store.connect(), channel.key, category, level_of(channel, difficulty),
+        from pipeline.facts import bank, keep, scope, store
+        conn = store.connect()
+        try:
+            # Only questions inside each category's scope (decision 060).
+            scope.sort_if_needed(conn, keep.quiz_categories(channel) or [category])
+        except Exception as exc:  # noqa: BLE001 - the round still comes from the bank as it is
+            log.warning(f"  [quiz] couldn't sort the question bank into its categories ({exc})")
+        rows = bank.for_round(conn, channel.key, category, level_of(channel, difficulty),
                               count + BANK_SPARE, borrow=borrow)
         if not borrow and not bank.varied(rows):
             return []

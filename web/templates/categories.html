@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ channel.channel_display_name }} — What each category covers{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('curriculum.page', key=key) }}">&larr; Topic plan</a>
+<h1>What each category covers</h1>
+<p class="subtitle">These decide which questions go in which round: every question in the bank is filed under the
+  categories whose rules it fits, and new questions are written to them. They're written from usual pub-quiz
+  practice; change any that don't match what you mean.</p>
+{% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
+{% if unsorted %}<p class="hint">Still to sort the question bank against: {{ unsorted|join(', ') }}. That happens
+  before the next round of each is chosen, or within a minute of saving here (Haiku, about a cent per 40 questions).</p>{% endif %}
+
+{% if stale %}
+<div class="card">
+  <h2>Rounds written before these rules</h2>
+  <p class="meta">These were written ahead and ask questions their category doesn't cover. Cleared, each is written
+    again from the sorted question bank when it's made (no cost now; a cent or two each then). Any questions you'd
+    checked in them are checked again.</p>
+  <ul class="meta">
+    {% for row in stale %}<li><strong>{{ row.title }}</strong>: {{ row.questions|length }} outside, e.g.
+      &ldquo;{{ row.questions[0] }}&rdquo;</li>{% endfor %}
+  </ul>
+  <form method="post" action="{{ url_for('curriculum.clear_stale', key=key) }}"
+        onsubmit="return confirm('Clear these {{ stale|length }} written rounds? Each is written again when it is made.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-ghost">Clear these {{ stale|length }} rounds</button>
+  </form>
+</div>
+{% endif %}
+
+{% for row in rows %}
+<div class="card" id="cat-{{ row.name }}">
+  <h2>{{ row.name }} <span class="meta">&middot; {{ row.count }} question{{ 's' if row.count != 1 }} in the bank</span></h2>
+  {% if row.general %}
+  <p class="meta">Anything at all: a general-knowledge round draws on the whole bank.</p>
+  {% else %}
+  <form method="post" action="{{ url_for('curriculum.save_category', key=key) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="category" value="{{ row.name }}">
+    {% if row.scope %}
+    <label class="review-field">Covers
+      <textarea name="covers" rows="2">{{ row.scope.covers }}</textarea>
+    </label>
+    <label class="review-field">Doesn't cover
+      <textarea name="excludes" rows="2">{{ row.scope.excludes }}</textarea>
+    </label>
+    <div class="actions">
+      <button type="submit" class="btn-ghost">Save</button>
+      <span class="hint">{{ 'Edited by you' if row.scope.edited else 'Written from usual pub-quiz practice' }}{% if row.scope.sorted_at %}; the bank was sorted to it {{ row.scope.sorted_at[:10] }}{% endif %}.</span>
+    </div>
+    {% else %}
+    <p class="meta">Not written yet: it's written the first time a round or questions are needed for it.</p>
+    <button type="submit" name="action" value="write" class="btn-ghost">Write it now</button>
+    {% endif %}
+  </form>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

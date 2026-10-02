@@ -18,7 +18,17 @@ from __future__ import annotations
 import pytest
 
 from core.channels import ChannelConfig
-from pipeline.facts import bank, keep, store
+from pipeline.facts import bank, keep, scope, store
+
+
+@pytest.fixture(autouse=True)
+def _scopes_known(monkeypatch):
+    """Every category's scope is already written and the bank sorted to it
+    (pipeline.facts.scope has its own tests), so the faked model here only
+    answers for batches."""
+    monkeypatch.setattr(scope, "ensure", lambda conn, name, names: {"covers": f"All about {name}.",
+                                                                    "excludes": ""})
+    monkeypatch.setattr(scope, "sort_if_needed", lambda conn, names, say=None: False)
 
 
 def _q(question, answer, level=4, shape="name", tags=()):
@@ -243,7 +253,11 @@ def test_clearing_written_scripts_gives_their_questions_back(monkeypatch, tmp_pa
     assert conn.execute("SELECT COUNT(*) FROM question_used").fetchone()[0] == 0
 
 
-def test_a_renamed_category_keeps_its_questions(tmp_path):
+def test_a_renamed_category_keeps_its_questions_but_not_its_meaning(tmp_path):
+    """Its questions come along as candidates; its areas don't, since the
+    new name may mean something else (Mythology renamed Ancient History
+    kept asking about Bigfoot). They're worked out again from its new
+    scope, and the bank is sorted to it (pipeline.facts.scope)."""
     import json
     conn = store.connect(tmp_path / "f.db")
     _stock(conn, 4, "Flags & Countries")
@@ -251,7 +265,7 @@ def test_a_renamed_category_keeps_its_questions(tmp_path):
         conn.execute("INSERT INTO bank_areas (category, areas) VALUES ('Flags & Countries', ?)", (json.dumps(["A"]),))
     bank.rename_category(conn, "Flags & Countries", "Flags")
     assert len(bank.pool(conn, "pub", "Flags")) == 4 and not bank.pool(conn, "pub", "Flags & Countries")
-    assert bank._stored_areas(conn, "Flags") == ["A"]
+    assert bank._stored_areas(conn, "Flags") == [] and bank._stored_areas(conn, "Flags & Countries") == []
 
 
 def test_a_question_that_says_its_answer_is_refused():

@@ -468,6 +468,82 @@ def make_next(key, subtopic_id):
     return redirect(url_for("curriculum.page", key=key, _anchor=subtopic_id))
 
 
+@bp.route("/channels/<key>/curriculum/categories")
+def categories(key):
+    """What each quiz category covers (pipeline.facts.scope): rarely
+    needed, so its own page rather than room on the plan."""
+    from pipeline.facts import keep, scope, store
+    channel = channel_or_404(key)
+    conn = store.connect()
+    names = keep.quiz_categories(channel)
+    rows = []
+    for name in names:
+        defined = scope.get(conn, name)
+        count = conn.execute("SELECT COUNT(*) FROM question_tags t JOIN questions q ON q.id = t.question_id "
+                             "WHERE q.status = 'ok' AND t.category = ? COLLATE NOCASE", (name,)).fetchone()[0]
+        rows.append({"name": name, "scope": defined, "count": count,
+                     "general": name.lower() in scope.GENERAL})
+    return render_template("categories.html", key=key, channel=channel, rows=rows,
+                           unsorted=scope.unsorted(conn, names), stale=_stale_rounds(conn, key),
+                           note=request.args.get("note", ""))
+
+
+def _stale_rounds(conn, key: str) -> list:
+    """Rounds written ahead that ask outside their category's scope."""
+    from pipeline.facts import scope
+    out = []
+    for row in curriculum.subtopics(key, status=curriculum.PENDING) if curriculum.exists(key) else []:
+        quiz = (row.get("script") or {}).get("quiz")
+        found = scope.outside(conn, quiz) if quiz else []
+        if found:
+            out.append({"id": row["id"], "title": row["title"], "questions": found})
+    return out
+
+
+@bp.route("/channels/<key>/curriculum/categories/clear-stale", methods=["POST"])
+def clear_stale(key):
+    """Clear the written rounds that ask outside their category: each is
+    written again from the sorted bank when it's made, and what they had
+    taken goes back to the bank."""
+    from pipeline.facts import bank, store
+    channel_or_404(key)
+    conn = store.connect()
+    stale = _stale_rounds(conn, key)
+    scripts = [curriculum.find(key, row["id"])["script"] for row in stale]
+    for row in stale:
+        curriculum.set_script(key, row["id"], None)
+    if scripts:
+        bank.release(conn, key, scripts)
+    return redirect(url_for("curriculum.categories", key=key,
+                            note=f"Cleared {len(stale)} round{'s' if len(stale) != 1 else ''}; each is written "
+                                 f"again from the sorted bank when it's made."))
+
+
+@bp.route("/channels/<key>/curriculum/categories/save", methods=["POST"])
+def save_category(key):
+    """Keep an edited scope, or write a missing one; then sort the bank."""
+    from pipeline.facts import keep, scope, store
+    channel = channel_or_404(key)
+    conn = store.connect()
+    names = keep.quiz_categories(channel)
+    name = request.form.get("category", "")
+    if name not in names:
+        abort(404, description="That category isn't on this channel's plan.")
+    try:
+        if request.form.get("action") == "write":
+            scope.write(conn, name, names)
+            note = f"{name}: written. The question bank is being sorted to it."
+        else:
+            scope.save(conn, name, request.form.get("covers", ""), request.form.get("excludes", ""))
+            note = f"{name}: saved. The question bank is being sorted to it."
+    except ValueError:
+        return redirect(url_for("curriculum.categories", key=key, note="Say what the category covers."))
+    except PipelineError as exc:
+        return redirect(url_for("curriculum.categories", key=key, note=exc.user_message))
+    scope.sort_in_background(names)
+    return redirect(url_for("curriculum.categories", key=key, note=note) + f"#cat-{name}")
+
+
 @bp.route("/channels/<key>/curriculum/clear-scripts", methods=["POST"])
 def clear_scripts(key):
     """Clear every script written ahead for a video not yet made, so each is

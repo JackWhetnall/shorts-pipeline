@@ -220,9 +220,13 @@ def areas(conn, category: str) -> list:
     row = conn.execute("SELECT areas FROM bank_areas WHERE lower(category) = lower(?)", (category,)).fetchone()
     if row:
         return json.loads(row[0])
+    from pipeline.facts import scope
     from pipeline.llm import call_json
-    found = call_json(AREAS_SYSTEM, f"Category: {category}", AREAS_SCHEMA, operation="bank_areas",
-                      max_tokens=1500, effort="low")
+    # Within what the category covers (pipeline.facts.scope): from its name
+    # alone, "Ancient History" was given every culture's myths.
+    defined = scope.describe(scope.get(conn, category))
+    found = call_json(AREAS_SYSTEM, f"Category: {category}" + (f"\n{defined}" if defined else ""),
+                      AREAS_SCHEMA, operation="bank_areas", max_tokens=1500, effort="low")
     names = [" ".join(a.split()) for a in found.get("areas") or [] if a.strip()][:18] or [category]
     with conn:
         conn.execute("INSERT OR REPLACE INTO bank_areas (category, areas) VALUES (?, ?)",
@@ -243,13 +247,21 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
     """Write, check and store a batch of questions for a category near a
     level. Returns {"written", "kept", "rejected", "repeats"}."""
     from pipeline import quiz
+    from pipeline.facts import scope
     from pipeline.llm import SystemBlock, call_json
 
+    try:
+        defined = scope.describe(scope.ensure(conn, category, categories or [category]))
+    except Exception as exc:  # noqa: BLE001 - written to the name alone, as before scopes; sorted later
+        log.warning(f"  [bank] no scope for {category} ({exc}); writing to its name alone")
+        defined = ""
     area = area or _least_stocked_area(conn, category, level)
     known = [r[0] for r in conn.execute(
         "SELECT q.answer FROM questions q JOIN question_tags t ON t.question_id = q.id "
         "WHERE t.category = ? AND q.area = ? ORDER BY q.id DESC LIMIT ?", (category, area, ANSWERS_SHOWN))]
-    user = (f"Category: {category}\nArea: {area}\nLevel: {level:g} on the 1-10 scale; spread the batch "
+    user = (f"Category: {category}\n"
+            + (f"{defined}\nEvery question must fall squarely inside that.\n" if defined else "")
+            + f"Area: {area}\nLevel: {level:g} on the 1-10 scale; spread the batch "
             f"about a point either side.\nQuestions: {count}\n"
             f"Categories a question can also be tagged with: {', '.join(c for c in categories if c != category)}\n")
     if known:
@@ -380,6 +392,13 @@ def rename_category(conn, old: str, new: str) -> None:
     """A category renamed on the topic plan keeps its questions and areas."""
     if not old or old.lower() == (new or "").lower():
         return
+    # A new name may mean something new ("Mythology" renamed "Ancient
+    # History"): the questions come along as candidates, but the scope and
+    # areas are written afresh for the new name, and the bank is sorted
+    # against them before its next round (pipeline.facts.scope).
+    from pipeline.facts import scope
+    scope.forget(conn, old)
+    scope.forget(conn, new)
     with conn:
         conn.execute("UPDATE OR IGNORE question_tags SET category = ? WHERE lower(category) = lower(?)", (new, old))
         conn.execute("DELETE FROM question_tags WHERE lower(category) = lower(?)", (old,))

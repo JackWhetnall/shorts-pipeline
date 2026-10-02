@@ -149,6 +149,13 @@ def stock_bank(conn, channel, say=None) -> str:
     say = say or (lambda message: log.info(f"  [bank] {message}"))
     names = quiz_categories(channel)
     levels = quiz.levels(channel.quiz.difficulties)
+    # Counted only once the bank is sorted to each category's scope
+    # (pipeline.facts.scope), so a renamed category isn't thought full.
+    from pipeline.facts import scope
+    try:
+        scope.sort_if_needed(conn, names, say)
+    except Exception as exc:  # noqa: BLE001 - stocking goes on; the next run or round sorts again
+        log.warning(f"  [bank] couldn't sort the bank into its categories ({exc})")
     short = []
     for name in names:
         for (label, level), have in zip(levels, bank.counts(conn, channel.key, name, levels).values()):

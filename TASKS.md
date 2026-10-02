@@ -150,6 +150,20 @@ only the movement). Everything else, voice and footage included, is
 kept. Videos made before today can only be remade this way if they're
 quiz shorts.
 
+### 4d-v. Check what each quiz category covers (5 minutes)
+Renaming Mythology to Ancient History had kept all its mythology
+questions, which is how Bigfoot got into an Ancient History round. Every
+category now has a written scope, and the bank has been sorted to them.
+1. **Topic plan → What each category covers** (at the bottom). Read
+   them; change any that aren't what you mean, and Save. Ancient History
+   is set to what you said: Greece, Rome and Egypt.
+2. On the same page, **Clear these 11 rounds**. They were written ahead
+   before the rules and ask outside their category (Science asking about
+   the largest desert). Each is written again when it's made.
+3. The Ancient History: Hard video waiting in Review has mythology from
+   other cultures in it: **Check the questions** to swap those out, or
+   discard it.
+
 ### 4d-iv. Fix which Chrome profile posts (2 minutes)
 Pub Quiz Buzz was set to post from Chrome's **Default** profile, which is
 signed in to a different Google account (cwcraigwatkins@...). That's why
