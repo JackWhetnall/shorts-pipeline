@@ -48,6 +48,46 @@
 </table>
 {% endif %}
 
+<h2>Imported questions
+  <button type="button" class="info-dot" data-tooltip="Questions from the Open Trivia Database and pub-quiz websites, each rewritten in our own words as a question read aloud, fact-checked, rated for difficulty and filed into categories before it joins the bank. Gathering is free (or nearly); processing costs about $2.50 per 1,000.">?</button>
+</h2>
+<p class="meta">{{ '{:,}'.format(intake_pending) }} waiting to be processed. The scheduler processes up to
+  ${{ '%.2f'|format(intake_daily) }} worth a day, before it writes any new questions itself.</p>
+{% if intake %}
+<table class="facts-table">
+  <thead><tr><th>Source</th><th>Waiting</th><th>In the bank</th><th>Failed the check</th><th>Didn't suit</th><th>Already had</th></tr></thead>
+  <tbody>
+  {% for s in intake %}
+  <tr><td><strong>{{ s.source }}</strong></td><td>{{ s.new or 0 }}</td><td>{{ s.added or 0 }}</td>
+    <td>{{ s.rejected or 0 }}</td><td>{{ s.skipped or 0 }}</td><td>{{ s.duplicate or 0 }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+<div class="actions">
+  <form method="post" action="{{ url_for('facts.import_questions', what='opentdb') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-ghost" {{ 'disabled' if busy }}
+            title="About 3,500 questions; free; ten minutes (its API allows one request every five seconds)">Read Open Trivia DB</button>
+  </form>
+  <form method="post" action="{{ url_for('facts.import_questions', what='web') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-ghost" {{ 'disabled' if busy }}
+            title="Reads the pages listed below, politely; about half a cent a page">Read the quiz websites</button>
+  </form>
+  <form method="post" action="{{ url_for('facts.import_questions', what='process') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="hint">Process up to $<input type="number" name="budget" value="3" min="0.5" max="25" step="0.5" class="narrow-number"> worth now</label>
+    <button type="submit" class="btn-ghost" {{ 'disabled' if busy or not intake_pending }}>Process</button>
+  </form>
+</div>
+<details>
+  <summary class="hint">The websites read ({{ sources|length }}): edit <code>config/quiz_sources.txt</code> to change them</summary>
+  <ul class="meta">{% for url in sources %}<li>{{ url }}</li>{% endfor %}</ul>
+  <p class="hint">Each site's robots.txt is obeyed (a site that says no is skipped), at most one page every few
+    seconds. Only the facts are kept: every question is rewritten in our own words.</p>
+</details>
+
 <h2>Facts</h2>
 {% if rows %}
 <table class="facts-table">

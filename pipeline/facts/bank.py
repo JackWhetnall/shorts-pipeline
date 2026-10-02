@@ -317,18 +317,21 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
 
 def add(conn, q: dict, category: str, area: str, status: str, verdict: str, source: str,
         categories: list = ()) -> int:
-    """Store one question, tagged with its category and any others it fits."""
+    """Store one question, tagged with its category and any others it fits
+    (an imported question has no category yet: it's filed afterwards)."""
     known = {c.lower(): c for c in categories}
-    tags = {category} | {known[t.lower()] for t in q.get("tags") or [] if t.lower() in known}
+    tags = ({category} if category else set()) | {known[t.lower()] for t in q.get("tags") or []
+                                                  if t.lower() in known}
     level = max(1.0, min(10.0, float(q.get("level") or 5)))
     with conn:
         qid = conn.execute(
             "INSERT INTO questions (question, answer, alternatives, note, level, shape, area, source, "
-            "status, verdict, answer_key, created_at, known_pct, kid_guess) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "status, verdict, answer_key, created_at, known_pct, kid_guess, origin) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (q["question"], q["answer"], json.dumps(q.get("alternatives") or []), (q.get("note") or "").strip(),
              level, (q.get("shape") or "").strip().lower()[:30], area, source, status, verdict,
-             answer_key(q["answer"]), store.now(), q.get("known_pct"), q.get("kid_guess"))).lastrowid
+             answer_key(q["answer"]), store.now(), q.get("known_pct"), q.get("kid_guess"),
+             q.get("origin") or "")).lastrowid
         conn.executemany("INSERT OR IGNORE INTO question_tags (question_id, category) VALUES (?, ?)",
                          [(qid, t) for t in tags])
     return qid

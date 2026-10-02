@@ -796,7 +796,8 @@ def _write(category, difficulty, channel, context, extra="", kind: str = None,
     return _clean_round(data, count, kind)
 
 
-def verify(category: str, difficulty: str, questions: list, operation: str = "quiz_verify") -> list:
+def verify(category: str, difficulty: str, questions: list, operation: str = "quiz_verify",
+           effort: str = VERIFY_EFFORT) -> list:
     """[verdict per question] from an independent check: "ok", "wrong",
     "ambiguous" or "dated". A check that can't run returns "unchecked"
     for every question, which holds the video rather than passing it."""
@@ -806,7 +807,7 @@ def verify(category: str, difficulty: str, questions: list, operation: str = "qu
     try:
         data = call_json(VERIFY_SYSTEM, f"Category: {category}. Difficulty: {difficulty}.\n\n{listed}",
                          VERIFY_SCHEMA, operation=operation,
-                         max_tokens=VERIFY_MAX_TOKENS, effort=VERIFY_EFFORT)
+                         max_tokens=VERIFY_MAX_TOKENS, effort=effort)
     except PipelineError as exc:
         log.warning(f"  [quiz] the fact check couldn't run ({exc})")
         return ["unchecked"] * len(questions)
@@ -1019,7 +1020,7 @@ def _bank_questions(channel, category: str, difficulty: str, count: int, borrow:
         log.warning(f"  [quiz] the question bank couldn't be read ({exc}); writing without it")
         return []
     questions = [{"question": r["question"], "answer": r["answer"], "note": r["note"],
-                  "bank_id": r["id"]} for r in rows]
+                  "bank_id": r["id"], "source": r.get("source", "")} for r in rows]
     earlier = set(repeats(questions, channel.key))
     questions = [q for i, q in enumerate(questions) if i not in earlier]
     clashing = set(round_clashes(questions))
@@ -1094,7 +1095,12 @@ def _round_from_bank(channel, category: str, difficulty: str, questions: list) -
     except Exception as exc:  # noqa: BLE001 - see _bank_questions
         log.warning(f"  [quiz] couldn't record the bank questions used ({exc})")
     log.info(f"  [quiz] {count} questions from the question bank")
-    return to_script(data, channel, category, difficulty, [])
+    script = to_script(data, channel, category, difficulty, [])
+    # The Open Trivia Database's licence (CC BY-SA) asks for a credit.
+    from pipeline.facts.sources import opentdb
+    if any(q.get("source") == opentdb.SOURCE for q in questions):
+        script.quiz["credits"] = sorted(set(script.quiz.get("credits") or []) | {opentdb.CREDIT})
+    return script
 
 
 def _write_checked(channel, category: str, difficulty: str, extra: str = "",

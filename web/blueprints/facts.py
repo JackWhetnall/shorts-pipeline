@@ -41,9 +41,40 @@ def page():
                                         "short": keep.short_levels(conn, channel, record["name"])})
         rows.append(row)
     runs = store.recent_runs(conn, 8)
+    from pipeline.facts import intake
+    from pipeline.facts.sources import web
     return render_template("facts.html", totals=store.totals(conn), rows=rows, runs=runs,
                            bank=_bank_rows(conn, channels), busy=keep.busy(),
+                           intake=intake.summary(conn), intake_pending=intake.pending(conn),
+                           intake_daily=intake.DAILY_USD, sources=web.starting_pages(),
                            note=request.args.get("note", ""))
+
+
+def _all_categories() -> list:
+    from pipeline.facts import keep
+    names = []
+    for channel in _quiz_channels():
+        names += [n for n in keep.quiz_categories(channel) if n not in names]
+    return names
+
+
+@bp.route("/facts/import/<what>", methods=["POST"])
+def import_questions(what):
+    """Gather from a source (free, or nearly), or process what's held
+    (within the amount given)."""
+    from pipeline.facts import intake
+    if what == "opentdb":
+        return _start("read Open Trivia DB", lambda conn, say: intake.gather_opentdb(conn, say))
+    if what == "web":
+        return _start("read quiz websites", lambda conn, say: intake.gather_web(conn, say))
+    if what == "process":
+        try:
+            budget = max(0.5, min(25.0, float(request.form.get("budget") or 3)))
+        except ValueError:
+            budget = 3.0
+        names = _all_categories()
+        return _start("import questions", lambda conn, say: intake.process(conn, names, budget, say))
+    return redirect(url_for("facts.page", note="Unknown source."))
 
 
 def _bank_rows(conn, channels) -> dict:

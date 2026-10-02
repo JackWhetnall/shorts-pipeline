@@ -75,7 +75,7 @@ def level_for(percent: float, kid: bool) -> float:
     return max(level, KID_LEVEL + 0.5) if level <= KID_LEVEL and not kid else float(level)
 
 
-def rate(questions: list) -> list:
+def rate(questions: list, operation: str = "bank_rate") -> list:
     """[(percent, kid)] for [{question, answer}], None where a rating
     didn't come back. (Asked to flag giveaways too, it flagged easy
     questions: "Which country colonised Hong Kong?" A giveaway is caught
@@ -85,7 +85,7 @@ def rate(questions: list) -> list:
     for start in range(0, len(questions), CHUNK):
         chunk = questions[start:start + CHUNK]
         listed = "\n".join(f"{i + 1}. {q['question']} Answer: {q['answer']}" for i, q in enumerate(chunk))
-        data = call_json(SYSTEM, listed, SCHEMA, operation="bank_rate", max_tokens=6000, effort="low")
+        data = call_json(SYSTEM, listed, SCHEMA, operation=operation, max_tokens=6000, effort="low")
         got = {r.get("number"): r for r in data.get("ratings") or []}
         for i in range(len(chunk)):
             r = got.get(i + 1)
