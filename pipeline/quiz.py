@@ -355,19 +355,33 @@ def _named(topic: dict) -> bool:
 
 
 def next_round(channel, topic_id: str) -> int:
-    """This category's next round (Easy up to the hardest level again,
-    numbered on), free and by rule; the question bank keeps it clear of
-    everything already asked. Returns how many quizzes were added."""
+    """This category's next set (Easy up to the hardest level again,
+    numbered on), free: for a text category, only when a complete set of
+    rounds is ready (pipeline.facts.rounds), and each new entry takes its
+    round now. Returns how many quizzes were added."""
     data = curriculum.load(channel.key)
     topic = next((t for t in data["topics"] if t["id"] == topic_id), None)
     if topic is None or not _named(topic):
         return 0
+    from pipeline import pictures
+    text_round = topic.get("picture") not in pictures.KINDS
+    if text_round:
+        from pipeline.facts import rounds, store
+        conn = store.connect()
+        category = base_category(topic["title"])
+        if rounds.sets_ready(conn, channel, category) < 1:
+            log.info(f"{channel.key}: {category} has no complete set ready; not adding another")
+            return 0
     number = max([_round_number(s["title"]) for s in data["subtopics"]
                   if s["topic"] == topic_id] or [0]) + 1
-    before = len(data["subtopics"])
+    before = {s["id"] for s in data["subtopics"]}
     curriculum.add_subtopics(channel.key, topic_id,
                              subtopic_rows(topic["title"], channel.quiz.difficulties, number))
-    return len(curriculum.load(channel.key)["subtopics"]) - before
+    added = [s for s in curriculum.load(channel.key)["subtopics"] if s["id"] not in before]
+    if text_round:
+        for row in added:
+            rounds.claim(conn, channel.key, category, row.get("angle") or "", row["id"])
+    return len(added)
 
 
 def top_up(channel, force: bool = False) -> int:
@@ -889,9 +903,58 @@ def write_script(seed, channel, avoid: str = "") -> Script:
              if seed.topic_id and curriculum.exists(channel.key) else None)
     if entry is None:
         category, difficulty = round_of(seed, channel)
-        return _write_checked(channel, category, difficulty, avoid)
-    write_ladder_below(channel, entry)
+        script = _ready_round(channel, category, difficulty, f"seed:{seed.title}")
+        if script is None:
+            raise RoundsRunDry(f"no ready {category} round at {difficulty}", user_message=(
+                f"{category} has no {difficulty} round ready yet. The question bank is being stocked."))
+        return script
+    if picture_kind(channel, entry):
+        # Picture rounds don't come from the bank: easier rungs are still
+        # written first so this one is pitched above them.
+        write_ladder_below(channel, entry)
     return write_round(channel, curriculum.find(channel.key, entry["id"]), avoid)
+
+
+def picture_kind(channel, entry) -> str:
+    """The picture round kind of a plan entry's category, or None for a
+    text round."""
+    if entry is None:
+        return None
+    from pipeline import pictures
+    topic = curriculum.find_topic(channel.key, entry["topic"]) or {}
+    return topic.get("picture") if topic.get("picture") in pictures.KINDS else None
+
+
+def _ready_round(channel, category: str, difficulty: str, claim_for: str) -> Script:
+    """The round made ahead for this category and difficulty
+    (pipeline.facts.rounds), with only the host's lines written now, or
+    None when there isn't one."""
+    from pipeline.facts import rounds, store
+    conn = store.connect()
+    row = rounds.claim(conn, channel.key, category, difficulty, claim_for)
+    if row is None:
+        rounds.assemble(conn, channel)
+        row = rounds.claim(conn, channel.key, category, difficulty, claim_for)
+    if row is None:
+        return None
+    questions = rounds.questions_of(conn, row)
+    if len(questions) < channel.quiz.questions:
+        # A question taken out of the bank since it was made (on review):
+        # this round can't be asked; another is made.
+        rounds.used(conn, row["id"])
+        rounds.assemble(conn, channel)
+        row = rounds.claim(conn, channel.key, category, difficulty, claim_for)
+        if row is None:
+            return None
+        questions = rounds.questions_of(conn, row)
+    log.info(f"  [quiz] {category} {difficulty}: a round made ahead ({len(questions)} questions)")
+    script = _round_from_bank(channel, category, difficulty, questions[:channel.quiz.questions])
+    rounds.used(conn, row["id"])
+    return script
+
+
+class RoundsRunDry(PipelineError):
+    """A category has no round ready at a difficulty."""
 
 
 def write_round(channel, entry: dict, avoid: str = "") -> Script:
@@ -900,9 +963,18 @@ def write_round(channel, entry: dict, avoid: str = "") -> Script:
     category = base_category(topic.get("title") or entry["title"].split(":")[0])
     difficulty = entry.get("angle") or round_of(SimpleNamespace(
         topic_id="", topic=entry["title"], title=entry["title"]), channel)[1]
+    kind = picture_kind(channel, entry)
+    if not kind:
+        # A round made ahead: questions chosen, levelled and checked
+        # already. None ready means the category has run dry at this level;
+        # it's never written on the spot (decision 062).
+        script = _ready_round(channel, category, difficulty, entry["id"])
+        if script is None:
+            raise RoundsRunDry(f"no ready {category} round at {difficulty}", user_message=(
+                f"{category} has no {difficulty} round ready: its questions at that level have run out "
+                f"for now. The question bank is being stocked; make a different category meanwhile."))
+        return script
     extra = "\n\n".join(p for p in (ladder_note(channel, entry), avoid) if p)
-    from pipeline import pictures
-    kind = topic.get("picture") if topic.get("picture") in pictures.KINDS else None
     return _write_checked(channel, category, difficulty, extra, kind)
 
 

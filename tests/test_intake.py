@@ -120,11 +120,17 @@ def test_opentdb_keeps_pub_quiz_categories_and_undoes_its_entities(monkeypatch):
             return Response({"response_code": 0, "results": [{
                 "question": "Which country&#039;s flag has a maple leaf?", "correct_answer": "Canada",
                 "incorrect_answers": ["France"], "difficulty": "easy", "category": "General Knowledge"}]})
+        # Fewer than 50 left: the API says "token spent" for 50, yet gives a smaller amount.
+        if params.get("amount") == 25 and not any(p.get("amount") == 25 for p in asked[:-1]):
+            return Response({"response_code": 0, "results": [{
+                "question": "What is the capital of Peru?", "correct_answer": "Lima", "incorrect_answers": [],
+                "difficulty": "easy", "category": "General Knowledge"}]})
         return Response({"response_code": 4, "results": []})
     monkeypatch.setattr(opentdb.requests, "get", get)
     items = opentdb.fetch(sleep=lambda s: None)
-    assert items == [{"question": "Which country's flag has a maple leaf?", "answer": "Canada",
-                      "wrong": ["France"], "difficulty": "easy", "category": "General Knowledge"}]
+    assert items[0] == {"question": "Which country's flag has a maple leaf?", "answer": "Canada",
+                        "wrong": ["France"], "difficulty": "easy", "category": "General Knowledge"}
+    assert [i["answer"] for i in items] == ["Canada", "Lima"]           # the last few taken too
     assert all(p.get("category") != 15 for u, p in calls if u == opentdb.API)
 
 

@@ -129,6 +129,24 @@ AREAS_SCHEMA = {"type": "object", "properties": {"areas": {"type": "array", "ite
 
 GENERAL = {"general knowledge", "general", "mixed bag", "trivia", "anything goes", "potluck"}
 
+# Asked for easy questions, the writer wrote ones the rater then judged
+# hard, so the easy levels stayed empty while the hard ones overflowed.
+# Below this level it's given the rater's own yardstick.
+EASY_LEVEL = 3.5
+EASY_GUIDE = """
+This batch is for the easiest rounds. Every question must be one at least
+four in five British adults would get right with no options: things
+learnt at primary school, met every day, or so famous everyone has heard
+them. A ten-year-old should be able to answer or make a good guess. Too
+easy is better than too hard here; nothing obscure, no dates, no "which
+year". How well known things are, for scale:
+- How many legs does a spider have? 97% get it right
+- What is the capital of France? 95%
+- Which planet is known as the Red Planet? 85%
+- Who painted the Mona Lisa? 80%
+- What is the largest planet in the Solar System? 72% (already too hard for these rounds)
+"""
+
 
 # --- telling questions apart ----------------------------------------------------------
 
@@ -264,6 +282,8 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
             + f"Area: {area}\nLevel: {level:g} on the 1-10 scale; spread the batch "
             f"about a point either side.\nQuestions: {count}\n"
             f"Categories a question can also be tagged with: {', '.join(c for c in categories if c != category)}\n")
+    if level <= EASY_LEVEL:
+        user += EASY_GUIDE
     if known:
         user += f"\nAlready in the bank for this area (answers; don't ask these facts again):\n{'; '.join(known)}\n"
     data = call_json([SystemBlock(SYSTEM, cacheable=True)], user, SCHEMA, operation="bank_write",

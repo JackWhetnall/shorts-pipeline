@@ -555,6 +555,19 @@ and used once per channel. A round from the bank has only its host's
 lines written. It's topped up hourly within a daily limit (`facts.keep`).
 See decision [050](docs/decisions/050-question-bank.md).
 
+**Imported questions** (`pipeline/facts/intake.py`, `pipeline/facts/sources/`):
+the Open Trivia Database and pub-quiz websites are gathered into an
+intake table, then processed within a budget: rewritten in our own words
+(Haiku), fact-checked, rated and filed. See decision
+[061](docs/decisions/061-imported-questions.md).
+
+**Rounds made ahead** (`pipeline/facts/rounds.py`): each quiz channel keeps
+3 ready rounds per category and difficulty, assembled locally from the
+bank. Planning another set takes ready rounds; a video takes its round
+and writes only the host's lines; a category with none ready says it's
+running dry rather than writing questions. See decision
+[062](docs/decisions/062-rounds-made-ahead.md).
+
 **Category scopes** (`pipeline/facts/scope.py`): each quiz category has a
 scope, a sentence of what it covers and one of what it doesn't, written
 once from pub-quiz convention and editable (Topic plan → What each

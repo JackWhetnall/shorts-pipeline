@@ -65,13 +65,13 @@ def fetch(say=None, sleep=time.sleep) -> list:
             data = _get(API, {"amount": PER_CALL, "category": cat_id, "type": "multiple", "token": token})
             code = data.get("response_code")
             results = data.get("results") or []
-            if code == 4 or (code == 1 and not results):
-                # This category's questions are all handed out, or fewer than
-                # 50 are left: take the rest at a smaller size.
-                if code == 1 and PER_CALL > 1:
-                    results = _rest(cat_id, token, sleep)
-                    out += [_item(r) for r in results]
-                    got += len(results)
+            if code in (1, 4):
+                # Fewer than a full call's worth left: the API says the token
+                # is spent (4) rather than "not enough" (1), so either way the
+                # rest is taken at smaller sizes.
+                results = _rest(cat_id, token, sleep)
+                out += [_item(r) for r in results]
+                got += len(results)
                 break
             if code != 0:
                 log.warning(f"  [opentdb] {name}: response {code}; moving on")

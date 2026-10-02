@@ -281,3 +281,18 @@ def test_a_question_that_says_its_answer_is_refused():
     assert not bank.gives_away("In which battle of 1346 did the longbow prove decisive?", "Battle of Crécy")
     assert not bank.gives_away("What was the title of the first Harry Potter book?",
                                "Harry Potter and the Philosopher's Stone")
+
+
+def test_a_batch_for_the_easiest_rounds_is_given_the_raters_yardstick(tmp_path, monkeypatch):
+    """Written for Easy, questions came back rated hard, and the easy
+    levels of every category stayed empty."""
+    import pipeline.llm as llm
+    from pipeline import quiz
+    conn = store.connect(tmp_path / "f.db")
+    monkeypatch.setattr(bank, "areas", lambda conn, category: ["Planets"])
+    asked = []
+    monkeypatch.setattr(llm, "call_json", lambda system, user, *a, **k: asked.append(user) or {"questions": []})
+    monkeypatch.setattr(quiz, "verify", lambda *a, **k: [])
+    bank.write_batch(conn, "Space", 1.5, ["Space"])
+    bank.write_batch(conn, "Space", 6, ["Space"])
+    assert "four in five British adults" in asked[0] and "four in five" not in asked[1]

@@ -89,8 +89,10 @@ class TestFactCheck:
         return calls
 
     def test_a_question_that_fails_is_replaced_and_rechecked(self, monkeypatch):
+        # Written and checked on the spot: picture rounds still are; a text
+        # round now comes made ahead (pipeline.facts.rounds).
         calls = self._fake(monkeypatch, [["ok", "wrong", "ok"], ["ok"]])
-        script = quiz.write_script(Seed(type="topic", topic="Science: Easy"), _channel())
+        script = quiz._write_checked(_channel(), "Science", "Easy")
         assert calls["write"] == 2
         assert script.quiz["questions"][1]["question"] == "Fresh question number 1?"
         # Its place in the round keeps its lead-in.
@@ -100,7 +102,7 @@ class TestFactCheck:
     def test_a_replacement_that_still_fails_holds_the_video(self, monkeypatch):
         from core import publish_gate
         self._fake(monkeypatch, [["ok", "ok", "ambiguous"], ["dated"]])
-        script = quiz.write_script(Seed(type="topic", topic="Science: Easy"), _channel())
+        script = quiz._write_checked(_channel(), "Science", "Easy")
         assert script.quiz["unverified"] == [3]
         gate = publish_gate.evaluate({"quiz_unverified": [3], "checks": {
             "script": {"ran": True}, "frames": {"ran": True}}})
@@ -221,7 +223,10 @@ class TestChannel:
         titles = [s["title"] for s in curriculum.subtopics("pub_quiz")]
         assert len(titles) == 6 and "Geography: Impossible" in titles
 
-        # Running low tops up with another round of everything, for free.
+        # Running low tops up with another round of everything, for free,
+        # where a complete set of rounds is ready (pipeline.facts.rounds).
+        from pipeline.facts import rounds
+        monkeypatch.setattr(rounds, "sets_ready", lambda conn, channel, category: 1)
         monkeypatch.setattr(curriculum, "LOW_WATER_MARK", 10)
         assert quiz.top_up(channel) == 6
         assert "Science: Easy (round 2)" in [s["title"] for s in curriculum.subtopics("pub_quiz")]
@@ -350,45 +355,27 @@ class TestLadder:
                                find=lambda title: next(s for s in curriculum.subtopics("pub_quiz")
                                                        if s["title"] == title))
 
-    def test_a_hard_round_writes_the_easier_ones_first_and_builds_on_them(self, plan):
+    def test_a_text_round_comes_made_ahead_and_writes_no_other_rounds(self, plan, monkeypatch):
+        """A Hard round used to write the Easy and Medium rounds first, a
+        full script each, to pitch itself above them. Rounds made ahead
+        are levelled by construction (pipeline.facts.rounds), so making
+        one writes only its own host lines."""
+        from pipeline.facts import rounds
         hard = plan.find("Science: Hard")
-        script = quiz.write_script(Seed(type="topic", topic=hard["title"], topic_id=hard["id"]),
-                                   plan.channel)
-        assert [p.split("Difficulty: ")[1].split(",")[0] for p in plan.prompts] == [
-            "Easy", "Medium", "Hard"]
-        assert "The Easy round, level 2 (must be easier" in plan.prompts[1]
-        assert "Easy question number 1?" in plan.prompts[2] and "Medium question number 1?" in plan.prompts[2]
+        made = []
+        monkeypatch.setattr(quiz, "_ready_round", lambda channel, category, difficulty, claim_for: made.append(
+            (category, difficulty, claim_for)) or quiz.to_script(_round(prefix="Ready"), channel, category, difficulty))
+        script = quiz.write_script(Seed(type="topic", topic=hard["title"], topic_id=hard["id"]), plan.channel)
+        assert made == [("Science", "Hard", hard["id"])] and plan.prompts == []
         assert script.quiz["difficulty"] == "Hard"
-        # The easier rounds are stored for their own videos; the other
-        # category is untouched.
-        assert plan.find("Science: Easy")["script"]["quiz"]["difficulty"] == "Easy"
-        assert plan.find("Maths: Easy").get("script") is None
+        assert plan.find("Science: Easy").get("script") is None
 
-    def test_a_stored_round_is_used_when_its_video_comes_up(self, plan):
-        from pipeline import script_gen
-        medium = plan.find("Science: Medium")
-        quiz.write_script(Seed(type="topic", topic=medium["title"], topic_id=medium["id"]),
-                          plan.channel)
+    def test_a_text_round_with_none_ready_says_its_category_has_run_dry(self, plan):
         easy = plan.find("Science: Easy")
-        stored = script_gen._stored_script(SimpleNamespace(
-            channel=plan.channel, seed=Seed(type="topic", topic=easy["title"], topic_id=easy["id"])))
-        assert stored.quiz["difficulty"] == "Easy"
-        # And counts as asked, so no other round repeats it.
-        assert "Easy question number 1?" in quiz.asked_before("pub_quiz", "Science")
-
-    def test_a_round_already_made_counts_as_a_rung(self, plan):
-        """The owner made Medium first: Easy must be pitched below it."""
-        from core import curriculum
-        from pipeline import similarity
-        medium = plan.find("Science: Medium")
-        curriculum.attach_video("pub_quiz", medium["id"], "science_medium")
-        curriculum.claim("pub_quiz", medium["id"])
-        similarity.record("pub_quiz", "science_medium",
-                          quiz.to_script(_round(prefix="Made"), plan.channel, "Science", "Medium"))
-        easy = plan.find("Science: Easy")
-        quiz.write_script(Seed(type="topic", topic=easy["title"], topic_id=easy["id"]), plan.channel)
-        assert "The Medium round, level 4 (must be harder" in plan.prompts[0]
-        assert "Made question number 1? (ZedaM1)" in plan.prompts[0]
+        with pytest.raises(quiz.RoundsRunDry) as caught:
+            quiz.write_script(Seed(type="topic", topic=easy["title"], topic_id=easy["id"]), plan.channel)
+        assert "Science has no Easy round ready" in caught.value.user_message
+        assert plan.prompts == []                       # nothing written on the spot
 
 
 class TestScale:
@@ -503,9 +490,13 @@ def test_a_round_never_holds_two_questions_that_clash():
 
 def test_a_quiz_category_that_runs_out_gets_its_next_round(tmp_path, monkeypatch):
     """No waiting to be topped up by the scheduler, and no error: asking
-    for a category with nothing left starts its next round, free."""
+    for a category with nothing left starts its next round, free (when a
+    set of its rounds is ready)."""
     from core import curriculum
+    from pipeline.facts import rounds
     from pipeline.run import fetch_seed
+    monkeypatch.setattr(rounds, "sets_ready", lambda conn, channel, category: 1)
+    monkeypatch.setattr(rounds, "available", lambda *a: True)
     monkeypatch.setattr("core.curriculum.CURRICULA_DIR", tmp_path / "curricula")
     channel = _channel()
     channel.quiz.difficulties = ["Easy", "Hard"]

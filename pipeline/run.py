@@ -122,7 +122,25 @@ def _pick_subtopic(channel, pick: dict = None):
             return entry
 
     from core import ordering
-    return ordering.choose_next_subtopic(channel)
+    entry = ordering.choose_next_subtopic(channel)
+    if entry is not None and getattr(channel, "format", "") == "quiz" and not _round_ready(channel, entry):
+        # Its category has run dry at that level (pipeline.facts.rounds):
+        # the next one that can be made, in plan order.
+        entry = next((s for s in curriculum.subtopics(channel.key, status=curriculum.PENDING)
+                      if _round_ready(channel, s)), None)
+    return entry
+
+
+def _round_ready(channel, entry) -> bool:
+    """A quiz plan entry can be made: it's a picture round, or it has a
+    written script, or a round is ready for it."""
+    from pipeline import quiz
+    if entry.get("script") or quiz.picture_kind(channel, entry):
+        return True
+    from pipeline.facts import rounds, store
+    topic = curriculum.find_topic(channel.key, entry["topic"]) or {}
+    return rounds.available(store.connect(), channel.key, quiz.base_category(topic.get("title") or entry["title"]),
+                            entry.get("angle") or "", entry["id"])
 
 
 def _prepare_output(plan: RenderPlan) -> RenderPlan:

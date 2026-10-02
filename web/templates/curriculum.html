@@ -109,7 +109,25 @@
     {% else %}
       <span class="meta">not written yet</span>
     {% endif %}
+    {% set rs = round_status.get(topic.title) %}
+    {% if rs %}
+      {% if rs.state == 'ready' %}<span class="badge">{{ rs.sets }} sets ready</span>
+      {% elif rs.state == 'low' %}<span class="badge badge-warn" title="Fewer than 3 full sets ready; the bank is being stocked">running low: {{ rs.sets }} set{{ 's' if rs.sets != 1 }} ready</span>
+      {% else %}<span class="badge badge-danger" title="No round ready at {{ rs.short|join(', ') }}">running dry</span>{% endif %}
+    {% endif %}
   </summary>
+  {% if rs and not topic.picture %}
+  <div class="actions plan-sets">
+    <form method="post" action="{{ url_for('curriculum.another_set', key=key, topic_id=topic.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-ghost" {{ 'disabled' if rs.sets < 1 }}
+              title="A round at every difficulty, each with its questions already chosen; free">Plan another set</button>
+    </form>
+    <span class="hint">{% if rs.sets >= 1 %}{{ rs.sets }} full set{{ 's' if rs.sets != 1 }} of questions ready, no cost to plan.
+      {% else %}No full set ready: nothing ready at {{ rs.short|join(', ') }}. The question bank is being stocked and
+      imported into; this fills as it does.{% endif %}</span>
+  </div>
+  {% endif %}
   <p class="meta">{{ topic.summary }}</p>
   {% if quiz and not topic.placeholder %}
   <label class="field-row picture-kind"><span class="field-label">Kind of round</span>

@@ -186,6 +186,13 @@ def process(conn, categories: list, budget_usd: float, say=None) -> str:
             say(f"Processed {sum(done.values())} imported questions: {done['added']} into the bank "
                 f"(${spent_since(started):.2f} so far, {pending(conn)} still to do)")
     left = pending(conn)
+    if done["added"]:
+        # Make rounds from them now (pipeline.facts.rounds): local, free.
+        from core.channels import load_channels
+        from pipeline.facts import rounds
+        for channel in load_channels(validate=False).values():
+            if channel.format == "quiz" and not channel.archived:
+                rounds.assemble(conn, channel)
     return (f"Imported {done['added']} questions into the bank; {done['rejected']} failed the fact check, "
             f"{done['skipped']} didn't suit, {done['duplicate']} were already there. "
             + (f"{left} still to do." if left else "All done."))

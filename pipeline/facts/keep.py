@@ -149,17 +149,21 @@ def stock_bank(conn, channel, say=None) -> str:
     say = say or (lambda message: log.info(f"  [bank] {message}"))
     names = quiz_categories(channel)
     levels = quiz.levels(channel.quiz.difficulties)
-    # Counted only once the bank is sorted to each category's scope
+    # Counted only once the bank is filed to each category's scope
     # (pipeline.facts.scope), so a renamed category isn't thought full.
-    from pipeline.facts import scope
+    from pipeline.facts import rounds, scope
     try:
         scope.sort_if_needed(conn, names, say)
     except Exception as exc:  # noqa: BLE001 - stocking goes on; the next run or round sorts again
         log.warning(f"  [bank] couldn't sort the bank into its categories ({exc})")
+    # Written where the rounds made ahead fall short (pipeline.facts.rounds),
+    # the slots with fewest ready rounds first.
+    rounds.assemble(conn, channel)
     short = []
     for name in names:
-        for (label, level), have in zip(levels, bank.counts(conn, channel.key, name, levels).values()):
-            if have < BANK_LOW:
+        for label, level in levels:
+            have = rounds.ready(conn, channel.key, name, label)
+            if have < rounds.SETS_AHEAD:
                 short.append((have, name, label, level))
     written = 0
     for have, name, label, level in sorted(short):
@@ -175,8 +179,9 @@ def stock_bank(conn, channel, say=None) -> str:
             log.warning(f"  [bank] {name} near {label}: {exc}")
             continue
         written += 1
+    rounds.assemble(conn, channel)
     if not short:
-        return "The question bank is stocked."
+        return "Every category has its rounds ready."
     return f"Wrote {written} question batch{'es' if written != 1 else ''}."
 
 

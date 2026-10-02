@@ -67,7 +67,35 @@ def page(key):
         cost=estimate_cost(DEFAULT_TOPIC_COUNT),
         default_topics=DEFAULT_TOPIC_COUNT,
         default_subtopics=DEFAULT_TOTAL_SUBTOPICS,
+        round_status=_round_status(channel),
     )
+
+
+def _round_status(channel) -> dict:
+    """{category: {"sets", "short", "state"}} of rounds made ahead, for a
+    quiz channel (pipeline.facts.rounds). Read, not made: assembling is
+    the scheduler's and the bank's job."""
+    if channel.format != "quiz":
+        return {}
+    from pipeline.facts import rounds, store
+    try:
+        return rounds.status(store.connect(), channel)
+    except Exception:  # noqa: BLE001 - the plan still shows without the figures
+        log.exception("Couldn't read the rounds made ahead")
+        return {}
+
+
+@bp.route("/channels/<key>/curriculum/<topic_id>/another-set", methods=["POST"])
+def another_set(key, topic_id):
+    """Plan another set of a category: a round at every difficulty, each
+    taking a round made ahead. Only when a full set is ready."""
+    from pipeline import quiz
+    channel = channel_or_404(key)
+    added = quiz.next_round(channel, topic_id)
+    topic = curriculum.find_topic(key, topic_id) or {}
+    note = (f"Planned another set of {topic.get('title', 'it')}: {added} rounds, their questions ready."
+            if added else f"{topic.get('title', 'That category')} has no full set ready yet.")
+    return redirect(url_for("curriculum.page", key=key, note=note) + f"#{topic_id}")
 
 
 @bp.route("/api/channels/<key>/curriculum/outline", methods=["POST"])
