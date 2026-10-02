@@ -291,6 +291,7 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
     ratings = rate.rate(passed) if passed else []
     measured = {id(q): r for q, r in zip(passed, ratings) if r}
     kept = rejected = 0
+    new_ids = []
     for q, verdict in zip(fresh, verdicts):
         if id(q) in measured:
             percent, kid = measured[id(q)]
@@ -298,7 +299,16 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
         status = "ok" if verdict == "ok" else "rejected"
         kept += status == "ok"
         rejected += status != "ok"
-        add(conn, q, category, area, status, verdict, "written", categories)
+        qid = add(conn, q, category, area, status, verdict, "written", categories)
+        if status == "ok":
+            new_ids.append(qid)
+    if new_ids:
+        # Filed under every category they fit, and checked there, rather
+        # than wherever the writer guessed (pipeline.facts.scope).
+        try:
+            scope.file_new(conn, new_ids, categories)
+        except Exception as exc:  # noqa: BLE001 - kept under the category they were written for
+            log.warning(f"  [bank] couldn't file the new questions into categories ({exc})")
     log.info(f"  [bank] {category} / {area} near {level:g}: {kept} kept, {rejected} rejected, "
              f"{repeats} repeats")
     return {"written": len(data.get("questions") or []), "kept": kept, "rejected": rejected,

@@ -49,7 +49,7 @@ def fake_model(monkeypatch):
             name = user.split("\n")[0].split(": ", 1)[1]
             covers, excludes = scopes.get(name, (f"All about {name}.", ""))
             return {"covers": covers, "excludes": excludes}
-        if kw.get("operation") in ("category_sort", "category_audit"):
+        if kw.get("operation") in ("category_sort", "category_audit", "category_refile"):
             results = []
             for line in user.split("The questions:\n", 1)[1].splitlines():
                 number, text = line.split(". ", 1)
@@ -250,3 +250,33 @@ def test_a_written_round_asking_outside_its_category_is_found(conn, fake_model):
         {"question": "Written with the round", "answer": "x"}]}
     assert scope.outside(conn, round_) == ["What did Coyote steal?"]
     assert scope.outside(conn, {**round_, "category": "General Knowledge"}) == []
+
+
+
+def test_editing_one_category_refiles_only_that_one(conn, fake_model):
+    """The owner: changing what Ancient History means mustn't cost a
+    re-sort of the whole bank."""
+    caesar = _q(conn, "Who crossed the Rubicon? Caesar", "Julius Caesar", "Modern History")
+    coyote = _q(conn, "What did Coyote steal?", "Fire", "Ancient History")
+    waterloo = _q(conn, "Which battle ended Napoleon? Waterloo", "Waterloo", "Modern History")
+    scope.save(conn, "Modern History", "From the fall of Rome to 1945.", "", edited=False)
+    scope.save(conn, "Mythology", "Myths of every culture.", "", edited=False)
+    conn.execute("UPDATE category_scope SET sorted_at = 'x'")
+    conn.commit()
+    scope.save(conn, "Ancient History", "Greece, Rome and Egypt.", "")
+    fake_model.clear()
+    assert scope.sort_if_needed(conn, CATEGORIES)
+    ops = {op for op, _ in fake_model}
+    assert ops == {"category_refile", "category_audit"}
+    assert all("The round: Ancient History" in user for _, user in fake_model)
+    assert _tags(conn, caesar) == ["Ancient History", "Modern History"]       # found, and still Modern too
+    assert _tags(conn, coyote) == [] and _tags(conn, waterloo) == ["Modern History"]
+
+
+def test_a_new_question_is_filed_under_every_category_it_fits(conn, fake_model):
+    zeus = _q(conn, "Who was king of the Greek gods? Zeus", "Zeus", "Modern History")
+    result = scope.file_new(conn, [zeus], CATEGORIES)
+    # Its two places found, and the one it was written for judged and dropped.
+    assert _tags(conn, zeus) == ["Ancient History", "Mythology"]
+    assert result == {"checked": 1, "added": 2, "removed": 1}
+    assert {op for op, _ in fake_model} <= {"category_scope", "category_sort"}      # no separate check

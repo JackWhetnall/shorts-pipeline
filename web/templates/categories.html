@@ -7,8 +7,10 @@
   categories whose rules it fits, and new questions are written to them. They're written from usual pub-quiz
   practice; change any that don't match what you mean.</p>
 {% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
-{% if unsorted %}<p class="hint">Still to sort the question bank against: {{ unsorted|join(', ') }}. That happens
-  before the next round of each is chosen, or within a minute of saving here (Haiku, about a cent per 40 questions).</p>{% endif %}
+{% if unsorted %}<p class="hint">Still to file the question bank against: {{ unsorted|join(', ') }}. That happens
+  before the next round of each is chosen, or within a minute of saving here.</p>{% endif %}
+<p class="hint">Saving a category re-files the bank for that category alone: about $0.20. The others aren't touched.
+  Questions can be in several categories.</p>
 
 {% if stale %}
 <div class="card">

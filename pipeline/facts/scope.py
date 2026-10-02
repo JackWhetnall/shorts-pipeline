@@ -8,13 +8,21 @@ category kept everything it had. Renamed from Mythology to Ancient
 History, it went on asking about Bigfoot and Coyote stealing fire.
 
 Now each category has a scope: a sentence of what it covers and one of
-what it doesn't (and which of the channel's other categories that goes
-to), written once from pub-quiz convention and the owner's to edit. The
-scope steers the areas and every batch written for the category, and a
-cheap sorting pass (`sort`) files every checked question in the bank
-under the categories whose scope it actually fits. A category whose scope
-is new or changed, including after a rename, is sorted again before its
-next round is chosen.
+what it doesn't, written once from pub-quiz convention and the owner's to
+edit. The scope steers the areas and every batch written for the
+category. Categories overlap: Neil Armstrong on the Moon is Space,
+History and General Knowledge alike, and a question is filed under every
+category it fits.
+
+Filing costs only what changed:
+- `refile` one category (its scope is new, edited or renamed): every
+  question is asked "does it belong here?" by Haiku, then what's in it is
+  checked by Sonnet. About $0.20 for the whole bank. Editing one category
+  never re-sorts the rest (that cost $2.50 the first time).
+- `file_new` questions just added (a batch, an import): each is filed
+  by Sonnet under every category it fits, in one step.
+- `sort` everything at once: maintenance only, for a change to how
+  filing itself works.
 """
 
 from __future__ import annotations
@@ -32,6 +40,9 @@ SORT_MODEL = "claude-haiku-4-5"
 AUDIT_MODEL = "claude-sonnet-5"
 AUDIT_EFFORT = "low"
 AUDIT_PASSES = 1
+# New questions are filed by Sonnet directly (`file_new`).
+FILE_MODEL = AUDIT_MODEL
+FILE_EFFORT = "low"
 SORT_CHUNK = 40
 
 TABLE = """
@@ -70,14 +81,14 @@ Follow the usual conventions. For example:
   landmarks and maps.
 - General Knowledge: anything at all.
 
-You're also given the channel's other categories. Where a kind of
-question has its own category there, it belongs there and is excluded
-here: say so by name. Keep to the convention even when the channel has
-no category for what's excluded: such questions simply aren't asked.
-Never widen a category to take them in.
+Categories overlap: a question can be in several (Neil Armstrong's walk
+on the Moon is Space, History and General Knowledge), so define this one
+on its own terms. Keep to the convention even when the channel has no
+other category for what's left out: such questions simply aren't asked
+in this round. Never widen a category to take them in.
 
 - `covers`: one or two sentences, what is in.
-- `excludes`: one sentence, what is out and where it goes instead.
+- `excludes`: one sentence, what is out.
 """.strip()
 
 SCHEMA = {"type": "object", "properties": {"covers": {"type": "string"}, "excludes": {"type": "string"}},
@@ -88,8 +99,9 @@ You file pub-quiz questions into the rounds they belong in. You're given
 the quiz's categories, each with what it covers and what it doesn't, then
 numbered questions with their answers. For each question, list every
 category a quizmaster running that round would happily ask it in, judged
-strictly by the category's definition. Most questions belong in exactly
-one; some in two; some in none. Use the category names exactly as given.
+by the category's definition. Categories overlap: many questions fit two
+or three (Neil Armstrong walking on the Moon is Space and History), and
+some fit none. Use the category names exactly as given.
 """.strip()
 
 SORT_SCHEMA = {"type": "object", "properties": {"results": {"type": "array", "items": {
@@ -255,7 +267,94 @@ AUDIT_SCHEMA = {"type": "object", "properties": {"results": {"type": "array", "i
     "required": ["results"], "additionalProperties": False}
 
 
-def audit(conn, category: str, say=None) -> int:
+BELONGS_SYSTEM = """
+You're given one pub-quiz round's definition and numbered questions. For
+each, say whether a quizmaster running this round would happily ask it,
+by the definition. Questions can belong to several rounds; judge only
+this one.
+""".strip()
+
+REFILE_CHUNK = 60
+
+
+def refile(conn, category: str, categories: list, say=None) -> dict:
+    """File the whole bank for one category: every checked question is
+    asked whether it belongs (Haiku, cheap), and everything that does, or
+    was already filed here, is then checked against the definition
+    (Sonnet, `audit`). Other categories are untouched. About $0.20 for
+    1,600 questions. Returns {"in", "added", "removed"}."""
+    from pipeline.llm import call_json
+    with _sorting:
+        defined = describe(ensure(conn, category, categories))
+        rows = [dict(r) for r in conn.execute("SELECT id, question, answer FROM questions WHERE status = 'ok'")]
+        before = {r[0] for r in conn.execute(
+            "SELECT question_id FROM question_tags WHERE category = ? COLLATE NOCASE", (category,))}
+        yes = set()
+        for start in range(0, len(rows), REFILE_CHUNK):
+            chunk = rows[start:start + REFILE_CHUNK]
+            if say:
+                say(f"finding {category} questions: {start + 1}-{start + len(chunk)} of {len(rows)}")
+            text = "\n".join(f"{i + 1}. {q['question']} Answer: {q['answer']}" for i, q in enumerate(chunk))
+            data = call_json(BELONGS_SYSTEM, f"The round: {category}\n{defined}\n\nThe questions:\n{text}",
+                             AUDIT_SCHEMA, operation="category_refile", model=SORT_MODEL, max_tokens=4000,
+                             effort=None)
+            verdicts = {r.get("number"): r.get("belongs") for r in data.get("results") or []}
+            yes |= {q["id"] for i, q in enumerate(chunk) if verdicts.get(i + 1)}
+        with conn:
+            conn.executemany("INSERT OR IGNORE INTO question_tags (question_id, category) VALUES (?, ?)",
+                             [(qid, category) for qid in yes - before])
+        removed = audit(conn, category, say)
+        with conn:
+            conn.execute("UPDATE category_scope SET sorted_at = ? WHERE category = ?", (store.now(), category))
+        now_in = conn.execute("SELECT COUNT(*) FROM question_tags WHERE category = ? COLLATE NOCASE",
+                              (category,)).fetchone()[0]
+        log.info(f"  [scope] {category} refiled: {now_in} questions ({len(yes - before)} found, {removed} taken out)")
+        return {"in": now_in, "added": len(yes - before), "removed": removed}
+
+
+def file_new(conn, ids: list, categories: list, say=None) -> dict:
+    """File questions just added (a batch, an import) under exactly the
+    channel's categories they fit, the one each was written for included.
+    Sonnet, in one step: about $0.35 per 1,000 questions, where Haiku
+    sorting and then a Sonnet check of every place would cost four times
+    that at the scale of an import. Only these questions are asked about.
+    Returns {"checked", "added", "removed"}."""
+    named = [c for c in categories if c.lower() not in GENERAL]
+    ids = list(ids)
+    if not named or not ids:
+        return {"checked": 0, "added": 0, "removed": 0}
+    with _sorting:
+        scopes = {name: ensure(conn, name, categories) for name in named}
+        listed = "\n".join(f"- {name}: {describe(scopes[name])}" for name in named)
+        by_lower = {name.lower(): name for name in named}
+        marks = ",".join("?" * len(ids))
+        rows = [dict(r) for r in conn.execute(
+            f"SELECT id, question, answer FROM questions WHERE status = 'ok' AND id IN ({marks})", ids)]
+        verdicts = _verdicts(rows, listed, say, model=FILE_MODEL, effort=FILE_EFFORT)
+        added = removed = 0
+        cats = ",".join("?" * len(named))
+        with conn:
+            for q in rows:
+                if q["id"] not in verdicts:
+                    continue            # no answer: kept where it was written for
+                fits = {by_lower[c.lower()] for c in verdicts[q["id"]] if c.lower() in by_lower}
+                have = {r[0] for r in conn.execute(
+                    f"SELECT category FROM question_tags WHERE question_id = ? AND category COLLATE NOCASE "
+                    f"IN ({cats})", (q["id"], *named))}
+                fit_lower, have_lower = {f.lower() for f in fits}, {h.lower() for h in have}
+                for tag in have:
+                    if tag.lower() not in fit_lower:
+                        conn.execute("DELETE FROM question_tags WHERE question_id = ? AND category = ?", (q["id"], tag))
+                        removed += 1
+                for name in fits:
+                    if name.lower() not in have_lower:
+                        conn.execute("INSERT OR IGNORE INTO question_tags (question_id, category) VALUES (?, ?)",
+                                     (q["id"], name))
+                        added += 1
+        return {"checked": len(rows), "added": added, "removed": removed}
+
+
+def audit(conn, category: str, say=None, only: list = None) -> int:
     """Take out of `category` the questions its definition doesn't cover,
     judged against that one definition alone (sorting into a dozen
     categories at once left the Bible and Chinese legends in Ancient
@@ -273,6 +372,11 @@ def audit(conn, category: str, say=None) -> int:
     rows = [dict(r) for r in conn.execute(
         "SELECT q.id, q.question, q.answer FROM questions q JOIN question_tags t ON t.question_id = q.id "
         "WHERE q.status = 'ok' AND t.category = ? COLLATE NOCASE ORDER BY q.id", (category,))]
+    if only is not None:
+        wanted = set(only)
+        rows = [r for r in rows if r["id"] in wanted]
+    if not rows:
+        return 0
     votes: dict = {}
     for n in range(AUDIT_PASSES):
         order = list(rows)
@@ -298,7 +402,7 @@ def audit(conn, category: str, say=None) -> int:
     return len(out_of_scope)
 
 
-def _verdicts(rows: list, listed: str, say=None) -> dict:
+def _verdicts(rows: list, listed: str, say=None, model: str = None, effort=None) -> dict:
     """{question id: [category names]} for the questions answered for.
     A long batch's answer sometimes stops short of its last questions
     (seven in a row were once left filed under the wrong category): those
@@ -316,7 +420,7 @@ def _verdicts(rows: list, listed: str, say=None) -> dict:
                     f" of {len(rows)})" if attempt == 0 else f"asking again about {len(chunk)} skipped questions")
             text = "\n".join(f"{i + 1}. {q['question']} Answer: {q['answer']}" for i, q in enumerate(chunk))
             data = call_json(SORT_SYSTEM, f"The categories:\n{listed}\n\nThe questions:\n{text}", SORT_SCHEMA,
-                             operation="category_sort", model=SORT_MODEL, max_tokens=6000, effort=None)
+                             operation="category_sort", model=model or SORT_MODEL, max_tokens=6000, effort=effort)
             answered = {r.get("number"): r.get("categories") or [] for r in data.get("results") or []}
             for i, q in enumerate(chunk):
                 if i + 1 in answered:
@@ -341,20 +445,20 @@ def outside(conn, quiz: dict) -> list:
 
 
 def sort_if_needed(conn, categories: list, say=None) -> bool:
-    """Sort the bank if any of the channel's categories needs it. True if
-    it did."""
-    if not unsorted(conn, categories):
-        return False
-    sort(conn, categories, say)
-    return True
+    """Refile each of the channel's categories whose scope is new or
+    changed, and only those. True if any was."""
+    stale = unsorted(conn, categories)
+    for name in stale:
+        refile(conn, name, categories, say)
+    return bool(stale)
 
 
 def sort_in_background(categories: list) -> None:
-    """Sort soon, without holding up the page that changed a scope. The
-    next round's choosing sorts first anyway if this hasn't finished."""
+    """Refile soon, without holding up the page that changed a scope. The
+    next round's choosing refiles first anyway if this hasn't finished."""
     def body():
         try:
             sort_if_needed(store.connect(), categories)
-        except Exception:  # noqa: BLE001 - a round sorts again before it's chosen
-            log.exception("  [scope] sorting the question bank failed")
+        except Exception:  # noqa: BLE001 - a round refiles again before it's chosen
+            log.exception("  [scope] refiling the question bank failed")
     threading.Thread(target=body, name="scope-sort", daemon=True).start()

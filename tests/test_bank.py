@@ -29,6 +29,7 @@ def _scopes_known(monkeypatch):
     monkeypatch.setattr(scope, "ensure", lambda conn, name, names: {"covers": f"All about {name}.",
                                                                     "excludes": ""})
     monkeypatch.setattr(scope, "sort_if_needed", lambda conn, names, say=None: False)
+    monkeypatch.setattr(scope, "file_new", lambda conn, ids, names, say=None: {})
 
 
 def _q(question, answer, level=4, shape="name", tags=()):
