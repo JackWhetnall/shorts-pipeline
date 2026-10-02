@@ -35,33 +35,32 @@ def _raw(question, answer, wrong=()):
 
 @pytest.fixture
 def model(monkeypatch):
-    """Rewrites by prefixing "Name", fails the check on anything about
-    dwarf planets, rates everything 92% known, files everything under Space."""
+    """One call per batch: rewrites by prefixing "Name", unsure about
+    anything about dwarf planets, rates everything 92% known, files
+    everything mentioning a planet under Space. `close` keeps a question's
+    wording instead, for the website test."""
     import pipeline.llm as llm
-    from pipeline import quiz
-    from pipeline.facts import rate, scope
+    from pipeline.facts import scope
     calls = []
+    monkeypatch.setattr(scope, "ensure", lambda conn, name, names: {"covers": f"All about {name}.", "excludes": ""})
+    state = {"close": False}
 
     def call_json(system, user, schema, **kw):
         calls.append(kw.get("operation"))
-        if kw.get("operation") == "intake_rewrite":
-            results = []
-            for line in user.splitlines():
-                number, rest = line.split(". ", 1)
-                question, answer = rest.split(" Answer: ")
-                answer = answer.split(" (set with")[0]
-                results.append({"number": int(number), "keep": "which of these" not in question.lower(),
-                                "question": f"Name the {question.rstrip('?').lower()}?", "answer": answer,
-                                "alternatives": [], "note": "", "shape": "name", "area": "Planets"})
-            return {"results": results}
-        raise AssertionError(kw.get("operation"))
+        assert kw.get("operation") == "intake_process"
+        results = []
+        for line in user.split("The questions:\n", 1)[1].splitlines():
+            number, rest = line.split(". ", 1)
+            question, answer = rest.split(" Answer: ")
+            answer = answer.split(" (set with")[0]
+            ours = question if state["close"] else f"Name the {question.rstrip('?').lower()}?"
+            results.append({"number": int(number), "keep": "which of these" not in question.lower(),
+                            "question": ours, "answer": answer, "alternatives": [], "note": "", "shape": "name",
+                            "area": "Planets", "correct": "dwarf" not in question.lower(), "percent": 92,
+                            "kid": True, "categories": ["Space"] if "planet" in question.lower() else []})
+        return {"results": results}
     monkeypatch.setattr(llm, "call_json", call_json)
-    monkeypatch.setattr(quiz, "verify", lambda c, d, qs, operation="", effort="": [
-        "wrong" if "dwarf" in q["question"].lower() else "ok" for q in qs])
-    monkeypatch.setattr(rate, "rate", lambda qs, operation="": [(92.0, True)] * len(qs))
-    filed = []
-    monkeypatch.setattr(scope, "file_new", lambda conn, ids, names, say=None: filed.extend(ids) or {})
-    return calls, filed
+    return calls, state
 
 
 def test_the_same_raw_question_is_held_once(conn):
@@ -71,7 +70,7 @@ def test_the_same_raw_question_is_held_once(conn):
 
 
 def test_processing_drops_repeats_and_misfits_and_keeps_the_rest_rewritten_and_rated(conn, model):
-    calls, filed = model
+    calls, _ = model
     bank.add(conn, {"question": "Which planet is the largest in the Solar System?", "answer": "Jupiter",
                     "level": 3}, "Space", "Planets", "ok", "ok", "written")
     intake.add_raw(conn, "opentdb", [
@@ -85,8 +84,34 @@ def test_processing_drops_repeats_and_misfits_and_keeps_the_rest_rewritten_and_r
     mars = conn.execute("SELECT * FROM questions WHERE answer = 'Mars'").fetchone()
     assert mars["question"].startswith("Name the")                            # the rewrite, not the original
     assert mars["source"] == "opentdb" and mars["origin"] == "https://opentdb.com" and mars["level"] == 1.0
-    assert mars["area"] == "Planets" and filed == [mars["id"]]
+    assert mars["area"] == "Planets"
+    assert [r[0] for r in conn.execute("SELECT category FROM question_tags WHERE question_id = ?", (mars["id"],))] \
+        == ["Space"]
     assert "Imported 1 questions" in result and intake.pending(conn) == 0
+    assert calls == ["intake_process"]                     # one call did it all
+
+
+def test_a_websites_wording_is_never_kept(conn, model):
+    _, state = model
+    state["close"] = True
+    intake.add_raw(conn, "web:quiz.example", [_raw("What planet is called the Red Planet?", "Mars")],
+                   origin="https://quiz.example/1")
+    intake.add_raw(conn, "opentdb", [_raw("What is the largest planet?", "Jupiter")])
+    intake.process(conn, ["Space"], budget_usd=5)
+    status = dict(conn.execute("SELECT source, status FROM intake").fetchall())
+    # Open Trivia DB's licence allows adapting it closely; a website's doesn't.
+    assert status == {"web:quiz.example": "skipped", "opentdb": "added"}
+
+
+def test_a_rewrite_that_still_leans_on_options_is_dropped(conn, model, monkeypatch):
+    import pipeline.llm as llm
+    monkeypatch.setattr(llm, "call_json", lambda *a, **k: {"results": [{
+        "number": 1, "keep": True, "question": "Which soft drink was introduced before the others?",
+        "answer": "Dr Pepper", "alternatives": [], "note": "", "shape": "first", "area": "Soft drinks",
+        "correct": True, "percent": 15, "kid": False, "categories": []}]})
+    intake.add_raw(conn, "opentdb", [_raw("Which of these soft drinks came first?", "Dr Pepper", ["Coca-Cola"])])
+    intake.process(conn, ["Space"], budget_usd=5)
+    assert conn.execute("SELECT status FROM intake").fetchone()[0] == "skipped"
 
 
 def test_processing_stops_at_its_budget_and_carries_on_next_time(conn, model, monkeypatch):
@@ -178,3 +203,14 @@ def test_websites_are_read_only_where_robots_allows_and_only_quiz_pages(monkeypa
     assert [url for url, _ in read] == ["https://quiz.example/pub-quiz/", "https://quiz.example/pub-quiz-2/"]
     assert "capital of France" in read[0][1]
     assert waits and all(w <= 7.0 for w in waits) and max(waits) > 6.0     # the site's own delay
+
+
+
+def test_two_runs_never_work_on_the_same_questions(conn):
+    """The app's hourly run and a run by hand once processed the same rows
+    side by side, paying twice."""
+    intake.add_raw(conn, "opentdb", [_raw(f"What is moon number {n}?", f"Moon{n}x") for n in range(30)])
+    first, second = intake._claim(conn), intake._claim(conn)
+    assert len(first) == intake.BATCH and len(second) == 30 - intake.BATCH
+    assert not {r["id"] for r in first} & {r["id"] for r in second}
+    assert intake._claim(conn) == [] and intake.pending(conn) == 30

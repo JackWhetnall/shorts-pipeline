@@ -21,7 +21,9 @@ so a stopped run carries on where it left off.
 
 from __future__ import annotations
 
+import difflib
 import json
+import re
 import time
 from urllib.parse import urlparse
 
@@ -31,12 +33,11 @@ from pipeline.facts import bank, store
 log = get_logger(__name__)
 
 BATCH = 25
-VERIFY_CHUNK = 13
-VERIFY_EFFORT = "medium"       # already checked by people, and our rewrite keeps the fact
+PROCESS_MODEL = "claude-sonnet-5"
+PROCESS_EFFORT = "low"
 DAILY_USD = 3.00               # what the scheduler spends on it a day
 # What a run's spending is counted from ("category_sort" is the filing).
-OPERATIONS = ("intake_extract", "intake_rewrite", "intake_verify", "intake_rate", "category_sort",
-              "category_scope")
+OPERATIONS = ("intake_extract", "intake_process", "category_scope")
 
 TABLE = """
 CREATE TABLE IF NOT EXISTS intake (
@@ -59,19 +60,22 @@ CREATE TABLE IF NOT EXISTS intake_pages (
 );
 """
 
-REWRITE_SYSTEM = """
+PROCESS_SYSTEM = """
 You turn quiz questions from other sources into questions for a British
-pub quiz that's read aloud, written in our own words. For each numbered
-question (with its answer, and the wrong options it was set with, if any):
+pub quiz that's read aloud, check them, judge how hard they are, and file
+them into the quiz's rounds. For each numbered question (with its answer,
+and the wrong options it was set with, if any):
 
 - `keep`: false if it only works with options in front of you ("which of
-  these"), is true/false, needs a picture, is about video games, anime or
-  comics, is American trivia few people in Britain would meet, or has an
-  answer that may have changed (current office holders, champions,
-  records likely to be broken, populations, "the latest"). Otherwise
-  true.
+  these", "which came first"), is true/false, needs a picture, is about
+  video games, anime or comics, is American trivia few people in Britain
+  would meet, or has an answer that may have changed (current office
+  holders, champions, records likely to be broken, populations, "the
+  latest"). A question set with options may be kept only if the same
+  fact can be asked with one clear right answer and no options.
 - `question`: one sentence of under 25 words, asking exactly one thing,
-  British English. Write it freshly: never reuse the original's wording or
+  British English, never mentioning "these", "the following" or "the
+  others". Write it freshly: don't reuse the original's wording or
   sentence shape; ask about the same fact from your own angle.
 - `answer`: as shown on the board, 1 to 4 words, the same fact as given.
 - `alternatives`: other wordings that are also right, or none.
@@ -81,16 +85,41 @@ question (with its answer, and the wrong options it was set with, if any):
   origin, who, number, first, word...).
 - `area`: two to four words for what part of its subject it's about
   ("Rivers of Europe", "The planets", "Tudor kings").
+- `correct`: true only if you are certain the answer is right, it is the
+  only right answer to your question as worded, and it won't change.
+- `percent` and `kid`: how hard it is, judged as below.
+- `categories`: every one of the rounds listed whose definition it fits
+  (several, one, or none).
+
+How hard: `percent` is the share of UK adults who would give the right
+answer with no options and a few seconds to think, 0 to 100. Be
+realistic: most people know far less than quiz writers assume. `kid` is
+whether a typical ten-year-old could answer it or make a good guess.
+{references}
 """.strip()
 
-REWRITE_SCHEMA = {"type": "object", "properties": {"results": {"type": "array", "items": {
+PROCESS_SCHEMA = {"type": "object", "properties": {"results": {"type": "array", "items": {
     "type": "object", "properties": {
         "number": {"type": "integer"}, "keep": {"type": "boolean"}, "question": {"type": "string"},
         "answer": {"type": "string"}, "alternatives": {"type": "array", "items": {"type": "string"}},
-        "note": {"type": "string"}, "shape": {"type": "string"}, "area": {"type": "string"}},
-    "required": ["number", "keep", "question", "answer", "alternatives", "note", "shape", "area"],
+        "note": {"type": "string"}, "shape": {"type": "string"}, "area": {"type": "string"},
+        "correct": {"type": "boolean"}, "percent": {"type": "number"}, "kid": {"type": "boolean"},
+        "categories": {"type": "array", "items": {"type": "string"}}},
+    "required": ["number", "keep", "question", "answer", "alternatives", "note", "shape", "area", "correct",
+                 "percent", "kid", "categories"],
     "additionalProperties": False}}},
     "required": ["results"], "additionalProperties": False}
+
+LEANS_ON_OPTIONS = re.compile(r"\b(these|the following|the others|of the following|which one of)\b", re.I)
+TOO_CLOSE = 0.8                # a website's question reworded less than this is too close to it
+
+
+def _system() -> str:
+    """The prompt, with the rater's own reference points (pipeline.facts.
+    rate), so imported questions are levelled on the same scale."""
+    from pipeline.facts import rate
+    references = rate.SYSTEM[rate.SYSTEM.index("Reference points"):rate.SYSTEM.index("Judge each")].strip()
+    return PROCESS_SYSTEM.replace("{references}", references)
 
 
 def _table(conn) -> None:
@@ -150,7 +179,7 @@ def gather_web(conn, say=None, sleep=time.sleep) -> str:
 
 def pending(conn) -> int:
     _table(conn)
-    return conn.execute("SELECT COUNT(*) FROM intake WHERE status = 'new'").fetchone()[0]
+    return conn.execute("SELECT COUNT(*) FROM intake WHERE status IN ('new', 'working')").fetchone()[0]
 
 
 def summary(conn) -> list:
@@ -176,8 +205,7 @@ def process(conn, categories: list, budget_usd: float, say=None) -> str:
     started = time.time()
     done = {"added": 0, "rejected": 0, "skipped": 0, "duplicate": 0}
     while spent_since(started) < budget_usd:
-        rows = [dict(r) for r in conn.execute(
-            "SELECT id, source, origin, raw FROM intake WHERE status = 'new' ORDER BY id LIMIT ?", (BATCH,))]
+        rows = _claim(conn)
         if not rows:
             break
         for status, n in _batch(conn, rows, categories).items():
@@ -198,13 +226,30 @@ def process(conn, categories: list, budget_usd: float, say=None) -> str:
             + (f"{left} still to do." if left else "All done."))
 
 
+CLAIM_STALE = 3600            # seconds before a claimed batch nobody finished is free again
+
+
+def _claim(conn) -> list:
+    """The next batch, claimed so another process (the app's hourly run,
+    a run by hand) doesn't work on the same questions: two once did, and
+    paid twice for the same rows."""
+    import time as clock
+    stale = clock.time() - CLAIM_STALE
+    with conn:
+        conn.execute("UPDATE intake SET status = 'new' WHERE status = 'working' AND CAST(note AS REAL) < ?", (stale,))
+        rows = [dict(r) for r in conn.execute(
+            "SELECT id, source, origin, raw FROM intake WHERE status = 'new' ORDER BY id LIMIT ?", (BATCH,))]
+        conn.executemany("UPDATE intake SET status = 'working', note = ? WHERE id = ? AND status = 'new'",
+                         [(str(clock.time()), r["id"]) for r in rows])
+    return rows
+
+
 def _mark(conn, item_id: int, status: str, note: str = "", question_id: int = None) -> None:
     conn.execute("UPDATE intake SET status = ?, note = ?, question_id = ? WHERE id = ?",
                  (status, note[:200], question_id, item_id))
 
 
 def _batch(conn, rows: list, categories: list) -> dict:
-    from pipeline import quiz
     from pipeline.facts import rate, scope
     from pipeline.llm import call_json
     counts = {"added": 0, "rejected": 0, "skipped": 0, "duplicate": 0}
@@ -223,65 +268,56 @@ def _batch(conn, rows: list, categories: list) -> dict:
     if not live:
         return counts
 
+    named = [c for c in categories if c.lower() not in scope.GENERAL]
+    rounds_listed = "\n".join(f"- {name}: {scope.describe(scope.ensure(conn, name, categories))}" for name in named)
     listed = "\n".join(
         f"{i + 1}. {raw['question']} Answer: {raw['answer']}"
         + (f" (set with the wrong options: {', '.join(raw['wrong'])})" if raw.get("wrong") else "")
         for i, (_, raw) in enumerate(live))
-    data = call_json(REWRITE_SYSTEM, listed, REWRITE_SCHEMA, operation="intake_rewrite",
-                     model="claude-haiku-4-5", max_tokens=8000, effort=None)
-    rewritten = {r.get("number"): r for r in data.get("results") or []}
+    data = call_json(_system(), f"The rounds:\n{rounds_listed or '(none)'}\n\nThe questions:\n{listed}",
+                     PROCESS_SCHEMA, operation="intake_process", model=PROCESS_MODEL, max_tokens=12000,
+                     effort=PROCESS_EFFORT)
+    done = {r.get("number"): r for r in data.get("results") or []}
+    by_lower = {name.lower(): name for name in named}
 
-    fresh, batch_seen = [], []
-    existing += bank._existing(conn, {bank.answer_key(r.get("answer", "")) for r in rewritten.values()})
+    existing += bank._existing(conn, {bank.answer_key(r.get("answer", "")) for r in done.values()})
+    batch_seen = []
     with conn:
         for i, (row, raw) in enumerate(live):
-            r = rewritten.get(i + 1)
+            r = done.get(i + 1)
             if r is None:
-                continue                # no answer for it: stays new, tried again next run
-            question, answer = " ".join((r.get("question") or "").split()), " ".join((r.get("answer") or "").split())
+                _mark(conn, row["id"], "new")         # no answer for it: tried again next run
+                continue
+            question = " ".join((r.get("question") or "").split())
+            answer = " ".join((r.get("answer") or "").split())
+            close = difflib.SequenceMatcher(None, question.lower(), raw["question"].lower()).ratio()
             if not r.get("keep") or not question or not answer:
                 _mark(conn, row["id"], "skipped", "doesn't suit a pub quiz read aloud")
                 counts["skipped"] += 1
-            elif len(answer) > 60 or bank.malformed(question) or bank.gives_away(question, answer):
+            elif len(answer) > 60 or bank.malformed(question) or bank.gives_away(question, answer) \
+                    or LEANS_ON_OPTIONS.search(question):
                 _mark(conn, row["id"], "skipped", "the rewritten question didn't hold up")
+                counts["skipped"] += 1
+            elif row["source"].startswith("web:") and close >= TOO_CLOSE:
+                # A website's wording is never kept (decision 061).
+                _mark(conn, row["id"], "skipped", "too close to the site's own wording")
                 counts["skipped"] += 1
             elif bank.is_repeat(question, answer, existing + batch_seen):
                 _mark(conn, row["id"], "duplicate", "already in the bank")
                 counts["duplicate"] += 1
             else:
                 batch_seen.append((question, answer))
-                fresh.append((row, raw, {**r, "question": question, "answer": answer, "spoken_answer": answer,
-                                         "origin": row["origin"]}))
-    if not fresh:
-        return counts
-
-    questions = [q for _, _, q in fresh]
-    verdicts = []
-    for start in range(0, len(questions), VERIFY_CHUNK):
-        chunk = questions[start:start + VERIFY_CHUNK]
-        verdicts += quiz.verify("General Knowledge", "any", chunk, operation="intake_verify", effort=VERIFY_EFFORT)
-    passed = [q for q, v in zip(questions, verdicts) if v == "ok"]
-    ratings = dict(zip(map(id, passed), rate.rate(passed, operation="intake_rate"))) if passed else {}
-
-    new_ids = []
-    for (row, raw, q), verdict in zip(fresh, verdicts):
-        rating = ratings.get(id(q))
-        if verdict == "ok" and rating:
-            percent, kid = rating
-            q = {**q, "level": rate.level_for(percent, kid), "known_pct": percent, "kid_guess": int(kid)}
-            status = "ok"
-        else:
-            status = "rejected"
-        qid = bank.add(conn, q, "", (q.get("area") or raw.get("category") or "").strip()[:60], status,
-                       verdict, row["source"])
-        with conn:
-            _mark(conn, row["id"], "added" if status == "ok" else "rejected", verdict, qid)
-        counts["added" if status == "ok" else "rejected"] += 1
-        if status == "ok":
-            new_ids.append(qid)
-    if new_ids and categories:
-        try:
-            scope.file_new(conn, new_ids, categories)
-        except Exception as exc:  # noqa: BLE001 - in the bank unfiled; refiling a category finds them
-            log.warning(f"  [intake] couldn't file the imported questions into categories ({exc})")
+                percent = max(0.0, min(100.0, float(r.get("percent") or 0)))
+                ok = bool(r.get("correct"))
+                q = {**r, "question": question, "answer": answer, "origin": row["origin"],
+                     "level": rate.level_for(percent, bool(r.get("kid"))), "known_pct": percent,
+                     "kid_guess": int(bool(r.get("kid")))}
+                qid = bank.add(conn, q, "", (r.get("area") or raw.get("category") or "").strip()[:60],
+                               "ok" if ok else "rejected", "ok" if ok else "not certain", row["source"])
+                if ok:
+                    fits = {by_lower[c.lower()] for c in r.get("categories") or [] if c.lower() in by_lower}
+                    conn.executemany("INSERT OR IGNORE INTO question_tags (question_id, category) VALUES (?, ?)",
+                                     [(qid, name) for name in fits])
+                _mark(conn, row["id"], "added" if ok else "rejected", "" if ok else "not certain", qid)
+                counts["added" if ok else "rejected"] += 1
     return counts
