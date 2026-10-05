@@ -373,6 +373,10 @@ def test_a_slot_that_writing_doesnt_fill_is_rested(monkeypatch, tmp_path):
     each batch giving a question or two easy enough."""
     conn = store.connect(tmp_path / "f.db")
     channel = _short_channel(monkeypatch)
+    # What those batches added: plenty of questions, too hard for Easy.
+    for i in range(20):
+        bank.add(conn, _q(f"Which ancient thing number {i} was hard?", f"Thing{i}", level=5),
+                 "Ancient History", f"Area {i}", "ok", "ok", "written")
     written = []
     monkeypatch.setattr(bank, "write_batch", lambda conn, name, level, names: written.append(level) or
                         {"kept": 20, "levels": [1.0] + [5.0] * 19})

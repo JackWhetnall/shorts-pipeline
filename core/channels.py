@@ -412,10 +412,13 @@ class Quiz(_MappingLike):
     difficulties: list = field(default_factory=lambda: [
         "Easy", "Medium", "Hard", "Very hard", "Impossible"])
     # Long widescreen quizzes made from approved shorts (pipeline.longform):
-    # how many rounds, and how often the scheduler makes one (0 is only
-    # when you ask). Both formats are made from the same rounds every
-    # time, and both go to review.
+    # how many rounds. The scheduler makes a quiz night as soon as that
+    # many categories have a finished round at one difficulty, unless
+    # `longform_mixed_when_ready` is off, and no sooner than
+    # `longform_every_days` after the last (0: whenever ready). Both formats
+    # are made from the same rounds every time, and both go to review.
     longform_rounds: int = 6
+    longform_mixed_when_ready: bool = True
     longform_every_days: int = 0
     # Each long format timed on its own. A long quiz is played along with,
     # not scrolled past: a proper clock for each question. Answers as you

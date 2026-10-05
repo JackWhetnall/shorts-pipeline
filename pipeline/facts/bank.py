@@ -442,20 +442,72 @@ def _stored_areas(conn, category: str) -> list:
     return json.loads(row[0]) if row else []
 
 
+def levels_of(conn, category: str) -> list:
+    """Every checked question's level in a category (the whole bank for
+    general knowledge), used or not, lowest first: what a category's
+    questions are ranked by when its levels' own bands run short
+    (pipeline.facts.rounds)."""
+    if category.strip().lower() in GENERAL:
+        rows = conn.execute("SELECT level FROM questions WHERE status = 'ok'")
+    else:
+        rows = conn.execute("SELECT DISTINCT q.id, q.level FROM questions q JOIN question_tags t "
+                            "ON t.question_id = q.id AND lower(t.category) = lower(?) WHERE q.status = 'ok'",
+                            (category,))
+    return sorted(float(r["level"]) for r in rows)
+
+
+# Words that place or date an area rather than say what it's about, so
+# "World capitals" and "European capitals" are one theme.
+THEME_FILLER = frozenset("""and of in the on for with from by their its about
+world famous great classic popular modern ancient early late general trivia
+british britain english uk american america us usa european europe african africa asian asia
+international national global north south east west central western eastern northern southern
+first century centuries""".split())
+COMMON_SHARE = 0.3     # a word in more of the candidates' areas than this describes the category
+
+
+def themes(area: str, common: frozenset = frozenset()) -> frozenset:
+    """What an area is about, as a set of stemmed words: two questions
+    sharing any of them share a theme. Falls back to the whole area."""
+    words = {w[:-1] if len(w) > 3 and w.endswith("s") else w
+             for w in re.findall(r"[a-z]+", (area or "").lower()) if len(w) > 2 and w not in THEME_FILLER}
+    words -= common
+    return frozenset(words) or frozenset({(area or "").strip().lower()})
+
+
+def _common_words(rows: list) -> frozenset:
+    """Words in so many of these rows' areas that they name the category
+    ("music" in every Music area), not a theme within it."""
+    if len(rows) < 10:
+        return frozenset()
+    counts = Counter(w for r in rows for w in themes(r["area"]))
+    return frozenset(w for w, n in counts.items() if n > COMMON_SHARE * len(rows))
+
+
 def _spread(rows: list, count: int, rng) -> list:
+    """Up to `count` of `rows`, one per answer, with at most two to a
+    theme and no shape dominating; loosened only as far as it must be to
+    fill. Thirty Hard Geography questions, three of them on capitals
+    ("World capitals", "European capitals"), shouldn't put all three in
+    one quiz."""
     rows = list(rows)
     rng.shuffle(rows)
-    out, answers, shapes, places = [], set(), Counter(), Counter()
-    for cap in (max(2, count // 3), count):
-        for r in rows:
+    common = _common_words(rows)
+    keyed = [(r, themes(r["area"], common)) for r in rows]
+    out, answers, shapes, seen = [], set(), Counter(), Counter()
+    per_theme = max(2, count // 5)
+    for theme_cap, shape_cap in ((per_theme, max(2, count // 3)), (per_theme + 1, max(2, count // 3)),
+                                 (count, count)):
+        for r, keys in keyed:
             if len(out) == count:
                 return out
-            if r in out or r["answer_key"] in answers or shapes[r["shape"]] >= cap or places[r["area"]] >= cap:
+            if (r in out or r["answer_key"] in answers or shapes[r["shape"]] >= shape_cap
+                    or any(seen[k] >= theme_cap for k in keys)):
                 continue
             out.append(r)
             answers.add(r["answer_key"])
             shapes[r["shape"]] += 1
-            places[r["area"]] += 1
+            seen.update(keys)
     return out
 
 

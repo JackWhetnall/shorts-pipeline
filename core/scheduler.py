@@ -121,27 +121,32 @@ def top_up_plans(channels: dict = None) -> list:
 
 
 def fill_long_quizzes(channels: dict = None) -> list:
-    """Start a long quiz for every running quiz channel that makes one
-    every N days, when the last is that old and enough rounds are ready.
-    Returns the keys started."""
+    """Start a quiz night (the mixed series: one difficulty, a round from
+    each of several categories, in no set order) for every running quiz
+    channel as soon as enough categories have a finished round at one
+    difficulty. One waiting at a time per channel, so they keep pace with
+    the long-video slots, and no sooner than `longform_every_days` after
+    the last if that's set. Returns the keys started."""
     from pipeline import longform
 
     channels = channels if channels is not None else load_channels(validate=False)
     active = jobs.active_jobs()
     started = []
     for key, channel in channels.items():
-        every = channel.quiz.longform_every_days
         if (channel.archived or channel.format != "quiz" or not channel.publishing.enabled
-                or every <= 0 or key in active):
-            continue
-        directory = gallery.resolve_output_dir(channel.output_dir)
-        made = [p.stat().st_mtime for p in gallery.videos_in(directory, long=True)] if directory.exists() else []
-        if made and time.time() - max(made) < every * 86400:
+                or not channel.quiz.longform_mixed_when_ready or key in active):
             continue
         try:
-            request = longform.plan_request(channel, {"difficulty": "best"})
-            if len(longform.choose_rounds(channel, request["difficulty"], request["rounds"])) < request["rounds"]:
+            if longform.waiting(channel, longform.MIXED):
                 continue
+            mixed = [v for v, data in longform._long_videos(channel) if data["series"] == longform.MIXED]
+            every = channel.quiz.longform_every_days
+            if every > 0 and mixed and time.time() - max(v.stat().st_mtime for v in mixed) < every * 86400:
+                continue
+            difficulty = longform.ready_difficulty(channel)
+            if not difficulty:
+                continue
+            request = longform.plan_request(channel, {"difficulty": difficulty})
             jobs.start_job(key, {"type": "longform", **request,
                                  "topic": f"Long quiz: {request['rounds']} rounds, {request['difficulty']}"},
                            ahead=True)
@@ -168,11 +173,8 @@ def fill_category_quizzes(channels: dict = None) -> list:
                 or not channel.quiz.longform_category_when_ready or key in active):
             continue
         try:
-            waiting = [v for v, data in longform._long_videos(channel)
-                       if data["series"] == longform.CATEGORY
-                       and not gallery.is_out(gallery.load_publish_info(v))]
             ready = longform.full_ladders(channel)
-            if waiting or not ready:
+            if longform.waiting(channel, longform.CATEGORY) or not ready:
                 continue
             difficulty = longform.CATEGORY_PREFIX + ready[0]
             request = longform.plan_request(channel, {"difficulty": difficulty})

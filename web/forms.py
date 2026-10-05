@@ -195,6 +195,7 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             quiz.longform_series_name = form.get("quiz_longform_series_name").strip()[:40]
         if "quiz_category_present" in form:
             quiz.longform_category_when_ready = bool(form.get("quiz_longform_category_when_ready"))
+            quiz.longform_mixed_when_ready = bool(form.get("quiz_longform_mixed_when_ready"))
         for name, low, high in (("after_each_clock_seconds", 3.0, 30.0),
                                 ("after_each_answer_pause", 0.0, 5.0),
                                 ("at_end_clock_seconds", 3.0, 30.0),

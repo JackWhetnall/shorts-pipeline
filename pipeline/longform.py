@@ -123,6 +123,21 @@ def _long_videos(channel) -> list:
     return out
 
 
+AT_END_SUFFIX = "_answers_at_end"
+
+
+def waiting(channel, series: str) -> bool:
+    """Whether a long quiz of this series is still waiting to go out. Its
+    two formats are one quiz: once either has gone out, the other (left
+    for the owner to discard or keep) doesn't hold up the next."""
+    quizzes = {}
+    for video, data in _long_videos(channel):
+        if data["series"] == series:
+            stem = video.stem[:-len(AT_END_SUFFIX)] if video.stem.endswith(AT_END_SUFFIX) else video.stem
+            quizzes.setdefault((video.parent, stem), []).append(gallery.is_out(gallery.load_publish_info(video)))
+    return any(not any(outs) for outs in quizzes.values())
+
+
 def used_rounds(channel, series: str = MIXED) -> set:
     """Rounds already in a long video of this series (a discarded long
     video frees its rounds)."""
@@ -178,6 +193,18 @@ def full_ladders(channel) -> list:
     return sorted(c for c, levels in have.items() if labels <= levels)
 
 
+
+
+def ready_difficulty(channel) -> str:
+    """The difficulty a quiz night could be made at now: one with a
+    finished, approved round from `longform_rounds` categories that don't
+    clash, preferring the one with most to spare (so no level's shorts sit
+    unused while another's are taken). None if no difficulty has enough."""
+    count = channel.quiz.longform_rounds
+    counts = availability(channel)
+    candidates = sorted((label for label in quiz.labels(channel) if counts.get(label, 0) >= count),
+                        key=lambda label: -counts[label])
+    return next((label for label in candidates if len(choose_rounds(channel, label, count)) >= count), None)
 
 
 def availability(channel) -> dict:
@@ -266,6 +293,10 @@ def choose_rounds(channel, difficulty: str, count: int) -> list:
                 seen.add(r["category"].lower())
             if len(picked) >= count:
                 break
+        # Which shorts go in follows rank (published first); the order
+        # they're played in doesn't, so a quiz night isn't always Science
+        # then Space then Sport.
+        random.shuffle(picked)
         return picked
     by_level = {}
     for r in rows:
@@ -965,7 +996,7 @@ def make(channel, seed: dict, out_dir: Path = None):
                           style=art.resolve(channel.scenes.art), work=work)
     made = {}
     for variant in variants:
-        name = stem if variant == "after_each" else f"{stem}_answers_at_end"
+        name = stem if variant == "after_each" else f"{stem}{AT_END_SUFFIX}"
         made[variant] = out_dir / f"{name}.mp4"
         if made[variant].exists():                  # made before a retry
             continue

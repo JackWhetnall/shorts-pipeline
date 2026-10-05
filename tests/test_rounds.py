@@ -121,6 +121,71 @@ def test_another_set_is_planned_only_when_one_is_ready(world, monkeypatch, tmp_p
     assert all(conn.execute("SELECT 1 FROM ready_rounds WHERE subtopic = ?", (s["id"],)).fetchone() for s in new)
 
 
+def test_a_level_too_few_are_rated_at_is_made_from_the_easiest_by_rank(world):
+    """Regression: the rater calls few questions easy, so Ancient History
+    never had an Easy round, which stopped its next set and its
+    easiest-to-hardest long quiz too. Its easiest questions by rank stand in."""
+    conn, channel = world
+    channel.quiz.difficulties = ["Easy (1.5)", "Medium (3)", "Hard (6)"]
+    for i, level in enumerate([4, 4.5, 5, 5.5] * 3 + [6, 6.5, 7, 7.5, 8, 9] * 3):
+        _stock(conn, "Science", level, 1, start=i)
+    rounds.assemble(conn, channel)
+    easy = conn.execute("SELECT * FROM ready_rounds WHERE category = 'Science' AND label = 'Easy'").fetchone()
+    assert easy and easy["relative"] == 1
+    levels = [conn.execute("SELECT level FROM questions WHERE id = ?", (i,)).fetchone()[0]
+              for i in json.loads(easy["questions"])]
+    assert max(levels) <= 5.5                                # the easiest third of 30, not any band
+    status = rounds.status(conn, channel)["Science"]
+    assert "Easy" in status["ranked"] and status["sets"] >= 1
+
+
+def test_questions_all_rated_alike_have_no_easiest_band(world):
+    conn, channel = world
+    _stock(conn, "Science", 2, 12)
+    rounds.assemble(conn, channel)
+    assert rounds.ready(conn, "buzz", "Science", "Hard") == 0
+
+
+def test_a_thin_category_writing_no_longer_feeds_is_dead_and_isnt_written_for(world, monkeypatch):
+    from pipeline.facts import keep
+    conn, channel = world
+    _stock(conn, "Science", 2, 4)
+    assert rounds.status(conn, channel)["Science"]["state"] == "dry"     # never written for: not dead yet
+    for _ in range(rounds.DEAD_WRITES):
+        keep._record_write(conn, "Science", 6, [6])                       # one usable question each
+    status = rounds.status(conn, channel)["Science"]
+    assert status["state"] == "dead" and status["left"] == 4
+    written = []
+    monkeypatch.setattr(bank, "write_batch", lambda *a, **k: written.append(a[1]))
+    monkeypatch.setattr("pipeline.facts.scope.sort_if_needed", lambda *a, **k: False)
+    said = []
+    keep.stock_bank(conn, channel, say=said.append)
+    assert "Science" not in written and any("Science is dead" in m for m in said)
+
+
+def test_a_round_holds_at_most_two_of_a_theme():
+    """Thirty Hard Geography questions, a few on capitals filed under
+    different areas, shouldn't all land in one quiz."""
+    import random
+    rows = [{"id": i, "answer_key": f"a{i}", "shape": ["name", "only", "first", "number"][i % 4],
+             "area": ["World capitals", "European capitals", "Capitals of Africa"][i % 3] if i < 6
+             else f"Topic {chr(65 + i)} rivers" if i < 9 else f"Mountain range {i}", "level": 5}
+            for i in range(30)]
+    for seed in range(20):
+        picked = bank._spread(rows, 10, random.Random(seed))
+        assert len(picked) == 10
+        assert sum(1 for r in picked if "capital" in r["area"].lower()) <= 2
+        assert sum(1 for r in picked if "rivers" in r["area"].lower()) <= 2
+
+
+def test_a_word_every_area_shares_names_the_category_not_a_theme():
+    assert bank.themes("World capitals") == bank.themes("European capitals") == {"capital"}
+    rows = [{"area": f"{kind} music"} for kind in ("Pop", "Rock", "Jazz", "Folk", "Soul", "Disco",
+                                                   "Punk", "Metal", "Blues", "Swing")]
+    common = bank._common_words(rows)
+    assert "music" in common and bank.themes("Pop music", common) == {"pop"}
+
+
 def test_making_a_round_takes_its_questions_without_writing_any(world, monkeypatch):
     from pipeline import quiz
     conn, channel = world

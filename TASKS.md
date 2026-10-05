@@ -35,12 +35,13 @@ has all but stopped. The 42 rounds still short are mostly Easy and Medium.
 **Facts → Question bank → Budget**: raise it once the credit is topped
 up if you want those filled, or leave it.
 
-### D. Decide how often Pub Quiz Buzz makes long quizzes
-Long-form is the earner (see the review page). Automatic long quizzes are
-off ("make one every 0 days"); the only one so far is 7:22, under the
-8 minutes mid-roll ads need. Suggested: **Settings → Channel → Long
-quizzes → Rounds 6, make one every 3 days** (about 22 minutes, two a
-week). Each still waits for you in Review.
+### D. Give long quizzes two slots a week (1 minute)
+Long quizzes now make themselves (decision 066): a quiz night as soon as
+6 categories have an approved round at one difficulty, and a category's
+own quiz as soon as it has one at every level. Each is about 22 minutes
+and waits for you in Review. Their publishing slot is one a week (Sat
+19:00), but two kinds are now made. **Settings → Publishing → Long
+quizzes → On**: tick a second day, e.g. **Wed** as well as Sat.
 
 ---
 

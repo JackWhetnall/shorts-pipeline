@@ -209,8 +209,17 @@ def stock_bank(conn, channel, say=None) -> str:
     # Written where the rounds made ahead fall short (pipeline.facts.rounds),
     # the slots with fewest ready rounds first.
     rounds.assemble(conn, channel)
+    # A dead category (pipeline.facts.rounds.dead) isn't written for:
+    # writing stopped adding to it, so more would be money for nothing. It's
+    # flagged for the owner to drop or merge instead.
+    status = rounds.status(conn, channel)
+    for name in [n for n in names if status.get(n, {}).get("state") == "dead"]:
+        say(f"{name} is dead: {status[name]['left']} questions left and writing has stopped adding to it. "
+            "Not writing for it again; drop it from the topic plan or merge it into another.")
     short = []
     for name in names:
+        if status.get(name, {}).get("state") == "dead":
+            continue
         for label, level in levels:
             have = rounds.ready(conn, channel.key, name, label)
             if have < rounds.SETS_AHEAD:

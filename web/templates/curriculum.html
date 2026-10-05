@@ -113,7 +113,9 @@
     {% if rs %}
       {% if rs.state == 'ready' %}<span class="badge">{{ rs.sets }} sets ready</span>
       {% elif rs.state == 'low' %}<span class="badge badge-warn" title="Fewer than 3 full sets ready; the bank is being stocked">running low: {{ rs.sets }} set{{ 's' if rs.sets != 1 }} ready</span>
+      {% elif rs.state == 'dead' %}<span class="badge badge-danger" title="Only {{ rs.left }} questions left, and writing has stopped adding to it. It isn't written for any more: drop it from the plan or rename it into a broader category.">dead: {{ rs.left }} questions left</span>
       {% else %}<span class="badge badge-danger" title="No round ready at {{ rs.short|join(', ') }}">running dry</span>{% endif %}
+      {% if rs.ranked %}<span class="badge" title="Too few questions rated at these levels, so their rounds are this category's easiest (or next easiest) questions by rank">by rank: {{ rs.ranked|join(', ') }}</span>{% endif %}
     {% endif %}
   </summary>
   {% if rs and not topic.picture %}

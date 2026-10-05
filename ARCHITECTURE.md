@@ -571,7 +571,11 @@ intake table, then processed within a budget: rewritten in our own words
 
 **Rounds made ahead** (`pipeline/facts/rounds.py`): each quiz channel keeps
 3 ready rounds per category and difficulty, assembled locally from the
-bank. Planning another set takes ready rounds; a video takes its round
+bank: within the level's band, or, when that runs short, from the
+category's questions ranked by level (Easy the easiest sixth), with at
+most two questions per theme. A thin category writing no longer feeds is
+flagged dead and not written for
+([065](docs/decisions/065-ranked-rounds-dead-categories-and-themes.md)). Planning another set takes ready rounds; a video takes its round
 and writes only the host's lines; a category with none ready says it's
 running dry rather than writing questions. See decision
 [062](docs/decisions/062-rounds-made-ahead.md).
@@ -621,7 +625,11 @@ so only the host's joining lines are voiced. Only approved shorts are
 rounds. Each is made in both formats (answers as you go, answers at the
 end), each timed by its own settings, and both go to review. The long
 video lives under `output/<channel>/longform/` (`gallery.is_long`),
-publishes in its own slots, YouTube only, and always waits for review.
+publishes in its own slots, YouTube only, and always waits for review. A quiz night is
+made as soon as enough categories have an approved round at one
+difficulty, and a category's own quiz as soon as it has one at every
+level, one waiting per series
+([066](docs/decisions/066-long-quizzes-when-ready.md)).
 See decisions [044](docs/decisions/044-long-quizzes.md),
 [047](docs/decisions/047-formats-apart-and-the-quiz-hook.md) and
 [048](docs/decisions/048-plain-hooks-and-honest-checks.md).

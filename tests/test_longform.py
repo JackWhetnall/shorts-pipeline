@@ -93,7 +93,7 @@ class TestChoosing:
         _short(world.root, "maths_easy", "Maths", "Easy")
         gallery.save_publish_info(a, {"youtube_url": "https://youtu.be/x"})
         picked = longform.choose_rounds(world.channel, "Hard", 3)
-        assert [r["stem"] for r in picked] == ["science_hard", "space_hard"]
+        assert sorted(r["stem"] for r in picked) == ["science_hard", "space_hard"]
         assert longform.availability(world.channel) == {
             "Easy": 1, "Hard": 2, "rising": 3,
             "category:Maths": 1, "category:Science": 1, "category:Space": 1}
@@ -249,8 +249,23 @@ def test_starting_one_needs_enough_rounds(world, monkeypatch):
     assert response.status_code == 400 and "1 of 2" in response.get_json()["error"]
 
 
-def test_the_scheduler_makes_one_every_n_days_when_rounds_are_ready(world, monkeypatch):
-    import os
+def _long(world, stem: str, series_difficulty: str, when: float = 0, out: bool = False) -> Path:
+    long_dir = world.tmp / "out" / "longform" / "2026-09-27"
+    long_dir.mkdir(parents=True, exist_ok=True)
+    video = long_dir / f"{stem}.mp4"
+    video.write_bytes(b"")
+    quiz.round_sidecar(video).write_text(json.dumps({"rounds": [], "difficulty": series_difficulty}))
+    if out:
+        gallery.save_publish_info(video, {"youtube_url": "https://youtu.be/long"})
+    if when:
+        import os
+        os.utime(video, (when, when))
+    return video
+
+
+def test_a_quiz_night_starts_itself_once_enough_categories_share_a_difficulty(world, monkeypatch):
+    """The owner: a long quiz should be made automatically as soon as there
+    are six suitable shorts: six categories at one difficulty."""
     import time
     from core import jobs, scheduler
     world.channel.publishing.enabled = True
@@ -259,21 +274,50 @@ def test_the_scheduler_makes_one_every_n_days_when_rounds_are_ready(world, monke
     monkeypatch.setattr(jobs, "active_jobs", lambda: {})
     monkeypatch.setattr(jobs, "start_job", lambda key, seed, ahead=False: started.append(seed) or "job")
     _short(world.root, "science_hard", "Science", "Hard")
+    _short(world.root, "space_easy", "Space", "Easy")
     channels = {"pub_quiz": world.channel}
-    assert scheduler.fill_long_quizzes(channels) == []          # off by default
-    world.channel.quiz.longform_every_days = 7
-    assert scheduler.fill_long_quizzes(channels) == []          # only one round ready
+    assert scheduler.fill_long_quizzes(channels) == []          # no difficulty has two categories
     _short(world.root, "space_hard", "Space", "Hard")
     assert scheduler.fill_long_quizzes(channels) == ["pub_quiz"]
     assert started[0]["type"] == "longform" and started[0]["difficulty"] == "Hard"
-    # And not again until a week after the last one.
-    long_dir = world.tmp / "out" / "longform" / "2026-09-27"
-    long_dir.mkdir(parents=True)
-    (long_dir / "quiz.mp4").write_bytes(b"")
+    # One waiting at a time: not again until that one has gone out.
+    _short(world.root, "art_easy", "Art", "Easy")
+    waiting = _long(world, "quiz_night_1", "Hard")
+    assert scheduler.fill_long_quizzes(channels) == []
+    gallery.save_publish_info(waiting, {"youtube_url": "https://youtu.be/long"})
+    assert scheduler.fill_long_quizzes(channels) == ["pub_quiz"] and started[1]["difficulty"] == "Easy"
+    # A minimum gap, when one is set, counts from the last quiz night.
+    world.channel.quiz.longform_every_days = 7
     assert scheduler.fill_long_quizzes(channels) == []
     old = time.time() - 8 * 86400
-    os.utime(long_dir / "quiz.mp4", (old, old))
+    import os
+    os.utime(waiting, (old, old))
     assert scheduler.fill_long_quizzes(channels) == ["pub_quiz"]
+    # And never when switched off.
+    world.channel.quiz.longform_mixed_when_ready = False
+    assert scheduler.fill_long_quizzes(channels) == []
+
+
+def test_one_format_gone_out_settles_the_quiz(world):
+    """Both formats of a long quiz go to review and only one is published:
+    the other mustn't hold the next one up for ever."""
+    after_each = _long(world, "quiz_night_1", "Hard")
+    _long(world, "quiz_night_1" + longform.AT_END_SUFFIX, "Hard")
+    assert longform.waiting(world.channel, longform.MIXED)
+    gallery.save_publish_info(after_each, {"youtube_url": "https://youtu.be/long"})
+    assert not longform.waiting(world.channel, longform.MIXED)
+
+
+def test_a_category_quiz_doesnt_hold_up_a_quiz_night(world, monkeypatch):
+    from core import jobs, scheduler
+    world.channel.publishing.enabled = True
+    world.channel.quiz.longform_rounds = 2
+    monkeypatch.setattr(jobs, "active_jobs", lambda: {})
+    monkeypatch.setattr(jobs, "start_job", lambda key, seed, ahead=False: "job")
+    _short(world.root, "science_hard", "Science", "Hard")
+    _short(world.root, "space_hard", "Space", "Hard")
+    _long(world, "science_quiz_1", "category:Science")            # waiting, but the other series
+    assert scheduler.fill_long_quizzes({"pub_quiz": world.channel}) == ["pub_quiz"]
 
 
 def test_the_settings_form_sets_the_long_quiz_and_its_slots():
@@ -282,12 +326,13 @@ def test_the_settings_form_sets_the_long_quiz_and_its_slots():
     channel = _channel()
     apply_channel_form(channel, MultiDict([
         ("quiz_present", "1"), ("format", "quiz"), ("quiz_longform_rounds", "8"),
-        ("quiz_longform_every_days", "7"),
+        ("quiz_longform_every_days", "7"), ("quiz_category_present", "1"),
         ("quiz_after_each_clock_seconds", "7"), ("quiz_at_end_clock_seconds", "12"),
         ("quiz_at_end_reveal_gap", "0.6"), ("quiz_at_end_answer_pause", "99"),
         ("publishing_plan_present", "1"), ("long_slots", "20:30, 9:00, noon"),
         ("long_weekdays", "5"), ("long_weekdays", "6")]))
     assert (channel.quiz.longform_rounds, channel.quiz.longform_every_days) == (8, 7)
+    assert not channel.quiz.longform_mixed_when_ready              # its box unticked
     assert (channel.quiz.after_each_clock_seconds, channel.quiz.at_end_clock_seconds,
             channel.quiz.at_end_reveal_gap, channel.quiz.at_end_answer_pause) == (7, 12, 0.6, 5)
     assert channel.publishing.long_slots == ["09:00", "20:30"]
@@ -351,7 +396,7 @@ class TestNoClashes:
         clash = json.loads(quiz.round_sidecar(b).read_text())
         clash["questions"][0]["answer"] = json.loads(quiz.round_sidecar(a).read_text())["questions"][0]["answer"]
         quiz.round_sidecar(b).write_text(json.dumps(clash))
-        assert [r["stem"] for r in longform.choose_rounds(world.channel, "Hard", 2)] == ["geo_hard", "art_hard"]
+        assert sorted(r["stem"] for r in longform.choose_rounds(world.channel, "Hard", 2)) == ["art_hard", "geo_hard"]
 
 
 def test_a_single_category_quiz_climbs_its_levels(world):

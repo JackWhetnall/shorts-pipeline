@@ -164,16 +164,22 @@
         <label class="field-row"><span class="field-label">Rounds</span>
           <input type="number" name="quiz_longform_rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}">
         </label>
-        <label class="field-row"><span class="field-label">Make one automatically every</span>
-          <span><input type="number" name="quiz_longform_every_days" min="0" max="60" class="narrow-number"
-                 value="{{ channel.quiz.longform_every_days }}"> days
-            <button type="button" class="info-dot" data-tooltip="0 means only when you ask. Needs the publishing plan on.">?</button></span>
-        </label>
         <label class="field-row"><span class="field-label">Mixed series name</span>
           <input type="text" name="quiz_longform_series_name" value="{{ channel.quiz.longform_series_name }}"
                  placeholder="Quiz Night">
         </label>
         <input type="hidden" name="quiz_category_present" value="1">
+        <label class="checkbox-label">
+          <input type="checkbox" name="quiz_longform_mixed_when_ready"
+                 {% if channel.quiz.longform_mixed_when_ready %}checked{% endif %}>
+          Make a quiz night once that many categories have a round at the same difficulty
+          <button type="button" class="info-dot" data-tooltip="One difficulty, the categories in random order. One waits at a time; the next is made once it has gone out. Needs the publishing plan on.">?</button>
+        </label>
+        <label class="field-row"><span class="field-label">At least this many days apart</span>
+          <span><input type="number" name="quiz_longform_every_days" min="0" max="60" class="narrow-number"
+                 value="{{ channel.quiz.longform_every_days }}"> days
+            <button type="button" class="info-dot" data-tooltip="0: whenever one is ready.">?</button></span>
+        </label>
         <label class="checkbox-label">
           <input type="checkbox" name="quiz_longform_category_when_ready"
                  {% if channel.quiz.longform_category_when_ready %}checked{% endif %}>
