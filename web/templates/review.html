@@ -2,20 +2,25 @@
 {% block title %}Review{% endblock %}
 {% block content %}
 
-<div class="review-head">
-  <h1>Review</h1>
-  <p class="subtitle" id="review-counter">
-    {% if items %}{{ total_waiting }} video{{ 's' if total_waiting != 1 }} waiting, oldest first.{% if total_waiting > items|length %} Showing the first {{ items|length }}.{% endif %}
-    {% else %}Nothing waiting.{% endif %}
-  </p>
+<div class="page-head review-head">
+  <div>
+    <h1>Review</h1>
+    <p class="page-sub" id="review-counter">
+      {% if items %}{{ total_waiting }} video{{ 's' if total_waiting != 1 }} waiting, oldest first.{% if total_waiting > items|length %} Showing the first {{ items|length }}.{% endif %}
+      {% else %}All caught up.{% endif %}
+    </p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-ghost" href="{{ url_for('review.queued_page') }}">Going out</a>
+  </div>
 </div>
 
 {% if not items %}
 <div class="empty-state">
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-  <p><strong>All caught up.</strong></p>
-  <p>Every video has been published or discarded.</p>
-  <a class="btn btn-ghost" href="{{ url_for('channels.index') }}">Back to channels</a>
+  <p><strong>All caught up</strong></p>
+  <p>New videos land here as they're made.</p>
+  <a class="btn btn-ghost" href="{{ url_for('review.queued_page') }}">See what's going out</a>
 </div>
 {% else %}
 
@@ -26,118 +31,116 @@
 
 {# Which videos to look at. "Needs a look" is anything the publish gate
    held, or that has no verdict yet; "Passed checks" could have published
-   itself, so it's the quick pass. #}
+   itself, so it's the quick pass. The channel chips drive the select,
+   which stays the one place the filter is read from. #}
 <div class="review-filters">
-  <label class="review-filter">Channel
-    <select id="review-channel-filter" onchange="applyReviewFilter()">
-      <option value="">All channels</option>
-      {% for key, name in review_channels %}
-      <option value="{{ key }}">{{ name }}</option>
-      {% endfor %}
-    </select>
-  </label>
+  <div class="chip-row" id="review-channel-chips" role="group" aria-label="Channel"></div>
+  <select id="review-channel-filter" onchange="applyReviewFilter()" hidden aria-hidden="true">
+    <option value="">All channels</option>
+    {% for key, name in review_channels %}
+    <option value="{{ key }}">{{ name }}</option>
+    {% endfor %}
+  </select>
   <div class="segmented" role="group" aria-label="Which videos">
-    <button type="button" data-review-state="all" class="active" onclick="setReviewState(this)">To review</button>
+    <button type="button" data-review-state="all" class="active" onclick="setReviewState(this)">All</button>
     <button type="button" data-review-state="flagged" onclick="setReviewState(this)">Needs a look</button>
     <button type="button" data-review-state="clean" onclick="setReviewState(this)">Passed checks</button>
-    <a class="segmented-link" href="{{ url_for('review.queued_page') }}">Going out &rarr;</a>
   </div>
 </div>
 
 <div class="empty-state" id="review-empty" hidden>
-  <p><strong id="review-empty-title">Done.</strong></p>
+  <p><strong id="review-empty-title">Done</strong></p>
   <p id="review-empty-text">Nothing left in the queue.</p>
-  <a class="btn btn-ghost" href="/insights">See how it's going</a>
+  <a class="btn btn-ghost" href="{{ url_for('review.insights_page') }}">See how it's going</a>
 </div>
 
 <div class="review-layout">
-  <div class="review-player card">
+  <div class="review-player">
     <video id="review-video" controls preload="metadata"></video>
   </div>
 
   <div class="review-side">
-    <div class="card">
-      <p class="meta" id="review-channel"></p>
+    <div class="card review-main">
+      <p class="review-kicker"><span id="review-channel"></span><span id="review-created"></span></p>
       <h2 id="review-name"></h2>
-      <p class="meta" id="review-created"></p>
 
       <div id="review-flags" class="review-flags"></div>
 
-      <label class="review-field">Title
+      <label class="review-field"><span class="field-label">Title</span>
         <input type="text" id="review-title" placeholder="Give this video a title">
       </label>
       <div id="review-title-options" class="review-alts"></div>
 
-      <label class="review-field">Description
-        <textarea id="review-description" rows="6"></textarea>
+      <label class="review-field"><span class="field-label">Description</span>
+        <textarea id="review-description" rows="5"></textarea>
       </label>
 
-      <div class="actions">
-        <button type="button" class="btn-ghost" onclick="copyField('review-title', this)">Copy title</button>
-        <button type="button" class="btn-ghost" onclick="copyField('review-description', this)">Copy description</button>
-        <a class="btn-ghost" id="review-download" href="#">Download video</a>
-        <a class="btn-ghost" id="review-remake" href="#"
-           title="Make it again keeping its script, voice and pictures, and making again only the parts you pick">Remake as is</a>
-        <a class="btn-ghost" id="review-questions" href="#" hidden
-           title="The round's questions laid out: keep each, or move it easier or harder, or take it out, and swap in another">Check the questions</a>
+      <div class="review-tools">
+        <button type="button" class="btn-ghost btn-quiet btn-small" onclick="copyField('review-title', this)">Copy title</button>
+        <button type="button" class="btn-ghost btn-quiet btn-small" onclick="copyField('review-description', this)">Copy description</button>
+        <a class="btn-ghost btn-quiet btn-small" id="review-download" href="#">Download</a>
+        <a class="btn-ghost btn-quiet btn-small" id="review-remake" href="#"
+           title="Make it again keeping its script, voice and pictures; only the parts you pick are made again">Remake</a>
+        <a class="btn-ghost btn-quiet btn-small" id="review-questions" href="#" hidden
+           title="Keep, move or swap each of the round's questions">Check the questions</a>
       </div>
     </div>
+
+    <div class="card" id="review-upload-card" hidden>
+      <div class="review-publish-row">
+        <label class="review-field"><span class="field-label">Privacy</span>
+          <select id="review-privacy">
+            <option value="public">Public</option>
+            <option value="unlisted">Unlisted</option>
+            <option value="private">Private</option>
+          </select>
+        </label>
+        <button type="button" class="btn btn-ghost" id="review-upload-btn"
+                onclick="reviewUploadYouTube()">Publish to YouTube now</button>
+      </div>
+      <p class="hint" id="review-upload-note"></p>
+    </div>
+
+    <details class="card review-posted">
+      <summary class="summary-heading">Posted it yourself?</summary>
+      <p class="meta">Paste where it went and it's marked published.</p>
+      <label class="review-field"><span class="field-label">YouTube</span>
+        <input type="url" id="review-youtube_url" placeholder="https://youtube.com/shorts/...">
+      </label>
+      <label class="review-field"><span class="field-label">TikTok</span>
+        <input type="url" id="review-tiktok_url" placeholder="https://tiktok.com/@you/video/...">
+      </label>
+      <label class="review-field"><span class="field-label">Instagram</span>
+        <input type="url" id="review-instagram_url" placeholder="https://instagram.com/reel/...">
+      </label>
+      <button type="button" class="btn-ghost" onclick="reviewPublish()"
+              title="Records the links above">Mark published <kbd>P</kbd></button>
+    </details>
 
     <details class="card">
       <summary class="summary-heading">Script</summary>
       <pre class="meta-text" id="review-script"></pre>
     </details>
-
-    <div class="card" id="review-upload-card" hidden>
-      <p class="meta">Publish in one click: this title and description go to
-        YouTube through the API, then the video's page shows the steps for
-        TikTok and Instagram (if the channel posts there).</p>
-      <label class="review-field">Privacy
-        <select id="review-privacy">
-          <option value="public">Public</option>
-          <option value="unlisted">Unlisted</option>
-          <option value="private">Private</option>
-        </select>
-      </label>
-      <button type="button" class="btn btn-primary" id="review-upload-btn"
-              onclick="reviewUploadYouTube()">Publish now</button>
-      <p class="hint" id="review-upload-note"></p>
-    </div>
-
-    <div class="card">
-      <p class="meta">Already posted it yourself? Paste where, then Mark published.</p>
-      <label class="review-field">YouTube
-        <input type="url" id="review-youtube_url" placeholder="https://youtube.com/shorts/...">
-      </label>
-      <label class="review-field">TikTok
-        <input type="url" id="review-tiktok_url" placeholder="https://tiktok.com/@you/video/...">
-      </label>
-      <label class="review-field">Instagram
-        <input type="url" id="review-instagram_url" placeholder="https://instagram.com/reel/...">
-      </label>
-    </div>
   </div>
 </div>
 
-<div class="review-bar">
-  <button type="button" class="btn btn-primary" id="review-approve" onclick="reviewApprove()"
-          title="Queue it to go out at this channel's next publishing slot">
-    Approve <kbd>A</kbd>
-  </button>
-  <button type="button" class="btn-ghost" id="review-unqueue" onclick="reviewUnqueue()" hidden>
-    Take out of queue <kbd>U</kbd>
-  </button>
-  <button type="button" class="btn-ghost" onclick="reviewPublish()"
-          title="You've already posted it yourself: records the links below">
-    Mark published <kbd>P</kbd>
-  </button>
-  <details class="review-discard">
-    <summary class="btn-ghost">Discard <kbd>D</kbd></summary>
-    <div class="card review-reasons" id="review-reasons"></div>
-  </details>
-  <button type="button" class="btn-ghost" onclick="reviewBack()"><kbd>&larr;</kbd> Back</button>
-  <button type="button" class="btn-ghost" onclick="reviewSkip()">Skip <kbd>&rarr;</kbd></button>
-  <span class="review-position meta" id="review-position"></span>
+<div class="review-bar" hidden>
+  <div class="review-bar-inner">
+    <button type="button" class="btn btn-primary" id="review-approve" onclick="reviewApprove()"
+            title="Queue it for this channel's next publishing slot">
+      Approve <kbd>A</kbd>
+    </button>
+    <button type="button" class="btn-ghost" id="review-unqueue" onclick="reviewUnqueue()" hidden>
+      Take out of queue <kbd>U</kbd>
+    </button>
+    <details class="review-discard">
+      <summary class="btn-ghost">Discard <kbd>D</kbd></summary>
+      <div class="review-reasons" id="review-reasons"></div>
+    </details>
+    <span class="review-position meta" id="review-position"></span>
+    <button type="button" class="btn-ghost btn-quiet" onclick="reviewBack()" aria-label="Previous video"><kbd>&larr;</kbd></button>
+    <button type="button" class="btn-ghost btn-quiet" onclick="reviewSkip()" aria-label="Next video"><kbd>&rarr;</kbd></button>
+  </div>
 </div>
 
 {% endif %}

@@ -1,128 +1,144 @@
 {% extends "base.html" %}
 {% block title %}Money{% endblock %}
 {% block content %}
-<h1>Money</h1>
-{% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
+<div class="page-head">
+  <div>
+    <h1>Money</h1>
+    <p class="page-sub">What it costs at this schedule, how long the credit lasts, and what would pay it back.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-ghost" href="{{ url_for('services.page') }}">Keys and billing</a>
+  </div>
+</div>
+{% if note %}<p class="info-banner">{{ note }}</p>{% endif %}
 
 <div class="stat-row">
   <div class="stat-tile"><div class="stat-value">${{ '%.2f'|format(f.daily) }}</div><div class="stat-label">a day</div></div>
   <div class="stat-tile"><div class="stat-value">${{ '%.2f'|format(f.weekly) }}</div><div class="stat-label">a week</div></div>
-  <div class="stat-tile"><div class="stat-value">${{ '%.2f'|format(f.monthly) }}</div><div class="stat-label">a month at this schedule
+  <div class="stat-tile"><div class="stat-value">${{ '%.2f'|format(f.monthly) }}</div><div class="stat-label">a month
     <button type="button" class="info-dot" data-tooltip="Each channel's videos a month (from its publishing plan) times what its last ten videos cost, plus the ElevenLabs plan.">?</button></div></div>
   <div class="stat-tile"><div class="stat-value">${{ '%.2f'|format(f.payback.earning) }}</div><div class="stat-label">earned a month</div></div>
 </div>
 
-<section class="card money-section">
-  <h2>Where it goes</h2>
-  <table class="facts-table">
-    <thead><tr><th>Channel</th><th>Shorts a month</th><th>Long a month</th><th>Per video</th><th>A month</th></tr></thead>
-    <tbody>
-    {% for r in f.rows %}
-    <tr><td><a href="{{ url_for('channels.dashboard', key=r.key) }}">{{ r.name }}</a></td>
-      <td>{{ r.shorts|round|int }}</td><td>{{ r.longs|round|int }}</td>
-      <td>${{ '%.2f'|format(r.per_video) }}</td><td>${{ '%.2f'|format(r.monthly) }}</td></tr>
-    {% else %}
-    <tr><td colspan="5" class="meta">No channel publishes on a schedule yet.</td></tr>
-    {% endfor %}
-    <tr><td>ElevenLabs plan</td><td></td><td></td><td></td><td>${{ '%.2f'|format(f.settings.elevenlabs_monthly_usd) }}</td></tr>
-    </tbody>
-  </table>
-  <p class="meta">Plus the question bank: ${{ '%.2f'|format(f.bank_left) }} left of its total budget, a one-off.
-    <a href="{{ url_for('facts.page') }}">Facts</a></p>
-  <h3>Actually spent</h3>
-  <table class="facts-table">
-    <thead><tr><th>Account</th><th>Last 7 days</th><th>Last 30 days</th><th>All time</th></tr></thead>
-    <tbody>
-    {% for key, info in providers.items() %}{% set s = f.spend[key] %}
-    {% if s.all %}<tr><td>{{ info.label }}</td><td>${{ '%.2f'|format(s['7d']) }}</td><td>${{ '%.2f'|format(s['30d']) }}</td>
-      <td>${{ '%.2f'|format(s.all) }}</td></tr>{% endif %}
-    {% endfor %}
-    </tbody>
-  </table>
-  <p class="meta"><a href="{{ url_for('services.page') }}">Keys and billing pages</a></p>
-</section>
-
-<section class="card money-section" id="balances">
-  <h2>How long it lasts</h2>
+<section class="card money-section" id="balances" aria-labelledby="lasts">
+  <h2 id="lasts">How long it lasts</h2>
   <div class="money-runways">
-    <div>
+    <div class="money-runway">
       <h3>Claude credit</h3>
       {% if f.claude_balance is none %}
-      <p class="meta">Enter the balance and the app keeps it up to date from its own log.</p>
+      <p class="money-big">Not entered</p>
+      <p class="meta">Enter it once; the app keeps it current from its own log.</p>
       {% else %}
       <p class="money-big {{ 'money-bad' if f.claude and f.claude.days is not none and f.claude.days < 7 }}">${{ '%.2f'|format(f.claude_balance) }} left</p>
       {% if f.claude and f.claude.until %}
-      <p class="meta">About {{ f.claude.days|round|int }} days at this schedule, to {{ f.claude.until.strftime('%d %b') }}
-        (keeping ${{ '%.2f'|format(f.bank_left) }} back for the question bank).</p>
+      <p class="meta">About {{ f.claude.days|round|int }} days, to {{ f.claude.until.strftime('%d %b').lstrip('0') }}
+        <button type="button" class="info-dot" data-tooltip="Keeping ${{ '%.2f'|format(f.bank_left) }} back for the question bank.">?</button></p>
       {% elif f.claude and f.claude.days == 0 %}<p class="meta">Used up.</p>{% endif %}
       {% endif %}
-      <form method="post" action="{{ url_for('money.set_balance') }}" class="actions">
+      <form method="post" action="{{ url_for('money.set_balance') }}" class="inline-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="provider" value="anthropic">
-        <label class="hint">Balance now $<input type="number" name="usd" min="0" step="0.01" class="narrow-number"></label>
-        <button type="submit" class="btn-ghost">Save</button>
+        <label>$ <input type="number" name="usd" min="0" step="0.01" placeholder="Balance now" aria-label="Claude balance now"></label>
+        <button type="submit" class="btn-ghost btn-small">Save</button>
         <a class="meta" href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener">Billing ↗</a>
       </form>
     </div>
-    <div>
+    <div class="money-runway">
       <h3>OpenAI credit</h3>
-      {% if f.openai_balance is none %}<p class="meta">Not entered.</p>
+      {% if f.openai_balance is none %}<p class="money-big">Not entered</p>
       {% else %}<p class="money-big">${{ '%.2f'|format(f.openai_balance) }} left</p>{% endif %}
-      <form method="post" action="{{ url_for('money.set_balance') }}" class="actions">
+      <form method="post" action="{{ url_for('money.set_balance') }}" class="inline-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="provider" value="openai">
-        <label class="hint">Balance now $<input type="number" name="usd" min="0" step="0.01" class="narrow-number"></label>
-        <button type="submit" class="btn-ghost">Save</button>
+        <label>$ <input type="number" name="usd" min="0" step="0.01" placeholder="Balance now" aria-label="OpenAI balance now"></label>
+        <button type="submit" class="btn-ghost btn-small">Save</button>
       </form>
     </div>
-    <div>
+    <div class="money-runway">
       <h3>Voice allowance</h3>
       {% if f.voice %}{% set v = f.voice %}
-      <p class="money-big {{ 'money-bad' if v.runs_out }}">{{ '{:,}'.format(v.remaining) }} of {{ '{:,}'.format(v.limit) }}</p>
-      <div class="today-meter"><span style="width: {{ (100 * v.used / v.limit)|round|int if v.limit else 0 }}%"></span></div>
+      <p class="money-big {{ 'money-bad' if v.runs_out }}">{{ '{:,}'.format(v.remaining) }} <span class="money-of">of {{ '{:,}'.format(v.limit) }}</span></p>
+      <div class="meter {{ 'meter-bad' if v.runs_out }}"><span style="width: {{ (100 * v.remaining / v.limit)|round|int if v.limit else 0 }}%"></span></div>
       <p class="meta">
-        {% if v.per_day %}About {{ '{:,}'.format(v.per_day|round|int) }} characters a day this month.{% endif %}
-        {% if v.runs_out %}Runs out about {{ v.runs_out.strftime('%d %b') }}, {{ v.dry_days }} days before it resets on {{ v.resets.strftime('%d %b') }}.
-        {% elif v.resets %}Lasts until it resets on {{ v.resets.strftime('%d %b') }}.{% endif %}
-        {% if v.month_need and v.month_need > v.limit %}A full month at this pace needs about {{ '{:,}'.format(v.month_need|round|int) }}.{% endif %}
+        {% if v.runs_out %}Runs out about {{ v.runs_out.strftime('%d %b').lstrip('0') }}, {{ v.dry_days }} days before it resets on {{ v.resets.strftime('%d %b').lstrip('0') }}.
+        {% elif v.resets %}Lasts until it resets on {{ v.resets.strftime('%d %b').lstrip('0') }}.{% endif %}
+        {% if v.per_day %}About {{ '{:,}'.format(v.per_day|round|int) }} characters a day.{% endif %}
+        {% if v.month_need and v.month_need > v.limit %}A full month at this pace needs {{ '{:,}'.format(v.month_need|round|int) }}.{% endif %}
       </p>
-      {% else %}<p class="meta">ElevenLabs isn't saying (the key needs the user_read permission).</p>{% endif %}
+      {% else %}<p class="meta">ElevenLabs isn't saying: the key needs the user_read permission.</p>{% endif %}
     </div>
   </div>
 </section>
 
-<section class="card money-section">
-  <h2>Getting it back</h2>
-  <p>Long-form pays: mid-roll ads from 8 minutes, and from 1 Feb 2027 Shorts earn nothing below 10M views in 90 days.</p>
-  <div class="today-kv"><span>Long-form views, last 30 days</span><b>{{ '{:,}'.format(f.payback.long_views_30d) }}</b></div>
-  {% if f.payback.views_needed %}
-  <div class="today-kv"><span>Long-form views a month that would cover ${{ '%.2f'|format(f.monthly) }}</span><b>{{ '{:,}'.format(f.payback.views_needed|round|int) }}</b></div>
-  {% endif %}
-  <div class="today-kv"><span>Would earn now, if in the Partner Programme</span><b>${{ '%.2f'|format(f.payback.would_earn) }}/mo</b></div>
-  <p class="meta">At ${{ '%.2f'|format(f.settings.long_rpm) }} per 1,000 long-form views. <a href="#assumptions">Change</a></p>
-</section>
-
-<section class="card money-section">
-  <h2>Partner Programme</h2>
-  {% for key, y in f.ypp.items() %}
-  <div class="money-ypp">
-    <h3>{{ channels[key].channel_display_name or key }}{% if key in f.settings.in_ypp %} <span class="badge">In</span>{% endif %}</h3>
-    <div class="today-kv"><span>Subscribers</span><b>{{ '{:,}'.format(y.subscribers) if y.subscribers is not none else '?' }} of 1,000</b></div>
-    <div class="today-kv"><span>Long-form watch hours, last 12 months</span><b>{{ '{:,.1f}'.format(y.hours) }} of {{ '{:,}'.format(y.rule.hours) }}</b></div>
-    <div class="today-meter"><span style="width: {{ (100 * y.hours_share)|round|int }}%"></span></div>
-    <div class="today-kv"><span>Shorts views, last 90 days</span><b>{{ '{:,}'.format(y.shorts_views) }} of {{ '{:,}'.format(y.rule.shorts_views) }}</b></div>
-    {% if y.days_to_change %}
-    <p class="meta">The bar doubles to 8,000 hours on 1 Feb 2027, {{ y.days_to_change }} days away. Joining before then at 4,000 needs about
-      {{ '{:,.1f}'.format(y.hours_per_day_needed) }} watch hours a day from now.</p>
-    {% endif %}
+<section class="card money-section" aria-labelledby="where">
+  <h2 id="where">Where it goes</h2>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Channel</th><th class="num">Shorts a month</th><th class="num">Long a month</th><th class="num">Per video</th><th class="num">A month</th></tr></thead>
+    <tbody>
+    {% for r in f.rows %}
+    <tr><td><a href="{{ url_for('channels.dashboard', key=r.key) }}">{{ r.name }}</a></td>
+      <td class="num">{{ r.shorts|round|int }}</td><td class="num">{{ r.longs|round|int }}</td>
+      <td class="num">${{ '%.2f'|format(r.per_video) }}</td><td class="num">${{ '%.2f'|format(r.monthly) }}</td></tr>
+    {% else %}
+    <tr><td colspan="5" class="meta">No channel publishes on a schedule yet.</td></tr>
+    {% endfor %}
+    <tr><td>ElevenLabs plan</td><td></td><td></td><td></td><td class="num">${{ '%.2f'|format(f.settings.elevenlabs_monthly_usd) }}</td></tr>
+    </tbody>
+    <tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">${{ '%.2f'|format(f.monthly) }}</td></tr></tfoot>
+  </table>
   </div>
-  {% else %}
-  <p class="meta">No channel publishes on a schedule yet.</p>
-  {% endfor %}
-  <p class="meta">Read from YouTube twice a day. Shorts don't count toward the watch hours.</p>
+  <p class="meta">Plus the question bank: ${{ '%.2f'|format(f.bank_left) }} left of its total budget, a one-off.
+    <a href="{{ url_for('facts.page') }}">Facts</a></p>
+
+  <h3>Actually spent</h3>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Account</th><th class="num">Last 7 days</th><th class="num">Last 30 days</th><th class="num">All time</th></tr></thead>
+    <tbody>
+    {% for key, info in providers.items() %}{% set s = f.spend[key] %}
+    {% if s.all %}<tr><td>{{ info.label }}</td><td class="num">${{ '%.2f'|format(s['7d']) }}</td><td class="num">${{ '%.2f'|format(s['30d']) }}</td>
+      <td class="num">${{ '%.2f'|format(s.all) }}</td></tr>{% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
 </section>
 
-<section class="card money-section" id="assumptions">
-  <h2>Assumptions</h2>
-  <form method="post" action="{{ url_for('money.save_settings') }}">
+<div class="split split-even">
+  <section class="card money-section" aria-labelledby="back">
+    <h2 id="back">Getting it back</h2>
+    <p class="meta">Long-form pays: mid-roll ads from 8 minutes. From 1 Feb 2027, Shorts earn nothing below 10M views in 90 days.</p>
+    <div class="kv"><span>Long-form views, last 30 days</span><b>{{ '{:,}'.format(f.payback.long_views_30d) }}</b></div>
+    {% if f.payback.views_needed %}
+    <div class="kv"><span>Views a month to cover ${{ '%.2f'|format(f.monthly) }}</span><b>{{ '{:,}'.format(f.payback.views_needed|round|int) }}</b></div>
+    {% endif %}
+    <div class="kv"><span>Would earn now, if in the Partner Programme</span><b>${{ '%.2f'|format(f.payback.would_earn) }} a month</b></div>
+    <p class="meta">At ${{ '%.2f'|format(f.settings.long_rpm) }} per 1,000 long-form views. <a href="#assumptions">Change</a></p>
+  </section>
+
+  <section class="card money-section" aria-labelledby="ypp">
+    <h2 id="ypp">Partner Programme</h2>
+    {% for key, y in f.ypp.items() %}
+    <div class="money-ypp">
+      <h3>{{ channels[key].channel_display_name or key }}{% if key in f.settings.in_ypp %} <span class="badge badge-good">In</span>{% endif %}</h3>
+      <div class="kv"><span>Subscribers</span><b>{{ '{:,}'.format(y.subscribers) if y.subscribers is not none else '?' }} of 1,000</b></div>
+      <div class="kv"><span>Watch hours, last 12 months</span><b>{{ '{:,.1f}'.format(y.hours) }} of {{ '{:,}'.format(y.rule.hours) }}</b></div>
+      <div class="meter meter-good"><span style="width: {{ (100 * y.hours_share)|round|int }}%"></span></div>
+      <div class="kv"><span>Shorts views, last 90 days</span><b>{{ '{:,}'.format(y.shorts_views) }} of {{ '{:,}'.format(y.rule.shorts_views) }}</b></div>
+      {% if y.days_to_change %}
+      <p class="meta">The bar doubles to 8,000 hours on 1 Feb 2027, in {{ y.days_to_change }} days. Joining before then needs about
+        {{ '{:,.1f}'.format(y.hours_per_day_needed) }} watch hours a day.</p>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="meta">No channel publishes on a schedule yet.</p>
+    {% endfor %}
+    <p class="hint">Read from YouTube twice a day. Shorts don't count toward watch hours.</p>
+  </section>
+</div>
+
+<details class="card money-section" id="assumptions">
+  <summary class="summary-heading">Assumptions</summary>
+  <form method="post" action="{{ url_for('money.save_settings') }}" class="assumptions-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label class="field-row"><span class="field-label">ElevenLabs plan, $ a month</span>
       <input type="number" name="elevenlabs_monthly_usd" min="0" step="0.5" value="{{ f.settings.elevenlabs_monthly_usd }}"></label>
@@ -132,7 +148,7 @@
     <label class="field-row"><span class="field-label">Shorts RPM, $ per 1,000 views
       <button type="button" class="info-dot" data-tooltip="From 1 Feb 2027, nothing below 10M Shorts views in 90 days. Around $0.03-0.07 above that.">?</button></span>
       <input type="number" name="shorts_rpm" min="0" step="0.01" value="{{ f.settings.shorts_rpm }}"></label>
-    <fieldset><legend>In the Partner Programme</legend>
+    <fieldset class="plain-fieldset"><legend class="field-label">In the Partner Programme</legend>
       {% for key in f.ypp %}
       <label class="checkbox-label"><input type="checkbox" name="ypp_{{ key }}" {% if key in f.settings.in_ypp %}checked{% endif %}>
         {{ channels[key].channel_display_name or key }}</label>
@@ -140,5 +156,11 @@
     </fieldset>
     <button type="submit" class="btn btn-primary">Save</button>
   </form>
-</section>
+</details>
+<script>
+  // "Change" opens the assumptions rather than jumping to a closed box.
+  document.querySelectorAll('a[href="#assumptions"]').forEach((a) =>
+    a.addEventListener("click", () => { document.getElementById("assumptions").open = true; }));
+  if (location.hash === "#assumptions") document.getElementById("assumptions").open = true;
+</script>
 {% endblock %}

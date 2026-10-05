@@ -2,13 +2,14 @@
 {% block title %}Facts{% endblock %}
 {% block content %}
 {% if busy %}<meta http-equiv="refresh" content="6">{% endif %}
-<h1>Facts
-  <button type="button" class="info-dot" data-tooltip="Quiz facts from Wikidata, gathered ahead of any script. Each round is written from facts its channel hasn't used, at the round's level. The app keeps every quiz category stocked by itself, hourly.">?</button>
-</h1>
-{% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
-
-<p class="meta">{{ '{:,}'.format(totals.facts) }} facts about {{ '{:,}'.format(totals.entities) }} things,
-  in {{ totals.categories }} categories.</p>
+<div class="page-head">
+  <div>
+    <h1>Facts and questions</h1>
+    <p class="page-sub">{{ '{:,}'.format(totals.facts) }} facts about {{ '{:,}'.format(totals.entities) }} things,
+      in {{ totals.categories }} categories. Quiz categories stay stocked by themselves, hourly.</p>
+  </div>
+</div>
+{% if note %}<p class="info-banner">{{ note }}</p>{% endif %}
 
 <div class="card">
   <form method="post" action="{{ url_for('facts.add_category') }}" class="actions">
@@ -42,6 +43,7 @@
   <button type="submit" class="btn-ghost" {{ 'disabled' if busy }}>Write more questions now</button>
 </form>
 {% if bank.rows %}
+<div class="tablewrap">
 <table class="facts-table">
   <thead><tr><th>Category</th><th>Checked</th><th>Unused</th></tr></thead>
   <tbody>
@@ -55,6 +57,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% endif %}
 
 <h2>Imported questions
@@ -63,6 +66,7 @@
 <p class="meta">{{ '{:,}'.format(intake_pending) }} waiting to be processed, out of the bank's budget above,
   before the scheduler writes any new questions itself.</p>
 {% if intake %}
+<div class="tablewrap">
 <table class="facts-table">
   <thead><tr><th>Source</th><th>Waiting</th><th>In the bank</th><th>Failed the check</th><th>Didn't suit</th><th>Already had</th></tr></thead>
   <tbody>
@@ -72,6 +76,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% endif %}
 <div class="actions">
   <form method="post" action="{{ url_for('facts.import_questions', what='opentdb') }}">
@@ -99,6 +104,7 @@
 
 <h2>Facts</h2>
 {% if rows %}
+<div class="tablewrap">
 <table class="facts-table">
   <thead><tr><th>Category</th><th>Facts</th><th>Unused</th><th>From</th><th></th></tr></thead>
   <tbody>
@@ -118,6 +124,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% endif %}
 
 {% if runs %}

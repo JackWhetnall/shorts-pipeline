@@ -1,58 +1,86 @@
 {% extends "base.html" %}
+{% from "_ui.html" import tally_class, status_pill %}
 {% block title %}Today{% endblock %}
 {% block content %}
-<h1>Today</h1>
+<div class="page-head">
+  <div>
+    <h1>Today</h1>
+    <p class="page-sub">
+      {% if not has_channels %}Nothing set up yet.
+      {% elif items %}{{ items|length }} thing{{ 's' if items|length != 1 }} need{{ 's' if items|length == 1 }} you.
+      {% else %}Nothing needs you. Everything is running by itself.{% endif %}
+    </p>
+  </div>
+  {% if has_channels and review_waiting %}
+  <div class="page-actions">
+    <a class="btn btn-primary" href="{{ url_for('review.queue') }}">Review {{ review_waiting }} video{{ 's' if review_waiting != 1 }}</a>
+  </div>
+  {% endif %}
+</div>
 
 {% if not has_channels %}
 <div class="empty-state">
-  <p><strong>No channels yet.</strong></p>
-  <a class="btn btn-primary" href="{{ url_for('channels.new_channel') }}">+ New channel</a>
+  <p><strong>Start with a channel</strong></p>
+  <p>Describe what it makes and the app drafts the rest.</p>
+  <a class="btn btn-primary" href="{{ url_for('channels.new_channel') }}">New channel</a>
 </div>
 {% else %}
 <div class="today-grid">
-  <section class="card today-needs">
-    <h2>Needs you{% if items %} <span class="nav-count">{{ items|length }}</span>{% endif %}</h2>
+  <section class="card today-needs" aria-labelledby="needs-you">
+    <div class="card-head">
+      <h2 id="needs-you">Needs you</h2>
+    </div>
     {% for item in items %}
     <div class="today-item today-{{ item.severity }}">
-      <span class="today-dot" aria-hidden="true"></span>
+      <span class="tally {{ tally_class(item.severity) }}" aria-hidden="true"></span>
       <div class="today-item-text">
         <div class="today-item-title">{{ item.title }}</div>
         {% if item.detail %}<div class="meta">{{ item.detail }}</div>{% endif %}
       </div>
       <div class="today-item-actions">
         {% if item.action %}
+          {% set primary = 'btn-primary' if item.severity == 'bad' else 'btn-ghost' %}
           {% if item.post %}
           <form method="post" action="{{ item.url }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-small {{ 'btn-primary' if item.severity == 'bad' else 'btn-ghost' }}">{{ item.action }}</button></form>
+            <button type="submit" class="btn btn-small {{ primary }}">{{ item.action }}</button></form>
           {% else %}
-          <a class="btn btn-small {{ 'btn-primary' if item.severity == 'bad' else 'btn-ghost' }}" href="{{ item.url }}"
+          <a class="btn btn-small {{ primary }}" href="{{ item.url }}"
              {% if item.outside %}target="_blank" rel="noopener"{% endif %}>{{ item.action }}{% if item.outside %} ↗{% endif %}</a>
           {% endif %}
         {% endif %}
         {% for label, url, post in item.extra %}
           {% if post %}
           <form method="post" action="{{ url }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-small btn-ghost">{{ label }}</button></form>
-          {% else %}<a class="btn btn-small btn-ghost" href="{{ url }}">{{ label }}</a>{% endif %}
+            <button type="submit" class="btn btn-small btn-quiet">{{ label }}</button></form>
+          {% else %}<a class="btn btn-small btn-quiet" href="{{ url }}">{{ label }}</a>{% endif %}
         {% endfor %}
       </div>
     </div>
     {% else %}
-    <p class="meta">Nothing. Everything that's running is running by itself.</p>
+    <div class="today-clear">
+      <span class="tally tally-good" aria-hidden="true"></span>
+      <div>
+        <div class="today-item-title">All clear</div>
+        <div class="meta">Anything that needs a decision shows up here as it happens.</div>
+      </div>
+    </div>
     {% endfor %}
   </section>
 
   <div class="today-side">
-    <section class="card">
-      <h2>Running by itself</h2>
+    <section class="card" aria-labelledby="running">
+      <h2 id="running">Running by itself</h2>
       {% if running is none %}
       <p class="meta">Couldn't read the channels' schedules; the details are in the log.</p>
       {% else %}
       {% for row in running %}
       <a class="today-run" href="{{ url_for('channels.dashboard', key=row.key) }}">
-        <span class="today-run-name">{{ row.name }}</span>
-        <span class="badge {{ 'badge-danger' if row.status[0] == 'blocked' else 'badge-warn' if row.status[0] == 'paused' else '' }}">{{ row.status[1] }}</span>
-        <span class="meta">{{ row.schedule }} · {{ row.queued }} queued{% if row.next %} · next {{ row.next }}{% endif %}</span>
+        <span class="today-run-top">
+          <span class="today-run-name">{{ row.name }}</span>
+          {{ status_pill(row.status) }}
+        </span>
+        <span class="meta">{{ row.schedule }}{% if row.next %}, next {{ row.next }}{% endif %}</span>
+        <span class="meta">{{ row.queued }} ready to go{% if row.waiting %}, {{ row.waiting }} to review{% endif %}</span>
         {% if row.block %}<span class="meta today-run-block">{{ row.block }}</span>{% endif %}
       </a>
       {% else %}
@@ -60,29 +88,35 @@
       {% endfor %}
       {% for job in background or [] %}
       <div class="today-run">
-        <span class="today-run-name">{{ job.name }}{% if job.running %} <span class="spinner"></span>{% endif %}</span>
-        <span class="meta">{{ job.schedule }} · {{ job.detail }}</span>
+        <span class="today-run-top">
+          <span class="today-run-name">{{ job.name }}</span>
+          {% if job.running %}<span class="status-pill"><span class="tally tally-wait tally-live" aria-hidden="true"></span>Working</span>{% endif %}
+        </span>
+        <span class="meta">{{ job.schedule }}</span>
+        <span class="meta">{{ job.detail }}</span>
       </div>
       {% endfor %}
       {% endif %}
     </section>
 
-    <section class="card">
-      <h2><a href="{{ url_for('money.page') }}">This month</a></h2>
+    <section class="card" aria-labelledby="month">
+      <div class="card-head">
+        <h2 id="month">This month</h2>
+        <a class="meta" href="{{ url_for('money.page') }}">Money</a>
+      </div>
       {% if forecast is none %}
       <p class="meta">Couldn't work out the money; the details are in the log.</p>
       {% else %}
-      <div class="today-kv"><span>Costs at this schedule</span><b>${{ '%.2f'|format(forecast.monthly) }}/mo</b></div>
+      <div class="kv"><span>Costs at this schedule</span><b>${{ '%.2f'|format(forecast.monthly) }} a month</b></div>
       {% if forecast.claude_balance is not none %}
-      <div class="today-kv"><span>Claude credit</span><b>${{ '%.2f'|format(forecast.claude_balance) }} left</b></div>
+      <div class="kv"><span>Claude credit</span><b class="{{ 'money-bad' if forecast.claude and forecast.claude.days is not none and forecast.claude.days < 7 }}">${{ '%.2f'|format(forecast.claude_balance) }} left</b></div>
       {% endif %}
       {% if forecast.voice %}
       {% set v = forecast.voice %}
-      <div class="today-kv"><span>Voice</span><b>{{ '{:,}'.format(v.remaining) }} of {{ '{:,}'.format(v.limit) }}</b></div>
-      <div class="today-meter"><span style="width: {{ (100 * v.used / v.limit)|round|int if v.limit else 0 }}%"></span></div>
+      <div class="kv"><span>Voice left</span><b class="{{ 'money-bad' if v.runs_out }}">{{ '{:,}'.format(v.remaining) }} of {{ '{:,}'.format(v.limit) }}</b></div>
+      <div class="meter {{ 'meter-bad' if v.runs_out }}"><span style="width: {{ (100 * v.remaining / v.limit)|round|int if v.limit else 0 }}%"></span></div>
       {% endif %}
-      <div class="today-kv"><span>Earning</span><b>${{ '%.2f'|format(forecast.payback.earning) }}/mo</b></div>
-      <a class="meta" href="{{ url_for('money.page') }}">Costs, payback and the Partner Programme →</a>
+      <div class="kv"><span>Earning</span><b>${{ '%.2f'|format(forecast.payback.earning) }} a month</b></div>
       {% endif %}
     </section>
   </div>

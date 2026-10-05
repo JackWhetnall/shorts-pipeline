@@ -2,8 +2,8 @@
 {% block title %}Footage library{% endblock %}
 {% block content %}
 
-<h1>Footage library</h1>
-<p class="subtitle">
+<div class="page-head"><div><h1>Footage</h1>
+<p class="page-sub">
   {{ library_total }} clip{{ 's' if library_total != 1 }} shared across every channel.
   {% if unverified %}<strong>{{ unverified }}</strong> {{ 'has' if unverified == 1 else 'have' }} an unconfirmed licence.{% endif %}
   {% if unenriched %}
@@ -11,7 +11,7 @@
   {{ 'it matches' if unenriched == 1 else 'they match' }} on description text alone.
   Run <code>python tools/manage_library.py enrich</code> to sharpen matching.
   {% endif %}
-</p>
+</p></div></div>
 
 <form class="footage-filters" method="get" action="{{ url_for('footage.browse') }}">
   <input type="search" name="q" value="{{ query }}"

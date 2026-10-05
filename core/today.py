@@ -267,14 +267,7 @@ def running(channels: dict, now: float = None) -> list:
         schedule = publish_queue.schedule_for(channel)
         upcoming = [when for _, when in schedule if when]
         block = scheduler.generation_block(key, channel, state=state)
-        if not channel.publishing.enabled:
-            status = ("paused", "Paused")
-        elif any(f(channel) for f in (_expired,)):
-            status = ("blocked", "Can't upload")
-        elif channel.autopilot.mode == "when_clean":
-            status = ("auto", "Autopilot")
-        else:
-            status = ("review", "You approve")
+        status = channel_status(channel, section)
         rows.append({"key": key, "name": channel.channel_display_name or key, "status": status,
                      "schedule": schedule_label(channel.publishing), "queued": state["queued"],
                      "waiting": state["waiting"],
@@ -282,6 +275,22 @@ def running(channels: dict, now: float = None) -> list:
                      "making": block is None or "being made" in (block or ""),
                      "block": block if block and "ready and queued" not in block else ""})
     return rows
+
+
+def channel_status(channel, section: str) -> tuple:
+    """(kind, label) for a channel: the same words on Today, the channel
+    list and a channel's own header. `section` is core.launch.section's."""
+    if section == "archived":
+        return ("archived", "Archived")
+    if section != "live":
+        return ("setup", "Setting up")
+    if not channel.publishing.enabled:
+        return ("paused", "Paused")
+    if _expired(channel):
+        return ("blocked", "Can't upload")
+    if channel.autopilot.mode == "when_clean":
+        return ("auto", "Autopilot")
+    return ("review", "You approve")
 
 
 def _expired(channel) -> bool:

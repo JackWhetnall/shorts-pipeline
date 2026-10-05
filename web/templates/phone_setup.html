@@ -1,9 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Phone access{% endblock %}
 {% block content %}
-<h1>Phone access</h1>
-<p class="meta">Use the app from a phone on the same Wi-Fi: see what's being made, watch and approve or discard
-  what's waiting for review, check a quiz's questions, and start the next video.</p>
+<div class="page-head">
+  <div>
+    <h1>Phone</h1>
+    <p class="page-sub">Review, check questions and start videos from a phone on the same Wi-Fi.</p>
+  </div>
+</div>
+
 {% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
 
 <div class="card">

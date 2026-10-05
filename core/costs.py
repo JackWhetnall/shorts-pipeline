@@ -310,6 +310,31 @@ def summary_all(path: Path = None) -> dict:
     return _summarize(read_records(path))
 
 
+# What each operation is for, in the words of someone reading a bill rather
+# than the code: first matching prefix wins, checked in this order.
+KINDS = (
+    ("Voice", ("elevenlabs:",)),
+    ("Question bank", ("claude:bank_", "claude:category_", "claude:facts_", "claude:intake_")),
+    ("Checks", ("claude:check_", "claude:picture_check", "claude:animation_motion_check",
+                "claude:animation_keyframe_check")),
+    ("Pictures", ("fal", "openai", "claude:animation_", "claude:art_pick", "claude:scene_",
+                  "claude:palette_", "claude:template_fill")),
+    ("Footage", ("claude:footage_", "claude:enrich_", "claude:describe_clip", "claude:director")),
+    ("Music", ("claude:music_",)),
+    ("Scripts", ("claude:",)),
+)
+
+
+def by_kind(by_operation: dict) -> list:
+    """[(kind, usd)], most expensive first: a summary's by_operation folded
+    into the handful of things a channel actually pays for."""
+    totals = {}
+    for operation, usd in by_operation.items():
+        kind = next((name for name, prefixes in KINDS if operation.startswith(prefixes)), "Other")
+        totals[kind] = totals.get(kind, 0.0) + (usd or 0.0)
+    return sorted(totals.items(), key=lambda kv: -kv[1])
+
+
 def format_usd(amount) -> str:
     """Sub-cent amounts are common here (a script call is a fraction of a
     cent), and rounding them to $0.00 makes the log look broken."""

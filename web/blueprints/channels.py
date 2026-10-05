@@ -13,7 +13,7 @@ from flask import (
 
 from core import (
     caption_preview, card_preview, channel_admin, curriculum, drafts, fonts, gallery, jobs,
-    launch, posting, publish_queue, scheduler, voice_quota, youtube,
+    launch, posting, publish_queue, scheduler, today, voice_quota, youtube,
 )
 from core.assets import has_logo
 from core.channels import (
@@ -54,6 +54,7 @@ def index():
         info = channel_progress(key, channel)
         info["last_published_label"] = format_date(
             gallery.latest_published_at(channel.output_dir))
+        info["status"] = today.channel_status(channel, info["section"])
         progress[key] = info
         sections[info["section"]][key] = channel
 
@@ -109,7 +110,11 @@ def dashboard(key):
         social_links=social_links, monetization_links=monetization_links,
         has_logo=has_logo(key),
         upcoming=[{"title": gallery.load_publish_info(path)["title"] or path.stem,
-                   "when": when.strftime("%a %d %b, %H:%M") if when else "on the next check"}
+                   "when": when.strftime("%a %d %b, %H:%M") if when else "on the next check",
+                   "day": when.strftime("%a") if when else "Next",
+                   "date": when.strftime("%d %b").lstrip("0") if when else "",
+                   "time": when.strftime("%H:%M") if when else "check",
+                   "relpath": _relpath_or_none(path)}
                   for path, when in publish_queue.schedule_for(channel)],
         generation_status=scheduler.generation_block(key, channel),
         weekday_names=("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
@@ -134,9 +139,21 @@ def _plan_estimate(key: str, channel):
             "limit": quota.limit if quota else None}
 
 
+def _relpath_or_none(path):
+    """A video's address for its own page, or None for one kept outside the
+    output folder (a channel with a custom output path)."""
+    from core.paths import relative_to_output
+    try:
+        return relative_to_output(path)
+    except ValueError:
+        return None
+
+
 def _channel_cost(key: str) -> dict:
     from core import costs
-    return costs.summary_for_channel(key)
+    summary = costs.summary_for_channel(key)
+    summary["kinds"] = costs.by_kind(summary["by_operation"])
+    return summary
 
 
 # The settings form's own section ids. Named here because the save

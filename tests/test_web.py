@@ -15,6 +15,7 @@ quietly stops working.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -795,3 +796,64 @@ class TestPublishingPlan:
         html = client.get("/channels/test_channel").get_data(as_text=True)
         assert "Launch" in html and "Publishing" in html
         assert "Make and approve a first video" in html
+
+
+WEB = Path(__file__).resolve().parent.parent / "web"
+
+
+class TestInterface:
+    """Decision 068. Each of these was on screen before it was in a test."""
+
+    @pytest.fixture
+    def empty_registry(self, monkeypatch):
+        from core import jobs
+        monkeypatch.setattr(jobs, "_jobs", {})
+        monkeypatch.setattr(jobs, "_queue", [])
+
+    @pytest.mark.parametrize("path,tab", [
+        ("/channels/test_channel", "Overview"),
+        ("/channels/test_channel/gallery", "Videos"),
+        ("/channels/test_channel/settings", "Settings"),
+        ("/channels/test_channel/profile", "Profile"),
+    ])
+    def test_every_page_of_a_channel_opens_with_its_header_and_tabs(self, client, path, tab):
+        """Overview, Videos, Settings and Profile used to be separate pages
+        joined by "back to dashboard" links: going across meant going up."""
+        html = client.get(path).get_data(as_text=True)
+        assert 'class="channel-head"' in html and 'class="tabs"' in html
+        assert f'class="active">{tab}' in html
+        for other in ("/channels/test_channel/gallery", "/channels/test_channel/settings",
+                      "/channels/test_channel/profile"):
+            assert f'href="{other}"' in html
+
+    def test_the_header_says_idle_when_nothing_is_being_made(self, client, empty_registry):
+        """Activity is a chip that is always there, not a strip that only
+        appears mid-render; with nothing running it still leads there."""
+        html = client.get("/").get_data(as_text=True)
+        assert 'class="global-activity" href="/activity"' in html and "Idle" in html
+        assert "data-busy" not in html.split('class="global-activity"')[1][:80]
+
+    def test_a_secondary_button_does_not_turn_gold_under_the_pointer(self):
+        """`button:hover:not(:disabled)` outranks `.btn-ghost:hover`, so every
+        secondary <button> took the primary's gold on hover. The bare
+        button's hover has to carry no weight of its own."""
+        css = (WEB / "static" / "style.css").read_text(encoding="utf-8")
+        bare = [line for line in css.splitlines() if line.startswith("button:") and "hover" in line]
+        assert bare and all(":where(:hover" in line for line in bare), bare
+
+    def test_a_hidden_tooltip_takes_no_room(self):
+        """An invisible tooltip near the right edge still counted towards the
+        page's width, and the APIs page scrolled sideways."""
+        css = (WEB / "static" / "style.css").read_text(encoding="utf-8")
+        rule = css[css.index(".info-dot::after, .cost-dot::after {"):]
+        rule = rule[:rule.index("}")]
+        assert "display: none" in rule and "opacity: 0" not in rule
+
+    def test_the_review_bar_starts_hidden(self):
+        """It stayed on screen over an empty queue: the script toggled a
+        .hidden class that the bar's own display rule overrode. It's the
+        hidden attribute now, which the stylesheet makes absolute."""
+        template = (WEB / "templates" / "review.html").read_text(encoding="utf-8")
+        assert '<div class="review-bar" hidden>' in template
+        script = (WEB / "static" / "app.js").read_text(encoding="utf-8")
+        assert 'document.querySelector(".review-bar").hidden = !item;' in script

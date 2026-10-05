@@ -6,12 +6,14 @@
   New channel
 </a>
 
-<h1>Draft channel</h1>
-<p class="subtitle">
-  From the pitch &ldquo;{{ draft.pitch }}&rdquo;{% if draft.notes %}, redrafted with:
-  {% for n in draft.notes %}&ldquo;{{ n }}&rdquo;{% if not loop.last %}; {% endif %}{% endfor %}{% endif %}.
-  Change anything below, then create it. Nothing exists until you do.
-</p>
+<div class="page-head">
+  <div>
+    <h1>{{ body.name_options[0] }}</h1>
+    <p class="page-sub">A draft from &ldquo;{{ draft.pitch }}&rdquo;{% if draft.notes %}, redrafted with
+      {% for n in draft.notes %}&ldquo;{{ n }}&rdquo;{% if not loop.last %}; {% endif %}{% endfor %}{% endif %}.
+      Change anything, then create it.</p>
+  </div>
+</div>
 
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
@@ -27,10 +29,12 @@
   </p>
   {% endif %}
   {% if body.risks %}
-  <h3>Worth knowing</h3>
-  <ul class="draft-risks">
-    {% for risk in body.risks %}<li>{{ risk }}</li>{% endfor %}
-  </ul>
+  <details class="draft-risks-box">
+    <summary class="summary-heading">Worth knowing <span class="section-count">{{ body.risks|length }}</span></summary>
+    <ul class="draft-risks">
+      {% for risk in body.risks %}<li>{{ risk }}</li>{% endfor %}
+    </ul>
+  </details>
   {% endif %}
 </div>
 

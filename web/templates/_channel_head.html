@@ -1,0 +1,59 @@
+{# The top of every page that belongs to a channel: its logo, its name, the
+   state it's in, and tabs between its pages. Set `tab` before including:
+   overview, videos, plan, settings, profile, or anything else for a page
+   that sits under a channel without a tab of its own. #}
+{% from "_ui.html" import status_pill, what_it_makes %}
+{% set head = channel_head_info(channel) %}
+<header class="channel-head">
+  <a class="channel-head-logo" href="{{ url_for('logos.logo_page', key=channel.key) }}"
+     title="{{ 'Logo' if head.has_logo else 'Make a logo' }}">
+    {% if head.has_logo %}
+    <img src="{{ url_for('logos.serve_asset', key=channel.key, filename='logo.png') }}" alt="">
+    {% else %}
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    {% endif %}
+  </a>
+  <div class="channel-head-text">
+    <div class="channel-head-title">
+      <h1>{{ channel.channel_display_name }}</h1>
+      {% if tab == 'overview' %}
+      <details class="rename-details">
+        <summary class="icon-btn" title="Rename" aria-label="Rename channel">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </summary>
+        <div class="card rename-panel">
+          <form method="post" action="{{ url_for('channels.rename', key=channel.key) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>New name
+              <input type="text" name="new_name" required placeholder="{{ channel.channel_display_name }}">
+            </label>
+            <button type="submit">Rename</button>
+          </form>
+          <p class="hint">Everything the channel has moves with it: videos, plan, logo and settings.</p>
+        </div>
+      </details>
+      {% endif %}
+    </div>
+    <div class="channel-head-sub">
+      {% if head.status %}{{ status_pill(head.status) }}{% endif %}
+      <span>{{ what_it_makes(channel) }}</span>
+    </div>
+  </div>
+  <div class="channel-head-actions">
+    {% if tab != 'new' %}
+    <a class="btn btn-primary" href="{{ url_for('channels.create_video', key=channel.key) }}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      New video
+    </a>
+    {% endif %}
+  </div>
+</header>
+<nav class="tabs" aria-label="{{ channel.channel_display_name }}">
+  <a href="{{ url_for('channels.dashboard', key=channel.key) }}" class="{{ 'active' if tab == 'overview' }}">Overview</a>
+  <a href="{{ url_for('gallery.channel_gallery', key=channel.key) }}" class="{{ 'active' if tab == 'videos' }}">Videos{% if head.state.active %}<span class="tab-count">{{ head.state.active }}</span>{% endif %}</a>
+  {% if channel.content_mode == 'topic' %}
+  <a href="{{ url_for('curriculum.page', key=channel.key) }}" class="{{ 'active' if tab == 'plan' }}">Plan</a>
+  {% endif %}
+  <a href="{{ url_for('channels.settings', key=channel.key) }}" class="{{ 'active' if tab == 'settings' }}">Settings</a>
+  <a href="{{ url_for('profile.page', key=channel.key) }}" class="{{ 'active' if tab == 'profile' }}">Profile</a>
+</nav>

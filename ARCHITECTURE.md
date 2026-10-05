@@ -194,7 +194,13 @@ pipeline/     The generation stages. No web dependency at all.
     examples/     Hand-written scenes: the pentagram, compound interest.
 
 web/          Flask only.
-  __init__      App factory: CSRF, error handling, blueprint registration.
+  __init__      App factory: CSRF, error handling, blueprint registration,
+                and what every page's chrome needs (counts, a channel's header).
+  templates/    Jinja. `base.html` is the header; `_channel_head.html` is the
+                logo, status and tabs every page of a channel opens with;
+                `_ui.html` holds the tally-light macros.
+  static/       One stylesheet (tokens at the top: colour means state, decision
+                068) and one script.
   blueprints/   today, money, backgrounds, channels, curriculum, footage, gallery, jobs
                 (incl. the Activity page), logos, review, services,
                 setup, style_setup, voice_lab, youtube.
@@ -210,7 +216,10 @@ The app opens on **Today** (`/`, `core.today`): one list of everything
 waiting on you, worst first, each with the one button that deals with it,
 beside what each channel is doing by itself and what this month costs;
 **Money** (`/money`, `core.money`) has the detail. See decision
-[067](docs/decisions/067-today-and-money.md). Around that, the app is
+[067](docs/decisions/067-today-and-money.md). Each channel's own pages
+(Overview, Videos, Plan, Settings, Profile) share one header with its
+status and tabs between them; colour on screen only ever means state
+(decision [068](docs/decisions/068-calmer-interface.md)). Around that, the app is
 organised around what you actually do, at three different frequencies:
 
 - **Setting up a channel** (once each) — a one-line pitch drafts the

@@ -3,22 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0d0e14">
+  <meta name="theme-color" content="#131417">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}Shorts{% endblock %}</title>
   {# The phone pages carry their own few styles: the PC's stylesheet is
      built for a wide window with a sidebar of navigation. #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
   <style>
     :root {
-      --bg: #0d0e14; --surface: #161822; --surface-2: #1e212e; --border: #2a2d3d;
-      --border-light: #363a4d; --text: #eceef4; --text-dim: #9ea2b8; --text-faint: #6a6e82;
-      --accent: #ffd400; --accent-dim: #c9a900; --accent-contrast: #14151c;
-      --danger: #ff5c72; --success: #3ddc97;
+      --bg: #131417; --surface: #1a1b1f; --surface-2: #222429; --border: #2a2c32;
+      --border-light: #393c43; --text: #ececee; --text-dim: #a3a5ad; --text-faint: #71747c;
+      --accent: #ffd400; --accent-dim: #e0bb00; --accent-contrast: #17150a;
+      --danger: #ff5d55; --success: #3fd18b;
       --radius-sm: 6px; --radius: 12px;
       --sp-1: .25rem; --sp-2: .5rem; --sp-3: .75rem; --sp-4: 1rem; --sp-5: 1.5rem;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
            padding: 0 var(--sp-4) calc(var(--sp-5) + env(safe-area-inset-bottom)); }
     a { color: var(--accent); }
     h1 { font-size: 1.35rem; margin: var(--sp-4) 0 var(--sp-2); }

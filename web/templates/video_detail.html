@@ -8,27 +8,33 @@
 
 <div class="video-detail-layout">
   <div class="video-detail-info">
-    <h1>{{ title }}</h1>
-
-    <div class="tile-row">
-      {% if links.youtube_url %}<a class="btn btn-ghost" href="{{ links.youtube_url }}" target="_blank" rel="noopener">YouTube</a>{% endif %}
-      {% if links.tiktok_url %}<a class="btn btn-ghost" href="{{ links.tiktok_url }}" target="_blank" rel="noopener">TikTok</a>{% endif %}
-      {% if links.instagram_url %}<a class="btn btn-ghost" href="{{ links.instagram_url }}" target="_blank" rel="noopener">Instagram</a>{% endif %}
-      {% if not out and not discarded %}<a class="btn btn-primary" href="#publish-card">Publish video</a>{% endif %}
-      {% if not discarded %}<a class="btn-ghost" href="#discard-form">Discard</a>{% endif %}
+    <h1 class="video-title">{{ title }}</h1>
+    <div class="video-sub">
+      {% if discarded %}<span class="status-pill"><span class="tally tally-off" aria-hidden="true"></span>Discarded</span>
+      {% elif out %}<span class="status-pill"><span class="tally tally-good" aria-hidden="true"></span>Published</span>
+      {% else %}<span class="status-pill"><span class="tally tally-wait" aria-hidden="true"></span>Not out yet</span>{% endif %}
+      <span>Made {{ created_label }}</span>
+      {% if published_label %}<span>Published {{ published_label }}</span>{% endif %}
+      {% if cost and cost.calls %}<span class="cost-line">Cost {{ '$%.4f'|format(cost.total_usd) if cost.total_usd < 0.01 else '$%.2f'|format(cost.total_usd) }}</span>{% endif %}
     </div>
 
-    <p class="meta">Created {{ created_label }}</p>
-    {% if published_label %}<p class="meta">Published {{ published_label }}</p>{% endif %}
+    <div class="video-actions">
+      {% if links.youtube_url %}<a class="btn btn-ghost btn-small" href="{{ links.youtube_url }}" target="_blank" rel="noopener">YouTube ↗</a>{% endif %}
+      {% if links.tiktok_url %}<a class="btn btn-ghost btn-small" href="{{ links.tiktok_url }}" target="_blank" rel="noopener">TikTok ↗</a>{% endif %}
+      {% if links.instagram_url %}<a class="btn btn-ghost btn-small" href="{{ links.instagram_url }}" target="_blank" rel="noopener">Instagram ↗</a>{% endif %}
+      {% if not discarded %}
+      <a class="btn-ghost btn-quiet btn-small" href="{{ url_for('remake.page', relpath=relpath) }}"
+         title="Make it again keeping its script, voice and pictures; only the parts you pick are made again">Remake</a>
+      <a class="btn-ghost btn-quiet btn-small" href="#discard-form" data-open="discard-form">Discard</a>
+      {% endif %}
+    </div>
 
     {% if discarded %}
-    <div class="card discarded-banner">
-      <p class="meta">This video's been discarded &mdash; it won't show
-        up as something waiting to be published. Restore it if it was a
-        mistake, or if it turns out to be usable after all.</p>
+    <div class="info-banner discarded-banner">
+      <span>Discarded. It won't come back to Review unless you restore it.</span>
       <form method="post" action="{{ url_for('gallery.restore', key=key, relpath=relpath) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn-ghost">Restore</button>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost btn-small">Restore</button>
       </form>
     </div>
     {% endif %}
@@ -36,36 +42,37 @@
     {% if not discarded and not out %}
     <div class="card" id="publish-card" data-relpath="{{ relpath }}" data-socials="{{ hand_off|join(',') }}">
       <h2>Publish</h2>
-      <p class="meta">Check the title and description, then publish in one click:
-        {% if youtube.connected %}it's uploaded to YouTube{% else %}<strong>YouTube isn't connected</strong>
-          (<a href="{{ url_for('youtube.connect', key=key) }}" target="_blank" rel="noopener">connect it</a>, then reload)
-          so it can't be uploaded from here{% endif %}{% if hand_off %}, and
-        then this page shows the steps for posting it to {{ hand_off|map('capitalize')|join(' and ') }}{% endif %}.</p>
+      {% if not youtube.connected %}
+      <p class="meta"><strong>YouTube isn't connected.</strong>
+        <a href="{{ url_for('youtube.connect', key=key) }}" target="_blank" rel="noopener">Connect it</a>, then reload.</p>
+      {% elif hand_off %}
+      <p class="meta">Goes to YouTube, then this page shows the steps for {{ hand_off|map('capitalize')|join(' and ') }}.</p>
+      {% endif %}
 
-      <label class="review-field">Title
+      <label class="review-field"><span class="field-label">Title</span>
         <input type="text" id="detail-title" value="{{ title_text }}" maxlength="100">
       </label>
-      <label class="review-field">Description
-        <textarea id="detail-description" rows="7">{{ description_text }}</textarea>
+      <label class="review-field"><span class="field-label">Description</span>
+        <textarea id="detail-description" rows="6">{{ description_text }}</textarea>
       </label>
-      <div class="actions">
-        <button type="button" class="btn-ghost" onclick="copyField('detail-title', this)">Copy title</button>
-        <button type="button" class="btn-ghost" onclick="copyField('detail-description', this)">Copy description</button>
-        <button type="button" class="btn-ghost" onclick="detailReveal(this)"
+      <div class="review-tools">
+        <button type="button" class="btn-ghost btn-quiet btn-small" onclick="copyField('detail-title', this)">Copy title</button>
+        <button type="button" class="btn-ghost btn-quiet btn-small" onclick="copyField('detail-description', this)">Copy description</button>
+        <button type="button" class="btn-ghost btn-quiet btn-small" onclick="detailReveal(this)"
                 title="Opens the video's folder with this exact file selected">Show the file</button>
-        <a class="btn-ghost" href="{{ url_for('review.download', relpath=relpath) }}"
+        <a class="btn-ghost btn-quiet btn-small" href="{{ url_for('review.download', relpath=relpath) }}"
            title="Downloads it named after its title">Download</a>
       </div>
-      {% if youtube.connected %}
-      <label class="review-field">YouTube privacy
-        <select id="detail-privacy">
-          <option value="public">Public</option>
-          <option value="unlisted">Unlisted</option>
-          <option value="private">Private</option>
-        </select>
-      </label>
-      {% endif %}
-      <div class="actions">
+      <div class="review-publish-row detail-publish-row">
+        {% if youtube.connected %}
+        <label class="review-field"><span class="field-label">Privacy</span>
+          <select id="detail-privacy">
+            <option value="public">Public</option>
+            <option value="unlisted">Unlisted</option>
+            <option value="private">Private</option>
+          </select>
+        </label>
+        {% endif %}
         <button type="button" class="btn btn-primary" id="detail-publish-btn" onclick="detailPublish(this)"
                 {% if not youtube.connected and not hand_off %}disabled title="Connect YouTube first"{% endif %}>Publish now</button>
       </div>
@@ -82,33 +89,21 @@
     {% endif %}
 
     {% if meta_text %}
-    <div class="card">
-      <h2>Script</h2>
+    <details class="card">
+      <summary class="summary-heading">Script</summary>
       <pre class="meta-text">{{ meta_text }}</pre>
-    </div>
+    </details>
     {% endif %}
 
     {% if not discarded %}
-    <p class="actions">
-      <a class="btn-ghost" href="{{ url_for('remake.page', relpath=relpath) }}"
-         title="Make it again keeping its script, voice and pictures, and making again only the parts you pick">Remake as is</a>
-    </p>
-    <div class="card" id="publish-form">
-      <h2>Posted it yourself? Add the links
-        <button type="button" class="info-dot" data-tooltip="Leave a platform blank if you haven't posted there — this video counts as published as soon as any one link is set.">?</button>
-      </h2>
+    <details class="card" id="publish-form" {% if links.youtube_url or links.tiktok_url or links.instagram_url %}open{% endif %}>
+      <summary class="summary-heading">Posted it yourself?</summary>
+      <p class="meta">Add where it went. One link is enough to count it as published.</p>
       <div class="actions">
-        <a class="btn-ghost" href="https://www.tiktok.com/upload" target="_blank" rel="noopener">Open TikTok upload</a>
-        <a class="btn-ghost" href="https://www.instagram.com/" target="_blank" rel="noopener"
-           title="Instagram has no direct web uploader for Reels — this opens the site to post from there.">Open Instagram</a>
+        <a class="btn-ghost btn-small" href="https://www.tiktok.com/upload" target="_blank" rel="noopener">TikTok upload ↗</a>
+        <a class="btn-ghost btn-small" href="https://www.instagram.com/" target="_blank" rel="noopener"
+           title="Instagram has no web uploader for Reels; this opens the site to post from there.">Instagram ↗</a>
       </div>
-      {% if cost and cost.calls %}
-      <p class="meta cost-line">
-        Cost to make: <strong>{{ '$%.4f'|format(cost.total_usd) if cost.total_usd < 0.01 else '$%.2f'|format(cost.total_usd) }}</strong>
-        ({{ cost.calls }} API call{{ 's' if cost.calls != 1 }}{% if cost.cache_read_tokens %},
-        {{ '{:,}'.format(cost.cache_read_tokens) }} tokens served from cache{% endif %})
-      </p>
-      {% endif %}
 
       <form method="post" action="{{ url_for('gallery.video_detail', key=key, relpath=relpath) }}" class="channel-form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -124,17 +119,13 @@
           <input type="text" name="instagram_url" placeholder="https://instagram.com/reel/..."
                  value="{{ links.instagram_url or '' }}">
         </label>
-        <button type="submit">Save</button>
+        <button type="submit" class="btn-ghost">Save links</button>
       </form>
-    </div>
+    </details>
 
-    <div class="card" id="discard-form">
-      <h2>Discard this video</h2>
-      <p class="subtitle">
-        Doesn't delete anything &mdash; a discarded video moves out of
-        Review, and its topic (if it has one) goes back in the queue to
-        be made again.
-      </p>
+    <details class="card" id="discard-form">
+      <summary class="summary-heading">Discard</summary>
+      <p class="meta">Nothing is deleted. It leaves Review, and its topic goes back in the queue.</p>
       <form method="post" action="{{ url_for('gallery.discard_one', key=key, relpath=relpath) }}" class="channel-form">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label>Reason
@@ -144,9 +135,9 @@
             {% endfor %}
           </select>
         </label>
-        <button type="submit" class="btn-ghost">Discard</button>
+        <button type="submit" class="btn-ghost danger-text">Discard</button>
       </form>
-    </div>
+    </details>
     {% endif %}
   </div>
 
@@ -154,4 +145,11 @@
     <video controls src="{{ url_for('gallery.serve_video', relpath=relpath) }}"></video>
   </div>
 </div>
+<script>
+  // "Discard" at the top opens the discard box rather than jumping to a closed one.
+  document.querySelectorAll("[data-open]").forEach((a) => a.addEventListener("click", () => {
+    const box = document.getElementById(a.dataset.open);
+    if (box) box.open = true;
+  }));
+</script>
 {% endblock %}

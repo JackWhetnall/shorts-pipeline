@@ -1,0 +1,23 @@
+{# Small pieces of the interface used on several pages. #}
+
+{# A tally light's colour for a state: red blocked, gold waiting on you,
+   green running by itself, hollow off. Takes a channel status kind
+   (core.today.channel_status) or a Today item severity. #}
+{% macro tally_class(kind) -%}
+{{ {'blocked': 'tally-bad', 'bad': 'tally-bad',
+    'setup': 'tally-wait', 'warn': 'tally-wait',
+    'auto': 'tally-good', 'review': 'tally-good', 'good': 'tally-good',
+    'paused': 'tally-off', 'archived': 'tally-off'}.get(kind, '') }}
+{%- endmacro %}
+
+{% macro status_pill(status) -%}
+<span class="status-pill"><span class="tally {{ tally_class(status[0]) }}" aria-hidden="true"></span>{{ status[1] }}</span>
+{%- endmacro %}
+
+{% macro what_it_makes(channel) -%}
+{{ 'Quiz' if channel.format == 'quiz' else {'topic': 'Explainers', 'static_corpus': 'Readings'}.get(channel.content_mode, channel.content_mode) }}
+{%- endmacro %}
+
+{% macro back_arrow() -%}
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+{%- endmacro %}

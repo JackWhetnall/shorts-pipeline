@@ -1,11 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{{ channel.channel_display_name }} — Topic plan{% endblock %}
+{% block title %}Plan · {{ channel.channel_display_name }}{% endblock %}
 {% block content %}
-<a class="back-link" href="{{ url_for('channels.dashboard', key=key) }}">
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-  {{ channel.channel_display_name }} dashboard
-</a>
-<h1>Topic plan</h1>
+{% set tab = 'plan' %}
+{% include "_channel_head.html" %}
 
 {% if not progress.has_curriculum %}
 
@@ -53,14 +50,14 @@
 
 {% else %}
 
-<p class="subtitle">{{ progress.subject }}</p>
+<p class="page-sub tab-intro">{{ progress.subject }}</p>
 
 <div class="stat-strip">
-  <div class="stat"><span class="stat-num">{{ progress.total }}</span> subtopics written</div>
-  <div class="stat"><span class="stat-num">{{ progress.done }}</span> made</div>
-  <div class="stat"><span class="stat-num">{{ progress.pending }}</span> waiting</div>
-  <div class="stat"><span class="stat-num">{{ progress.skipped }}</span> skipped</div>
-  <div class="stat"><span class="stat-num">{{ progress.runway_days }}</span> days of runway</div>
+  <div class="stat"><span class="stat-num">{{ progress.pending }}</span><span class="stat-lab">waiting to be made</span></div>
+  <div class="stat"><span class="stat-num">{{ progress.runway_days }}</span><span class="stat-lab">days of runway</span></div>
+  <div class="stat"><span class="stat-num">{{ progress.done }}</span><span class="stat-lab">made</span></div>
+  <div class="stat"><span class="stat-num">{{ progress.total }}</span><span class="stat-lab">written in all</span></div>
+  {% if progress.skipped %}<div class="stat"><span class="stat-num">{{ progress.skipped }}</span><span class="stat-lab">skipped</span></div>{% endif %}
 </div>
 {% if note %}<p class="meta info-banner">{{ note }}</p>{% endif %}
 
@@ -72,17 +69,12 @@
 </p>
 {% endif %}
 
+{% if next_topic %}
 <div class="card">
   <p class="meta">
     {{ progress.topics_filled }} of {{ progress.topic_count }} topics have
-    their subtopics.
-    {% if next_topic %}
-      Next up: <strong>{{ next_topic.title }}</strong> ({{ next_topic.level }}).
-    {% else %}
-      Every topic is filled.
-    {% endif %}
+    their subtopics. Next to write: <strong>{{ next_topic.title }}</strong> ({{ next_topic.level }}).
   </p>
-  {% if next_topic %}
   <div class="actions">
     <button type="button" class="btn btn-primary" id="curriculum-fill-btn"
             onclick="fillTopics('{{ key }}', 1)">
@@ -93,13 +85,19 @@
       Write the next 5 (~{{ '%.2f'|format(cost.per_topic_usd * 5) }} dollars)
     </button>
   </div>
-  {% endif %}
   <p class="hint" id="curriculum-status"></p>
 </div>
+{% else %}
+<p class="hint" id="curriculum-status"></p>
+{% endif %}
 
+<div class="topic-list">
+{% set opened = namespace(done=false) %}
 {% for topic in topics %}
-<details class="card" id="{{ topic.id }}"
-         {% if topic.subtopics and topic.pending %}open{% endif %}>
+{% set holds_next = up_next and topic.subtopics|selectattr('id', 'equalto', up_next)|list %}
+{% set open_this = holds_next or (not up_next and not opened.done and topic.subtopics and topic.pending) %}
+{% if open_this %}{% set opened.done = true %}{% endif %}
+<details class="card topic" id="{{ topic.id }}" {% if open_this %}open{% endif %}>
   <summary class="summary-heading">
     {{ loop.index }}. {{ topic.title }}
     {% if quiz and topic.picture %}<span class="badge">picture round: {{ topic.picture }}</span>
@@ -144,13 +142,7 @@
 
   {% if topic.subtopics %}
   {% set scripted = topic.subtopics|selectattr('script')|list|length %}
-  <div class="plan-rename">
-    <input type="text" id="rename-title-{{ topic.id }}" value="{{ topic.title }}" placeholder="{{ noun|capitalize }} name">
-    <button type="button" class="btn-ghost" onclick="planRename('{{ key }}', '{{ topic.id }}', this)">Rename</button>
-    <button type="button" class="btn-ghost danger-text" data-has-videos="1"
-            onclick="planRemove('{{ key }}', '{{ topic.id }}', this)">Remove</button>
-  </div>
-  <div class="actions">
+  <div class="actions topic-actions">
     {% if scripted < topic.subtopics|length %}
     <button type="button" class="btn-ghost" id="write-scripts-{{ topic.id }}"
             onclick="writeTopicScripts('{{ key }}', '{{ topic.id }}')">
@@ -161,15 +153,26 @@
     <a class="btn-ghost" href="{{ url_for('curriculum.scripts_page', key=key, topic_id=topic.id) }}">
       Read scripts &rarr;
     </a>
-    {% set unmade = topic.subtopics|selectattr('script')|selectattr('status', 'equalto', 'pending')|list|length %}
-    {% if unmade %}
-    <form method="post" action="{{ url_for('curriculum.clear_topic_scripts', key=key, topic_id=topic.id) }}"
-          onsubmit="return confirm('Delete the {{ unmade }} written script{{ 's' if unmade != 1 }} in {{ topic.title }}? Each is written afresh when its video is made.');">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn-ghost danger-text">Delete this topic's scripts</button>
-    </form>
     {% endif %}
-    {% endif %}
+    <details class="topic-edit">
+      <summary class="btn-ghost btn-quiet">Edit</summary>
+      <div class="topic-edit-panel">
+        <div class="plan-rename">
+          <input type="text" id="rename-title-{{ topic.id }}" value="{{ topic.title }}" placeholder="{{ noun|capitalize }} name" aria-label="{{ noun|capitalize }} name">
+          <button type="button" class="btn-ghost" onclick="planRename('{{ key }}', '{{ topic.id }}', this)">Rename</button>
+          <button type="button" class="btn-ghost danger-text" data-has-videos="1"
+                  onclick="planRemove('{{ key }}', '{{ topic.id }}', this)">Remove</button>
+        </div>
+        {% set unmade = topic.subtopics|selectattr('script')|selectattr('status', 'equalto', 'pending')|list|length %}
+        {% if unmade %}
+        <form method="post" action="{{ url_for('curriculum.clear_topic_scripts', key=key, topic_id=topic.id) }}"
+              onsubmit="return confirm('Delete the {{ unmade }} written script{{ 's' if unmade != 1 }} in {{ topic.title }}? Each is written afresh when its video is made.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-ghost danger-text btn-small">Delete its {{ unmade }} unmade script{{ 's' if unmade != 1 }}</button>
+        </form>
+        {% endif %}
+      </div>
+    </details>
   </div>
   <ol class="todo-list">
     {% for sub in topic.subtopics %}
@@ -259,6 +262,15 @@
   {% endif %}
 </details>
 {% endfor %}
+</div>
+<script>
+  // A link to one topic (#its-id) opens it.
+  (function () {
+    const open = () => { const d = location.hash && document.getElementById(location.hash.slice(1));
+                         if (d && d.tagName === "DETAILS") d.open = true; };
+    open(); window.addEventListener("hashchange", open);
+  })();
+</script>
 
 <div class="card" id="plan-add">
   <h2>Add to the plan</h2>

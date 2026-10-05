@@ -7,7 +7,8 @@ each says why it matters. Done items move to the bottom with a date.
 *Last updated: 5 Oct 2026. Pub Quiz Buzz and Minute Pastor both publish
 by themselves. Do the "Now" section first. The app's new home page,
 **Today**, now lists what needs you as it happens, and **Money** shows
-costs, runway and payback; this file is for steps outside the app.*
+costs, runway and payback; this file is for steps outside the app. The
+app has a new look (decision 068): restart it (step E) to see it.*
 
 ---
 
@@ -18,7 +19,7 @@ Google has been rejecting its connection since about 1 Oct, so its next
 upload will fail and land back in Review. Five videos are queued.
 1. Do step 7 below first (publish the Google consent screen), or this
    happens again in 7 days.
-2. **Channels → Minute Pastor → ⚙ Settings → Publishing → Reconnect
+2. **Channels → Minute Pastor → Settings tab → Publishing → Reconnect
    this channel** and sign in with the channel's Google account.
 3. The red "can't upload" line on **Today** goes once it works again.
 
@@ -26,8 +27,8 @@ upload will fail and land back in Review. Five videos are queued.
 About $3.60 of the $40 is left. When it runs out, every script and check
 fails.
 1. [console.anthropic.com → Billing](https://console.anthropic.com/settings/billing): add credit.
-2. **Money → How long it lasts → Claude credit → Balance now**: enter the
-   balance the console shows. From then on the app keeps it up to date
+2. **Money → How long it lasts → Claude credit**: type the balance the
+   console shows into the box and press **Save**. From then on the app keeps it up to date
    from its own log and warns on Today a week before it runs out.
 3. Optional: the same for OpenAI.
 
@@ -46,8 +47,25 @@ Long quizzes now make themselves (decision 066): a quiz night as soon as
 6 categories have an approved round at one difficulty, and a category's
 own quiz as soon as it has one at every level. Each is about 22 minutes
 and waits for you in Review. Their publishing slot is one a week (Sat
-19:00), but two kinds are now made. **Settings → Publishing → Long
-quizzes → On**: tick a second day, e.g. **Wed** as well as Sat.
+19:00), but two kinds are now made. **Channels → Pub Quiz Buzz →
+Settings tab → Publishing → Long quizzes → On**: tick a second day, e.g.
+**Wed** as well as Sat.
+
+### E. Restart the app to get the new look (1 minute)
+The interface was redesigned on 5 Oct (decision 068): a calmer look,
+each channel's pages as tabs under one header, Review filtered by channel,
+and Activity as the chip at the top right. The running app still has the
+old code until it restarts.
+1. Wait until nothing is being made: no "videos generating" bar under
+   the header (restarting mid-video interrupts it; it can be retried,
+   but there's no need).
+2. In Git Bash, in the project folder:
+   ```
+   schtasks //End //TN "Shorts Pipeline"
+   schtasks //Run //TN "Shorts Pipeline"
+   ```
+3. Reload the page. If anything looks wrong or harder to find than before,
+   say what and where.
 
 ---
 

@@ -8,10 +8,12 @@
 {% extends "base.html" %}
 {% block title %}Activity{% endblock %}
 {% block content %}
-<h1>Activity</h1>
-<p class="subtitle" id="activity-subtitle">
-  One video is made at a time &mdash; the rest wait their turn.
-</p>
+<div class="page-head">
+  <div>
+    <h1>Activity</h1>
+    <p class="page-sub" id="activity-subtitle">One video is made at a time; the rest wait their turn.</p>
+  </div>
+</div>
 
 <div id="activity-app"
      data-active="{{ active|tojson|forceescape }}"

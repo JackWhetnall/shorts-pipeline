@@ -165,3 +165,17 @@ def test_video_cost_is_keyed_by_job_not_by_time_window(cost_log):
 
     # Without a job (a CLI run) it falls back to the channel's window.
     assert run._video_cost(started, "chan")["total_usd"] == pytest.approx(1.09)
+
+
+def test_a_channels_costs_fold_into_what_it_pays_for():
+    """The channel page listed `claude:bank_areas — $0.0083`; a bill reads
+    as voice, scripts, the question bank and pictures."""
+    from core import costs
+    kinds = dict(costs.by_kind({
+        "elevenlabs:voiceover": 5.0, "claude:quiz_write": 1.0, "claude:script": 0.5,
+        "claude:bank_write": 1.0, "claude:bank_verify": 0.5, "claude:check_frames": 0.1,
+        "openai-image:keyframe": 0.2, "fal:video": 0.3, "claude:music_pick": 0.01,
+    }))
+    assert kinds == pytest.approx({"Voice": 5.0, "Scripts": 1.5, "Question bank": 1.5, "Checks": 0.1,
+                                   "Pictures": 0.5, "Music": 0.01})
+    assert costs.by_kind({"elevenlabs:voiceover": 1.0, "claude:script": 2.0})[0][0] == "Scripts"

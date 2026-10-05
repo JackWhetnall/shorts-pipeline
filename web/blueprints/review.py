@@ -21,7 +21,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
-from core import audience, gallery, insights, posting, publish_queue, youtube
+from core import audience, costs, gallery, insights, posting, publish_queue, youtube
 from core.errors import PipelineError
 from core.channels import load_channels
 from core.logging_setup import get_logger
@@ -163,6 +163,7 @@ def insights_page():
         any_stats_connection=any(c["stats"] for c in connections.values()),
         audience_status={channels[k].channel_display_name: v
                          for k, v in audience.status().items() if k in channels},
+        spend_kinds=costs.by_kind(((data.get("spend") or {}).get("all_time") or {}).get("by_operation") or {}),
     )
 
 

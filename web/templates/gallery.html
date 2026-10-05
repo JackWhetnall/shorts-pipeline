@@ -1,29 +1,24 @@
 {% extends "base.html" %}
-{% block title %}{{ channel.channel_display_name }} Videos{% endblock %}
+{% block title %}Videos · {{ channel.channel_display_name }}{% endblock %}
 {% block content %}
-<a class="back-link" href="{{ url_for('channels.dashboard', key=key) }}">
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-  {{ channel.channel_display_name }} dashboard
-</a>
-<h1>{{ channel.channel_display_name }} &mdash; Videos</h1>
-<p class="meta">
-  {{ unpublished|length }} waiting for review &middot; {{ approved|length }} approved &middot;
-  {{ published|length }} published &middot;
-  <a href="{{ url_for('review.queue', channel=key) }}">Review them &rarr;</a>
-</p>
-
+{% set tab = 'videos' %}
+{% include "_channel_head.html" %}
 {% if not unpublished and not published and not discarded and not approved %}
 <div class="empty-state">
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8l-6 4 6 4z"/></svg>
-  <p><strong>No videos yet.</strong></p>
-  <a class="btn btn-primary" href="{{ url_for('channels.create_video', key=key) }}">Create one</a>
+  <p><strong>No videos yet</strong></p>
+  <p>The first one shows up here as soon as it's made.</p>
+  <a class="btn btn-primary" href="{{ url_for('channels.create_video', key=key) }}">Make the first video</a>
 </div>
 {% else %}
 
 <div class="gallery-section-header">
-  <h2>Waiting for review{% if unpublished %} <span class="badge">{{ unpublished|length }}</span>{% endif %}</h2>
+  <h2 class="section-title">Waiting for review <span class="section-count">{{ unpublished|length }}</span></h2>
   {% if unpublished %}
-  <button type="button" id="gallery-select-toggle-btn" class="btn-ghost" onclick="toggleSelectMode()">Select</button>
+  <div class="page-actions">
+    <button type="button" id="gallery-select-toggle-btn" class="btn-ghost btn-quiet btn-small" onclick="toggleSelectMode()">Select</button>
+    <a class="btn btn-small btn-primary" href="{{ url_for('review.queue', channel=key) }}">Review them</a>
+  </div>
   {% endif %}
 </div>
 {% if unpublished %}
@@ -51,8 +46,8 @@
 <p class="meta">Nothing waiting for review.</p>
 {% endif %}
 
-<h2 class="gallery-section-spaced">Approved, ready to publish{% if approved %} <span class="badge">{{ approved|length }}</span>{% endif %}
-  <button type="button" class="info-dot" data-tooltip="Approved videos go out at the publishing plan's times (Settings, Publishing). With the plan off, or nowhere to publish, they wait here.">?</button>
+<h2 class="section-title gallery-section-spaced">Approved <span class="section-count">{{ approved|length }}</span>
+  <button type="button" class="info-dot" data-tooltip="These go out at the publishing plan's times. With the plan off, they wait here.">?</button>
 </h2>
 {% if approved %}
 <div class="gallery-grid">
@@ -75,7 +70,7 @@
 <p class="meta">Nothing approved yet.</p>
 {% endif %}
 
-<h2 class="gallery-section-spaced">Published{% if published %} <span class="badge">{{ published|length }}</span>{% endif %}</h2>
+<h2 class="section-title gallery-section-spaced">Published <span class="section-count">{{ published|length }}</span></h2>
 {% if published %}
 <div class="gallery-grid">
   {% for v in published %}
@@ -91,12 +86,11 @@
 {% endif %}
 
 <details class="gallery-section-spaced">
-  <summary class="summary-heading">Discarded{% if discarded %} <span class="badge">{{ discarded|length }}</span>{% endif %}</summary>
+  <summary class="section-title">Discarded <span class="section-count">{{ discarded|length }}</span></summary>
   {% if discarded %}
   <div class="discard-bulk">
-    <p class="meta">Discarded takes keep their files so the decision stays
-      reversible. Deleting them frees the disk and keeps the discard reasons
-      on <a href="{{ url_for('review.insights_page') }}">Insights</a>.</p>
+    <p class="meta">Kept so a discard can be undone. Deleting frees the disk; the reasons stay on
+      <a href="{{ url_for('review.insights_page') }}">Insights</a>.</p>
     <form method="post" action="{{ url_for('gallery.delete_all_discarded', key=key) }}"
           onsubmit="return confirm('Permanently delete {{ discarded|length }} discarded video{{ '' if discarded|length == 1 else 's' }}? This cannot be undone.');">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

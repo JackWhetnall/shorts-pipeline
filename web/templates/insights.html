@@ -1,14 +1,18 @@
 {% extends "base.html" %}
-{% block title %}How it's going{% endblock %}
+{% block title %}Insights{% endblock %}
 {% block content %}
 
-<h1>How it's going</h1>
-<p class="subtitle">{{ headline }}</p>
+<div class="page-head">
+  <div>
+    <h1>Insights</h1>
+    <p class="page-sub">{{ headline }}</p>
+  </div>
+</div>
 
 {% if not data.video_count %}
 <div class="empty-state">
-  <p><strong>Nothing to measure yet.</strong></p>
-  <p>Generate a few videos and this fills in.</p>
+  <p><strong>Nothing to measure yet</strong></p>
+  <p>This fills in as videos are made and published.</p>
 </div>
 {% else %}
 
@@ -32,13 +36,22 @@
   </div>
   <div class="stat">
     <span class="stat-num">${{ '%.2f'|format(data.spend.per_published_usd) }}</span>
-    <span class="stat-lab">Per published video</span>
+    <span class="stat-lab">Per published video
+      <button type="button" class="info-dot" data-tooltip="Everything spent, divided by what was published: discarded videos are part of the price.">?</button></span>
   </div>
 </div>
 
 {% set a = data.audience %}
 <div class="card" id="audience">
-  <h2>Audience</h2>
+  <div class="card-head">
+    <h2>Audience</h2>
+    {% if any_stats_connection %}
+    <form method="post" action="{{ url_for('review.refresh_stats') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-ghost btn-small">Refresh now</button>
+    </form>
+    {% endif %}
+  </div>
   {% if needs_reconnect %}
   <p class="meta info-banner">
     Reconnect to see numbers:
@@ -85,8 +98,7 @@
       </tbody>
     </table>
   </div>
-  <p class="hint">% viewed is the number that matters most for short-form, and YouTube
-    reports it a day or two late. Views arrive first.</p>
+  <p class="hint">% viewed matters most for short-form. YouTube reports it a day or two after views.</p>
   {% elif any_stats_connection %}
   <p class="meta">No numbers yet. They're fetched twice a day for videos published
     through a connected channel.</p>
@@ -94,21 +106,12 @@
   <p class="meta">Connect a channel to YouTube (Settings &rarr; Publishing) to see how
     its published videos are doing here.</p>
   {% endif %}
-  {% if any_stats_connection %}
-  <form method="post" action="{{ url_for('review.refresh_stats') }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="btn-ghost">Refresh numbers now</button>
-  </form>
-  {% endif %}
 </div>
 
 <div class="card">
   <h2>Why videos get discarded</h2>
   {% if data.discard_reasons.rows %}
-  <p class="subtitle">
-    This is the signal that tells you what to fix. {{ data.discard_reasons.recorded }}
-    discard{{ 's' if data.discard_reasons.recorded != 1 }} with a recorded reason.
-  </p>
+  <p class="meta">{{ data.discard_reasons.recorded }} discard{{ 's' if data.discard_reasons.recorded != 1 }} with a reason. The longest bar is the thing to fix.</p>
   <div class="reason-bars">
     {% for row in data.discard_reasons.rows %}
     <div class="reason-row">
@@ -138,27 +141,24 @@
 {% if q.reported %}
 <div class="card">
   <h2>Render quality</h2>
-  <p class="subtitle">Across the {{ q.reported }} video{{ 's' if q.reported != 1 }} rendered since these checks existed.</p>
+  <p class="meta">Across {{ q.reported }} video{{ 's' if q.reported != 1 }}.</p>
   <div class="stat-strip stat-strip-inline">
     <div class="stat">
       <span class="stat-num {{ 'stat-bad' if q.footage_repeat_rate > 0.2 }}">{{ '%.0f'|format(q.footage_repeat_rate * 100) }}%</span>
-      <span class="stat-lab">Reused a footage clip</span>
+      <span class="stat-lab">Reused a footage clip
+        <button type="button" class="info-dot" data-tooltip="The library is stretched. Reads as mass-produced.">?</button></span>
     </div>
     <div class="stat">
       <span class="stat-num {{ 'stat-bad' if q.similarity_flag_rate > 0.2 }}">{{ '%.0f'|format(q.similarity_flag_rate * 100) }}%</span>
-      <span class="stat-lab">Flagged as similar to an earlier script</span>
+      <span class="stat-lab">Similar to an earlier script
+        <button type="button" class="info-dot" data-tooltip="The wording is converging. Reads as mass-produced.">?</button></span>
     </div>
     <div class="stat">
       <span class="stat-num {{ 'stat-bad' if q.footage_degraded_rate > 0.1 }}">{{ '%.0f'|format(q.footage_degraded_rate * 100) }}%</span>
-      <span class="stat-lab">Footage chosen without scoring</span>
+      <span class="stat-lab">Footage picked unscored
+        <button type="button" class="info-dot" data-tooltip="The matcher failed and clips were chosen without being scored.">?</button></span>
     </div>
   </div>
-  <p class="meta">
-    The first two are the "looks mass-produced" signals: repeated footage
-    means the library is stretched, similarity means the wording is
-    converging. The third means the matcher itself failed and clips were
-    picked without being scored &mdash; invisible from the videos alone.
-  </p>
 </div>
 {% endif %}
 
@@ -178,23 +178,25 @@
       <span class="stat-lab">Per video published</span>
     </div>
   </div>
-  <p class="meta">
-    The gap between the last two is what discarding costs you. If you throw
-    half away, every published video costs twice what it looks like.
-  </p>
   {% if data.spend.unattributed_usd > 0.005 %}
   <p class="meta">
-    <strong>{{ '$%.2f'|format(data.spend.unattributed_usd) }}</strong> went on runs
-    that produced no video &mdash; a failure after the script or voiceover was
-    already generated. That is the money a mid-render failure costs.
+    <strong>{{ '$%.2f'|format(data.spend.unattributed_usd) }}</strong> went on runs that failed before a video was made.
   </p>
   {% endif %}
   {% if data.spend.all_time.by_operation %}
-  <ul class="cost-breakdown meta">
-    {% for operation, amount in data.spend.all_time.by_operation.items() %}
-    <li class="cost-line">{{ operation }} &mdash; {{ '$%.4f'|format(amount) if amount < 0.01 else '$%.2f'|format(amount) }}</li>
+  <div class="kv-columns">
+    {% for kind, amount in spend_kinds %}
+    <div class="kv"><span>{{ kind }}</span><b>{{ '$%.2f'|format(amount) if amount >= 0.01 else '<$0.01' }}</b></div>
     {% endfor %}
-  </ul>
+  </div>
+  <details class="cost-details">
+    <summary class="meta">Every operation</summary>
+    <ul class="cost-breakdown meta">
+      {% for operation, amount in data.spend.all_time.by_operation.items() %}
+      <li class="cost-line">{{ operation }}: {{ '$%.4f'|format(amount) if amount < 0.01 else '$%.2f'|format(amount) }}</li>
+      {% endfor %}
+    </ul>
+  </details>
   {% endif %}
 </div>
 
@@ -208,10 +210,10 @@
     {% endfor %}
   </div>
   <p class="meta timeline-key">
-    <span class="tick tick-published"></span> published
-    <span class="tick tick-waiting"></span> waiting
-    <span class="tick tick-discarded"></span> discarded
-    &middot; oldest on the left
+    <span class="tick tick-published"></span> Published
+    <span class="tick tick-waiting"></span> Waiting
+    <span class="tick tick-discarded"></span> Discarded
+    <span class="timeline-note">Oldest on the left</span>
   </p>
 </div>
 

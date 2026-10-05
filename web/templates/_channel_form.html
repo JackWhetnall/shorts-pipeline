@@ -19,42 +19,32 @@
 <nav class="settings-nav" aria-label="Settings sections">
   <a href="#section-content" class="settings-nav-link active">
     <strong>Channel</strong>
-    <span>What it's about, and where its words come from</span>
   </a>
   <a href="#section-voice" class="settings-nav-link">
     <strong>Voice &amp; timing</strong>
-    <span>Who reads it, how fast, how long</span>
   </a>
   <a href="#section-look" class="settings-nav-link">
     <strong>Look</strong>
-    <span>Captions, background, title and outro cards</span>
   </a>
   <a href="#section-graphics" class="settings-nav-link">
     <strong>{{ 'Board look' if channel.format == 'quiz' else 'Pictures' }}</strong>
-    <span>{{ "The quiz board's colours and fonts" if channel.format == 'quiz'
-             else 'Footage, graphics, paintings, and their look' }}</span>
   </a>
   {% if channel.format != 'quiz' %}
   <a href="#section-animation" class="settings-nav-link">
     <strong>Animation</strong>
-    <span>Its animated look, cast, motion and cost</span>
   </a>
   {% endif %}
   <a href="#section-music" class="settings-nav-link">
     <strong>Music &amp; sound</strong>
-    <span>Tracks, levels, effects</span>
   </a>
   <a href="#section-publishing" class="settings-nav-link">
     <strong>Publishing</strong>
-    <span>When it posts, where, and automatic uploads</span>
   </a>
   <a href="#section-money" class="settings-nav-link">
     <strong>Money</strong>
-    <span>Patreon, merch, affiliates, end screen</span>
   </a>
   <a href="#section-danger" class="settings-nav-link settings-nav-danger">
-    <strong>Danger zone</strong>
-    <span>Archive or delete this channel</span>
+    <strong>Archive or delete</strong>
   </a>
 </nav>
 
@@ -69,10 +59,6 @@
   <section id="section-content" class="settings-section">
     <h2>Channel</h2>
 
-    <p class="meta">
-      Key <code>{{ channel.key }}</code> &middot; videos in
-      <code>{{ channel.output_dir }}</code>
-    </p>
 
     <label>Display name
       <input type="text" name="channel_display_name" required
@@ -1173,7 +1159,8 @@
 {# Outside the settings form: archiving and deleting are actions of their
    own, not settings to save, and a form can't hold another. #}
 <section id="section-danger" class="settings-section settings-body settings-outside" hidden>
-  <h2>Danger zone</h2>
+  <h2>Archive or delete</h2>
+  <p class="meta">Key <code>{{ channel.key }}</code>, videos in <code>{{ channel.output_dir }}</code></p>
   <div class="card danger-zone">
     {% if channel.archived %}
     <form method="post" action="{{ url_for('channels.unarchive', key=channel.key) }}">

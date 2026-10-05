@@ -141,6 +141,24 @@ def create_app(debug: bool = False) -> Flask:
             return {"review_waiting": 0, "to_post": 0, "active_job_count": 0}
 
     @app.context_processor
+    def inject_channel_head():
+        """What every page of a channel shows at its top: its logo and the
+        state it's in, in the same words as Today (core.today)."""
+        def channel_head_info(channel):
+            from core import gallery, launch, today
+            from core.assets import has_logo
+            info = {"has_logo": has_logo(channel.key), "status": None, "state": {}}
+            try:
+                state = gallery.video_state_counts(channel.output_dir)
+                stages, _ = launch.stages(channel, state)
+                info["state"] = state
+                info["status"] = today.channel_status(channel, launch.section(channel, stages, state))
+            except Exception as exc:  # noqa: BLE001 - a header must never break the page under it
+                log.warning(f"Couldn't read {channel.key}'s state for its header: {exc}")
+            return info
+        return {"channel_head_info": channel_head_info}
+
+    @app.context_processor
     def inject_asset_version():
         """A query string that changes whenever the stylesheet or script
         does. Without it the browser kept the old style.css after an update,

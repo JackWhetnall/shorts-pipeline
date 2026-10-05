@@ -727,7 +727,7 @@ class TestWebRoutes:
     def test_the_dashboard_links_to_the_plan_for_topic_channels(self, client, planned):
         html = client.get("/channels/c").get_data(as_text=True)
         assert "/channels/c/curriculum" in html
-        assert "topics left" in html
+        assert "topics left" in html.lower()
 
     def test_the_home_page_warns_before_a_channel_runs_out(self, client, planned):
         """Running out stops generation dead, so the warning is only

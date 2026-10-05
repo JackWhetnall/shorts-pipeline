@@ -1,106 +1,127 @@
 {% extends "base.html" %}
+{% from "_ui.html" import status_pill, what_it_makes %}
 {% block title %}Channels{% endblock %}
 {% block content %}
-{% set section_titles = {'live': 'Live', 'setup': 'Setting up', 'future': 'Future ideas', 'archived': 'Archived'} %}
-<h1>Channels</h1>
-<p class="subtitle">Pick a channel to generate a video, tune its settings, or browse what it's already made.</p>
+{% set section_titles = {'live': 'Live', 'setup': 'Setting up', 'future': 'Ideas', 'archived': 'Archived'} %}
+<div class="page-head">
+  <div>
+    <h1>Channels</h1>
+    {% if channels %}
+    <p class="page-sub">
+      {% set parts = [] %}
+      {% for status in statuses if sections[status] and status != 'archived' %}
+        {% set _ = parts.append(sections[status]|length ~ ' ' ~ section_titles[status]|lower) %}
+      {% endfor %}
+      {{ parts|join(', ') }}.
+    </p>
+    {% endif %}
+  </div>
+  <div class="page-actions">
+    {% if channels %}
+    <button id="reorder-toggle-btn" type="button" class="btn-ghost btn-quiet" onclick="toggleReorderMode()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+      <span>Reorder</span>
+    </button>
+    <details class="menu">
+      <summary class="btn-ghost btn-quiet" aria-label="More actions">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+      </summary>
+      <div class="menu-list">
+        <button type="button" onclick="generateAll()">Make a video for every live channel</button>
+      </div>
+    </details>
+    {% endif %}
+    <a class="btn btn-primary" href="{{ url_for('channels.new_channel') }}">New channel</a>
+  </div>
+</div>
 
 {% if deleted_key %}
-<p class="meta info-banner">
-  Deleted "{{ deleted_key }}". Backup saved to <code>{{ backup_path }}</code> just in case.
-</p>
+<p class="info-banner">Deleted "{{ deleted_key }}". A backup is at <code>{{ backup_path }}</code>.</p>
 {% endif %}
 
 {% if library.total and (library.unverified_licenses or library.missing_files) %}
-<p class="meta info-banner">
-  Footage library: {{ library.total }} clip{{ 's' if library.total != 1 }}.
+<p class="info-banner">
   {% if library.unverified_licenses %}
-  <strong>{{ library.unverified_licenses }}</strong> still {{ 'has' if library.unverified_licenses == 1 else 'have' }}
-  an unconfirmed licence &mdash; worth checking before monetizing.
+  {{ library.unverified_licenses }} footage clip{{ 's' if library.unverified_licenses != 1 }} {{ 'has' if library.unverified_licenses == 1 else 'have' }}
+  an unconfirmed licence. Check before monetizing.
   {% endif %}
   {% if library.missing_files %}
   {{ library.missing_files }} clip file{{ 's are' if library.missing_files != 1 else ' is' }} missing from disk.
   {% endif %}
+  <a href="{{ url_for('footage.browse', show='unverified') }}">Footage</a>
 </p>
 {% endif %}
 
 {% if topics_running_low %}
-<p class="meta info-banner">
+<p class="info-banner">
   Running low on topics:
   {% for row in topics_running_low %}
     <a href="{{ url_for('curriculum.page', key=row.key) }}">{{ row.name }}</a>
-    ({{ row.pending }} left, ~{{ row.runway_days }} days){% if not loop.last %};{% endif %}
-  {% endfor %}
-  &mdash; generation stops when a plan runs out.
+    ({{ row.pending }} left, about {{ row.runway_days }} days){% if not loop.last %};{% endif %}
+  {% endfor %}.
+  Making stops when a plan runs out.
 </p>
 {% endif %}
 
 {% if voice_quota and voice_quota.low %}
-<p class="meta info-banner">
-  ElevenLabs: <strong>{{ '{:,}'.format(voice_quota.remaining) }}</strong> of
-  {{ '{:,}'.format(voice_quota.limit) }} characters left
-  (about {{ voice_quota.videos_left }} video{{ 's' if voice_quota.videos_left != 1 }}){% if voice_quota.resets_label %},
-  resets {{ voice_quota.resets_label }}{% endif %}. A video that won't fit is stopped
-  before its voiceover starts. <a href="{{ url_for('services.page') }}">APIs</a>
+<p class="info-banner">
+  Voice: {{ '{:,}'.format(voice_quota.remaining) }} of {{ '{:,}'.format(voice_quota.limit) }} characters left,
+  about {{ voice_quota.videos_left }} video{{ 's' if voice_quota.videos_left != 1 }}{% if voice_quota.resets_label %}.
+  Resets {{ voice_quota.resets_label }}{% endif %}.
 </p>
 {% endif %}
 
 {% if not channels %}
 <div class="empty-state">
-  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l4-4 3 3 4-4 3 3v14a1 1 0 01-1 1H5a1 1 0 01-1-1z"/><path d="M4 8h16"/></svg>
-  <p><strong>No channels yet.</strong></p>
-  <p>Create your first one to get started.</p>
-  <a class="btn btn-primary" href="{{ url_for('channels.new_channel') }}">+ New channel</a>
+  <p><strong>No channels yet</strong></p>
+  <p>Describe what a channel makes and the app drafts the rest.</p>
+  <a class="btn btn-primary" href="{{ url_for('channels.new_channel') }}">New channel</a>
 </div>
 {% else %}
-
-<div class="index-toolbar">
-  <button type="button" class="btn-ghost" onclick="generateAll()">Generate all</button>
-  <button id="reorder-toggle-btn" type="button" class="btn-ghost" onclick="toggleReorderMode()">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
-    Reorder
-  </button>
-</div>
 
 <div id="channel-sections">
   {% for status in statuses %}
   {% set section_channels = sections[status] %}
   {% if section_channels %}
-  <details class="card channel-section" {% if status in ('live', 'setup') %}open{% endif %}>
-    <summary class="summary-heading">
-      {{ section_titles[status] }}
-      <span class="badge">{{ section_channels|length }}</span>
-    </summary>
+  {% set grid %}
     <div class="channel-grid" data-section="{{ status }}">
       {% for key, ch in section_channels.items() %}
+      {% set p = progress[key] %}
       <div class="card channel-card interactive" data-key="{{ key }}">
         <a class="card-link-overlay" href="{{ url_for('channels.dashboard', key=key) }}" aria-label="{{ ch.channel_display_name }}" draggable="false"></a>
         <span class="drag-handle" aria-hidden="true">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
         </span>
-        {% if has_logo[key] %}
-        <img class="channel-logo" src="{{ url_for('logos.serve_asset', key=key, filename='logo.png') }}" alt="">
-        {% else %}
-        <div class="channel-logo-placeholder">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
-          No logo yet
+        <div class="cc-head">
+          <span class="cc-logo">
+            {% if has_logo[key] %}<img src="{{ url_for('logos.serve_asset', key=key, filename='logo.png') }}" alt="">
+            {% else %}{{ (ch.channel_display_name or key)[:1]|upper }}{% endif %}
+          </span>
+          <div class="cc-title">
+            <h2>{{ ch.channel_display_name }}</h2>
+            <div class="cc-sub">{{ status_pill(p.status) }}<span>{{ what_it_makes(ch) }}</span></div>
+          </div>
+        </div>
+
+        {% if status == 'live' %}
+        <div class="cc-stats">
+          <div><b>{{ p.published_count }}</b><span>published</span></div>
+          <div><b>{{ p.queued_count }}</b><span>ready to go</span></div>
+          <div><b>{{ p.waiting_count }}</b><span>to review</span></div>
         </div>
         {% endif %}
-        <h2>
-          <svg class="icon-badge" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M22 8l-6 4 6 4z"/></svg>
-          {{ ch.channel_display_name }}
-        </h2>
-        <p class="meta">{{ key }} &middot; {{ 'quiz' if ch.format == 'quiz' else ch.content_mode }} &middot; {{ progress[key].video_count }} video{{ 's' if progress[key].video_count != 1 else '' }}</p>
-        {% if status == 'live' %}
-        <p class="meta">{{ progress[key].published_count }} published{% if progress[key].last_published_label %} &middot; last published {{ progress[key].last_published_label }}{% endif %}{% if progress[key].queued_count %} &middot; {{ progress[key].queued_count }} queued{% endif %}</p>
-        {% endif %}
-        {% if progress[key].current_stage and status != 'archived' %}
-        <p class="meta">Next: {{ progress[key].current_stage.label }}
-          ({{ progress[key].launch_settled }}/{{ progress[key].launch_total }})</p>
+
+        {% if p.current_stage and status != 'archived' %}
+        <div class="cc-next">
+          <div class="kv"><span>{{ p.current_stage.label }}</span><b>{{ p.launch_settled }} of {{ p.launch_total }}</b></div>
+          <div class="meter"><span style="width: {{ (100 * p.launch_settled / p.launch_total)|round|int if p.launch_total else 0 }}%"></span></div>
+        </div>
+        {% elif status == 'live' and p.last_published_label %}
+        <p class="meta cc-last">Last out {{ p.last_published_label }}</p>
         {% endif %}
 
-        {% if progress[key].active_job %}
-        {% set aj = progress[key].active_job %}
+        {% if p.active_job %}
+        {% set aj = p.active_job %}
         <div class="job-progress-bar {{ 'job-progress-bar-queued' if aj.status == 'queued' else '' }}" data-job-id="{{ aj.id }}">
           <div class="job-progress-bar-track">
             <div class="job-progress-bar-fill {{ 'indeterminate' if (aj.status != 'queued' and aj.progress_percent is none) else '' }}"
@@ -108,17 +129,26 @@
           </div>
           <p class="meta job-progress-label">{% if aj.status == 'queued' %}Queued{% if aj.queue_position %} &middot; position {{ aj.queue_position }}{% endif %}{% else %}Generating&hellip;{% endif %}</p>
         </div>
-        {% elif progress[key].can_generate %}
-        <button type="button" class="btn-ghost card-action" onclick="quickGenerate(event, '{{ key }}')">Generate video</button>
+        {% elif p.can_generate %}
+        <button type="button" class="btn-ghost btn-small card-action" onclick="quickGenerate(event, '{{ key }}')">Make the next video</button>
         {% endif %}
       </div>
       {% endfor %}
     </div>
+  {% endset %}
+  {% if status == 'archived' %}
+  <details class="channel-section">
+    <summary class="section-title">{{ section_titles[status] }} <span class="section-count">{{ section_channels|length }}</span></summary>
+    {{ grid }}
   </details>
+  {% else %}
+  <section class="channel-section">
+    <h2 class="section-title">{{ section_titles[status] }} <span class="section-count">{{ section_channels|length }}</span></h2>
+    {{ grid }}
+  </section>
+  {% endif %}
   {% endif %}
   {% endfor %}
 </div>
-
-<p><a class="btn btn-ghost" href="{{ url_for('channels.new_channel') }}">+ New channel</a></p>
 {% endif %}
 {% endblock %}

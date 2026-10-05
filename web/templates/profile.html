@@ -1,17 +1,13 @@
 {% extends "base.html" %}
-{% block title %}{{ channel.channel_display_name }} — Channel profile{% endblock %}
+{% block title %}Profile · {{ channel.channel_display_name }}{% endblock %}
 {% block content %}
-<a class="back-link" href="{{ url_for('channels.dashboard', key=key) }}">
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-  {{ channel.channel_display_name }}
-</a>
-<h1>Channel profile</h1>
-<p class="subtitle">The descriptions to paste into YouTube, TikTok and Instagram, and the YouTube banner. Written from the
-  channel's name, its host brief and its topics; the links are filled in from its settings.</p>
+{% set tab = 'profile' %}
+{% include "_channel_head.html" %}
+<p class="page-sub tab-intro">Descriptions to paste into YouTube, TikTok and Instagram, and the YouTube banner.</p>
 
 <div class="card" id="profile-generate">
   <div class="actions" style="margin-top: 0">
-    <button type="button" class="btn btn-primary" id="profile-generate-btn" onclick="profileGenerate(this)"
+    <button type="button" class="btn {{ 'btn-ghost' if words else 'btn-primary' }}" id="profile-generate-btn" onclick="profileGenerate(this)"
             {% if words %}data-again="1"{% endif %}>{{ 'Write them again' if words else 'Write the descriptions and make the banner' }}</button>
     <span class="hint">About a cent. {% if words %}This replaces what's below, including your edits.{% endif %}</span>
   </div>

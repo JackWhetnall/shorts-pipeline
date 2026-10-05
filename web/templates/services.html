@@ -1,17 +1,16 @@
 {% extends "base.html" %}
 {% block title %}APIs{% endblock %}
 {% block content %}
-<h1>APIs</h1>
-<p class="subtitle">
-  What this installation is wired up to, what it has spent through each
-  one, and where to go when something needs topping up.
-</p>
+<div class="page-head">
+  <div>
+    <h1>APIs and keys</h1>
+    <p class="page-sub">What's connected, what it has cost, and where to top it up.</p>
+  </div>
+</div>
 
 {% if missing %}
 <p class="error-banner">
-  Not set up: <strong>{{ missing|join(', ') }}</strong>. Anything that
-  needs one of these will fail part-way through a render rather than
-  before it starts.
+  Not set up: <strong>{{ missing|join(', ') }}</strong>. Anything that needs one fails part-way through.
 </p>
 {% endif %}
 
@@ -30,16 +29,12 @@
    spend, not balance, and the difference matters if you came here to find
    out whether an account is about to run dry. #}
 <p class="hint">
-  These are what <em>this app</em> has spent, from its own log of every
-  billable call. No provider exposes an account balance to an ordinary API
-  key, and a number invented from this log would know nothing about what
-  else is on the account or what was last topped up &mdash; so the balance
-  is behind each link below. Prices last checked {{ prices_checked }}.
-  The one exception is ElevenLabs' character allowance, which its API does
-  report{% if not voice_quota %} &mdash; to see it here, give the key the
-  <code>user_read</code> permission{% endif %}.
+  Spent through this app, from its own log; prices checked {{ prices_checked }}.
+  <button type="button" class="info-dot" data-tooltip="No provider shows an account balance to an ordinary API key, so balances are behind each link. ElevenLabs' character allowance is the exception.">?</button>
+  {% if not voice_quota %}Give the ElevenLabs key the <code>user_read</code> permission to see its allowance here.{% endif %}
 </p>
 
+<div class="tablewrap">
 <table class="voice-table service-table">
   <thead>
     <tr>
@@ -91,6 +86,7 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 
 <script>
   async function testService(key, button) {
