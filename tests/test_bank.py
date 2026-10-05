@@ -142,25 +142,60 @@ def test_stocking_writes_where_shortest_within_its_limits(monkeypatch, tmp_path)
     written = []
     monkeypatch.setattr(bank, "write_batch", lambda conn, name, level, names: written.append((name, level)))
     monkeypatch.setattr(keep, "BANK_BATCHES", 3)
-    monkeypatch.setattr(bank, "spent_today", lambda: 0.0)
+    from pipeline.facts import budget
+    monkeypatch.setattr(budget, "spent", lambda records=None: 0.0)
     keep.stock_bank(conn, channel)
     assert len(written) == 3
     written.clear()
-    monkeypatch.setattr(bank, "spent_today", lambda: 99.0)
-    assert "budget" in keep.stock_bank(conn, channel, say=lambda m: written.append(m) or None) or written
+    monkeypatch.setattr(budget, "spent", lambda records=None: 99.0)
+    assert "budget" in keep.stock_bank(conn, channel, say=lambda m: written.append(m) or None)
     assert not [w for w in written if isinstance(w, tuple)]
 
 
-def test_the_day_spend_counts_only_the_banks_own_calls(monkeypatch):
-    import time
-    from core import costs
-    now = time.time()
-    monkeypatch.setattr(costs, "read_records", lambda: [
-        {"operation": "bank_write", "ts": now - 60, "cost_usd": 0.05},
-        {"operation": "bank_verify", "ts": now - 60, "cost_usd": 0.02},
-        {"operation": "quiz_verify", "ts": now - 60, "cost_usd": 0.50},
-        {"operation": "bank_write", "ts": now - 90000, "cost_usd": 1.00}])
-    assert bank.spent_today() == pytest.approx(0.07)
+def test_the_bank_stops_before_a_batch_that_would_pass_its_total(monkeypatch, tmp_path):
+    """Regression: imports spent $3.11 against a $1.50 cap on 2 Oct, because
+    a batch is logged only once it's back. The check is before sending."""
+    from pipeline.facts import budget
+    conn = store.connect(tmp_path / "f.db")
+    channel = ChannelConfig(key="pub", format="quiz")
+    monkeypatch.setattr(keep, "quiz_categories", lambda channel: ["Science"])
+    written = []
+    monkeypatch.setattr(bank, "write_batch", lambda conn, name, level, names: written.append(name))
+    budget.set_limit(1.00)
+    monkeypatch.setattr(budget, "spent", lambda records=None: 1.00 - budget.WRITE_BATCH_USD / 2)
+    keep.stock_bank(conn, channel)
+    assert written == []
+
+
+def test_the_total_counts_every_stocking_call_and_nothing_a_video_spent():
+    from pipeline.facts import budget
+    records = [
+        {"operation": "bank_write", "cost_usd": 0.05},
+        {"operation": "intake_process", "cost_usd": 0.04},
+        {"operation": "category_sort", "cost_usd": 0.03},
+        {"operation": "facts_category", "cost_usd": 0.01},
+        {"operation": "bank_write", "cost_usd": 1.00, "job_id": "abc"},   # a video's own round
+        {"operation": "quiz_verify", "cost_usd": 0.50}]
+    assert budget.spent(records) == pytest.approx(0.13)
+
+
+def test_the_budget_is_the_default_until_set_and_survives_a_bad_file():
+    from pipeline.facts import budget
+    assert budget.limit() == budget.DEFAULT_LIMIT_USD
+    assert budget.set_limit(30) == 30.0 and budget.limit() == 30.0
+    assert budget.set_limit(-5) == 0.0
+    budget.LIMIT_PATH.write_text("not json", encoding="utf-8")
+    assert budget.limit() == budget.DEFAULT_LIMIT_USD
+
+
+def test_days_of_rounds_follow_the_publishing_plan():
+    from pipeline.facts import budget
+    channel = ChannelConfig(key="pub", format="quiz")
+    assert budget.shorts_per_day(channel) == 0.0          # not publishing
+    channel.publishing.enabled = True
+    assert budget.shorts_per_day(channel) == 1.0          # 18:00 every day
+    channel.publishing.weekdays = [0, 2, 4, 6]
+    assert budget.shorts_per_day(channel) == pytest.approx(4 / 7)
 
 
 def test_a_round_the_bank_cant_supply_writes_bank_questions_first(monkeypatch):
@@ -327,7 +362,8 @@ def _short_channel(monkeypatch):
     channel = ChannelConfig(key="pub", format="quiz")
     channel.quiz.difficulties = ["Easy"]
     monkeypatch.setattr(keep, "quiz_categories", lambda channel: ["Ancient History"])
-    monkeypatch.setattr(bank, "spent_today", lambda: 0.0)
+    from pipeline.facts import budget
+    monkeypatch.setattr(budget, "spent", lambda records=None: 0.0)
     monkeypatch.setattr(keep, "BANK_BATCHES", 1)
     return channel
 

@@ -71,6 +71,9 @@ def _isolated_script_history(tmp_path, monkeypatch):
     monkeypatch.setattr("pipeline.quiz.QUESTION_BANK_DIR", tmp_path / "question_banks")
     # And the fact store (pipeline.facts): empty unless a test fills it.
     monkeypatch.setattr("pipeline.facts.store.DB_PATH", tmp_path / "facts.db")
+    # And the question bank's budget (pipeline.facts.budget): the default
+    # unless a test sets one.
+    monkeypatch.setattr("pipeline.facts.budget.LIMIT_PATH", tmp_path / "question_bank_budget.json")
 
 
 @pytest.fixture(autouse=True)

@@ -41,13 +41,24 @@ def page():
                                         "short": keep.short_levels(conn, channel, record["name"])})
         rows.append(row)
     runs = store.recent_runs(conn, 8)
-    from pipeline.facts import intake
+    from pipeline.facts import budget, intake
     from pipeline.facts.sources import web
     return render_template("facts.html", totals=store.totals(conn), rows=rows, runs=runs,
                            bank=_bank_rows(conn, channels), busy=keep.busy(),
+                           budget=budget.summary(conn, channels),
                            intake=intake.summary(conn), intake_pending=intake.pending(conn),
-                           intake_daily=intake.DAILY_USD, sources=web.starting_pages(),
-                           note=request.args.get("note", ""))
+                           sources=web.starting_pages(), note=request.args.get("note", ""))
+
+
+@bp.route("/facts/budget", methods=["POST"])
+def set_budget():
+    """The question bank's total budget (pipeline.facts.budget)."""
+    from pipeline.facts import budget
+    try:
+        usd = budget.set_limit(float(request.form.get("limit") or ""))
+    except ValueError:
+        return redirect(url_for("facts.page", note="The budget has to be a number of dollars."))
+    return redirect(url_for("facts.page", note=f"The question bank's budget is now ${usd:.2f} in all."))
 
 
 def _all_categories() -> list:
@@ -94,8 +105,7 @@ def _bank_rows(conn, channels) -> dict:
                                     "unused": len(bank.pool(conn, channel.key, name)),
                                     "short": [label for label, n in have.items() if n < keep.BANK_LOW]})
     total = conn.execute("SELECT COUNT(*) FROM questions WHERE status = 'ok'").fetchone()[0]
-    return {"rows": sorted(rows.values(), key=lambda r: r["name"]), "total": total,
-            "spent": bank.spent_today(), "limit": keep.BANK_DAILY_USD}
+    return {"rows": sorted(rows.values(), key=lambda r: r["name"]), "total": total}
 
 
 @bp.route("/facts/bank", methods=["POST"])

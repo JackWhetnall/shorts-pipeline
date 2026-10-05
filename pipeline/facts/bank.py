@@ -558,15 +558,3 @@ def counts(conn, channel_key: str, category: str, levels: list) -> dict:
 
 def varied(questions: list) -> bool:
     return len({q["area"] for q in questions}) >= MIN_AREAS
-
-
-def spent_today() -> float:
-    """What writing and checking the bank has cost in the last 24 hours."""
-    import time
-    from core import costs
-    since = time.time() - 86400
-    total = 0.0
-    for r in costs.read_records():
-        if (r.get("operation") or "").startswith("bank_") and float(r.get("ts") or 0) >= since:
-            total += float(r.get("cost_usd") or 0)
-    return total

@@ -554,11 +554,14 @@ where a quiz round's questions come from first: classic pub-quiz
 questions written in batches per category, area and level, each checked
 once, de-duplicated, levelled 1-10, tagged with every category it fits
 and used once per channel. A round from the bank has only its host's
-lines written. It's topped up hourly within a daily limit (`facts.keep`),
-at batch prices; a slot whose last few batches didn't fill it is rested
+lines written. It's topped up hourly until every category has its
+rounds ready, within one total budget for the whole job, set on the Facts
+page and checked before each batch (`facts.keep`, `facts.budget`), at
+batch prices; a slot whose last few batches didn't fill it is rested
 for a few days, and easy batches see how the rater judged the category's
 own questions. See decisions [050](docs/decisions/050-question-bank.md)
-and [063](docs/decisions/063-background-calls-at-batch-prices.md).
+[063](docs/decisions/063-background-calls-at-batch-prices.md) and
+[064](docs/decisions/064-question-bank-total-budget.md).
 
 **Imported questions** (`pipeline/facts/intake.py`, `pipeline/facts/sources/`):
 the Open Trivia Database and pub-quiz websites are gathered into an

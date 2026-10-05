@@ -391,6 +391,23 @@ def test_the_facts_page_shows_each_category(monkeypatch, tmp_path):
     assert "Things" in page and "12" in page
 
 
+def test_the_facts_page_shows_and_sets_the_banks_total_budget(monkeypatch, tmp_path):
+    from core.channels import channel_to_sparse_dict, write_raw, ChannelConfig
+    from pipeline.facts import budget
+    from tests.test_web import csrf
+    from web import create_app
+    path = tmp_path / "channels.json"
+    monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", path)
+    write_raw({"pub": channel_to_sparse_dict(ChannelConfig(key="pub", format="quiz", style_prompt="host",
+                                                            voice="21m00Tcm4TlvDq8ikWAM"))}, path)
+    client = create_app().test_client()
+    page = client.get("/facts").get_data(as_text=True)
+    assert f"of ${budget.DEFAULT_LIMIT_USD:.2f}" in page and "spent stocking the bank, in all" in page
+    client.post("/facts/budget", data={"csrf_token": csrf(client), "limit": "35"})
+    assert budget.limit() == 35.0
+    assert "of $35.00" in client.get("/facts").get_data(as_text=True)
+
+
 def test_one_category_wikidata_wont_answer_doesnt_stop_the_rest(monkeypatch, tmp_path):
     """Regression: the first automatic run failed outright on one refusal."""
     from core.channels import ChannelConfig

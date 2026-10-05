@@ -122,6 +122,17 @@ def test_processing_stops_at_its_budget_and_carries_on_next_time(conn, model, mo
     assert intake.pending(conn) == 60 - intake.BATCH
 
 
+def test_processing_stops_when_the_banks_total_is_used(conn, model, monkeypatch):
+    """However much a run is given, the question bank's total budget
+    (pipeline.facts.budget) comes first."""
+    from pipeline.facts import budget
+    intake.add_raw(conn, "opentdb", [_raw(f"What is moon number {n}?", f"Moon{n}x") for n in range(10)])
+    budget.set_limit(5.0)
+    monkeypatch.setattr(budget, "spent", lambda records=None: 5.0 - budget.IMPORT_BATCH_USD / 2)
+    intake.process(conn, ["Space"], budget_usd=10)
+    assert intake.pending(conn) == 10
+
+
 def test_opentdb_keeps_pub_quiz_categories_and_undoes_its_entities(monkeypatch):
     from pipeline.facts.sources import opentdb
 

@@ -138,9 +138,8 @@ def _stock_one(conn, channel, name: str, say) -> bool:
 
 BANK_LOW = 20                  # unused checked questions near a level before writing more
 BANK_BATCHES = 6               # batches per run, at most (a run is hourly)
-# And no more than this a day on the bank. Was $1.50 at full price; the
-# hourly run now pays batch prices (half), so this buys the same writing.
-BANK_DAILY_USD = 0.75
+# What all of this may cost is a total, not a daily cap (pipeline.facts.budget,
+# decision 064).
 
 
 # A slot whose writing isn't filling it is rested, so the day's budget
@@ -194,17 +193,19 @@ def stock_bank(conn, channel, say=None) -> str:
     """Write question-bank batches where this channel's categories are
     shortest (pipeline.facts.bank), within the run's and the day's limits."""
     from pipeline import quiz
-    from pipeline.facts import bank
+    from pipeline.facts import bank, budget
     say = say or (lambda message: log.info(f"  [bank] {message}"))
     names = quiz_categories(channel)
     levels = quiz.levels(channel.quiz.difficulties)
     # Counted only once the bank is filed to each category's scope
     # (pipeline.facts.scope), so a renamed category isn't thought full.
+    # Filing is part of stocking, so it waits too once the budget is used.
     from pipeline.facts import rounds, scope
-    try:
-        scope.sort_if_needed(conn, names, say)
-    except Exception as exc:  # noqa: BLE001 - stocking goes on; the next run or round sorts again
-        log.warning(f"  [bank] couldn't sort the bank into its categories ({exc})")
+    if budget.remaining() > 0:
+        try:
+            scope.sort_if_needed(conn, names, say)
+        except Exception as exc:  # noqa: BLE001 - stocking goes on; the next run or round sorts again
+            log.warning(f"  [bank] couldn't sort the bank into its categories ({exc})")
     # Written where the rounds made ahead fall short (pipeline.facts.rounds),
     # the slots with fewest ready rounds first.
     rounds.assemble(conn, channel)
@@ -215,6 +216,7 @@ def stock_bank(conn, channel, say=None) -> str:
             if have < rounds.SETS_AHEAD:
                 short.append((have, name, label, level))
     written = 0
+    used_up = False
     for have, name, label, level in sorted(short):
         if written >= BANK_BATCHES:
             break
@@ -224,8 +226,10 @@ def stock_bank(conn, channel, say=None) -> str:
                 f"{REST_YIELD} questions easy or hard enough for it; resting it until "
                 f"{time.strftime('%a %d %b', time.localtime(until))}")
             continue
-        if bank.spent_today() >= BANK_DAILY_USD:
-            say(f"Today's question-bank budget (${BANK_DAILY_USD:.2f}) is spent; more tomorrow.")
+        # Before sending, not after: a batch is logged only once it's back.
+        if not budget.room_for(budget.WRITE_BATCH_USD):
+            say(budget.used_up_message())
+            used_up = True
             break
         say(f"Writing {name} questions near {label} ({have} rounds ready)")
         try:
@@ -239,7 +243,8 @@ def stock_bank(conn, channel, say=None) -> str:
     rounds.assemble(conn, channel)
     if not short:
         return "Every category has its rounds ready."
-    return f"Wrote {written} question batch{'es' if written != 1 else ''}."
+    wrote = f"Wrote {written} question batch{'es' if written != 1 else ''}."
+    return f"{wrote} {budget.used_up_message()}" if used_up else wrote
 
 
 def keep_up(channels: dict) -> bool:
@@ -262,19 +267,18 @@ def keep_up(channels: dict) -> bool:
 
 
 def _keep_up_work(conn, say, quizzes: list) -> str:
-    # Imported questions, within their own daily budget
-    # (pipeline.facts.intake); then writing where rounds are short, within
-    # the bank's. Both: imports barely reach the easy levels (most
-    # sources' "easy" is rated hard), which only writing fills.
-    from pipeline.facts import intake
+    # Imported questions (pipeline.facts.intake), then writing where rounds
+    # are short, both out of the one total (pipeline.facts.budget). Both:
+    # imports barely reach the easy levels (most sources' "easy" is rated
+    # hard), which only writing fills.
+    from pipeline.facts import budget, intake
     results = []
     if intake.pending(conn):
         names = []
         for channel in quizzes:
             names += [n for n in quiz_categories(channel) if n not in names]
-        spent = intake.spent_since(time.time() - 86400)
-        results.append(intake.process(conn, names, intake.DAILY_USD - spent, say)
-                       if spent < intake.DAILY_USD else "Today's import budget is spent; more tomorrow.")
+        results.append(intake.process(conn, names, budget.remaining(), say)
+                       if budget.room_for(budget.IMPORT_BATCH_USD) else budget.used_up_message())
     results += [stock_bank(conn, channel, say) for channel in quizzes]
     results += [stock(conn, channel, say) for channel in quizzes]
     harvest.refresh(conn, progress=say)

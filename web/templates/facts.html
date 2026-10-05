@@ -24,10 +24,19 @@
 </div>
 
 <h2>Question bank
-  <button type="button" class="info-dot" data-tooltip="Classic pub-quiz questions written ahead, each fact-checked once, levelled 1-10 and used once per channel. Rounds come from here first; the writer only adds the hook and the patter. Topped up hourly within a daily limit.">?</button>
+  <button type="button" class="info-dot" data-tooltip="Classic pub-quiz questions written ahead, each fact-checked once, levelled 1-10 and used once per channel. Rounds come from here first; the writer only adds the hook and the patter. Topped up hourly until every category has its rounds ready, within the total budget below.">?</button>
 </h2>
-<p class="meta">{{ '{:,}'.format(bank.total) }} checked questions &middot;
-  ${{ '%.2f'|format(bank.spent) }} of ${{ '%.2f'|format(bank.limit) }} spent on it today</p>
+<div class="card">
+  <p><strong>${{ '%.2f'|format(budget.spent) }} of ${{ '%.2f'|format(budget.limit) }}</strong> spent stocking the bank, in all
+    <button type="button" class="info-dot" data-tooltip="Writing, checking, rating, importing and filing questions, by the hourly run or the buttons here. Questions a video writes for itself count as that video's cost. When the budget is used, stocking stops until you raise it.">?</button></p>
+  <p class="meta">{{ '{:,}'.format(bank.total) }} checked questions &middot; {{ budget.ready }} rounds ready{% if budget.days %}, about {{ budget.days }} days of shorts at the current schedule{% endif %}
+    &middot; {{ budget.short }} still short</p>
+  <form method="post" action="{{ url_for('facts.set_budget') }}" class="actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="hint">Budget $<input type="number" name="limit" value="{{ '%.2f'|format(budget.limit) }}" min="0" step="0.5" class="narrow-number"></label>
+    <button type="submit" class="btn-ghost">Save</button>
+  </form>
+</div>
 <form method="post" action="{{ url_for('facts.write_bank') }}" class="actions">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <button type="submit" class="btn-ghost" {{ 'disabled' if busy }}>Write more questions now</button>
@@ -51,8 +60,8 @@
 <h2>Imported questions
   <button type="button" class="info-dot" data-tooltip="Questions from the Open Trivia Database and pub-quiz websites, each rewritten in our own words as a question read aloud, fact-checked, rated for difficulty and filed into categories before it joins the bank. Gathering is free (or nearly); processing costs about $2.50 per 1,000.">?</button>
 </h2>
-<p class="meta">{{ '{:,}'.format(intake_pending) }} waiting to be processed. The scheduler processes up to
-  ${{ '%.2f'|format(intake_daily) }} worth a day, before it writes any new questions itself.</p>
+<p class="meta">{{ '{:,}'.format(intake_pending) }} waiting to be processed, out of the bank's budget above,
+  before the scheduler writes any new questions itself.</p>
 {% if intake %}
 <table class="facts-table">
   <thead><tr><th>Source</th><th>Waiting</th><th>In the bank</th><th>Failed the check</th><th>Didn't suit</th><th>Already had</th></tr></thead>

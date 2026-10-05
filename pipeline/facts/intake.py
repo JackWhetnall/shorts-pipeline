@@ -36,10 +36,8 @@ log = get_logger(__name__)
 BATCH = 25
 PROCESS_MODEL = "claude-sonnet-5"
 PROCESS_EFFORT = "low"
-# What the scheduler spends on it a day. Was $3 at full price; the hourly
-# run pays batch prices (half), so this processes as many as before.
-DAILY_USD = 1.50
 # What a run's spending is counted from ("category_sort" is the filing).
+# Every run is also inside the question bank's total (pipeline.facts.budget).
 OPERATIONS = ("intake_extract", "intake_process", "category_scope")
 
 TABLE = """
@@ -202,12 +200,16 @@ def spent_since(since: float) -> float:
 
 def process(conn, categories: list, budget_usd: float, say=None) -> str:
     """Process held questions a batch at a time until none are left or
-    `budget_usd` is spent. `categories`: every quiz channel's, to file
-    them under."""
+    `budget_usd` is spent, or the question bank's total
+    (pipeline.facts.budget) has no room for another. Each batch is checked
+    before it's sent: it's only logged once its results are back.
+    `categories`: every quiz channel's, to file them under."""
+    from pipeline.facts import budget
     _table(conn)
     started = time.time()
     done = {"added": 0, "rejected": 0, "skipped": 0, "duplicate": 0}
-    while spent_since(started) < budget_usd:
+    while (spent_since(started) + budget.IMPORT_BATCH_USD <= budget_usd
+           and budget.room_for(budget.IMPORT_BATCH_USD)):
         rows = _claim(conn)
         if not rows:
             break

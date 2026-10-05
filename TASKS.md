@@ -4,10 +4,43 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 30 Sep 2026. For now only The Pub Quiz Round publishes.
-New: check a quiz's questions one by one and swap out the bad ones (step
-4d), and the app on your phone (step 4e). Also a guided animation style
-builder for narrated channels (its own section below the quiz list).*
+*Last updated: 5 Oct 2026. Pub Quiz Buzz and Minute Pastor both publish
+by themselves. Do the "Now" section first.*
+
+---
+
+## Now (5 Oct)
+
+### A. Reconnect Minute Pastor's YouTube, before Wed 7 Oct 11:00 (3 minutes)
+Google has been rejecting its connection since about 1 Oct, so its next
+upload will fail and land back in Review. Five videos are queued.
+1. Do step 7 below first (publish the Google consent screen), or this
+   happens again in 7 days.
+2. **Channels → Minute Pastor → ⚙ Settings → Publishing → Reconnect
+   this channel** and sign in with the channel's Google account.
+3. **Insights** should stop saying "YouTube access for this channel has
+   expired" at its next refresh.
+
+### B. Top up the Claude credit (2 minutes)
+$36.23 of the $40 is spent, so about $3.77 is left, which is roughly 6
+days of videos. When it runs out, every script and check fails.
+[console.anthropic.com → Billing](https://console.anthropic.com/settings/billing).
+
+### C. Decide the question bank's budget (1 minute)
+Stocking the bank now has one total limit instead of daily caps
+(decision 064). It has cost **$21.22** so far, for 5,550 questions and 192
+of the 234 rounds Pub Quiz Buzz keeps ready, which is over six months of
+one short a day. The limit is **$22** until you change it, so stocking
+has all but stopped. The 42 rounds still short are mostly Easy and Medium.
+**Facts → Question bank → Budget**: raise it once the credit is topped
+up if you want those filled, or leave it.
+
+### D. Decide how often Pub Quiz Buzz makes long quizzes
+Long-form is the earner (see the review page). Automatic long quizzes are
+off ("make one every 0 days"); the only one so far is 7:22, under the
+8 minutes mid-roll ads need. Suggested: **Settings → Channel → Long
+quizzes → Rounds 6, make one every 3 days** (about 22 minutes, two a
+week). Each still waits for you in Review.
 
 ---
 
@@ -71,13 +104,10 @@ The music buttons work now: they were dead on quiz channels.
 ### 4b. Let the question bank and fact store fill (nothing to do but leave the app running)
 Rounds now come from a **question bank** of classic pub-quiz questions,
 written and checked ahead (the **Facts** page in the sidebar), and fall
-back to stored Wikidata facts. The bank tops itself up hourly, up to
-$0.75 a day, about 400 questions (the hourly run pays half price, so
-this is the same amount it used to do for $1.50): a full first stock
-(about 2,000 across the categories) takes four or five days and about
-$3.50. **Write more questions now** on that page starts a run straight
-away, at full price. Science already
-has about 70.
+back to stored Wikidata facts. The bank tops itself up hourly, at half
+price, until every category has its rounds ready or its total budget is
+used (step C above). **Write more questions now** on that page starts a
+run straight away, at full price.
 The fact store (below) fills alongside it. The app is already filling it by itself in the background (it
 started on 28 Sep): each category takes about 10 minutes and a cent, so
 the fifteen take a few hours. Leave the app running. The **Facts** page
@@ -155,8 +185,8 @@ quiz shorts.
 ### 4d-vi. The question bank fills itself; watch it on the Facts page
 Questions are being imported from the Open Trivia Database and the
 pub-quiz websites. Each is rewritten in our own words, fact-checked,
-rated and filed into categories. The app processes up to $3 worth a day
-by itself (about 2,500 questions a day). The **Facts** page, under
+rated and filed into categories. The app processes them by itself out of
+the bank's total budget (step C). The **Facts** page, under
 **Imported questions**, shows each source's progress and has a
 **Process** button if you want it faster.
 

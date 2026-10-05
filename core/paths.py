@@ -51,6 +51,8 @@ SCHEDULE_PATH = PROJECT_ROOT / "config" / "schedule.json"
 # statistics have to outlive the mp4 — see core.gallery.purge.
 DISCARD_HISTORY_PATH = PROJECT_ROOT / "config" / "discard_history.jsonl"
 PHONE_ACCESS_PATH = PROJECT_ROOT / "config" / "phone_access.json"
+# What stocking the question bank may cost in all (pipeline.facts.budget).
+QUESTION_BANK_BUDGET_PATH = PROJECT_ROOT / "config" / "question_bank_budget.json"
 # Claude batches submitted and not yet collected (pipeline.llm), so a run
 # stopped mid-wait picks its batch up again instead of paying twice.
 LLM_BATCH_JOURNAL_PATH = CACHE_DIR / "llm_batches.json"
