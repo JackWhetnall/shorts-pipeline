@@ -1,0 +1,6 @@
+# Pages of pub-quiz questions to read (pipeline.facts.sources.web), one per line.
+# Lines starting with # are ignored. Sites whose robots.txt says no are skipped.
+https://www.peacockquizzes.com/pub-quiz-questions-and-answers/
+https://paulcooper.uk/2021/01/01/100-pub-quiz-trivia-questions-part-1/
+https://nerdsip.com/pub-quiz/
+https://pubquizquestionshq.com/

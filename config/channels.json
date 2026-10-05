@@ -43,11 +43,51 @@
         "tiktok_url": "https://www.tiktok.com/@minutepastor?lang=en-GB",
         "instagram_url": "https://www.instagram.com/minutepastor/"
       },
+      "publishing": {
+        "enabled": true,
+        "slots": [
+          "11:00"
+        ],
+        "weekdays": [
+          0,
+          2,
+          4,
+          6
+        ],
+        "posting_browser": "chrome",
+        "posting_profile": "Shorts minute_pastor"
+      },
+      "scenes": {
+        "art": {
+          "preset": "clean_flat"
+        }
+      },
+      "animation": {
+        "style": {
+          "approach": "objects",
+          "stage": "tabletop",
+          "material": "felt",
+          "people": "stubby",
+          "presenter": "none",
+          "mood": "playful",
+          "motion": "stop_motion",
+          "words": "tags"
+        }
+      },
       "sound": {
         "music_moods": [
           "calm contemplative piano",
           "gentle acoustic strings",
           "peaceful ambient background"
+        ]
+      },
+      "quiz": {
+        "difficulties": [
+          "Easy (2)",
+          "Medium (4)",
+          "Hard (5.5)",
+          "Very hard (7)",
+          "Impossible (9.5)"
         ]
       },
       "manual_checklist_overrides": [
@@ -154,7 +194,7 @@
       "channel_display_name": "Curiosity Leak",
       "content_mode": "topic"
     },
-    "the_pub_quiz_round": {
+    "pub_quiz_buzz": {
       "format": "quiz",
       "voice": "CwhRBWXzGAHq8TQ4Fs17",
       "style_prompt": "Write for the host of a local pub quiz who genuinely loves this job: warm, quick-witted, never mean, rooting for the listener even on the brutal rounds. Every question stands alone as a clean, unambiguous piece of trivia with one defensible correct answer, phrased the way a real quizmaster would say it aloud, and the accompanying on-screen text matches exactly what's spoken so no viewer is reading something different from what they hear. Move briskly from one question to the next with light, varied connective patter rather than a repeated formula: a short aside, a joke about the category, a nudge before a tricky one, but never padding that delays the countdown. When an answer lands, say it plainly and short, and only add context when it genuinely helps (a date, a one-clause reason) rather than out of habit. Never invent or fudge a fact under pressure to sound clever; if a question is borderline trivia (spelling variants, disputed records, recent events that might have changed), swap it for one that is unambiguous, and keep the difficulty ladder honest so 'impossible' means genuinely obscure rather than unfair or trick-worded. Close each round the same warm way in spirit but not in identical words: inviting the score, asking what topic or difficulty to run next, or nudging a share with mates - never scold, never oversell, keep the pub-night camaraderie.",
@@ -192,10 +232,22 @@
         "screen_hook_enabled": false,
         "emphasis_enabled": false
       },
+      "socials": {
+        "youtube_url": "https://www.youtube.com/@PubQuizBuzz",
+        "tiktok_url": "https://www.tiktok.com/@pubquizbuzz",
+        "instagram_url": "https://www.instagram.com/pubquizbuzz/"
+      },
       "ordering": {
         "topic_order": "random",
         "subtopic_order": "random",
         "grouping": "round_robin"
+      },
+      "publishing": {
+        "enabled": true,
+        "post_tiktok": true,
+        "post_instagram": true,
+        "posting_browser": "chrome",
+        "posting_profile": "Shorts pub_quiz_buzz"
       },
       "scenes": {
         "art": {
@@ -219,18 +271,23 @@
           "light quiz tension",
           "cheerful acoustic tick-tock"
         ],
-        "effects_level": 0.35
+        "effects_level": 0.35,
+        "clock_level": 0.4
       },
       "quiz": {
+        "countdown_seconds": 3.0,
+        "answer_pause": 0.9,
         "difficulties": [
-          "Easy",
-          "Medium",
-          "Hard",
-          "Fiendish",
-          "Impossible"
-        ]
+          "Easy (1.5)",
+          "Medium (3)",
+          "Hard (4.5)",
+          "Tricky (5.5)",
+          "Fiendish (6.5)",
+          "Impossible (8)"
+        ],
+        "after_each_clock_seconds": 6.0
       },
-      "channel_display_name": "The Pub Quiz Round",
+      "channel_display_name": "Pub Quiz Buzz",
       "content_mode": "topic"
     }
   }
