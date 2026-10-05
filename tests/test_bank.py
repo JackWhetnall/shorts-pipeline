@@ -71,7 +71,7 @@ def test_a_batch_is_checked_deduplicated_and_tagged(monkeypatch, tmp_path):
     monkeypatch.setattr(quiz, "verify", lambda category, difficulty, qs, operation="": (
         ["ok" if q["answer"] != "Sargasso Sea" else "wrong" for q in qs]))
     result = bank.write_batch(conn, "Geography", 4, ["Geography", "Science"])
-    assert result == {"written": 3, "kept": 1, "rejected": 1, "repeats": 1}
+    assert result == {"written": 3, "kept": 1, "rejected": 1, "repeats": 1, "levels": [10.0]}
     row = conn.execute("SELECT * FROM questions WHERE answer = 'Dead Sea'").fetchone()
     assert row["level"] == 10 and row["status"] == "ok"
     tags = {r[0] for r in conn.execute("SELECT category FROM question_tags WHERE question_id = ?", (row["id"],))}
@@ -296,3 +296,74 @@ def test_a_batch_for_the_easiest_rounds_is_given_the_raters_yardstick(tmp_path, 
     bank.write_batch(conn, "Space", 1.5, ["Space"])
     bank.write_batch(conn, "Space", 6, ["Space"])
     assert "four in five British adults" in asked[0] and "four in five" not in asked[1]
+
+
+def test_an_easy_batch_is_shown_how_its_own_category_was_judged(tmp_path, monkeypatch):
+    """The general yardstick wasn't enough: Ancient History's "obvious"
+    questions (Julius Caesar, 75%) were still too hard for Easy."""
+    import pipeline.llm as llm
+    from pipeline import quiz
+    conn = store.connect(tmp_path / "f.db")
+    for question, answer, level, pct in (("Which civilisation built the Colosseum?", "The Romans", 2, 85),
+                                         ("Who was assassinated in 44 BC?", "Julius Caesar", 3, 75)):
+        qid = bank.add(conn, _q(question, answer, level=level), "Ancient History", "Rome", "ok", "ok", "written")
+        conn.execute("UPDATE questions SET known_pct = ? WHERE id = ?", (pct, qid))
+    monkeypatch.setattr(bank, "areas", lambda conn, category: ["Rome"])
+    asked = []
+    monkeypatch.setattr(llm, "call_json", lambda system, user, *a, **k: asked.append((user, k)) or {"questions": []})
+    monkeypatch.setattr(quiz, "verify", lambda *a, **k: [])
+
+    bank.write_batch(conn, "Ancient History", 1.5, ["Ancient History"])
+    bank.write_batch(conn, "Ancient History", 6, ["Ancient History"])
+
+    easy, hard = asked[0][0], asked[1][0]
+    assert "Easy enough" in easy and "The Romans): 85%" in easy
+    assert "too hard" in easy and "Julius Caesar): 75%" in easy
+    assert "Easy enough" not in hard
+    assert asked[0][1]["effort"] == "low"
+
+
+def _short_channel(monkeypatch):
+    channel = ChannelConfig(key="pub", format="quiz")
+    channel.quiz.difficulties = ["Easy"]
+    monkeypatch.setattr(keep, "quiz_categories", lambda channel: ["Ancient History"])
+    monkeypatch.setattr(bank, "spent_today", lambda: 0.0)
+    monkeypatch.setattr(keep, "BANK_BATCHES", 1)
+    return channel
+
+
+def test_a_slot_that_writing_doesnt_fill_is_rested(monkeypatch, tmp_path):
+    """Ancient History near Easy was written for 16 times in a few days,
+    each batch giving a question or two easy enough."""
+    conn = store.connect(tmp_path / "f.db")
+    channel = _short_channel(monkeypatch)
+    written = []
+    monkeypatch.setattr(bank, "write_batch", lambda conn, name, level, names: written.append(level) or
+                        {"kept": 20, "levels": [1.0] + [5.0] * 19})
+    said = []
+    for _ in range(keep.REST_AFTER + 1):
+        keep.stock_bank(conn, channel, say=said.append)
+
+    assert len(written) == keep.REST_AFTER
+    assert any("resting it until" in m for m in said)
+
+
+def test_a_slot_that_writing_does_fill_is_never_rested(monkeypatch, tmp_path):
+    conn = store.connect(tmp_path / "f.db")
+    channel = _short_channel(monkeypatch)
+    written = []
+    monkeypatch.setattr(bank, "write_batch", lambda conn, name, level, names: written.append(level) or
+                        {"kept": 20, "levels": [1.0] * 3 + [5.0] * 17})
+    for _ in range(keep.REST_AFTER + 2):
+        keep.stock_bank(conn, channel)
+    assert len(written) == keep.REST_AFTER + 2
+
+
+def test_a_rested_slot_is_tried_again_after_its_rest(monkeypatch, tmp_path):
+    conn = store.connect(tmp_path / "f.db")
+    for _ in range(keep.REST_AFTER):
+        keep._record_write(conn, "Ancient History", 1.5, [5.0])
+    assert keep.resting_until(conn, "Ancient History", 1.5)
+    assert keep.resting_until(conn, "Ancient History", 3.0) is None        # another slot
+    conn.execute("UPDATE bank_writes SET at = at - ?", (keep.REST_DAYS * 86400 + 1,))
+    assert keep.resting_until(conn, "Ancient History", 1.5) is None

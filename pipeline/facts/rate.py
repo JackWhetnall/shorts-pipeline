@@ -80,12 +80,16 @@ def rate(questions: list, operation: str = "bank_rate") -> list:
     didn't come back. (Asked to flag giveaways too, it flagged easy
     questions: "Which country colonised Hong Kong?" A giveaway is caught
     by its wording instead, bank.gives_away.)"""
-    from pipeline.llm import call_json
-    out = []
-    for start in range(0, len(questions), CHUNK):
-        chunk = questions[start:start + CHUNK]
+    from pipeline.llm import call_json, run_together
+    chunks = [questions[start:start + CHUNK] for start in range(0, len(questions), CHUNK)]
+
+    def ask(chunk):
         listed = "\n".join(f"{i + 1}. {q['question']} Answer: {q['answer']}" for i, q in enumerate(chunk))
-        data = call_json(SYSTEM, listed, SCHEMA, operation=operation, max_tokens=6000, effort="low")
+        return call_json(SYSTEM, listed, SCHEMA, operation=operation, max_tokens=6000, effort="low")
+
+    out = []
+    # Side by side in batch mode (pipeline.llm.run_together).
+    for chunk, data in zip(chunks, run_together([lambda chunk=chunk: ask(chunk) for chunk in chunks])):
         got = {r.get("number"): r for r in data.get("ratings") or []}
         for i in range(len(chunk)):
             r = got.get(i + 1)

@@ -60,7 +60,7 @@ def _durations(job: dict) -> dict:
     error part-way, a retry reusing checkpoints) yields only the stages
     it can actually account for.
     """
-    if job.get("status") != "done" or job.get("retried"):
+    if job.get("status") != "done" or job.get("retried") or job.get("ahead"):
         return {}
     if (job.get("seed") or {}).get("type") == "animation_preview":
         return {}               # not a video; its timings describe nothing a video does

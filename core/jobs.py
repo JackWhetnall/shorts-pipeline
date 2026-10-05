@@ -93,6 +93,10 @@ class Job:
     # A failed or interrupted attempt the owner has discarded: no longer
     # offered for retry on the Create page, Activity or the phone.
     dismissed: bool = False
+    # Started by the scheduler, hours before its slot, so nobody is waiting
+    # on it: its Claude calls go at batch prices (decision 063). Its timings
+    # describe batch waits, so core.job_eta leaves it out of the history.
+    ahead: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -231,9 +235,9 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
         if seed.get("type") == "longform":
             # A long quiz recut from finished shorts (pipeline.longform).
             from pipeline import longform
-            plan = longform.make(channel, seed)
+            plan = _made_ahead(job_id, lambda: longform.make(channel, seed))
         else:
-            plan = generate(channel, Seed.from_jsonable(seed), interactive=False)
+            plan = _generate(job_id, channel, Seed.from_jsonable(seed), generate)
         with _lock:
             job = _jobs[job_id]
             job.status = "done"
@@ -281,6 +285,34 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
         _persist(job_id)
     finally:
         _advance_queue()
+
+
+def _generate(job_id: str, channel, seed, generate):
+    return _made_ahead(job_id, lambda: generate(channel, seed, interactive=False))
+
+
+def _made_ahead(job_id: str, make):
+    """`make()`, at batch prices if this job was started ahead of its slot,
+    until someone's own job is queued behind it."""
+    from pipeline import llm
+    with _lock:
+        ahead = _jobs[job_id].ahead
+    if not ahead:
+        return make()
+    log.info("Made ahead of its slot, so its Claude calls go at batch prices (half); "
+             "slower, and they go direct again if another video is queued.")
+    with llm.batched(unless=someone_waiting):
+        made = make()
+    with _lock:
+        _jobs[job_id].notes.append("Made ahead of its slot with Claude at batch prices (half the cost); "
+                                   "slower, but nobody was waiting on it.")
+    return made
+
+
+def someone_waiting() -> bool:
+    """A job queued that isn't itself being made ahead: someone wants it."""
+    with _lock:
+        return any(not _jobs[j].ahead for j in _queue if j in _jobs)
 
 
 def _animation_preview(job_id: str, channel, seed: dict) -> None:
@@ -376,11 +408,12 @@ def _refuse_if_stale() -> None:
         raise JobError("code changed since start", user_message=UPDATING)
 
 
-def start_job(channel_key: str, seed: dict, job_id: str = None) -> str:
+def start_job(channel_key: str, seed: dict, job_id: str = None, ahead: bool = False) -> str:
     """Queue or start a job. Raises JobError if this channel already has
     one in flight, or if the app is waiting to restart onto new code.
     `job_id` is given by a remake, whose checkpoints are written before it
-    starts (core.remake)."""
+    starts (core.remake). `ahead`: started by the scheduler with nobody
+    waiting, so made at batch prices (see Job.ahead)."""
     install()
     _refuse_if_stale()
     with _lock:
@@ -396,7 +429,7 @@ def start_job(channel_key: str, seed: dict, job_id: str = None) -> str:
         _jobs[job_id] = Job(
             id=job_id, channel_key=channel_key, seed=seed,
             status="queued" if running_now else "running",
-            queued_at=now, started_at=None if running_now else now,
+            queued_at=now, started_at=None if running_now else now, ahead=ahead,
         )
         if running_now:
             _queue.append(job_id)
@@ -461,6 +494,8 @@ def retry_job(job_id: str) -> str:
         job.started_at = None if running_now else now
         job.finished_at = None
         job.retried = True
+        # Retried by hand, so someone is waiting now: direct calls.
+        job.ahead = False
         channel_key, seed = job.channel_key, job.seed
         if running_now:
             _queue.append(job_id)

@@ -1,6 +1,52 @@
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 import pytest
+import requests
+
+
+class LiveCallInTest(AssertionError):
+    """A test reached a paid service. Mock the call instead."""
+
+
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+@pytest.fixture(autouse=True)
+def _no_paid_api_calls(tmp_path, monkeypatch):
+    """No test may spend money. The owner's keys are set in the shell the
+    suite runs from, so a test that forgets to mock a call would bill the
+    real account - Claude, OpenAI, ElevenLabs or fal - and nothing would
+    say so.
+
+    Blocked at the two seams every paid call passes through: the
+    Anthropic client `llm.client` builds, and `requests` for everything
+    else. Tests that mock either
+    (`monkeypatch.setattr(llm, "client", ...)`, `module.requests`) patch
+    after this and so replace it; anything that slips through fails
+    loudly instead. The cost log goes to a temporary file too, so a test
+    that records a fake cost doesn't land on the real spend report.
+    """
+    from pipeline import llm
+
+    def refuse_claude(*args, **kwargs):
+        raise LiveCallInTest("a test tried to call Claude - mock llm.call_json or llm.client")
+
+    # The SDK constructor rather than llm.client, so the key check in
+    # client() still runs (and is itself tested).
+    monkeypatch.setattr(llm, "Anthropic", refuse_claude)
+    monkeypatch.setattr(llm, "_client", None)
+
+    real_request = requests.sessions.Session.request
+
+    def local_only(self, method, url, *args, **kwargs):
+        if urlparse(str(url)).hostname not in _LOCAL_HOSTS:
+            raise LiveCallInTest(f"a test made a real HTTP request: {method} {url}")
+        return real_request(self, method, url, *args, **kwargs)
+
+    monkeypatch.setattr(requests.sessions.Session, "request", local_only)
+    monkeypatch.setattr("core.costs.COST_LOG_PATH", tmp_path / "cost_log.jsonl")
 
 
 @pytest.fixture(autouse=True)

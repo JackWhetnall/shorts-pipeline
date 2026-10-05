@@ -81,7 +81,7 @@ def fill_buffers(channels: dict = None) -> list:
             continue
         try:
             seed = fetch_seed(channel)
-            jobs.start_job(key, seed.to_jsonable())
+            jobs.start_job(key, seed.to_jsonable(), ahead=True)
         except Exception as exc:  # noqa: BLE001 - one bad channel must not stop the rest
             log.warning(f"Couldn't start a video for {key}: {exc}")
             continue
@@ -143,7 +143,8 @@ def fill_long_quizzes(channels: dict = None) -> list:
             if len(longform.choose_rounds(channel, request["difficulty"], request["rounds"])) < request["rounds"]:
                 continue
             jobs.start_job(key, {"type": "longform", **request,
-                                 "topic": f"Long quiz: {request['rounds']} rounds, {request['difficulty']}"})
+                                 "topic": f"Long quiz: {request['rounds']} rounds, {request['difficulty']}"},
+                           ahead=True)
         except Exception as exc:  # noqa: BLE001 - one channel must not stop the rest
             log.warning(f"Couldn't start a long quiz for {key}: {exc}")
             continue
@@ -176,7 +177,8 @@ def fill_category_quizzes(channels: dict = None) -> list:
             difficulty = longform.CATEGORY_PREFIX + ready[0]
             request = longform.plan_request(channel, {"difficulty": difficulty})
             jobs.start_job(key, {"type": "longform", **request,
-                                 "topic": f"Long quiz: {ready[0]}, easiest to hardest"})
+                                 "topic": f"Long quiz: {ready[0]}, easiest to hardest"},
+                           ahead=True)
         except Exception as exc:  # noqa: BLE001 - one channel must not stop the rest
             log.warning(f"Couldn't start a category quiz for {key}: {exc}")
             continue

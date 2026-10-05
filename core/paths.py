@@ -51,6 +51,9 @@ SCHEDULE_PATH = PROJECT_ROOT / "config" / "schedule.json"
 # statistics have to outlive the mp4 — see core.gallery.purge.
 DISCARD_HISTORY_PATH = PROJECT_ROOT / "config" / "discard_history.jsonl"
 PHONE_ACCESS_PATH = PROJECT_ROOT / "config" / "phone_access.json"
+# Claude batches submitted and not yet collected (pipeline.llm), so a run
+# stopped mid-wait picks its batch up again instead of paying twice.
+LLM_BATCH_JOURNAL_PATH = CACHE_DIR / "llm_batches.json"
 
 # The one place the output frame size is defined. Both the renderer and
 # the footage normalizer have to agree on this or clips arrive at the

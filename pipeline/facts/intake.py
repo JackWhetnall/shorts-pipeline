@@ -15,7 +15,8 @@ Two steps, so nothing is spent until it's wanted:
      rater as the bank's own), store them, and file them under every
      category they fit (pipeline.facts.scope.file_new).
 
-About $2.50 per 1,000 raw questions, all told. Progress is kept per item,
+About $2.50 per 1,000 raw questions at full price, all told, and half
+that in the hourly run, which uses batch prices (pipeline.llm.batched). Progress is kept per item,
 so a stopped run carries on where it left off.
 """
 
@@ -35,7 +36,9 @@ log = get_logger(__name__)
 BATCH = 25
 PROCESS_MODEL = "claude-sonnet-5"
 PROCESS_EFFORT = "low"
-DAILY_USD = 3.00               # what the scheduler spends on it a day
+# What the scheduler spends on it a day. Was $3 at full price; the hourly
+# run pays batch prices (half), so this processes as many as before.
+DAILY_USD = 1.50
 # What a run's spending is counted from ("category_sort" is the filing).
 OPERATIONS = ("intake_extract", "intake_process", "category_scope")
 

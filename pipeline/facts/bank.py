@@ -146,6 +146,41 @@ year". How well known things are, for scale:
 - Who painted the Mona Lisa? 80%
 - What is the largest planet in the Solar System? 72% (already too hard for these rounds)
 """
+# And, for easy batches, how the rater has judged this category's own
+# questions: a yardstick in the category's terms works where a general
+# one didn't. Ancient History near Easy was written for 16 times with the
+# general one and still had no round; the writer's idea of an easy
+# Ancient History question was the rater's idea of a medium one.
+EASY_EXAMPLES = 8
+
+
+def _easy_examples(conn, category: str) -> str:
+    """Rated questions from this category either side of the easy line,
+    with the share of adults the rater said would know them."""
+    def rows(where: str, order: str) -> list:
+        return conn.execute(
+            "SELECT q.question, q.answer, q.known_pct FROM questions q "
+            "JOIN question_tags t ON t.question_id = q.id "
+            f"WHERE t.category = ? AND q.status = 'ok' AND q.known_pct IS NOT NULL AND {where} "
+            f"ORDER BY {order} LIMIT ?", (category, EASY_EXAMPLES)).fetchall()
+    easy = rows("q.level <= 2", "q.id DESC")
+    hard = rows("q.level BETWEEN 3 AND 5", "q.known_pct DESC")
+    if not easy and not hard:
+        return ""
+    line = lambda r: f"- {r[0]} ({r[1]}): {r[2]:.0f}%"
+    text = "\nHow this category's own questions were judged:\n"
+    if easy:
+        text += "Easy enough for these rounds:\n" + "\n".join(line(r) for r in easy) + "\n"
+    if hard:
+        text += ("Judged too hard for these rounds, though they may look easy; don't write ones "
+                 "like these:\n" + "\n".join(line(r) for r in hard) + "\n")
+    return text
+
+
+# How hard the writer thinks. It was "medium"; a batch's questions are
+# checked and rated by separate calls anyway, and output (thinking
+# included) was most of what a batch cost.
+WRITE_EFFORT = "low"
 
 
 # --- telling questions apart ----------------------------------------------------------
@@ -263,7 +298,8 @@ def _least_stocked_area(conn, category: str, level: float) -> str:
 def write_batch(conn, category: str, level: float, categories: list, count: int = BATCH,
                 area: str = None) -> dict:
     """Write, check and store a batch of questions for a category near a
-    level. Returns {"written", "kept", "rejected", "repeats"}."""
+    level. Returns {"written", "kept", "rejected", "repeats", "levels"}:
+    "levels" is the rated level of each question kept."""
     from pipeline import quiz
     from pipeline.facts import scope
     from pipeline.llm import SystemBlock, call_json
@@ -283,11 +319,11 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
             f"about a point either side.\nQuestions: {count}\n"
             f"Categories a question can also be tagged with: {', '.join(c for c in categories if c != category)}\n")
     if level <= EASY_LEVEL:
-        user += EASY_GUIDE
+        user += EASY_GUIDE + _easy_examples(conn, category)
     if known:
         user += f"\nAlready in the bank for this area (answers; don't ask these facts again):\n{'; '.join(known)}\n"
     data = call_json([SystemBlock(SYSTEM, cacheable=True)], user, SCHEMA, operation="bank_write",
-                     max_tokens=12000, effort="medium")
+                     max_tokens=12000, effort=WRITE_EFFORT)
     fresh, repeats, batch = [], 0, []
     existing = _existing(conn, {answer_key(q.get("answer", "")) for q in data.get("questions") or []})
     for q in data.get("questions") or []:
@@ -299,10 +335,11 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
             continue
         batch.append((question, answer))
         fresh.append({**q, "question": question, "answer": answer, "spoken_answer": answer})
-    verdicts = []
-    for start in range(0, len(fresh), CHECK_CHUNK):
-        chunk = fresh[start:start + CHECK_CHUNK]
-        verdicts += quiz.verify(category, f"level {level:g}", chunk, operation="bank_verify")
+    from pipeline.llm import run_together
+    chunks = [fresh[start:start + CHECK_CHUNK] for start in range(0, len(fresh), CHECK_CHUNK)]
+    verdicts = [v for part in run_together(
+        [lambda chunk=chunk: quiz.verify(category, f"level {level:g}", chunk, operation="bank_verify")
+         for chunk in chunks]) for v in part]
     # The writer's own level isn't trusted: asked for level 2 it labels what
     # it wrote level 2 ("Diners Club" among them). An independent rating
     # sets it (pipeline.facts.rate).
@@ -311,7 +348,7 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
     ratings = rate.rate(passed) if passed else []
     measured = {id(q): r for q, r in zip(passed, ratings) if r}
     kept = rejected = 0
-    new_ids = []
+    new_ids, levels = [], []
     for q, verdict in zip(fresh, verdicts):
         if id(q) in measured:
             percent, kid = measured[id(q)]
@@ -322,6 +359,7 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
         qid = add(conn, q, category, area, status, verdict, "written", categories)
         if status == "ok":
             new_ids.append(qid)
+            levels.append(max(1.0, min(10.0, float(q.get("level") or 5))))     # as stored
     if new_ids:
         # Filed under every category they fit, and checked there, rather
         # than wherever the writer guessed (pipeline.facts.scope).
@@ -332,7 +370,7 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
     log.info(f"  [bank] {category} / {area} near {level:g}: {kept} kept, {rejected} rejected, "
              f"{repeats} repeats")
     return {"written": len(data.get("questions") or []), "kept": kept, "rejected": rejected,
-            "repeats": repeats}
+            "repeats": repeats, "levels": levels}
 
 
 def add(conn, q: dict, category: str, area: str, status: str, verdict: str, source: str,

@@ -30,7 +30,7 @@ from pathlib import Path
 
 from core.paths import COST_LOG_PATH
 
-PRICES_CHECKED = "2026-06-24"
+PRICES_CHECKED = "2026-10-05"
 
 
 @dataclass(frozen=True)
@@ -61,6 +61,10 @@ CLAUDE_PRICES = {
     "claude-sonnet-4-6": TokenPrice(3.00, 15.00),
     "claude-haiku-4-5": TokenPrice(1.00, 5.00),
 }
+
+# The Message Batches API's price, as a fraction of the above. It stacks
+# with the cache multipliers.
+BATCH_DISCOUNT = 0.5
 
 # ElevenLabs bills per character of input text; the exact rate depends on
 # the subscription tier, so this is the widely-quoted Creator-tier
@@ -103,6 +107,7 @@ class CostRecord:
     characters: int = 0
     images: int = 0
     seconds: float = 0.0    # of generated video
+    batch: bool = False     # sent through the Message Batches API, at half price
 
 
 def _write(record: CostRecord) -> None:
@@ -124,11 +129,16 @@ def _write(record: CostRecord) -> None:
             get_logger(__name__).warning("Couldn't write the cost log; spend won't be recorded.")
 
 
-def record_claude(operation: str, model: str, usage, channel_key: str = None) -> CostRecord:
+def record_claude(operation: str, model: str, usage, channel_key: str = None,
+                  batch: bool = False) -> CostRecord:
     """`usage` is the SDK's response.usage. Cached reads and cache writes
     are billed differently from ordinary input, so they're tracked
     separately — otherwise a caching win is invisible in the totals,
-    which defeats the point of measuring."""
+    which defeats the point of measuring.
+
+    `batch`: the call went through the Message Batches API, which bills
+    every token class, cache reads and writes included, at half the
+    rate."""
     from core import job_context
 
     input_tokens = getattr(usage, "input_tokens", 0) or 0
@@ -145,13 +155,15 @@ def record_claude(operation: str, model: str, usage, channel_key: str = None) ->
             + cache_read * price.cache_read
             + cache_write * price.cache_write
         ) / 1_000_000
+        if batch:
+            cost *= BATCH_DISCOUNT
 
     record = CostRecord(
         ts=time.time(), service="claude", operation=operation, model=model,
         cost_usd=cost, job_id=job_context.get_job_id(),
         channel_key=channel_key or job_context.get_channel_key(),
         input_tokens=input_tokens, output_tokens=output_tokens,
-        cache_read_tokens=cache_read, cache_write_tokens=cache_write,
+        cache_read_tokens=cache_read, cache_write_tokens=cache_write, batch=batch,
     )
     _write(record)
     return record
@@ -263,6 +275,8 @@ def _summarize(records: list) -> dict:
         "calls": len(records),
         "by_operation": dict(sorted(by_operation.items(), key=lambda kv: -kv[1])),
         "cache_read_tokens": sum(r.get("cache_read_tokens", 0) for r in records),
+        "batch_calls": sum(1 for r in records if r.get("batch")),
+        "batch_usd": sum(r.get("cost_usd") or 0.0 for r in records if r.get("batch")),
         "input_tokens": sum(r.get("input_tokens", 0) for r in records),
     }
 

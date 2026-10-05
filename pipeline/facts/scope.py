@@ -407,20 +407,33 @@ def _verdicts(rows: list, listed: str, say=None, model: str = None, effort=None)
     A long batch's answer sometimes stops short of its last questions
     (seven in a row were once left filed under the wrong category): those
     are asked again in smaller batches, twice."""
-    from pipeline.llm import call_json
+    from pipeline.llm import call_json, in_batch_mode, run_together
+
+    def ask(chunk, start):
+        # Per chunk only when chunks run one by one on this thread: `say`
+        # writes to the run's database connection, which the side-by-side
+        # threads of batch mode mustn't share. Batch mode says it once, below.
+        if say and not in_batch_mode():
+            say(f"sorting questions into categories ({len(out) + start + 1}-{len(out) + start + len(chunk)}"
+                f" of {len(rows)})" if attempt == 0 else f"asking again about {len(chunk)} skipped questions")
+        text = "\n".join(f"{i + 1}. {q['question']} Answer: {q['answer']}" for i, q in enumerate(chunk))
+        return call_json(SORT_SYSTEM, f"The categories:\n{listed}\n\nThe questions:\n{text}", SORT_SCHEMA,
+                         operation="category_sort", model=model or SORT_MODEL, max_tokens=6000, effort=effort)
+
     out, todo, size = {}, list(rows), SORT_CHUNK
     for attempt in range(3):
         if not todo:
             break
         missed = []
-        for start in range(0, len(todo), size):
+        starts = range(0, len(todo), size)
+        if say and in_batch_mode():
+            say(f"sorting {len(todo)} questions into categories" if attempt == 0
+                else f"asking again about {len(todo)} skipped questions")
+        # Side by side in batch mode (pipeline.llm.run_together): one wait,
+        # not one per chunk.
+        for start, data in zip(starts, run_together(
+                [lambda start=start: ask(todo[start:start + size], start) for start in starts])):
             chunk = todo[start:start + size]
-            if say:
-                say(f"sorting questions into categories ({len(out) + start + 1}-{len(out) + start + len(chunk)}"
-                    f" of {len(rows)})" if attempt == 0 else f"asking again about {len(chunk)} skipped questions")
-            text = "\n".join(f"{i + 1}. {q['question']} Answer: {q['answer']}" for i, q in enumerate(chunk))
-            data = call_json(SORT_SYSTEM, f"The categories:\n{listed}\n\nThe questions:\n{text}", SORT_SCHEMA,
-                             operation="category_sort", model=model or SORT_MODEL, max_tokens=6000, effort=effort)
             answered = {r.get("number"): r.get("categories") or [] for r in data.get("results") or []}
             for i, q in enumerate(chunk):
                 if i + 1 in answered:

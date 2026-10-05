@@ -138,7 +138,56 @@ def _stock_one(conn, channel, name: str, say) -> bool:
 
 BANK_LOW = 20                  # unused checked questions near a level before writing more
 BANK_BATCHES = 6               # batches per run, at most (a run is hourly)
-BANK_DAILY_USD = 1.50          # and no more than this a day on the bank
+# And no more than this a day on the bank. Was $1.50 at full price; the
+# hourly run now pays batch prices (half), so this buys the same writing.
+BANK_DAILY_USD = 0.75
+
+
+# A slot whose writing isn't filling it is rested, so the day's budget
+# goes where it does some good. The writer kept being sent back to the
+# emptiest slot: Ancient History near Easy, 16 batches in a few days, each
+# yielding a question or two easy enough and the rest rated harder.
+REST_AFTER = 3                 # writes in a row ...
+REST_YIELD = 2                 # ... each giving fewer than this many usable for the slot
+REST_DAYS = 3                  # rest it this long
+
+WRITES_TABLE = """
+CREATE TABLE IF NOT EXISTS bank_writes (
+    id INTEGER PRIMARY KEY,
+    category TEXT NOT NULL COLLATE NOCASE,
+    level REAL NOT NULL,
+    at REAL NOT NULL,
+    near INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS bank_writes_slot ON bank_writes (category, level);
+"""
+
+
+def _record_write(conn, category: str, level: float, levels: list) -> int:
+    """Note how many of a write's kept questions a round at this level
+    could use (the widest band a round takes). Returns that number."""
+    from pipeline.facts import rounds
+    easier, harder = rounds.WINDOWS[-1]
+    near = sum(1 for kept in levels if level - easier <= kept <= level + harder)
+    conn.executescript(WRITES_TABLE)
+    with conn:
+        conn.execute("INSERT INTO bank_writes (category, level, at, near) VALUES (?, ?, ?, ?)",
+                     (category, level, time.time(), near))
+    return near
+
+
+def resting_until(conn, category: str, level: float):
+    """When a slot that has stopped filling may be written for again, or
+    None if it isn't resting: the last REST_AFTER writes for it each gave
+    fewer than REST_YIELD questions it could use, the latest within
+    REST_DAYS."""
+    conn.executescript(WRITES_TABLE)
+    last = conn.execute("SELECT at, near FROM bank_writes WHERE category = ? AND level = ? "
+                        "ORDER BY at DESC LIMIT ?", (category, level, REST_AFTER)).fetchall()
+    if len(last) < REST_AFTER or any(r["near"] >= REST_YIELD for r in last):
+        return None
+    until = last[0]["at"] + REST_DAYS * 86400
+    return until if until > time.time() else None
 
 
 def stock_bank(conn, channel, say=None) -> str:
@@ -169,15 +218,23 @@ def stock_bank(conn, channel, say=None) -> str:
     for have, name, label, level in sorted(short):
         if written >= BANK_BATCHES:
             break
+        until = resting_until(conn, name, level)
+        if until:
+            say(f"{name} near {label}: the last {REST_AFTER} batches each gave fewer than "
+                f"{REST_YIELD} questions easy or hard enough for it; resting it until "
+                f"{time.strftime('%a %d %b', time.localtime(until))}")
+            continue
         if bank.spent_today() >= BANK_DAILY_USD:
             say(f"Today's question-bank budget (${BANK_DAILY_USD:.2f}) is spent; more tomorrow.")
             break
-        say(f"Writing {name} questions near {label} ({have} unused)")
+        say(f"Writing {name} questions near {label} ({have} rounds ready)")
         try:
-            bank.write_batch(conn, name, level, names)
+            result = bank.write_batch(conn, name, level, names) or {}
         except Exception as exc:  # noqa: BLE001 - one batch failing mustn't stop the rest
             log.warning(f"  [bank] {name} near {label}: {exc}")
             continue
+        near = _record_write(conn, name, level, result.get("levels") or [])
+        say(f"{name} near {label}: {result.get('kept', 0)} kept, {near} of them right for it")
         written += 1
     rounds.assemble(conn, channel)
     if not short:
@@ -195,22 +252,30 @@ def keep_up(channels: dict) -> bool:
     _last_auto = time.time()
 
     def work(conn, say):
-        # Imported questions, within their own daily budget
-        # (pipeline.facts.intake); then writing where rounds are short, within
-        # the bank's. Both: imports barely reach the easy levels (most
-        # sources' "easy" is rated hard), which only writing fills.
-        from pipeline.facts import intake
-        results = []
-        if intake.pending(conn):
-            names = []
-            for channel in quizzes:
-                names += [n for n in quiz_categories(channel) if n not in names]
-            spent = intake.spent_since(time.time() - 86400)
-            results.append(intake.process(conn, names, intake.DAILY_USD - spent, say)
-                           if spent < intake.DAILY_USD else "Today's import budget is spent; more tomorrow.")
-        results += [stock_bank(conn, channel, say) for channel in quizzes]
-        results += [stock(conn, channel, say) for channel in quizzes]
-        harvest.refresh(conn, progress=say)
-        return " ".join(results)
+        # Nothing waits on this run, so every call in it goes through the
+        # Message Batches API at half price (pipeline.llm.batched).
+        from pipeline import llm
+        with llm.batched():
+            return _keep_up_work(conn, say, quizzes)
 
     return start("keep up", work)
+
+
+def _keep_up_work(conn, say, quizzes: list) -> str:
+    # Imported questions, within their own daily budget
+    # (pipeline.facts.intake); then writing where rounds are short, within
+    # the bank's. Both: imports barely reach the easy levels (most
+    # sources' "easy" is rated hard), which only writing fills.
+    from pipeline.facts import intake
+    results = []
+    if intake.pending(conn):
+        names = []
+        for channel in quizzes:
+            names += [n for n in quiz_categories(channel) if n not in names]
+        spent = intake.spent_since(time.time() - 86400)
+        results.append(intake.process(conn, names, intake.DAILY_USD - spent, say)
+                       if spent < intake.DAILY_USD else "Today's import budget is spent; more tomorrow.")
+    results += [stock_bank(conn, channel, say) for channel in quizzes]
+    results += [stock(conn, channel, say) for channel in quizzes]
+    harvest.refresh(conn, progress=say)
+    return " ".join(results)

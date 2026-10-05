@@ -31,19 +31,34 @@ a truncated call once with a much larger budget, and reports what actually
 went wrong rather than surfacing a JSON parse error for a response that
 was never JSON. Callers that can carry on without an answer are given a
 distinct exception type so they can.
+
+**Half price where nobody is waiting.** Inside `with batched():` every
+call goes through the Message Batches API instead, which bills every
+token at half the rate in exchange for an answer that takes minutes
+rather than seconds. Everything above still applies: a batch result is
+the same Message, so it is checked, retried and costed the same way.
+The hourly background run (pipeline.facts.keep) is the one place that
+uses it: it was most of the bill and nothing waits on it. See decision
+063.
 """
 
 from __future__ import annotations
 
+import contextvars
+import hashlib
 import json
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 
-from anthropic import Anthropic
+from anthropic import Anthropic, NotFoundError
 
 from core import costs
 from core.errors import ExternalServiceError, MissingCredentialError, PipelineError
 from core.logging_setup import get_logger
+from core.paths import LLM_BATCH_JOURNAL_PATH
 
 log = get_logger(__name__)
 
@@ -85,7 +100,23 @@ MAX_ATTEMPTS = 2
 # than ever finding out the hard way.
 MAX_NONSTREAMING_TOKENS = 20_000
 
+# Batch mode. Most batches end within minutes; the API's own limit is a
+# day, after which a request expires unanswered. Polled gently: a check
+# is free, but there's no hurry.
+BATCH_POLL_FIRST = 10          # seconds
+BATCH_POLL_MAX = 120
+BATCH_WAIT_MAX = 25 * 3600
+# Results stay collectable for 29 days; a journal entry older than that
+# points at nothing.
+BATCH_JOURNAL_DAYS = 28
+# Independent calls run side by side in batch mode (run_together), so a
+# run waits for one batch round rather than one per call.
+TOGETHER_MAX = 8
+
 _client = None
+# None outside batch mode; inside it, the `unless` check batched() was given.
+_batch_mode = contextvars.ContextVar("llm_batch_mode", default=None)
+_journal_lock = threading.Lock()
 
 
 class TruncatedResponse(PipelineError):
@@ -190,14 +221,167 @@ def _check_stop_reason(response, operation: str, max_tokens: int) -> None:
 
 
 def _call(request: dict, operation: str, model: str):
+    batch = in_batch_mode()
     try:
-        response = client().messages.create(**request)
+        response = _send_batched(request, operation) if batch else client().messages.create(**request)
     except Exception as exc:
         raise _as_service_error(exc) from exc
 
-    record = costs.record_claude(operation, model, response.usage)
+    record = costs.record_claude(operation, model, response.usage, batch=batch)
     _log_cache_effect(operation, response.usage, record)
     return response
+
+
+# --- batch mode ---------------------------------------------------------
+
+@contextmanager
+def batched(unless=None):
+    """Send every call made inside this block (on this thread, and on
+    threads run_together starts from it) through the Message Batches API
+    at half price. Each call blocks until its batch ends, so only use it
+    where nobody is waiting on the answer.
+
+    `unless`: checked before each call; while it returns True the call
+    goes direct instead. A video made ahead uses it to stop taking its
+    time once someone's own video is queued behind it."""
+    token = _batch_mode.set(unless or (lambda: False))
+    try:
+        yield
+    finally:
+        _batch_mode.reset(token)
+
+
+def in_batch_mode() -> bool:
+    unless = _batch_mode.get()
+    return unless is not None and not unless()
+
+
+def run_together(calls: list) -> list:
+    """Run independent zero-argument calls and return their results in
+    order. Outside batch mode they simply run one after another; inside
+    it they wait out their batches side by side, so four fact-check
+    chunks take one batch round rather than four. The first exception
+    raised is re-raised once all have finished."""
+    if len(calls) <= 1 or not in_batch_mode():
+        return [call() for call in calls]
+    with ThreadPoolExecutor(max_workers=min(TOGETHER_MAX, len(calls)),
+                            thread_name_prefix="llm-batch") as pool:
+        # Each in a copy of this context: batch mode, and the job and
+        # channel the costs are filed under, carry across.
+        futures = [pool.submit(contextvars.copy_context().run, call) for call in calls]
+        return [f.result() for f in futures]
+
+
+def _request_key(request: dict) -> str:
+    """A request's identity: the same bytes, the same key. Also its
+    custom_id, which allows 64 characters of [A-Za-z0-9_-]."""
+    return hashlib.sha256(json.dumps(request, sort_keys=True, default=str)
+                          .encode("utf-8")).hexdigest()
+
+
+def _read_journal() -> dict:
+    try:
+        return json.loads(LLM_BATCH_JOURNAL_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _journal(key: str, batch_id: str = None, operation: str = "") -> None:
+    """Record (or with no batch_id, forget) the batch a request went into.
+
+    Checkpointing, so best-effort by contract like the cost log: a journal
+    that can't be written costs at most a repeat of one call if the app
+    stops mid-wait, and must never fail a call that otherwise worked."""
+    try:
+        with _journal_lock:
+            entries = _read_journal()
+            cutoff = time.time() - BATCH_JOURNAL_DAYS * 86400
+            entries = {k: v for k, v in entries.items() if v.get("at", 0) >= cutoff}
+            if batch_id:
+                entries[key] = {"batch": batch_id, "at": time.time(), "operation": operation}
+            else:
+                entries.pop(key, None)
+            LLM_BATCH_JOURNAL_PATH.parent.mkdir(parents=True, exist_ok=True)
+            LLM_BATCH_JOURNAL_PATH.write_text(json.dumps(entries, indent=1), encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001 - checkpointing; see above
+        log.warning(f"  [llm] couldn't update the batch journal ({exc})")
+
+
+def _send_batched(request: dict, operation: str):
+    """One request as a one-request batch: submitted, waited for, and its
+    Message returned exactly as messages.create would have returned it.
+
+    A request already submitted by a run that stopped before collecting
+    it (the same bytes, so the same key) is picked up rather than paid
+    for again."""
+    key = _request_key(request)
+    known = _read_journal().get(key)
+    batch_id = known.get("batch") if known else None
+    if batch_id:
+        log.info(f"  [llm] {operation}: picking up batch {batch_id} from an earlier run")
+        try:
+            _wait_for(batch_id, operation)
+        except NotFoundError:
+            log.warning(f"  [llm] {operation}: batch {batch_id} no longer exists; sending again")
+            _journal(key)
+            batch_id = None
+    if not batch_id:
+        batch_id = client().messages.batches.create(
+            requests=[{"custom_id": key, "params": request}]).id
+        _journal(key, batch_id, operation)
+        log.info(f"  [llm] {operation}: sent as batch {batch_id} at half price; waiting for it")
+        _wait_for(batch_id, operation)
+
+    result = None
+    for item in client().messages.batches.results(batch_id):
+        if item.custom_id == key:
+            result = item.result
+            break
+    _journal(key)
+    return _batch_message(result, operation, batch_id)
+
+
+def _wait_for(batch_id: str, operation: str) -> None:
+    started = time.time()
+    pause = BATCH_POLL_FIRST
+    while True:
+        batch = client().messages.batches.retrieve(batch_id)
+        if batch.processing_status == "ended":
+            return
+        if time.time() - started > BATCH_WAIT_MAX:
+            raise ExternalServiceError(
+                "The AI service (Claude)", f"{operation}: batch {batch_id} hadn't ended after "
+                f"{BATCH_WAIT_MAX // 3600} hours",
+                user_message="The AI service didn't answer a background request within a day.")
+        time.sleep(pause)
+        pause = min(pause * 2, BATCH_POLL_MAX)
+
+
+def _batch_message(result, operation: str, batch_id: str):
+    """The Message inside a batch result, or the error messages.create
+    would have raised for it."""
+    kind = getattr(result, "type", None)
+    if kind == "succeeded":
+        return result.message
+    if kind == "errored":
+        error = getattr(getattr(result, "error", None), "error", None)
+        error_type = getattr(error, "type", "") or ""
+        detail = (f"{operation}: batch {batch_id} request errored "
+                  f"({error_type}: {getattr(error, 'message', '')})")
+        if error_type == "invalid_request_error":
+            raise ExternalServiceError(
+                "The AI service (Claude)", detail, status=400,
+                user_message=("The AI service rejected the request as malformed. That's a bug in "
+                              "the pipeline rather than anything you did - the details are in the log."))
+        raise ExternalServiceError(
+            "The AI service (Claude)", detail, status=500,
+            user_message=("The AI service had a problem with a background request. The next "
+                          "hourly run tries again."))
+    raise ExternalServiceError(
+        "The AI service (Claude)",
+        f"{operation}: batch {batch_id} came back {kind or 'without this request'}",
+        user_message=("A background request to the AI service expired before it was answered. "
+                      "The next hourly run tries again."))
 
 
 def call_json(system, user_msg: str, schema: dict, *, operation: str,

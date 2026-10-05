@@ -257,7 +257,7 @@ def test_the_scheduler_makes_one_every_n_days_when_rounds_are_ready(world, monke
     world.channel.quiz.longform_rounds = 2
     started = []
     monkeypatch.setattr(jobs, "active_jobs", lambda: {})
-    monkeypatch.setattr(jobs, "start_job", lambda key, seed: started.append(seed) or "job")
+    monkeypatch.setattr(jobs, "start_job", lambda key, seed, ahead=False: started.append(seed) or "job")
     _short(world.root, "science_hard", "Science", "Hard")
     channels = {"pub_quiz": world.channel}
     assert scheduler.fill_long_quizzes(channels) == []          # off by default
@@ -404,7 +404,7 @@ def test_the_scheduler_makes_a_categorys_quiz_when_ready_one_at_a_time(world, mo
     world.channel.publishing.enabled = True
     started = []
     monkeypatch.setattr(jobs, "active_jobs", lambda: {})
-    monkeypatch.setattr(jobs, "start_job", lambda key, seed: started.append(seed) or "job")
+    monkeypatch.setattr(jobs, "start_job", lambda key, seed, ahead=False: started.append(seed) or "job")
     _short(world.root, "science_easy", "Science", "Easy")
     _short(world.root, "science_hard", "Science", "Hard")
     assert scheduler.fill_category_quizzes({"pub_quiz": world.channel}) == ["pub_quiz"]

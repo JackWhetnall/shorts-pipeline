@@ -87,7 +87,9 @@ pipeline/     The generation stages. No web dependency at all.
   plan          The typed data that flows through: Seed, Script, Segment,
                 Shot, Voiceover, RenderPlan.
   llm           The single Claude client: prompt caching, structured outputs,
-                usage recording.
+                usage recording, and batch mode (half price, for the hourly
+                background run and videos the scheduler makes ahead -
+                decision 063).
   quote_source  Source text for static-corpus channels.
   curriculum_gen  Designs a syllabus outline, then one unit's topics at a time.
   script_gen    Seed -> Script. Also the script studio: batch-writes real
@@ -552,8 +554,11 @@ where a quiz round's questions come from first: classic pub-quiz
 questions written in batches per category, area and level, each checked
 once, de-duplicated, levelled 1-10, tagged with every category it fits
 and used once per channel. A round from the bank has only its host's
-lines written. It's topped up hourly within a daily limit (`facts.keep`).
-See decision [050](docs/decisions/050-question-bank.md).
+lines written. It's topped up hourly within a daily limit (`facts.keep`),
+at batch prices; a slot whose last few batches didn't fill it is rested
+for a few days, and easy batches see how the rater judged the category's
+own questions. See decisions [050](docs/decisions/050-question-bank.md)
+and [063](docs/decisions/063-background-calls-at-batch-prices.md).
 
 **Imported questions** (`pipeline/facts/intake.py`, `pipeline/facts/sources/`):
 the Open Trivia Database and pub-quiz websites are gathered into an
@@ -762,7 +767,13 @@ decision [025](docs/decisions/025-voice-quota.md).
 - **Model calls** go through `pipeline.llm`, which checks `stop_reason`
   before trusting `content`, retries a truncated response once with a
   larger budget, and never retries a refusal. Budgets cover thinking as
-  well as output.
+  well as output. Work nobody waits on (the hourly run; jobs started with
+  `ahead=True`) runs inside `llm.batched()`,
+  which sends the same requests through the Message Batches API at half
+  price; independent calls there go through `llm.run_together`.
+- **Tests never reach a paid service**: `tests/conftest.py` blocks the
+  Anthropic client and any non-local HTTP request. Mock `llm.call_json`,
+  `llm.client` or the module's `requests`.
 
 ## Degrading rather than failing
 

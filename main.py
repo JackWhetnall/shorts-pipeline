@@ -70,6 +70,10 @@ def show_costs() -> None:
     if summary["cache_read_tokens"]:
         print(f"\n  {summary['cache_read_tokens']:,} input tokens served from cache "
               f"(billed at a tenth of the usual rate).")
+    if summary["batch_calls"]:
+        print(f"  {summary['batch_calls']:,} call(s) sent as batches at half price: "
+              f"{costs.format_usd(summary['batch_usd'])}, which would have been "
+              f"{costs.format_usd(summary['batch_usd'] / costs.BATCH_DISCOUNT)}.")
 
 
 def show_sameness() -> None:
