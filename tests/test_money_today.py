@@ -159,7 +159,7 @@ def test_money_running_short_is_said_in_time(quiet):
     forecast = {"claude_balance": 3.5, "claude": {"days": 2.0}, "voice": None}
     items = today.needs_you({}, _url_for, now=NOW, forecast=forecast)
     assert items[0].severity == today.BAD and "$3.50 left" in items[0].title
-    v = {"limit": 30000, "per_day": 1336.0, "month_need": 40614, "runs_out": None}
+    v = {"limit": 30000, "schedule_need": 40614, "runs_out": None}
     items = today.needs_you({}, _url_for, now=NOW, forecast={"claude_balance": 30, "claude": {"days": 60},
                                                             "voice": v})
     assert any("won't cover a month" in i.title for i in items)

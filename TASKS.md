@@ -23,14 +23,25 @@ upload will fail and land back in Review. Five videos are queued.
    this channel** and sign in with the channel's Google account.
 3. The red "can't upload" line on **Today** goes once it works again.
 
-### B. Top up the Claude credit, then tell the app (2 minutes)
-About $3.60 of the $40 is left. When it runs out, every script and check
-fails.
-1. [console.anthropic.com → Billing](https://console.anthropic.com/settings/billing): add credit.
-2. **Money → How long it lasts → Claude credit**: type the balance the
-   console shows into the box and press **Save**. From then on the app keeps it up to date
-   from its own log and warns on Today a week before it runs out.
-3. Optional: the same for OpenAI.
+### B. Keep the PC awake until Wed 7 Oct, 17:46, then review as they come (nothing to press)
+The voice allowance resets on Wed 7 Oct at 17:46, and about 18,000 of
+its 30,000 credits are left. Credits left at a reset are lost, so the app
+now spends them on videos made ahead (decision 069). It's making about
+70 (Pub Quiz Buzz about 47, Minute Pastor about 25), filling every
+publishing slot up to about 28 Nov, for about $7 of Claude. They're made
+one at a time, about 30 minutes each.
+- **Keep the PC awake and the app running** until the reset; anything
+  not made by then simply isn't.
+- **They land in Review.** Work through them as their slots come up; a
+  channel with a backlog makes nothing new until it's reviewed down, so
+  next month's allowance isn't spent on the same slots. Switching Pub Quiz
+  Buzz to publish clean videos by itself (its Launch steps) would cut the
+  reviewing; that's your call.
+- **To stop it:** Money → Assumptions → untick "Spend the voice left
+  before it resets", Save. Today's "Spare voice" line says what it's doing.
+- Also found: the app counted the allowance five times too small
+  (ElevenLabs charges 0.2 credits a character for this voice model). The
+  allowance covers about 100 Pub Quiz Buzz shorts a month, not 20.
 
 ### C. Decide the question bank's budget (1 minute)
 Stocking the bank now has one total limit instead of daily caps
@@ -631,6 +642,8 @@ tune.
 
 ## Done
 
+- 5 Oct: Claude credit topped up and its balance entered on Money
+  ($20.31, and OpenAI $5.34); the app keeps both up to date from its log.
 - 27 Sep: The Pub Quiz Round reviewed as a test channel; dingbats removed.
 
 - 24 Sep: ElevenLabs key has `user_read`; the quota shows on `/apis`.

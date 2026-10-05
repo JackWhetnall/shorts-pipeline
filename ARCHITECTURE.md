@@ -44,8 +44,12 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   logos         Logo generation via the image API.
   voice_lab     Voice/cadence/speed auditioning.
   costs         What every API call cost.
-  voice_quota   The ElevenLabs character allowance: read, shown, and checked
-                before a voiceover or a scheduled run — see decision 025.
+  voice_quota   The ElevenLabs allowance in credits (a character of the voiceover
+                model costs 0.2, measured from ElevenLabs' own history): read,
+                shown, and checked before a voiceover or a scheduled run —
+                decisions 025, 069.
+  spare_voice   In the last days before the allowance resets, what's left goes on
+                videos made ahead, filling every slot in date order (decision 069).
   backup        A dated zip of the state nothing else can rebuild.
   today         The home page's lists: what needs you (each with one action) and
                 what runs by itself — see decision 067.
@@ -723,7 +727,12 @@ channel's **publishing plan** sets slot times, days and a buffer. The
 scheduler publishes one queued video per slot (a missed slot is made up
 once, within 20 hours, never in a burst) and starts a new video whenever
 fewer than `buffer` are queued, pausing if `buffer` or more are waiting
-for a look. No plan means "publish on the next check".
+for a look. No plan means "publish on the next check". In the last three days before the
+voice allowance resets, what's left of it is spent on videos made ahead
+for the slots nothing covers yet, filled in date order across every
+channel so there are no gaps, one at a time and within a Claude reserve
+(`core.spare_voice`, decision
+[069](docs/decisions/069-spare-voice-and-credits.md)).
 
 "Out" means a YouTube upload through the channel's connection and, for
 channels that want it, a place on `/to-post` for TikTok and Instagram.

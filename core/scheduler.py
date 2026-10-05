@@ -8,6 +8,9 @@ What happens without anyone clicking: three duties on a five-minute tick.
    long as it takes, hours before its slot.
 3. **Refresh audience numbers** for published videos (core.audience).
 
+And, in the last days before the voice allowance resets, its spare goes on
+videos made ahead for the slots nothing covers yet (core.spare_voice).
+
 Before generating, each running channel's topic plan is kept ahead of it:
 a plan only ever had its first topic's videos written, so a channel left
 to itself stopped dead when that topic ran out. Now the next topic is
@@ -189,6 +192,14 @@ def fill_category_quizzes(channels: dict = None) -> list:
     return started
 
 
+def _spare_voice(channels: dict) -> None:
+    """In the last days before the voice allowance resets, what's left goes
+    on videos made ahead for the slots nothing covers yet, one at a time and
+    only when nothing else is being made (core.spare_voice, decision 069)."""
+    from core import spare_voice
+    spare_voice.run(channels)
+
+
 def _keep_facts(channels: dict) -> None:
     """Keep quiz channels' categories stocked with facts, in the background
     (pipeline.facts.keep; it acts at most hourly)."""
@@ -205,6 +216,7 @@ def tick() -> None:
                        ("generation", lambda: fill_buffers(channels)),
                        ("long quizzes", lambda: fill_long_quizzes(channels)),
                        ("category quizzes", lambda: fill_category_quizzes(channels)),
+                       ("spare voice", lambda: _spare_voice(channels)),
                        ("fact store", lambda: _keep_facts(channels)),
                        ("statistics", lambda: _refresh_audience(channels)),
                        ("remake kits", lambda: _sweep_kits(channels))):

@@ -127,15 +127,15 @@ def dashboard(key):
 
 
 def _plan_estimate(key: str, channel):
-    """Videos a month at this plan, and the voice characters that takes,
-    so the quota cost of a schedule is visible where it's set."""
+    """Videos a month at this plan, and the voice credits that takes, so
+    the quota cost of a schedule is visible where it's set."""
     plan = channel.publishing
     if not plan.slots or not plan.weekdays:
         return None
     videos = round(len(plan.slots) * len(plan.weekdays) * 30 / 7)
     quota = voice_quota.current()
     return {"videos": videos,
-            "characters": videos * voice_quota.typical_video_characters(key),
+            "credits": videos * voice_quota.typical_video_credits(key),
             "limit": quota.limit if quota else None}
 
 

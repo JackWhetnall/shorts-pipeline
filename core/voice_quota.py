@@ -13,10 +13,20 @@ Unknown is always an allowed answer. A key restricted without the
 `user_read` permission, a network blip or no key at all return None, and
 nothing is blocked on a number that couldn't be read: ElevenLabs' own
 `quota_exceeded` response is still the backstop (decision 021).
+
+The allowance is counted in credits, not characters, and a character of
+the voiceover model costs less than one credit: on 5 Oct, 7,629 characters
+of `eleven_turbo_v2_5` took 1,527 credits, 0.2 each. Everything here used
+to compare characters with credits, so the app thought the allowance five
+times smaller than it was (decision 069). The rate is measured from
+ElevenLabs' own history of recent requests, at most daily, and every
+estimate and check converts characters to credits with it.
 """
 
 from __future__ import annotations
 
+import json
+import math
 import os
 import statistics
 import threading
@@ -28,10 +38,19 @@ import requests
 from core import costs
 from core.errors import PipelineError
 from core.logging_setup import get_logger
+from core.paths import CACHE_DIR
 
 log = get_logger(__name__)
 
 SUBSCRIPTION_URL = "https://api.elevenlabs.io/v1/user/subscription"
+HISTORY_URL = "https://api.elevenlabs.io/v1/history"
+
+# Credits per character of the voiceover model, measured from the account's
+# own recent requests (each history item says what it moved the counter by).
+RATIO_PATH = CACHE_DIR / "voice_credit_ratio.json"
+RATIO_MAX_AGE = 86400          # measured again daily
+RATIO_SAMPLE = 100             # recent requests looked at
+RATIO_MIN_CHARACTERS = 500     # fewer than this measured says nothing
 
 # The home page reads this on every load, so a short cache keeps it from
 # adding a network round trip each time. A render always forces a fresh
@@ -68,6 +87,7 @@ class Quota:
 _lock = threading.Lock()
 _cached = None          # (fetched_at, Quota or None)
 _warned = False
+_ratio = None           # (measured_at, credits per character)
 
 
 def _read() -> Quota | None:
@@ -111,6 +131,82 @@ def current(force: bool = False) -> Quota | None:
     return quota
 
 
+def _read_ratio():
+    """Credits per character of the voiceover model, from ElevenLabs' history
+    of this account's recent requests: what each moved the counter by, over
+    its text's length. None if it can't be read or there's too little."""
+    key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    if not key:
+        return None
+    from pipeline.tts import ELEVENLABS_MODEL
+    try:
+        response = requests.get(HISTORY_URL, headers={"xi-api-key": key},
+                                params={"page_size": RATIO_SAMPLE}, timeout=REQUEST_TIMEOUT)
+    except requests.RequestException as exc:
+        log.info(f"ElevenLabs history unavailable: {exc}")
+        return None
+    if not response.ok:
+        log.info(f"ElevenLabs history unavailable (HTTP {response.status_code}); "
+                 "counting a character as a credit")
+        return None
+    try:
+        characters = used = 0
+        for item in response.json().get("history") or []:
+            change = (int(item.get("character_count_change_to") or 0)
+                      - int(item.get("character_count_change_from") or 0))
+            if item.get("model_id") == ELEVENLABS_MODEL and item.get("text") and change >= 0:
+                characters += len(item["text"])
+                used += change
+    except (ValueError, TypeError, AttributeError) as exc:
+        log.warning(f"ElevenLabs history not understood: {exc}")
+        return None
+    return used / characters if characters >= RATIO_MIN_CHARACTERS else None
+
+
+def credits_per_character() -> float:
+    """What a character of narration costs in credits: measured (at most
+    daily, kept between restarts), the last measurement if a new one can't
+    be made, and 1.0 (the cautious answer) if there has never been one."""
+    global _ratio
+    with _lock:
+        if _ratio and time.time() - _ratio[0] < RATIO_MAX_AGE:
+            return _ratio[1]
+    saved = None
+    try:
+        saved = json.loads(RATIO_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
+    if saved and time.time() - float(saved.get("at") or 0) < RATIO_MAX_AGE:
+        measured = (float(saved["at"]), float(saved["ratio"]))
+    else:
+        ratio = _read_ratio()
+        if ratio is not None:
+            measured = (time.time(), ratio)
+            try:
+                RATIO_PATH.parent.mkdir(parents=True, exist_ok=True)
+                RATIO_PATH.write_text(json.dumps({"at": measured[0], "ratio": ratio}), encoding="utf-8")
+            except OSError:
+                # A cache: if it's lost, the rate is measured again tomorrow.
+                log.warning("Couldn't save the ElevenLabs credit rate")
+        elif saved and saved.get("ratio"):
+            measured = (time.time(), float(saved["ratio"]))   # stale beats none; tried again tomorrow
+        else:
+            measured = (time.time(), 1.0)
+    with _lock:
+        _ratio = measured
+    return measured[1]
+
+
+def credits_for(characters: int) -> int:
+    """The credits narrating this many characters takes."""
+    return math.ceil(characters * credits_per_character())
+
+
+def typical_video_credits(channel_key: str) -> int:
+    """Credits one video on this channel typically takes."""
+    return credits_for(typical_video_characters(channel_key))
+
+
 def typical_video_characters(channel_key: str) -> int:
     """Median characters one video on this channel has actually used,
     retries included, from the cost log. The default until it has one."""
@@ -124,20 +220,25 @@ def typical_video_characters(channel_key: str) -> int:
 
 
 def has_room_for(characters: int, force: bool = False) -> bool:
-    """False only when the quota is known and too small."""
+    """Whether narrating this many characters fits what's left. False only
+    when the quota is known and too small."""
     quota = current(force=force)
-    return quota is None or quota.remaining >= characters
+    return quota is None or quota.remaining >= credits_for(characters)
 
 
 def require_room(characters: int) -> None:
-    """Raise before spending anything if this narration can't fit."""
+    """Raise before spending anything if narrating this many characters
+    can't fit."""
     quota = current(force=True)
-    if quota is None or quota.remaining >= characters:
+    if quota is None:
+        return
+    needed = credits_for(characters)
+    if quota.remaining >= needed:
         return
     raise VoiceQuotaExhausted(
-        f"needs {characters} characters, {quota.remaining} of {quota.limit} left",
+        f"needs {needed} credits, {quota.remaining} of {quota.limit} left",
         user_message=(
-            f"This voiceover needs about {characters:,} ElevenLabs characters and the "
+            f"This voiceover needs about {needed:,} ElevenLabs credits and the "
             f"subscription has {quota.remaining:,} of {quota.limit:,} left"
             f"{_resets_phrase(quota)}. The script is saved; retry this job once the "
             f"quota resets, or upgrade the plan."),
@@ -150,7 +251,7 @@ def summary(channel_keys=()) -> dict | None:
     quota = current()
     if quota is None:
         return None
-    sizes = [typical_video_characters(k) for k in channel_keys] or [DEFAULT_VIDEO_CHARACTERS]
+    sizes = [typical_video_credits(k) for k in channel_keys] or [credits_for(DEFAULT_VIDEO_CHARACTERS)]
     per_video = max(1, int(statistics.median(sizes)))
     videos_left = quota.remaining // per_video
     return {

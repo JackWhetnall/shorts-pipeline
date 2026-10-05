@@ -50,7 +50,7 @@ def _no_paid_api_calls(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _no_live_voice_quota(monkeypatch):
+def _no_live_voice_quota(monkeypatch, tmp_path):
     """The quota check reads ElevenLabs over the network whenever a key is
     set, and plenty of tests set a fake one. Unknown is the check's
     allow-everything answer, so this keeps every other test exactly as it
@@ -58,6 +58,11 @@ def _no_live_voice_quota(monkeypatch):
     from core import voice_quota
     monkeypatch.setattr(voice_quota, "_read", lambda: None)
     monkeypatch.setattr(voice_quota, "_cached", None)
+    # Likewise the credits a character costs (read from ElevenLabs' history):
+    # a character is a credit unless a test says otherwise.
+    monkeypatch.setattr(voice_quota, "_read_ratio", lambda: None)
+    monkeypatch.setattr(voice_quota, "_ratio", None)
+    monkeypatch.setattr(voice_quota, "RATIO_PATH", tmp_path / "voice_credit_ratio.json")
 
 
 @pytest.fixture(autouse=True)

@@ -408,12 +408,14 @@ def _refuse_if_stale() -> None:
         raise JobError("code changed since start", user_message=UPDATING)
 
 
-def start_job(channel_key: str, seed: dict, job_id: str = None, ahead: bool = False) -> str:
+def start_job(channel_key: str, seed: dict, job_id: str = None, ahead: bool = False,
+              note: str = "") -> str:
     """Queue or start a job. Raises JobError if this channel already has
     one in flight, or if the app is waiting to restart onto new code.
     `job_id` is given by a remake, whose checkpoints are written before it
     starts (core.remake). `ahead`: started by the scheduler with nobody
-    waiting, so made at batch prices (see Job.ahead)."""
+    waiting, so made at batch prices (see Job.ahead). `note`: why it was
+    started, shown with it (spare voice, core.spare_voice)."""
     install()
     _refuse_if_stale()
     with _lock:
@@ -430,6 +432,7 @@ def start_job(channel_key: str, seed: dict, job_id: str = None, ahead: bool = Fa
             id=job_id, channel_key=channel_key, seed=seed,
             status="queued" if running_now else "running",
             queued_at=now, started_at=None if running_now else now, ahead=ahead,
+            notes=[note] if note else [],
         )
         if running_now:
             _queue.append(job_id)

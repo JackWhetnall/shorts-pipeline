@@ -49,6 +49,7 @@ DEFAULTS = {
     "long_rpm": 4.0,                   # $ per 1,000 long-form views (trivia and education run $3-6)
     "shorts_rpm": 0.0,                 # nothing below 10M Shorts views in 90 days, from Feb 2027
     "in_ypp": [],                      # channel keys in the Partner Programme
+    "spare_voice": True,               # spend the voice left before a reset on videos made ahead
 }
 
 # YouTube Partner Programme, for new applicants.
@@ -249,8 +250,15 @@ def voice(quota, now: float, history: dict = None) -> dict:
     return out
 
 
-def _voice_now(quota, now: float) -> dict:
-    return voice(quota, now, record_voice(quota, now))
+def _voice_now(quota, now: float, rows: list = ()) -> dict:
+    out = voice(quota, now, record_voice(quota, now))
+    if out is not None:
+        # What the schedule itself needs a month, in credits: the structural
+        # question, where the pace above can be a burst week.
+        from core import voice_quota
+        out["schedule_need"] = int(sum((r["shorts"] + r["longs"]) * voice_quota.typical_video_credits(r["key"])
+                                       for r in rows))
+    return out
 
 
 # --- audience and payback -------------------------------------------------------------
@@ -354,7 +362,7 @@ def forecast(channels: dict = None, now: float = None) -> dict:
         "claude": runway(None if claude_left is None else claude_left - bank_left, claude_per_day, now),
         "claude_balance": claude_left,
         "openai_balance": balance("openai", records, saved),
-        "voice": _voice_now(voice_quota.current(), now),
+        "voice": _voice_now(voice_quota.current(), now, rows),
         "views": views,
         "ypp": {key: ypp(row, today) for key, row in views.items()
                 if key in {r["key"] for r in rows}},

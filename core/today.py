@@ -112,20 +112,30 @@ def _money(channels, url_for, now, forecast) -> list:
                         "Billing", "https://console.anthropic.com/settings/billing", outside=True,
                         extra=[("Enter balance", url_for("money.page") + "#balances", False)]))
     voice = forecast.get("voice")
-    if voice and voice.get("runs_out"):
+    if voice and voice.get("runs_out") and not _spending_spare(voice, now):
         days = (voice["runs_out"] - datetime.fromtimestamp(now).date()).days
         out.append(Item(WARN if days > 2 else BAD,
                         f"Voice allowance runs out about {voice['runs_out'].strftime('%d %b')}",
                         f"It resets {voice['resets'].strftime('%d %b')}: about {voice['dry_days']} days "
                         "with no new videos. Upgrade the plan, or make fewer shorts a week.",
                         "Money", url_for("money.page")))
-    elif voice and voice.get("month_need", 0) > voice["limit"] and voice.get("per_day"):
-        lasts = int(voice["limit"] / voice["per_day"])
-        out.append(Item(WARN, "The voice allowance won't cover a month at this pace",
-                        f"About {voice['per_day']:,.0f} characters a day: {voice['month_need']:,.0f} a month "
-                        f"against {voice['limit']:,}, so it runs out around day {lasts} of each month. "
+    elif voice and voice.get("schedule_need", 0) > voice["limit"]:
+        out.append(Item(WARN, "The voice allowance won't cover a month of this schedule",
+                        f"It needs about {voice['schedule_need']:,} credits a month against {voice['limit']:,}. "
                         "Upgrade the plan, or make fewer shorts a week.", "Money", url_for("money.page")))
     return out
+
+
+def _spending_spare(voice: dict, now: float) -> bool:
+    """Whether the allowance is in the days before its reset when what's
+    left is spent on purpose (core.spare_voice): running low then is the
+    plan, not news."""
+    from core import money, spare_voice
+    resets = voice.get("resets")
+    if not resets or not money.settings().get("spare_voice", True):
+        return False
+    days = (resets - datetime.fromtimestamp(now).date()).days
+    return days <= spare_voice.WINDOW_DAYS
 
 
 def _review(channels, url_for, now, forecast) -> list:
@@ -299,11 +309,17 @@ def _expired(channel) -> bool:
 
 
 def background() -> list:
-    """The work nobody starts: the question bank, long quizzes."""
+    """The work nobody starts: spare voice, the question bank, long quizzes."""
+    from core import spare_voice
     from core.channels import load_channels
     from pipeline.facts import budget, keep, store
     out = []
-    channels = [c for c in load_channels(validate=False).values() if c.format == "quiz" and not c.archived]
+    every = load_channels(validate=False)
+    plan = spare_voice.current_plan(every)
+    out.append({"name": "Spare voice", "schedule": f"In the last {spare_voice.WINDOW_DAYS} days before "
+                                                   "the voice allowance resets",
+                "detail": plan.summary(), "running": bool(plan.active and plan.videos)})
+    channels = [c for c in every.values() if c.format == "quiz" and not c.archived]
     if channels:
         summary = budget.summary(store.connect(), channels)
         out.append({"name": "Question bank", "schedule": "Hourly, until every round is ready",

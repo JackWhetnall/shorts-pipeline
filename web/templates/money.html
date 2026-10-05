@@ -60,9 +60,12 @@
       <p class="meta">
         {% if v.runs_out %}Runs out about {{ v.runs_out.strftime('%d %b').lstrip('0') }}, {{ v.dry_days }} days before it resets on {{ v.resets.strftime('%d %b').lstrip('0') }}.
         {% elif v.resets %}Lasts until it resets on {{ v.resets.strftime('%d %b').lstrip('0') }}.{% endif %}
-        {% if v.per_day %}About {{ '{:,}'.format(v.per_day|round|int) }} characters a day.{% endif %}
-        {% if v.month_need and v.month_need > v.limit %}A full month at this pace needs {{ '{:,}'.format(v.month_need|round|int) }}.{% endif %}
+        {% if v.per_day %}About {{ '{:,}'.format(v.per_day|round|int) }} credits a day lately.{% endif %}
+        {% if v.schedule_need %}The schedule needs about {{ '{:,}'.format(v.schedule_need) }} a month.{% endif %}
       </p>
+      <p class="meta"><strong>Spare voice:</strong> {{ spare.summary() }}
+        {% if spare.active and spare.videos %}{{ spare.why }}{% endif %}
+        <button type="button" class="info-dot" data-tooltip="In the last days before the allowance resets, what's left is spent on videos made ahead for the slots nothing is waiting for yet, in date order, so every slot is filled up to the latest date it reaches. One at a time, at batch prices, never taking the Claude credit below two weeks of the schedule's spending. They go to Review like any other.">?</button></p>
       {% else %}<p class="meta">ElevenLabs isn't saying: the key needs the user_read permission.</p>{% endif %}
     </div>
   </div>
@@ -148,6 +151,8 @@
     <label class="field-row"><span class="field-label">Shorts RPM, $ per 1,000 views
       <button type="button" class="info-dot" data-tooltip="From 1 Feb 2027, nothing below 10M Shorts views in 90 days. Around $0.03-0.07 above that.">?</button></span>
       <input type="number" name="shorts_rpm" min="0" step="0.01" value="{{ f.settings.shorts_rpm }}"></label>
+    <label class="checkbox-label"><input type="checkbox" name="spare_voice" {% if f.settings.spare_voice %}checked{% endif %}>
+      Spend the voice left before it resets on videos made ahead</label>
     <fieldset class="plain-fieldset"><legend class="field-label">In the Partner Programme</legend>
       {% for key in f.ypp %}
       <label class="checkbox-label"><input type="checkbox" name="ypp_{{ key }}" {% if key in f.settings.in_ypp %}checked{% endif %}>

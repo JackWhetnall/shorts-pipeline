@@ -15,8 +15,10 @@ bp = Blueprint("money", __name__)
 
 @bp.route("/money")
 def page():
+    from core import spare_voice
     channels = load_channels(validate=False)
     return render_template("money.html", f=money.forecast(channels), channels=channels,
+                           spare=spare_voice.current_plan(channels),
                            providers=money.PROVIDERS, note=request.args.get("note", ""))
 
 
@@ -44,5 +46,6 @@ def save_settings():
             pass
     channels = load_channels(validate=False)
     changes["in_ypp"] = [key for key in channels if request.form.get(f"ypp_{key}")]
+    changes["spare_voice"] = bool(request.form.get("spare_voice"))
     money.save_settings(changes)
     return redirect(url_for("money.page", note="Saved.") + "#assumptions")
