@@ -86,7 +86,7 @@ class TestCredentials:
 class TestTokens:
     def test_unknown_channel_is_simply_not_connected(self, isolated):
         assert youtube.connection("nobody") == {
-            "connected": False, "account": "", "connected_at": "", "stats": False}
+            "connected": False, "account": "", "connected_at": "", "stats": False, "expired": False}
 
     def test_statistics_need_both_read_scopes_actually_granted(self, isolated):
         """A token from before the statistics scopes existed has no scope
@@ -193,6 +193,21 @@ class TestAccessToken:
         with pytest.raises(youtube.NotConnected) as caught:
             youtube.access_token("c")
         assert "7 days" in caught.value.user_message
+
+    def test_a_rejected_connection_is_remembered_until_it_works_again(self, isolated, monkeypatch):
+        """Regression: Minute Pastor's token died around 1 Oct and the only
+        sign was a line on Insights, days before its next upload failed."""
+        youtube.save_client_config("id", "secret")
+        youtube.save_tokens("c", {"refresh_token": "dead", "expires_at": 0})
+        monkeypatch.setattr(youtube.requests, "post",
+                            lambda *a, **k: FakeResponse(400, {"error": "invalid_grant"}))
+        with pytest.raises(youtube.NotConnected):
+            youtube.access_token("c")
+        assert youtube.connection("c")["expired"]
+        monkeypatch.setattr(youtube.requests, "post", lambda *a, **k: FakeResponse(
+            200, {"access_token": "fresh", "expires_in": 3600}))
+        youtube.access_token("c")
+        assert not youtube.connection("c")["expired"]
 
     def test_an_unconnected_channel_says_to_connect_it(self, isolated):
         youtube.save_client_config("id", "secret")

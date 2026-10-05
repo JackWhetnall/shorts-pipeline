@@ -212,6 +212,9 @@ def connection(channel_key: str) -> dict:
         # still upload, but needs one reconnect before its numbers can be
         # read. Tokens saved then didn't record their scopes at all.
         "stats": {READ_SCOPE, ANALYTICS_SCOPE} <= granted,
+        # Google refused its refresh token: nothing goes up until it's
+        # reconnected (Today says so; core.today).
+        "expired": bool(tokens.get("rejected_at")),
     }
 
 
@@ -317,7 +320,10 @@ def access_token(channel_key: str) -> str:
     if response.status_code in (400, 401):
         # The refresh token is dead: revoked, or expired because the OAuth
         # consent screen is still in "Testing", where Google expires them
-        # after seven days. Say which, because the fix differs.
+        # after seven days. Say which, because the fix differs. Remembered,
+        # so the app can say so before the next upload fails.
+        if not tokens.get("rejected_at"):
+            save_tokens(channel_key, {**tokens, "rejected_at": time.time()})
         raise NotConnected(
             f"{channel_key}: YouTube refresh token rejected ({response.status_code}).",
             user_message="YouTube access for this channel has expired. Reconnect "
@@ -329,6 +335,7 @@ def access_token(channel_key: str) -> str:
 
     tokens["access_token"] = payload.get("access_token", "")
     tokens["expires_at"] = time.time() + float(payload.get("expires_in", 0))
+    tokens.pop("rejected_at", None)
     save_tokens(channel_key, tokens)
     return tokens["access_token"]
 

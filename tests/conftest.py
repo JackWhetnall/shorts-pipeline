@@ -74,6 +74,9 @@ def _isolated_script_history(tmp_path, monkeypatch):
     # And the question bank's budget (pipeline.facts.budget): the default
     # unless a test sets one.
     monkeypatch.setattr("pipeline.facts.budget.LIMIT_PATH", tmp_path / "question_bank_budget.json")
+    # And the Money page's settings and voice readings (core.money).
+    monkeypatch.setattr("core.money.SETTINGS_PATH", tmp_path / "money.json")
+    monkeypatch.setattr("core.money.VOICE_HISTORY_PATH", tmp_path / "voice_usage.json")
 
 
 @pytest.fixture(autouse=True)

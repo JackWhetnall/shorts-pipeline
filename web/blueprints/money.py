@@ -1,0 +1,48 @@
+"""
+Money: what the channels cost a month, how long the money and the voice
+allowance last, and what it takes to get it back (core.money, decision 067).
+"""
+
+from __future__ import annotations
+
+from flask import Blueprint, redirect, render_template, request, url_for
+
+from core import money
+from core.channels import load_channels
+
+bp = Blueprint("money", __name__)
+
+
+@bp.route("/money")
+def page():
+    channels = load_channels(validate=False)
+    return render_template("money.html", f=money.forecast(channels), channels=channels,
+                           providers=money.PROVIDERS, note=request.args.get("note", ""))
+
+
+@bp.route("/money/balance", methods=["POST"])
+def set_balance():
+    provider = request.form.get("provider", "")
+    if provider not in money.PROVIDERS:
+        return redirect(url_for("money.page", note="Unknown account."))
+    try:
+        usd = float(request.form.get("usd") or "")
+    except ValueError:
+        return redirect(url_for("money.page", note="The balance has to be a number of dollars."))
+    money.set_balance(provider, usd)
+    label = money.PROVIDERS[provider]["label"]
+    return redirect(url_for("money.page", note=f"{label}: ${usd:.2f} from now on.") + "#balances")
+
+
+@bp.route("/money/settings", methods=["POST"])
+def save_settings():
+    changes = {}
+    for name in ("elevenlabs_monthly_usd", "long_rpm", "shorts_rpm"):
+        try:
+            changes[name] = max(0.0, float(request.form.get(name) or ""))
+        except ValueError:
+            pass
+    channels = load_channels(validate=False)
+    changes["in_ypp"] = [key for key in channels if request.form.get(f"ypp_{key}")]
+    money.save_settings(changes)
+    return redirect(url_for("money.page", note="Saved.") + "#assumptions")

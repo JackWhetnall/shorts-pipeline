@@ -47,6 +47,10 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   voice_quota   The ElevenLabs character allowance: read, shown, and checked
                 before a voiceover or a scheduled run — see decision 025.
   backup        A dated zip of the state nothing else can rebuild.
+  today         The home page's lists: what needs you (each with one action) and
+                what runs by itself — see decision 067.
+  money         Cost a month at this schedule, credit and voice runway, payback,
+                Partner Programme progress (decision 067).
   services      Which external APIs are configured, what each has cost, and
                 where its billing page is. Spend, never a balance — see the
                 module docstring for why that distinction is load-bearing.
@@ -191,7 +195,7 @@ pipeline/     The generation stages. No web dependency at all.
 
 web/          Flask only.
   __init__      App factory: CSRF, error handling, blueprint registration.
-  blueprints/   backgrounds, channels, curriculum, footage, gallery, jobs
+  blueprints/   today, money, backgrounds, channels, curriculum, footage, gallery, jobs
                 (incl. the Activity page), logos, review, services,
                 setup, style_setup, voice_lab, youtube.
   forms, helpers
@@ -202,8 +206,12 @@ tests/        pytest. `-m "not slow"` skips the real render.
 
 ## The three loops
 
-The app is organised around what you actually do, at three different
-frequencies:
+The app opens on **Today** (`/`, `core.today`): one list of everything
+waiting on you, worst first, each with the one button that deals with it,
+beside what each channel is doing by itself and what this month costs;
+**Money** (`/money`, `core.money`) has the detail. See decision
+[067](docs/decisions/067-today-and-money.md). Around that, the app is
+organised around what you actually do, at three different frequencies:
 
 - **Setting up a channel** (once each) — a one-line pitch drafts the
   whole channel for review (`core.drafts`), or a name creates an empty

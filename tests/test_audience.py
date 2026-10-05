@@ -63,6 +63,8 @@ def world(tmp_path, monkeypatch):
 
     def fake_get(url, headers=None, params=None, timeout=None):
         state["calls"].append((url, params))
+        if url == audience.CHANNELS_URL:
+            return FakeResponse(200, {"items": [{"statistics": {"subscriberCount": "42"}}]})
         if url == audience.DATA_URL:
             ids = [i for i in params["id"].split(",") if i not in state["missing"]]
             return FakeResponse(200, {"items": [
@@ -88,7 +90,7 @@ def test_published_videos_get_views_and_retention(world):
 
     result = audience.refresh({"c": world.channel})
 
-    assert result == {"c": {"updated": 1, "error": ""}}
+    assert result == {"c": {"updated": 1, "error": "", "subscribers": 42}}
     stats = gallery.load_stats(shorts)
     assert (stats["views"], stats["likes"]) == (120, 7)
     assert (stats["avg_view_percent"], stats["avg_view_seconds"], stats["subscribers_gained"]) == (64.5, 21, 2)

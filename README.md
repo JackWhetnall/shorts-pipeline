@@ -49,7 +49,7 @@ has spent through each, and a link to each provider's billing page. It
 reports spend, not balance — no provider gives a balance to an ordinary
 API key, so the number on the account lives behind the link. The one
 exception is ElevenLabs' character allowance, which is shown (and warned
-about on the home page when it runs low) if the key has the `user_read`
+about on Today when it runs low) if the key has the `user_read`
 permission. A video that won't fit in what's left is stopped before its
 voiceover, and a scheduled run waits for the reset.
 

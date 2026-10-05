@@ -44,7 +44,7 @@ SECTION_TITLES = {"live": "Live", "setup": "Setting up",
                   "future": "Future ideas", "archived": "Archived"}
 
 
-@bp.route("/")
+@bp.route("/channels")
 def index():
     channels = all_channels()
     sections = {name: {} for name in SECTIONS}

@@ -5,7 +5,9 @@ testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
 *Last updated: 5 Oct 2026. Pub Quiz Buzz and Minute Pastor both publish
-by themselves. Do the "Now" section first.*
+by themselves. Do the "Now" section first. The app's new home page,
+**Today**, now lists what needs you as it happens, and **Money** shows
+costs, runway and payback; this file is for steps outside the app.*
 
 ---
 
@@ -18,13 +20,16 @@ upload will fail and land back in Review. Five videos are queued.
    happens again in 7 days.
 2. **Channels → Minute Pastor → ⚙ Settings → Publishing → Reconnect
    this channel** and sign in with the channel's Google account.
-3. **Insights** should stop saying "YouTube access for this channel has
-   expired" at its next refresh.
+3. The red "can't upload" line on **Today** goes once it works again.
 
-### B. Top up the Claude credit (2 minutes)
-$36.23 of the $40 is spent, so about $3.77 is left, which is roughly 6
-days of videos. When it runs out, every script and check fails.
-[console.anthropic.com → Billing](https://console.anthropic.com/settings/billing).
+### B. Top up the Claude credit, then tell the app (2 minutes)
+About $3.60 of the $40 is left. When it runs out, every script and check
+fails.
+1. [console.anthropic.com → Billing](https://console.anthropic.com/settings/billing): add credit.
+2. **Money → How long it lasts → Claude credit → Balance now**: enter the
+   balance the console shows. From then on the app keeps it up to date
+   from its own log and warns on Today a week before it runs out.
+3. Optional: the same for OpenAI.
 
 ### C. Decide the question bank's budget (1 minute)
 Stocking the bank now has one total limit instead of daily caps
@@ -32,8 +37,9 @@ Stocking the bank now has one total limit instead of daily caps
 of the 234 rounds Pub Quiz Buzz keeps ready, which is over six months of
 one short a day. The limit is **$22** until you change it, so stocking
 has all but stopped. The 42 rounds still short are mostly Easy and Medium.
-**Facts → Question bank → Budget**: raise it once the credit is topped
-up if you want those filled, or leave it.
+Since then, rounds fill by rank when a level runs short (decision 065),
+so only about 10 are short. **Facts → Question bank → Budget**: raise
+it once the credit is topped up if you want those filled, or leave it.
 
 ### D. Give long quizzes two slots a week (1 minute)
 Long quizzes now make themselves (decision 066): a quiz night as soon as

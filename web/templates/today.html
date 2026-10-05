@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Today{% endblock %}
+{% block content %}
+<h1>Today</h1>
+
+{% if not has_channels %}
+<div class="empty-state">
+  <p><strong>No channels yet.</strong></p>
+  <a class="btn btn-primary" href="{{ url_for('channels.new_channel') }}">+ New channel</a>
+</div>
+{% else %}
+<div class="today-grid">
+  <section class="card today-needs">
+    <h2>Needs you{% if items %} <span class="nav-count">{{ items|length }}</span>{% endif %}</h2>
+    {% for item in items %}
+    <div class="today-item today-{{ item.severity }}">
+      <span class="today-dot" aria-hidden="true"></span>
+      <div class="today-item-text">
+        <div class="today-item-title">{{ item.title }}</div>
+        {% if item.detail %}<div class="meta">{{ item.detail }}</div>{% endif %}
+      </div>
+      <div class="today-item-actions">
+        {% if item.action %}
+          {% if item.post %}
+          <form method="post" action="{{ item.url }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-small {{ 'btn-primary' if item.severity == 'bad' else 'btn-ghost' }}">{{ item.action }}</button></form>
+          {% else %}
+          <a class="btn btn-small {{ 'btn-primary' if item.severity == 'bad' else 'btn-ghost' }}" href="{{ item.url }}"
+             {% if item.outside %}target="_blank" rel="noopener"{% endif %}>{{ item.action }}{% if item.outside %} ↗{% endif %}</a>
+          {% endif %}
+        {% endif %}
+        {% for label, url, post in item.extra %}
+          {% if post %}
+          <form method="post" action="{{ url }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-small btn-ghost">{{ label }}</button></form>
+          {% else %}<a class="btn btn-small btn-ghost" href="{{ url }}">{{ label }}</a>{% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <p class="meta">Nothing. Everything that's running is running by itself.</p>
+    {% endfor %}
+  </section>
+
+  <div class="today-side">
+    <section class="card">
+      <h2>Running by itself</h2>
+      {% if running is none %}
+      <p class="meta">Couldn't read the channels' schedules; the details are in the log.</p>
+      {% else %}
+      {% for row in running %}
+      <a class="today-run" href="{{ url_for('channels.dashboard', key=row.key) }}">
+        <span class="today-run-name">{{ row.name }}</span>
+        <span class="badge {{ 'badge-danger' if row.status[0] == 'blocked' else 'badge-warn' if row.status[0] == 'paused' else '' }}">{{ row.status[1] }}</span>
+        <span class="meta">{{ row.schedule }} · {{ row.queued }} queued{% if row.next %} · next {{ row.next }}{% endif %}</span>
+        {% if row.block %}<span class="meta today-run-block">{{ row.block }}</span>{% endif %}
+      </a>
+      {% else %}
+      <p class="meta">No channel publishes by itself yet.</p>
+      {% endfor %}
+      {% for job in background or [] %}
+      <div class="today-run">
+        <span class="today-run-name">{{ job.name }}{% if job.running %} <span class="spinner"></span>{% endif %}</span>
+        <span class="meta">{{ job.schedule }} · {{ job.detail }}</span>
+      </div>
+      {% endfor %}
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2><a href="{{ url_for('money.page') }}">This month</a></h2>
+      {% if forecast is none %}
+      <p class="meta">Couldn't work out the money; the details are in the log.</p>
+      {% else %}
+      <div class="today-kv"><span>Costs at this schedule</span><b>${{ '%.2f'|format(forecast.monthly) }}/mo</b></div>
+      {% if forecast.claude_balance is not none %}
+      <div class="today-kv"><span>Claude credit</span><b>${{ '%.2f'|format(forecast.claude_balance) }} left</b></div>
+      {% endif %}
+      {% if forecast.voice %}
+      {% set v = forecast.voice %}
+      <div class="today-kv"><span>Voice</span><b>{{ '{:,}'.format(v.remaining) }} of {{ '{:,}'.format(v.limit) }}</b></div>
+      <div class="today-meter"><span style="width: {{ (100 * v.used / v.limit)|round|int if v.limit else 0 }}%"></span></div>
+      {% endif %}
+      <div class="today-kv"><span>Earning</span><b>${{ '%.2f'|format(forecast.payback.earning) }}/mo</b></div>
+      <a class="meta" href="{{ url_for('money.page') }}">Costs, payback and the Partner Programme →</a>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

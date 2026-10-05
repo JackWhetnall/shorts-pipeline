@@ -42,6 +42,7 @@ from core.paths import CACHE_DIR
 log = get_logger(__name__)
 
 DATA_URL = "https://www.googleapis.com/youtube/v3/videos"
+CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels"
 ANALYTICS_URL = "https://youtubeanalytics.googleapis.com/v2/reports"
 
 # Statistics move slowly and the Analytics API lags anyway. Twice a day is
@@ -77,8 +78,10 @@ def refresh(channels: dict, force: bool = False) -> dict:
         if not due:
             continue
         try:
-            updated, partial_error = _refresh_channel(key, due)
+            updated, partial_error, subscribers = _refresh_channel(key, due)
             results[key] = {"updated": updated, "error": partial_error}
+            if subscribers is not None:
+                results[key]["subscribers"] = subscribers
         except PipelineError as exc:
             log.warning(f"{key}: couldn't refresh video statistics: {exc}")
             results[key] = {"updated": 0, "error": exc.user_message}
@@ -114,7 +117,8 @@ def _due_videos(channel, force: bool) -> dict:
 
 
 def _refresh_channel(key: str, due: dict) -> tuple:
-    """(videos updated, "" or why retention couldn't be read)."""
+    """(videos updated, "" or why retention couldn't be read, the channel's
+    subscriber count or None)."""
     token = youtube.access_token(key)
     headers = {"Authorization": f"Bearer {token}"}
     ids = list(due)
@@ -156,9 +160,26 @@ def _refresh_channel(key: str, due: dict) -> tuple:
             **retention.get(vid, {}),
             "retention_error": retention_error,
         })
+    subscribers = _subscribers(headers, key)
     if retention_error:
-        return len(counts), f"Views updated, but retention couldn't be read: {retention_error}"
-    return len(counts), ""
+        return len(counts), f"Views updated, but retention couldn't be read: {retention_error}", subscribers
+    return len(counts), "", subscribers
+
+
+def _subscribers(headers: dict, key: str):
+    """The channel's subscriber count (one quota unit), for the Partner
+    Programme's 1,000 (core.money). None if YouTube hides it or won't say."""
+    try:
+        response = requests.get(CHANNELS_URL, headers=headers, timeout=30,
+                                params={"part": "statistics", "mine": "true"})
+        items = youtube._json_or_raise(response, "read the channel's subscribers").get("items") or []
+    except (PipelineError, requests.RequestException) as exc:
+        log.warning(f"{key}: subscriber count unavailable: {exc}")
+        return None
+    stats = (items[0] if items else {}).get("statistics") or {}
+    if stats.get("hiddenSubscriberCount"):
+        return None
+    return _int(stats.get("subscriberCount")) if "subscriberCount" in stats else None
 
 
 def _analytics(headers: dict, ids: list, due: dict) -> dict:
@@ -200,7 +221,8 @@ def _save_status(results: dict) -> None:
     current = status()
     stamp = time.time()
     for key, outcome in results.items():
-        current[key] = {**outcome, "at": stamp}
+        # The last subscriber count stays until a refresh brings a new one.
+        current[key] = {**current.get(key, {}), **outcome, "at": stamp}
     try:
         STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
         STATUS_PATH.write_text(json.dumps(current, indent=2), encoding="utf-8")
