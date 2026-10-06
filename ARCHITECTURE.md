@@ -612,10 +612,16 @@ See decision [060](docs/decisions/060-category-scopes.md).
 
 **Question review** (`pipeline/quiz_review.py`, `web/blueprints/quiz_review.py`)
 lays a round's questions out to judge one by one: fine, too easy, too
-hard, or wrong. Too easy or too hard moves the question in the bank to
-the channel's next level (`owner_level`, which re-rating keeps); wrong
-rejects it. Either way a replacement from the bank is swapped in, and
-only its host lines are rewritten. It works on a round written ahead
+hard, wrong, reworded or in the wrong category. Too easy or too hard
+moves the question in the bank to the channel's next level
+(`owner_level`, which re-rating keeps); wrong rejects it, and the
+reason is shown to the bank's writer for that category from then on
+(`bank.owner_rejections`). The wrong category files it under the right
+one, for good (`question_not_in`, enforced by a trigger on every tag
+insert). Each of those swaps in a replacement from the bank, rewriting
+only its host lines. A rewording is written from the owner's note,
+fact-checked, and kept in the round and the bank in place of the old
+wording ([071](docs/decisions/071-owner-verdicts-used.md)). It works on a round written ahead
 (changed in place on its subtopic) and on a made short (a draft beside
 it, `_script_draft.json`, then "Remake with these changes"). Made shorts
 keep their script (`_script.json`); older ones are rebuilt from

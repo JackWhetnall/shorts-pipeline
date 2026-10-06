@@ -29,7 +29,8 @@ from core.logging_setup import get_logger
 
 log = get_logger(__name__)
 
-VERDICTS = {"ok": "Fine", "easy": "Too easy", "hard": "Too hard", "invalid": "Wrong"}
+VERDICTS = {"ok": "Fine", "easy": "Too easy", "hard": "Too hard", "invalid": "Wrong",
+            "move": "Wrong category", "reword": "Reworded"}
 SWAP_LOOK = 8           # bank questions looked at for a replacement
 PICTURE_TRIES = 4       # picture candidates checked for one replacement
 
@@ -102,10 +103,13 @@ def neighbour_level(channel, level: float, direction: int) -> float:
 # --- a verdict ----------------------------------------------------------------
 
 def judge(channel, script: dict, index: int, verdict: str, reason: str = "",
-          swap: bool = True) -> dict:
+          swap: bool = True, to_category: str = "") -> dict:
     """Apply the owner's verdict on one question, changing `script` in
     place. Returns {"message", "swapped", "moved_to"}. With `swap` off
-    (a made short with no script kept), only the bank learns from it."""
+    (a made short with no script kept), only the bank learns from it.
+
+    "move" files it under `to_category` and swaps it out; "reword" rewrites
+    it as `reason` says, checks it, and keeps it in the round."""
     from pipeline import quiz as quiz_mod
     from pipeline.facts import bank, store
     if verdict not in VERDICTS:
@@ -120,6 +124,9 @@ def judge(channel, script: dict, index: int, verdict: str, reason: str = "",
     level = quiz_mod.level_of(channel, difficulty)
     bank_id = q.get("bank_id") or (None if q.get("kind") else bank.find_id(conn, q["question"], q["answer"]))
 
+    if verdict == "reword":
+        return _reword(channel, script, index, reason, bank_id, swap)
+
     if verdict == "ok":
         q["approved"] = True
         q.pop("flagged", None)
@@ -129,6 +136,33 @@ def judge(channel, script: dict, index: int, verdict: str, reason: str = "",
         return {"message": "Kept.", "swapped": False, "moved_to": None}
 
     moved_to = None
+    if verdict == "move":
+        names = {c.lower(): c for c in categories(channel)}
+        target = names.get((to_category or "").strip().lower())
+        here = quiz_mod.base_category(category)
+        if target is None or target.lower() == here.lower():
+            raise PipelineError(f"no category {to_category!r}",
+                                user_message="Pick which of this channel's categories it belongs in.")
+        if q.get("kind"):
+            raise PipelineError("picture question", user_message="A picture question belongs to its round.")
+        if bank_id:
+            bank.move(conn, bank_id, here, target)
+        else:
+            bank_id = bank.adopt(conn, {"question": q["question"], "answer": q["answer"]}, target, level)
+            bank.move(conn, bank_id, here, target)
+        bank.unuse(conn, channel.key, [bank_id])
+        _history(quiz, q, verdict, f"belongs in {target}")
+        what = f"Moved to {target}"
+        if not swap:
+            return {"message": what + ".", "swapped": False, "moved_to": None}
+        new = replacement(channel, script, index, exclude={bank_id})
+        if new is None:
+            q["flagged"] = verdict
+            return {"message": what + ", but there's no replacement for it yet, so it's still in the round.",
+                    "swapped": False, "moved_to": None}
+        put(channel, script, index, new)
+        return {"message": f"{what}, and replaced.", "swapped": True, "moved_to": None}
+
     if verdict in ("easy", "hard"):
         moved_to = neighbour_level(channel, level, -1 if verdict == "easy" else 1)
         if bank_id:
@@ -154,6 +188,78 @@ def judge(channel, script: dict, index: int, verdict: str, reason: str = "",
                 "swapped": False, "moved_to": moved_to}
     put(channel, script, index, new)
     return {"message": f"{what}, and replaced.", "swapped": True, "moved_to": moved_to}
+
+
+def categories(channel) -> list:
+    """This channel's quiz categories, for "it belongs in..."."""
+    try:
+        from pipeline.facts import keep
+        return [c for c in keep.quiz_categories(channel) or []]
+    except Exception as exc:  # noqa: BLE001 - the page shows without the choice
+        log.warning(f"Couldn't list the quiz categories ({exc})")
+        return []
+
+
+REWORD_SYSTEM = """
+You reword one pub-quiz question exactly as the channel's owner asks.
+Apply their note; change nothing else they didn't ask for. It stays a
+question about the same fact unless the note says otherwise.
+- `question`: one self-contained sentence, under 25 words, plain and
+  grammatical, asking exactly one thing, read aloud and shown on screen.
+  No "which of these", nothing that gives the answer away, nothing that
+  will change over time. British English.
+- `answer`: as shown on the board, 1-4 words: the same as before unless
+  the note changes what's asked.
+""".strip()
+
+REWORD_SCHEMA = {"type": "object", "properties": {"question": {"type": "string"}, "answer": {"type": "string"}},
+                 "required": ["question", "answer"], "additionalProperties": False}
+
+
+def _reword(channel, script: dict, index: int, note: str, bank_id, swap: bool) -> dict:
+    """The owner's rewording: written (under a cent), fact-checked like any
+    question, then put in the bank and the round in its place, with the
+    host's lines for it. It stays: the owner has looked at it."""
+    from pipeline import quiz as quiz_mod
+    from pipeline.facts import bank, store
+    from pipeline.llm import call_json
+    note = " ".join((note or "").split())
+    if not note:
+        raise PipelineError("no note", user_message="Say how to reword it.")
+    quiz = script["quiz"]
+    q = quiz["questions"][index]
+    if q.get("kind"):
+        raise PipelineError("picture question", user_message="A picture question can't be reworded here.")
+    data = call_json(REWORD_SYSTEM, f"Category: {quiz.get('category', '')}\nThe question: {q['question']}\n"
+                                    f"Its answer: {q['answer']}\nThe owner's note: {note}",
+                     REWORD_SCHEMA, operation="quiz_reword", max_tokens=2000, effort="low")
+    question = " ".join((data.get("question") or "").split())
+    answer = " ".join((data.get("answer") or "").split()) or q["answer"]
+    if not question or bank.malformed(question) or bank.gives_away(question, answer):
+        raise PipelineError(f"reword came back unusable: {question!r}",
+                            user_message="The rewording didn't come out as a usable question. Try the note "
+                                         "another way, or take it out.")
+    checked = quiz_mod.verify(quiz.get("category", ""), quiz.get("difficulty", ""),
+                              [{"question": question, "answer": answer, "spoken_answer": answer}],
+                              operation="quiz_reword_verify")
+    if checked != ["ok"]:
+        raise PipelineError(f"reword failed its check ({checked}): {question!r}",
+                            user_message=f"Reworded as \u201c{question}\u201d (answer: {answer}), but that "
+                                         f"didn't pass the fact check, so the old one stays. Try the note "
+                                         f"another way, or take it out.")
+    conn = store.connect()
+    level = quiz_mod.level_of(channel, quiz.get("difficulty", ""))
+    if bank_id:
+        bank.reword(conn, bank_id, question, answer)
+    else:
+        bank_id = bank.adopt(conn, {"question": question, "answer": answer},
+                             quiz_mod.base_category(quiz.get("category", "")), level)
+    _history(quiz, q, "reword", note)
+    if not swap:
+        return {"message": f"Reworded in the bank: \u201c{question}\u201d", "swapped": False, "moved_to": None}
+    put(channel, script, index, {"question": question, "answer": answer, "bank_id": bank_id})
+    quiz["questions"][index]["approved"] = True
+    return {"message": f"Reworded: \u201c{question}\u201d", "swapped": True, "moved_to": None}
 
 
 def _history(quiz: dict, q: dict, verdict: str, reason: str) -> None:

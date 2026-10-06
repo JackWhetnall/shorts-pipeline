@@ -322,6 +322,11 @@ def write_batch(conn, category: str, level: float, categories: list, count: int 
         user += EASY_GUIDE + _easy_examples(conn, category)
     if known:
         user += f"\nAlready in the bank for this area (answers; don't ask these facts again):\n{'; '.join(known)}\n"
+    taken_out = owner_rejections(conn, category)
+    if taken_out:
+        user += ("\nThe channel's owner took these out of rounds, for the reasons given. Write "
+                 "nothing with the same fault:\n"
+                 + "\n".join(f"- {question} ({why})" for question, why in taken_out) + "\n")
     data = call_json([SystemBlock(SYSTEM, cacheable=True)], user, SCHEMA, operation="bank_write",
                      max_tokens=12000, effort=WRITE_EFFORT)
     fresh, repeats, batch = [], 0, []
@@ -525,6 +530,9 @@ def rename_category(conn, old: str, new: str) -> None:
     with conn:
         conn.execute("UPDATE OR IGNORE question_tags SET category = ? WHERE lower(category) = lower(?)", (new, old))
         conn.execute("DELETE FROM question_tags WHERE lower(category) = lower(?)", (old,))
+        conn.execute("UPDATE OR IGNORE question_not_in SET category = ? WHERE lower(category) = lower(?)",
+                     (new, old))
+        conn.execute("DELETE FROM question_not_in WHERE lower(category) = lower(?)", (old,))
         if not conn.execute("SELECT 1 FROM bank_areas WHERE lower(category) = lower(?)", (new,)).fetchone():
             conn.execute("UPDATE bank_areas SET category = ? WHERE lower(category) = lower(?)", (new, old))
 
@@ -579,6 +587,39 @@ def reject(conn, qid: int, reason: str = "") -> None:
     note = " ".join(("owner: " + (reason or "wrong")).split())[:200]
     with conn:
         conn.execute("UPDATE questions SET status = 'rejected', verdict = ? WHERE id = ?", (note, qid))
+
+
+def move(conn, qid: int, from_category: str, to_category: str) -> None:
+    """The owner says it's `to_category`'s question, not `from_category`'s:
+    it's filed there, and nothing files it back (store.question_not_in)."""
+    with conn:
+        conn.execute("DELETE FROM question_tags WHERE question_id = ? AND lower(category) = lower(?)",
+                     (qid, from_category))
+        conn.execute("INSERT OR IGNORE INTO question_not_in (question_id, category) VALUES (?, ?)",
+                     (qid, from_category))
+        conn.execute("DELETE FROM question_not_in WHERE question_id = ? AND lower(category) = lower(?)",
+                     (qid, to_category))
+        conn.execute("INSERT OR IGNORE INTO question_tags (question_id, category) VALUES (?, ?)",
+                     (qid, to_category))
+
+
+def reword(conn, qid: int, question: str, answer: str) -> None:
+    """The owner's rewording, checked, in place of the question."""
+    with conn:
+        conn.execute("UPDATE questions SET question = ?, answer = ?, answer_key = ?, status = 'ok', "
+                     "verdict = 'owner: reworded' WHERE id = ?", (question, answer, answer_key(answer), qid))
+
+
+OWNER_REJECTIONS_SHOWN = 12
+
+
+def owner_rejections(conn, category: str, limit: int = OWNER_REJECTIONS_SHOWN) -> list:
+    """[(question, the owner's reason)] most recent first: what the owner
+    took out of this category's rounds, so the writer learns from it."""
+    return [(r[0], r[1][len("owner: "):]) for r in conn.execute(
+        "SELECT q.question, q.verdict FROM questions q JOIN question_tags t ON t.question_id = q.id "
+        "WHERE lower(t.category) = lower(?) AND q.status = 'rejected' AND q.verdict LIKE 'owner: %' "
+        "AND q.verdict != 'owner: wrong' ORDER BY q.id DESC LIMIT ?", (category, limit))]
 
 
 def adopt(conn, q: dict, category: str, level: float) -> int:

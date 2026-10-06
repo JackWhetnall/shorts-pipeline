@@ -40,7 +40,15 @@ def _render(channel, script: dict, title: str, **extra):
         "quiz_review.html", channel=channel, key=channel.key, title=title,
         quiz=script.get("quiz") or {}, questions=quiz_review.rows(channel, script),
         verdicts=quiz_review.VERDICTS, phone=_phone(), note=request.args.get("note", ""),
-        hook=(script.get("quiz") or {}).get("hook", ""), **extra)
+        hook=(script.get("quiz") or {}).get("hook", ""),
+        other_categories=[c for c in quiz_review.categories(channel)
+                          if c.lower() != _base((script.get("quiz") or {}).get("category", "")).lower()],
+        **extra)
+
+
+def _base(category: str) -> str:
+    from pipeline import quiz
+    return quiz.base_category(category)
 
 
 # --- a round written ahead ---------------------------------------------------
@@ -76,7 +84,8 @@ def judge_written(key, subtopic_id):
         abort(404, description="That round hasn't been written yet.")
     try:
         notes = [quiz_review.judge(channel, script, index, request.form.get("verdict", ""),
-                                   request.form.get("reason", ""))["message"]
+                                   request.form.get("reason", ""),
+                                   to_category=request.form.get("to_category", ""))["message"]
                  for index in _indices(script)]
     except PipelineError as exc:
         return _back("quiz_review.written", exc.user_message, key=key, subtopic_id=subtopic_id)
@@ -140,7 +149,8 @@ def judge_made(relpath):
     script, _, can_swap, _ = _made_round(video, channel)
     try:
         notes = [quiz_review.judge(channel, script, index, request.form.get("verdict", ""),
-                                   request.form.get("reason", ""), swap=can_swap)["message"]
+                                   request.form.get("reason", ""), swap=can_swap,
+                                   to_category=request.form.get("to_category", ""))["message"]
                  for index in _indices(script)]
     except PipelineError as exc:
         return _back("quiz_review.made", exc.user_message, relpath=relpath)

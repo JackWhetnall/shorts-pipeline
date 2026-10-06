@@ -22,7 +22,7 @@
   .qr-actions button { min-height: 2.5rem; padding: 0 var(--sp-3); }
   .qr-wrong { margin-top: var(--sp-2); }
   .qr-wrong form { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); }
-  .qr-wrong input { flex: 1 1 12rem; min-height: 2.5rem; }
+  .qr-wrong input, .qr-wrong select { flex: 1 1 12rem; min-height: 2.5rem; }
   .qr-banner { background: var(--surface-2); border: 1px solid var(--accent-dim); border-radius: var(--radius);
                padding: var(--sp-3) var(--sp-4); margin: var(--sp-3) 0; }
   .qr-banner form { display: inline; }
@@ -100,16 +100,44 @@
         </form>
       </div>
       <details class="qr-wrong">
-        <summary class="hint">Wrong or no good&hellip;</summary>
+        <summary class="hint">Wrong, needs rewording, or the wrong category&hellip;</summary>
         <form method="post" action="{{ judge_url }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="index" value="{{ q.index }}">
           <input type="hidden" name="verdict" value="invalid">
           {% if phone %}<input type="hidden" name="m" value="1">{% endif %}
           <input type="text" name="reason" placeholder="Why (optional): wrong answer, ambiguous, dull...">
-          <button type="submit" class="btn-ghost danger-text">Take it out{{ ' and replace it' if can_swap }}</button>
+          <button type="submit" class="btn-ghost danger-text"
+                  data-tooltip="Your reason is shown to whoever writes this category's questions next, so they don't make the same mistake">Take it out{{ ' and replace it' if can_swap }}</button>
           <span class="qr-busy">Swapping&hellip;</span>
         </form>
+        {% if not q.kind %}
+        <form method="post" action="{{ judge_url }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="index" value="{{ q.index }}">
+          <input type="hidden" name="verdict" value="reword">
+          {% if phone %}<input type="hidden" name="m" value="1">{% endif %}
+          <input type="text" name="reason" required placeholder="Reword it: e.g. leave out &ldquo;called French Polynesia&rdquo;">
+          <button type="submit" class="btn-ghost"
+                  data-tooltip="Rewritten as you say, fact-checked, and kept in this round and the bank. The old wording stays if the new one fails the check">Reword</button>
+          <span class="qr-busy">Rewording&hellip;</span>
+        </form>
+        {% if other_categories %}
+        <form method="post" action="{{ judge_url }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="index" value="{{ q.index }}">
+          <input type="hidden" name="verdict" value="move">
+          {% if phone %}<input type="hidden" name="m" value="1">{% endif %}
+          <select name="to_category" required aria-label="The category it belongs in">
+            <option value="">It belongs in&hellip;</option>
+            {% for c in other_categories %}<option>{{ c }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn-ghost"
+                  data-tooltip="Filed under that category in the bank instead (and kept out of this one for good){{ ', and swapped for another' if can_swap }}">Move it</button>
+          <span class="qr-busy">Swapping&hellip;</span>
+        </form>
+        {% endif %}
+        {% endif %}
       </details>
     </div>
   </li>

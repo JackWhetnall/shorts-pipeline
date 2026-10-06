@@ -108,6 +108,18 @@ CREATE TABLE IF NOT EXISTS question_tags (
     PRIMARY KEY (question_id, category)
 );
 CREATE INDEX IF NOT EXISTS question_tags_category ON question_tags (category);
+-- The owner said this question isn't this category's (question review,
+-- decision 071). Every way a tag is added (sorting, refiling, filing new
+-- questions) respects it, by this trigger rather than by each remembering.
+CREATE TABLE IF NOT EXISTS question_not_in (
+    question_id INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    PRIMARY KEY (question_id, category)
+);
+CREATE TRIGGER IF NOT EXISTS question_tags_owner_out BEFORE INSERT ON question_tags
+WHEN EXISTS (SELECT 1 FROM question_not_in n WHERE n.question_id = NEW.question_id
+             AND lower(n.category) = lower(NEW.category))
+BEGIN SELECT RAISE(IGNORE); END;
 CREATE TABLE IF NOT EXISTS question_used (
     question_id INTEGER NOT NULL,
     channel TEXT NOT NULL,

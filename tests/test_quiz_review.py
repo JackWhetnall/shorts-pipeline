@@ -331,3 +331,81 @@ def test_a_short_made_before_scripts_were_kept_is_rebuilt_from_its_meta(conn, tm
     assert quiz_review.lead_in_of(script, qs[1]) == "Last one."
     from pipeline.plan import Script
     assert Script.from_jsonable(script).quiz["questions"][1]["answer"] == "Six"
+
+
+# --- using what the owner says (6 Oct) ----------------------------------------
+# The owner: "do quiz question discard reasons ever get used?" A question
+# in the wrong category could be moved there, and some would be fine
+# reworded ("remove 'called French Polynesia'").
+
+def test_a_question_in_the_wrong_category_is_filed_where_it_belongs_for_good(conn, monkeypatch):
+    script, ids = _script(conn)
+    monkeypatch.setattr(quiz_review, "categories", lambda channel: ["Science", "Nature"])
+    _add(conn, "Which organ pumps blood around the body?", "Heart", 4, "Body")
+    result = quiz_review.judge(_channel(), script, 2, "move", to_category="Nature")
+    assert result["swapped"] and script["quiz"]["questions"][2]["answer"] == "Heart"
+    tags = {r[0] for r in conn.execute("SELECT category FROM question_tags WHERE question_id = ?", (ids[2],))}
+    assert tags == {"Nature"}
+    # A later re-sort can't put it back.
+    conn.execute("INSERT OR IGNORE INTO question_tags (question_id, category) VALUES (?, 'science')", (ids[2],))
+    assert not conn.execute("SELECT 1 FROM question_tags WHERE question_id = ? AND category = 'science'",
+                            (ids[2],)).fetchone()
+    used = {r[0] for r in conn.execute("SELECT question_id FROM question_used WHERE channel = 'pub'")}
+    assert ids[2] not in used                                    # free for a Nature round
+
+
+def test_moving_needs_one_of_the_channels_other_categories(conn, monkeypatch):
+    from core.errors import PipelineError
+    script, _ = _script(conn)
+    monkeypatch.setattr(quiz_review, "categories", lambda channel: ["Science", "Nature"])
+    for target in ("", "Science", "Cooking"):
+        with pytest.raises(PipelineError):
+            quiz_review.judge(_channel(), script, 2, "move", to_category=target)
+
+
+def test_a_reworded_question_is_checked_then_kept_in_the_round_and_the_bank(conn, monkeypatch):
+    script, ids = _script(conn)
+    sent = {}
+
+    def fake_call(system, user, schema, **kw):
+        sent["user"] = user
+        return {"question": "Which planet is nicknamed red?", "answer": "Mars"}
+    monkeypatch.setattr("pipeline.llm.call_json", fake_call)
+    monkeypatch.setattr(quiz, "verify", lambda *a, **k: ["ok"])
+    result = quiz_review.judge(_channel(), script, 0, "reword", "shorter please")
+    assert "shorter please" in sent["user"] and result["swapped"]
+    q = script["quiz"]["questions"][0]
+    assert (q["question"], q["bank_id"], q["approved"]) == ("Which planet is nicknamed red?", ids[0], True)
+    assert script["segments"][q["ask"]]["text"] == "Which planet is nicknamed red?"
+    row = conn.execute("SELECT question, status FROM questions WHERE id = ?", (ids[0],)).fetchone()
+    assert tuple(row) == ("Which planet is nicknamed red?", "ok")
+
+
+def test_a_rewording_that_fails_the_check_leaves_the_old_one(conn, monkeypatch):
+    from core.errors import PipelineError
+    script, ids = _script(conn)
+    monkeypatch.setattr("pipeline.llm.call_json",
+                        lambda *a, **k: {"question": "Which planet is red and has two moons?", "answer": "Mars"})
+    monkeypatch.setattr(quiz, "verify", lambda *a, **k: ["ambiguous"])
+    with pytest.raises(PipelineError) as raised:
+        quiz_review.judge(_channel(), script, 0, "reword", "add the moons")
+    assert "didn't pass the fact check" in raised.value.user_message
+    assert script["quiz"]["questions"][0]["question"] == "Which planet is known as the Red Planet?"
+
+
+def test_a_reason_given_for_taking_one_out_is_shown_to_the_writer(conn, monkeypatch):
+    script, ids = _script(conn)
+    _add(conn, "Which organ pumps blood around the body?", "Heart", 4, "Body")
+    quiz_review.judge(_channel(), script, 0, "invalid", "the answer is in the question")
+    assert bank.owner_rejections(conn, "Science") == [("Which planet is known as the Red Planet?",
+                                                       "the answer is in the question")]
+    seen = {}
+
+    def fake_call(system, user, schema, **kw):
+        seen["user"] = user
+        return {"questions": []}
+    monkeypatch.setattr("pipeline.llm.call_json", fake_call)
+    monkeypatch.setattr("pipeline.facts.scope.ensure", lambda *a: {})
+    monkeypatch.setattr("pipeline.facts.scope.describe", lambda s: "")
+    bank.write_batch(conn, "Science", 4, ["Science"], 5, area="Space")
+    assert "the answer is in the question" in seen["user"]
