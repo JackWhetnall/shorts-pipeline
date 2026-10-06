@@ -909,6 +909,51 @@ class TestVoiceContinuity:
         assert seen["Two."] == (citation, "Three.")
         assert seen["Three."] == ("Two.", "")
 
+    def test_a_question_before_its_countdown_isnt_told_the_answer(self, tmp_path, monkeypatch):
+        # The owner: the answer's first sound sometimes played before the
+        # timer. Given the answer as context, the engine started saying it
+        # in the question's tail.
+        from types import SimpleNamespace
+
+        import numpy as np
+
+        from pipeline import tts
+        from pipeline.plan import Segment
+
+        seen = {}
+
+        def fake_segment(text, voice_id, out_path, speed=1.0, **kwargs):
+            seen[text] = (kwargs.get("previous_text"), kwargs.get("next_text"))
+            return [], np.zeros((441, 1)), tts.SAMPLE_RATE
+
+        monkeypatch.setattr(tts, "synthesize_segment", fake_segment)
+        monkeypatch.setattr(tts.job_context, "report_detail", lambda *a, **k: None)
+        pacing = SimpleNamespace(pause_after_first_segment=0.1, pause_after_citation=0.1,
+                                 pause_between_segments=0.1, end_hold=0.5)
+        segments = [Segment(text="Question one?", pause_after=5.0),
+                    Segment(text="Paris.", pause_after=1.2), Segment(text="Bye.")]
+        tts.generate_voiceover(segments, None, "v", str(tmp_path / "a.mp3"), pacing)
+        assert seen["Question one?"] == ("", "")
+        assert seen["Paris."] == ("Question one?", "")
+
+    def test_a_question_before_its_countdown_is_cut_close(self, tmp_path):
+        import numpy as np
+
+        from pipeline import tts
+        from pipeline.plan import Segment, WordTiming
+
+        fps = tts.SAMPLE_RATE
+        tail = np.ones((fps * 2, 1)) * 0.5          # 2 s of sound, last word ends at 1 s
+        words = [WordTiming("Question?", 0.2, 1.0)]
+        segments = [Segment(text="Question?"), Segment(text="Answer."), Segment(text="End.")]
+        results = [(5.0, 0, words, tail), (0.3, 1, words, tail), (0.0, 2, words, tail)]
+        tts._stitch(results, segments, str(tmp_path / "a.mp3"))
+        held = segments[0].end - 5.0 - segments[0].start
+        normal = segments[1].end - 0.3 - segments[1].start
+        assert held == pytest.approx(1.0 + tts.HELD_TRAILING_PAD, abs=0.01)
+        assert normal == pytest.approx(1.0 + tts.TRAILING_PAD, abs=0.01)
+        assert tts.HELD_TRAILING_PAD < 0.1
+
     def test_context_goes_in_the_request_respelled_like_the_text(self, monkeypatch):
         from pipeline import tts
 

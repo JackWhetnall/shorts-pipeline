@@ -74,6 +74,13 @@ SEGMENT_FADE_OUT = 0.02
 # end of a video is where a clipped breath is most audible.
 FINAL_TRAILING_PAD = 0.6
 FINAL_FADE_OUT = 0.35
+# A line followed by a held silence (a quiz question before its
+# countdown) is cut close and isn't told what comes next. Given the
+# answer as context, the engine sometimes starts saying it in the tail,
+# and with the usual pad that first sound played before the timer.
+HELD_PAUSE = 1.0
+HELD_TRAILING_PAD = 0.08
+HELD_FADE_OUT = 0.06
 
 # Local, not a cloud ASR service — this is a QA check and shouldn't add a
 # third paid vendor. small.en rather than base.en because the smaller
@@ -656,13 +663,14 @@ def _stitch(results, segments, out_audio_path: str):
             nchannels = samples.shape[1]
         samples = match_channels(samples, nchannels)
 
+        held = not is_final and pause >= HELD_PAUSE
         if timings:
-            pad = FINAL_TRAILING_PAD if is_final else TRAILING_PAD
+            pad = FINAL_TRAILING_PAD if is_final else HELD_TRAILING_PAD if held else TRAILING_PAD
             trim = int(min(len(samples), (timings[-1].end + pad) * fps))
             samples = samples[:trim]
 
-        samples = apply_fade(samples, fps, SEGMENT_FADE_IN,
-                             FINAL_FADE_OUT if is_final else SEGMENT_FADE_OUT)
+        fade_out = FINAL_FADE_OUT if is_final else HELD_FADE_OUT if held else SEGMENT_FADE_OUT
+        samples = apply_fade(samples, fps, SEGMENT_FADE_IN, fade_out)
 
         if segment_index is not None:
             segment_starts[segment_index] = offset
@@ -739,7 +747,8 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
             timings, samples, _ = synthesize_segment(
                 text, voice_id, str(segment_paths[i]), speed,
                 previous_text=plan[i - 1][0] if i > 0 else "",
-                next_text=plan[i + 1][0] if i + 1 < len(plan) else "", say_as=say_as)
+                next_text=plan[i + 1][0] if i + 1 < len(plan) and pause < HELD_PAUSE else "",
+                say_as=say_as)
         except Exception:
             job_context.report_detail("tts", i, {"status": "error"})
             raise
