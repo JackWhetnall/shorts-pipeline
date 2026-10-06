@@ -216,3 +216,104 @@ def test_a_schedule_the_allowance_cant_cover_is_said():
     items = today.needs_you({}, lambda e, **k: "/", now=NOW, forecast={"claude_balance": 30,
                                                                       "claude": {"days": 60}, "voice": voice})
     assert any("won't cover a month of this schedule" in i.title for i in items)
+
+
+# --- long-form first (decision 075) ---------------------------------------------------------
+
+def _production(**stages):
+    from core import production
+    data = production.blank("t0001", "Ada Lovelace")
+    for stage, state in stages.items():
+        production.mark(data, stage, state)
+    return data
+
+
+def test_a_written_script_owes_its_narration_exactly():
+    from core import production
+    data = _production(outline="approved", script="ready")
+    data["script"] = {"scenes": [{"narration": "x" * 1200}, {"narration": "y" * 800}]}
+    assert production.narration_still_to_voice(data) == 2000
+    # Voiced (or being voiced) already: nothing more is owed for the film.
+    for done in ("working", "ready", "approved"):
+        production.mark(data, "video", done)
+        assert production.narration_still_to_voice(data) == 0
+
+
+def test_an_approved_outline_owes_an_estimate_and_one_written_ahead_owes_nothing():
+    from core import production
+    from pipeline.documentary.script import WORDS_PER_SECOND
+    data = _production(outline="ready")
+    data["outline"] = {"chapters": [{"minutes": 6.0}, {"minutes": 4.0}]}
+    assert production.narration_still_to_voice(data) == 0          # the scheduler's, not started
+    production.mark(data, "outline", "approved")
+    assert production.narration_still_to_voice(data) == round(
+        10 * 60 * WORDS_PER_SECOND * production.CHARACTERS_PER_WORD)
+
+
+def test_teasers_written_and_waiting_are_owed_too():
+    from core import production
+    data = _production(outline="approved", script="approved", stills="approved", video="approved",
+                       teasers="ready")
+    data["teasers"] = {"scripts": [{"scenes": [{"narration": "a" * 300}]},
+                                   {"scenes": [{"narration": "b" * 200}, {"narration": "c" * 100}]}]}
+    assert production.narration_still_to_voice(data) == 600
+    production.mark(data, "teasers", "approved")                   # made
+    assert production.narration_still_to_voice(data) == 0
+
+
+def test_the_spare_goes_on_shorts_only_after_whats_owed_to_long_form():
+    plain = make_plan(_situation())
+    kept = make_plan(_situation(long_form=1000, long_form_films=1))
+    assert kept.spare == plain.spare - 1000 and kept.credits <= kept.spare
+    assert "Keeping 1,000 credits for 1 documentary in production" in kept.summary()
+
+
+def test_when_long_form_needs_all_of_it_no_short_is_made_ahead():
+    plan = make_plan(_situation(long_form=5000, long_form_films=2))
+    assert plan.active and not plan.videos
+    assert plan.why == "What's left (3,000 credits) is kept for the documentaries in production."
+
+
+def test_only_documentaries_in_production_are_counted(tmp_path, monkeypatch):
+    from core import production
+    monkeypatch.setattr(production, "CHANNELS_DIR", tmp_path)
+    monkeypatch.setattr(voice_quota, "_ratio", (9e12, 0.2))
+    now = datetime.now().timestamp()
+
+    active = _production(outline="approved", script="ready")
+    active["script"] = {"scenes": [{"narration": "x" * 5000}]}
+    production.save("history", active)
+    abandoned = _production(outline="approved", script="ready")
+    abandoned["subtopic_id"] = "t0002"
+    abandoned["script"] = {"scenes": [{"narration": "x" * 9000}]}
+    for entry in abandoned["stages"].values():
+        entry["at"] = "2026-01-01T00:00:00+00:00"                  # untouched for months
+    production.save("history", abandoned)
+    production.save("archived_docs", active)
+
+    channels = {"history": SimpleNamespace(archived=False, format="documentary"),
+                "archived_docs": SimpleNamespace(archived=True, format="documentary"),
+                "pqb": SimpleNamespace(archived=False, format="quiz")}
+    assert spare_voice.long_form_owed(channels, now) == (1000, 1)  # 5,000 characters at 0.2
+
+
+def test_a_documentary_channels_slots_are_never_filled_with_shorts(monkeypatch):
+    """The scheduler never makes a documentary itself (decision 074); spare
+    voice used to plan shorts for any channel with slots, this one included."""
+    from core import gallery, jobs, money, publish_queue
+    from core import costs
+    from pipeline.facts import budget
+    from core.voice_quota import Quota
+    monkeypatch.setattr(voice_quota, "current", lambda force=False: Quota(used=10_000, limit=30_000))
+    monkeypatch.setattr(costs, "read_records", lambda: [])
+    monkeypatch.setattr(jobs, "active_jobs", lambda: {})
+    monkeypatch.setattr(gallery, "video_state_counts", lambda *a, **k: {"queued": 0, "waiting": 0})
+    monkeypatch.setattr(spare_voice, "long_form_owed", lambda channels, now: (0, 0))
+    monkeypatch.setattr(spare_voice, "made_ahead_minutes", lambda: 30)
+    publishing = SimpleNamespace(enabled=True, slots=["11:00"], weekdays=[0, 1, 2, 3, 4, 5, 6])
+
+    def channel(fmt):
+        return SimpleNamespace(archived=False, format=fmt, publishing=publishing, validate=lambda: None,
+                               channel_display_name=fmt, output_dir=f"output/{fmt}")
+    s = spare_voice.situation({"docs": channel("documentary"), "mp": channel("narrated")}, now=NOW)
+    assert list(s.slots) == ["mp"]

@@ -182,6 +182,49 @@ def edited(channel_key: str, subtopic_id: str, stage: str, content) -> dict:
     return update(channel_key, subtopic_id, change)
 
 
+# Characters of narration per word, spaces included: this project's
+# narration averages about 5.8, rounded up so a reserve errs on the safe side.
+CHARACTERS_PER_WORD = 6
+# A production nobody has touched for this long isn't counted as in progress.
+ACTIVE_DAYS = 14
+
+
+def last_touched(data: dict) -> float:
+    """When anything last happened to this production, as unix time (0 if never)."""
+    stamps = [entry.get("at") for entry in data["stages"].values()]
+    stamps += [h.get("at") for h in data.get("history") or []]
+    latest = 0.0
+    for stamp in stamps:
+        try:
+            latest = max(latest, datetime.fromisoformat(stamp).timestamp())
+        except (TypeError, ValueError):
+            continue
+    return latest
+
+
+def narration_still_to_voice(data: dict) -> int:
+    """Characters this production will still send to the voice (decision
+    075): the film's narration until its video stage has been made, and
+    its teasers' once they're written and waiting to be made.
+
+    Exact from the script when there is one; estimated from the approved
+    outline's minutes when that's all there is. Nothing for an outline
+    that isn't approved: one written ahead isn't a film anyone has started."""
+    total = 0
+    if state(data, "video") not in ("ready", "approved", "working"):
+        scenes = (data.get("script") or {}).get("scenes") or []
+        if scenes:
+            total += sum(len(s.get("narration") or "") for s in scenes)
+        elif state(data, "outline") == "approved":
+            from pipeline.documentary.script import WORDS_PER_SECOND
+            minutes = sum(float(c.get("minutes") or 0) for c in (data.get("outline") or {}).get("chapters") or [])
+            total += round(minutes * 60 * WORDS_PER_SECOND * CHARACTERS_PER_WORD)
+    if state(data, "teasers") == "ready":
+        for teaser in (data.get("teasers") or {}).get("scripts") or []:
+            total += sum(len(s.get("narration") or "") for s in teaser.get("scenes") or [])
+    return total
+
+
 def asset(channel_key: str, subtopic_id: str, name: str) -> Path:
     """A file of this production (a still, a teaser), by its stored name."""
     return safe_join(folder(channel_key, subtopic_id), name)

@@ -7,9 +7,19 @@ directory is append-only history.
 
 ## What it does
 
-Produces short-form vertical videos: a seed (a quote, or a topic) becomes
-a script, which becomes narration with word-level timings, which drives
+Makes videos for the owner's own YouTube channels. It was built for
+short-form vertical videos: a seed (a quote, or a topic) becomes a
+script, which becomes narration with word-level timings, which drives
 matched stock footage and burned-in captions.
+
+**The project is moving to long-form** (decision
+[075](docs/decisions/075-long-form-pivot-and-frozen-channels.md); the
+plan is [`docs/specs/longform-pivot.md`](docs/specs/longform-pivot.md)):
+widescreen documentaries made in approved stages (see Documentaries).
+The two live short-form channels, **Minute Pastor and Pub Quiz Buzz
+(with its long quizzes), are frozen**: their output must not change, and
+`tests/frozen/` holds them to golden fingerprints of their real
+pipelines (see Conventions).
 
 It is **format-agnostic by design**. Quote channels and topic channels
 differ only in configuration — what kind of content a topic channel makes
@@ -49,7 +59,8 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
                 shown, and checked before a voiceover or a scheduled run —
                 decisions 025, 069.
   spare_voice   In the last days before the allowance resets, what's left goes on
-                videos made ahead, filling every slot in date order (decision 069).
+                videos made ahead, filling every slot in date order (decision 069),
+                after what documentaries in production still need (075).
   backup        A dated zip of the state nothing else can rebuild.
   today         The home page's lists: what needs you (each with one action) and
                 what runs by itself — see decision 067.
@@ -782,7 +793,11 @@ voice allowance resets, what's left of it is spent on videos made ahead
 for the slots nothing covers yet, filled in date order across every
 channel so there are no gaps, one at a time and within a Claude reserve
 (`core.spare_voice`, decision
-[069](docs/decisions/069-spare-voice-and-credits.md)).
+[069](docs/decisions/069-spare-voice-and-credits.md)). Before any of it,
+the narration still owed to documentaries in production is kept back
+(`core.production.narration_still_to_voice`), and a documentary
+channel's own slots are never filled with shorts (decision
+[075](docs/decisions/075-long-form-pivot-and-frozen-channels.md)).
 
 "Out" means a YouTube upload through the channel's connection and, for
 channels that want it, a place on `/to-post` for TikTok and Instagram.
@@ -866,6 +881,19 @@ decision [025](docs/decisions/025-voice-quota.md).
 - **Tests never reach a paid service**: `tests/conftest.py` blocks the
   Anthropic client and any non-local HTTP request. Mock `llm.call_json`,
   `llm.client` or the module's `requests`.
+- **Frozen channels**: `tests/frozen/` runs Minute Pastor's and Pub Quiz
+  Buzz's real pipelines end to end (a short each, and a long quiz recut
+  from two shorts) with every outside service recorded, and compares
+  the result with `tests/frozen/golden/`: every Claude and ElevenLabs
+  request word for word, footage picks, the quiz board's page, frames,
+  the sound, the files beside each video, settings and slots. Settings
+  come from the snapshot in `tests/frozen/channels.json`, not the live
+  config. The run may not touch the installation's own data: its paths
+  are redirected and an audit hook refuses the rest. A failure means
+  shared code changed what a frozen channel makes; make the change
+  additive, or with the owner's agreement run
+  `python -m tests.frozen.regenerate` and commit the goldens with it.
+  The freeze point is the tag `shorts-freeze-2026-10-06`.
 
 ## Degrading rather than failing
 

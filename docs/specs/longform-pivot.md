@@ -106,19 +106,24 @@ every stage waits for approval, as 074 does now.
 - Frozen (bug fixes only): narrated shorts (Minute Pastor), quiz format,
   question bank, fact store, long quizzes (Pub Quiz Buzz), TikTok and
   Instagram posting, the shorts settings page and launch pipeline.
-- Retire after an audit shows no live channel reaches them:
-  `pipeline/scenes/`, `pipeline/templates/` (the compositor does both).
+- ~~Retire `pipeline/scenes/` and `pipeline/templates/`~~ Kept (decision
+  075): the audit found Pub Quiz Buzz's board and long quizzes need
+  `scenes.render`, `scenes.art` and `templates.page/theme/tex`, and the
+  compositor needs `scenes.render` and `scenes.props`. Only the
+  per-segment scene and template features are unused; removing them can
+  wait, now the frozen check makes it safe.
 - Off by default: generated motion for whole videos.
 - Archive (owner's OK): curiosity_leak, wrens_guide_to_witchcraft,
   shakespeare_lines, maths_demo.
 
 ## Phases
 
-- **0. Protect the live channels (this week).** Frozen-channel test
-  suite for Minute Pastor and Pub Quiz Buzz, a git tag, a reachability
-  audit, long-form first in spare voice. Owner: top up Claude, reconnect
-  Minute Pastor, consent screen, second long-quiz slot, check an upload
-  is public (decision 017), archive decision.
+- **0. Protect the live channels. Built 6 Oct (decision 075).**
+  `tests/frozen/` holds both channels to golden fingerprints of their
+  real pipelines; tag `shorts-freeze-2026-10-06`; reachability measured
+  (see above); spare voice keeps what documentaries in production need
+  and never fills a documentary channel's slots with shorts; test
+  channels archived. Owner's part is TASKS step 0.
 - **1. One documentary end to end (weeks 1-2, ~$3).** Run History
   Unmystified through the five stages as built; fix what breaks; measure
   cash, credits, minutes per stage, render time, owner time.
@@ -154,7 +159,7 @@ Nothing earns before the Partner Programme. 8,000 hours is 100 films at
 1,000 views, 12 minutes, 40% watched; views per film matter more than
 volume. The stop rule at film 24 caps a failed channel at about $50.
 
-## Owner decisions (recommended defaults)
+## Owner decisions (all agreed as recommended, 6 Oct)
 
 1. Pilot channel: History Unmystified, one person per film.
 2. Look: illustrated stills + archival + graphics.

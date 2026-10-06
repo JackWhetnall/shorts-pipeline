@@ -1,0 +1,1086 @@
+{
+ "config": {
+  "animation": {
+   "budget": 5.0,
+   "cast": [],
+   "enabled": false,
+   "energy": 50,
+   "finish": 100,
+   "image_model": "gpt_image_flare",
+   "pace": 50,
+   "palette": [],
+   "quality": "standard",
+   "style": {
+    "approach": "objects",
+    "material": "felt",
+    "mood": "playful",
+    "motion": "stop_motion",
+    "people": "stubby",
+    "presenter": "none",
+    "stage": "tabletop",
+    "words": "tags"
+   },
+   "style_notes": "",
+   "video_model": "h3_max"
+  },
+  "archived": false,
+  "artwork": {
+   "mode": "off"
+  },
+  "autopilot": {
+   "mode": "off",
+   "spot_check_every": 5
+  },
+  "avoid_imagery": [
+   "islamic",
+   "muslim",
+   "mosque",
+   "quran",
+   "koran",
+   "ramadan",
+   "hijab",
+   "minaret",
+   "imam",
+   "hajj",
+   "mecca",
+   "judaism",
+   "jewish",
+   "hinduism",
+   "hindu",
+   "pendulum",
+   "tarot",
+   "occult",
+   "witch",
+   "witchcraft",
+   "spell",
+   "divination",
+   "ouija",
+   "pentagram",
+   "crystal ball"
+  ],
+  "build_on_previous": false,
+  "channel_display_name": "Minute Pastor",
+  "content_mode": "static_corpus",
+  "context_scope": "topic",
+  "context_topics": 3,
+  "documentary": {
+   "minutes": 10.0,
+   "scene_seconds": 12.0,
+   "teasers": 3
+  },
+  "end_screen": {
+   "ctas": {
+    "affiliate": {
+     "enabled": false,
+     "text": "Shop our picks below"
+    },
+    "merch": {
+     "enabled": false,
+     "text": "Check out our merch"
+    },
+    "patreon": {
+     "enabled": false,
+     "text": "Support us on Patreon"
+    }
+   },
+   "duration_seconds": 3.0,
+   "enabled": false
+  },
+  "format": "narrated",
+  "hook_style": "Open with one line, before the verse is read, that names the quiet tension this particular verse speaks to: a worry, a longing or a question someone listening may already be carrying, or a surprising turn in a familiar line. Gentle and sincere, never hype and never a sermon's opening. It should make the listener want to hear the verse, and hear it freshly, without giving away what the reflection finds.",
+  "key": "minute_pastor",
+  "manual_checklist_overrides": [
+   "affiliate",
+   "patreon"
+  ],
+  "monetization": {
+   "affiliate_links": [],
+   "merch_url": "https://minute-pastor.printify.me/",
+   "patreon_url": ""
+  },
+  "ordering": {
+   "grouping": "topic_first",
+   "mode": "structured",
+   "stickiness": 0.8,
+   "subtopic_order": "sequential",
+   "topic_order": "sequential"
+  },
+  "output_dir": "output/minute_pastor",
+  "outro_subtext": "Follow for more",
+  "pacing": {
+   "caption_max_group_size": 4,
+   "caption_pause_gap_threshold": 0.25,
+   "crossfade": 0.5,
+   "end_hold": 0.9,
+   "max_shot_seconds": 3.5,
+   "outro_seconds": 3.0,
+   "pause_after_citation": 0.5,
+   "pause_after_first_segment": 0.7,
+   "pause_between_segments": 0.4,
+   "segment_count": 3,
+   "target_seconds": 45.0
+  },
+  "pronunciations": {},
+  "publishing": {
+   "buffer": 3,
+   "enabled": true,
+   "long_slots": [
+    "19:00"
+   ],
+   "long_weekdays": [
+    5
+   ],
+   "post_instagram": false,
+   "post_tiktok": false,
+   "posting_browser": "chrome",
+   "posting_profile": "Shorts minute_pastor",
+   "slots": [
+    "11:00"
+   ],
+   "weekdays": [
+    0,
+    2,
+    4,
+    6
+   ]
+  },
+  "quiz": {
+   "after_each_answer_pause": 1.2,
+   "after_each_clock_seconds": 10.0,
+   "answer_pause": 1.2,
+   "at_end_answer_pause": 1.2,
+   "at_end_clock_seconds": 10.0,
+   "at_end_finish_seconds": 30.0,
+   "at_end_reveal_gap": 1.1,
+   "countdown_seconds": 4.0,
+   "difficulties": [
+    "Easy (2)",
+    "Medium (4)",
+    "Hard (5.5)",
+    "Very hard (7)",
+    "Impossible (9.5)"
+   ],
+   "longform_category_when_ready": true,
+   "longform_every_days": 0,
+   "longform_mixed_when_ready": true,
+   "longform_rounds": 6,
+   "longform_series_name": "Quiz Night",
+   "questions": 10
+  },
+  "scenes": {
+   "art": {
+    "preset": "clean_flat"
+   },
+   "share": 0
+  },
+  "socials": {
+   "instagram_url": "https://www.instagram.com/minutepastor/",
+   "tiktok_url": "https://www.tiktok.com/@minutepastor?lang=en-GB",
+   "youtube_url": "https://www.youtube.com/@MinutePastor"
+  },
+  "sound": {
+   "clock_level": 1.0,
+   "clock_sound": "soft",
+   "effects": true,
+   "effects_level": 0.1,
+   "music": true,
+   "music_level": 0.16,
+   "music_moods": [
+    "calm contemplative piano",
+    "gentle acoustic strings",
+    "peaceful ambient background"
+   ]
+  },
+  "source": "bible",
+  "speed": 1.0,
+  "style": {
+   "base_color": "#FFFFFF",
+   "captions_enabled": true,
+   "emphasis_enabled": true,
+   "font_face": "arial_bold",
+   "font_size": 68,
+   "highlight_color": "#FFD400",
+   "outro_bg_color": [
+    10,
+    10,
+    14,
+    255
+   ],
+   "outro_enabled": true,
+   "outro_font_size": 84,
+   "outro_stroke_width": 2,
+   "outro_subtext_color": "#FFD400",
+   "outro_title_color": "#FFFFFF",
+   "screen_hook_enabled": true,
+   "stroke_color": "#000000",
+   "stroke_width": 4,
+   "title_card_bg_color": [
+    10,
+    10,
+    14,
+    255
+   ],
+   "title_card_channel_color": "#FFD400",
+   "title_card_enabled": false,
+   "title_card_font_size": 92,
+   "title_card_placement": "start",
+   "title_card_seconds": 1.8,
+   "title_card_show_topic": false,
+   "title_card_stroke_width": 3,
+   "title_card_title_color": "#FFFFFF",
+   "use_background_image": true
+  },
+  "style_prompt": "You are writing a short, warm, non-denominational reflection on a Bible verse for a YouTube Shorts audience. Plain, modern language. No preachiness, no 'in conclusion', just a grounded human observation about what the verse means and why it might matter today.",
+  "topics": [],
+  "voice": "pNInz6obpgDQGcFmaJgB"
+ },
+ "short": {
+  "audio": [
+   {
+    "codec": "libmp3lame",
+    "fps": null,
+    "seconds": 31.79,
+    "sha1": "a3b9ccce7691e81b"
+   },
+   {
+    "codec": "aac",
+    "fps": 44100,
+    "seconds": 34.79,
+    "sha1": "7396ba1756cd92ba"
+   }
+  ],
+  "board": [],
+  "claude": [
+   {
+    "max_tokens": 4000,
+    "messages": [
+     {
+      "content": "Quote: \"Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.\"\nReference: Psalms 46:10\n\nHow this channel opens, in its own voice: Open with one line, before the verse is read, that names the quiet tension this particular verse speaks to: a worry, a longing or a question someone listening may already be carrying, or a surprising turn in a familiar line. Gentle and sincere, never hype and never a sermon's opening. It should make the listener want to hear the verse, and hear it freshly, without giving away what the reflection finds.\n\nWrite original analysis of this quote, split into EXACTLY 3 segments of roughly 26 words each (78 words in total). Return exactly 3 entries in \"segments\" — no more, no fewer.\n\nThis has to be real, substantive analysis grounded in the specifics of this exact passage — who said it, its surrounding context, the historical moment, a concrete modern parallel. Not a fill-in-the-blank reading that would work just as well for any other passage. The finished video needs to run about 45 seconds, so a thin one-liner isn't an option — and going long is just as wrong.\n\nEach segment is spoken on its own, so it must read naturally as a standalone chunk rather than as a fragment of a longer sentence.\n\n\"quote_shot_brief\" and \"quote_keywords\" describe the footage for the quote itself, \"hook_shot_brief\" and \"hook_keywords\" the footage for the hook; each segment's own fields describe the footage for that segment.\n\nTHE HOOK. People decide in about a second and a half whether to keep\nwatching. The first line has to stop someone mid-scroll: a jolt of\nsurprise, stakes or intrigue so specific that they need the rest.\n\nA hook that works:\n- Leads with the most surprising, concrete thing in the video, or its\n  sharpest consequence. Start at the interesting part, never at the setup.\n- Says something the viewer didn't expect about something they\n  recognise. A statement usually beats a question; a question only works\n  when the viewer is suddenly desperate for its answer.\n- Is concrete: a real object, number, person, place or moment. Abstract\n  intrigue slides straight past.\n- Is short: under 12 words, ideally under 9, readable as a caption at a\n  glance.\n- Promises a payoff the video genuinely delivers, and bigger than the hook\n  suggests. Honest, never bait.\n- Sounds like this channel (its hook style, below). A reverent channel is\n  quietly arresting, but still arresting.\n\nNever open with: a scene or a hypothetical (\"picture...\", \"imagine...\",\n\"say you...\", \"you're standing...\"), a textbook question (\"how do you\nfind...\"), \"have you ever\", \"did you know\", \"ever wondered\", \"let's talk\nabout\", \"in this video\", \"today\", a greeting, vague mystery with nothing\nconcrete in it (\"this changes everything\"), or the answer itself.\n\nMethod: write five different hooks in \"hook_candidates\" first, each by a\ndifferent route: the counter-intuitive claim; the surprising real-world\nconsequence (the everyday thing that only works because of this); one\nstartling specific number or detail; the stakes (what not knowing this\ncosts someone); the belief most people hold that is wrong; the real\nmystery with a real answer; the vivid mid-action line. Then choose the one\nthat would stop the most people: a stranger understands it instantly, on\nfirst hearing, and wants it explained. Usually the most specific and\nsurprising, not the cleverest; if a line needs a second read to make\nsense, it's not the one. Open the video with it word for word.\n\nTHE MIDDLE keeps the promise open and moving: each segment earns the next.\nDon't resolve the hook early.\n\nTHE LANDING. The last segment delivers the payoff concretely: the answer,\nthe number, the moment it clicks, or what the viewer can now see or do,\nideally calling back to the hook. Then it stops, on the natural last\nthing a person would say. Never a summary, a moral, or a slogan-shaped\nclosing line; no \"thanks for watching\" or \"follow for more\" (the outro\ncard does that). A channel that closes on a reflective question still\ndelivers it as a last line, not a lead-in.\n\n\"hook_promise\" names what the hook makes the viewer want (in a phrase) and\n\"payoff\" says how the ending delivers it. Plan both before the lines.\n\nSOUND LIKE A PERSON. This is read aloud as a short-form video, so it has\nto sound like someone talking to camera, not like writing. Talk the way\na sharp friend explains something: contractions, \"you\", plain verbs,\nspecific examples, sentences of uneven length; a fragment now and then is\nfine.\n\nThese phrases mark a script as AI-written, and viewers scroll past them.\nNever use them or anything shaped like them: \"that's the (whole) trick\",\n\"here's the thing\", \"here's the kicker/catch/twist\", \"it's not X, it's\nY\", \"not just X, but Y\", \"let that sink in\", \"the magic/beauty of\",\n\"simply put\", \"in short\", \"the key takeaway\", \"turns out\", \"picture\nthis\", \"ever wondered\", \"delve\", \"unlock\", \"game-changer\", \"journey\",\n\"tapestry\", \"a testament to\", rhetorical triplets (\"three sides, one\nrule, zero guesswork\"), and any neat, symmetrical closing line.\n\nOn this channel the video begins with \"hook\", one spoken line said BEFORE\nthe passage is read. It is the opening described above: it makes the\nlistener want to hear the passage, and hear it differently, without\nexplaining it or giving away what the analysis will find. The passage\nfollows it, then the segments. The last segment is the landing.\n\nEvery \"text\" is spoken aloud word for word by a voice and burned into the\ncaptions exactly as written. It is the finished line, not a note about\nwhat the line should be.\n\nSo: write the sentence someone will hear. Never write a description of a\nline, a template, a placeholder, or an instruction to yourself. A segment\nreading `A catchy opening line with a \"quoted phrase\" in the middle of\nit` is a broken video — those are the words that get read out.\n\nNever use square brackets, curly braces or angle brackets. Nothing later\nfills them in; they are read aloud too.\n\n\"shot_brief\" is what the viewer should SEE while this line is spoken —\none short sentence, literal and filmable, describing a real scene a stock\nclip could contain. Concrete nouns and visible actions only.\n\nGood: \"hands opening slowly, palms up, in soft window light\"\nGood: \"an empty country road at dusk, low sun behind bare trees\"\nGood: \"steam rising from a mug on a kitchen table, morning light\"\nBad:  \"a sense of quiet integrity\"        (not a thing you can film)\nBad:  \"the weight of generational memory\"  (not a thing you can film)\n\nIf the line is abstract, choose an image that carries its FEELING. That\nis what background footage is for — you are briefing an editor on what to\ncut to, not illustrating a dictionary definition.\n\n\"keywords\" are 2-4 short, concrete, searchable terms drawn from that same\nimage — the things a stock footage site would have tagged. \"open hands\",\n\"country road\", \"steam\", \"candle\". Never abstract nouns like \"hope\",\n\"integrity\" or \"clarity\": nothing in a footage library is tagged with\nthose, so they match nothing.\n\n\"title_options\" are 3 candidate video titles: 3-8 words, specific to THIS\npassage, written to make someone stop scrolling without overpromising or\nresorting to clickbait punctuation. No quotation marks, no all-caps, no\ntrailing exclamation marks.\n\n\"description_body\" is the top of the video description: one or two\nsentences that say what this video is actually about, then a blank line,\nthen 3-5 relevant hashtags on one line. Do not include the reference, any\nlinks, or a call to action — those are added afterwards from the\nchannel's own settings.\n\n\"screen_hook\" is the hook's punch as big on-screen text for the first\nseconds: 2-6 words that make someone stop, not a copy of the whole line\n(the captions already show that). It should add bite, not repeat.\n\n\"emphasis\" is up to 6 single words from the spoken lines that carry the\nmeaning (the key numbers and nouns), exactly as they are written in the\nlines. They pop in the captions as they're said.",
+      "role": "user"
+     }
+    ],
+    "model": "claude-sonnet-5",
+    "operation": "script",
+    "output_config": {
+     "effort": "low",
+     "format": {
+      "schema": {
+       "additionalProperties": false,
+       "properties": {
+        "description_body": {
+         "type": "string"
+        },
+        "emphasis": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        "hook": {
+         "description": "The chosen hook, word for word, said before the passage: one full sentence with its capital and its final punctuation.",
+         "type": "string"
+        },
+        "hook_candidates": {
+         "description": "Five different hooks, each by a different route.",
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        "hook_keywords": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        "hook_promise": {
+         "description": "The question or tension the opening line opens, in a phrase.",
+         "type": "string"
+        },
+        "hook_shot_brief": {
+         "type": "string"
+        },
+        "payoff": {
+         "description": "How and where the ending closes that loop.",
+         "type": "string"
+        },
+        "quote_keywords": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        "quote_shot_brief": {
+         "type": "string"
+        },
+        "screen_hook": {
+         "type": "string"
+        },
+        "segments": {
+         "items": {
+          "additionalProperties": false,
+          "properties": {
+           "keywords": {
+            "items": {
+             "type": "string"
+            },
+            "type": "array"
+           },
+           "shot_brief": {
+            "type": "string"
+           },
+           "text": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "text",
+           "shot_brief",
+           "keywords"
+          ],
+          "type": "object"
+         },
+         "type": "array"
+        },
+        "title_options": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        }
+       },
+       "required": [
+        "hook_candidates",
+        "hook_promise",
+        "payoff",
+        "hook",
+        "hook_shot_brief",
+        "hook_keywords",
+        "segments",
+        "title_options",
+        "description_body",
+        "screen_hook",
+        "emphasis",
+        "quote_shot_brief",
+        "quote_keywords"
+       ],
+       "type": "object"
+      },
+      "type": "json_schema"
+     }
+    },
+    "system": [
+     {
+      "text": "You are writing a short, warm, non-denominational reflection on a Bible verse for a YouTube Shorts audience. Plain, modern language. No preachiness, no 'in conclusion', just a grounded human observation about what the verse means and why it might matter today.",
+      "type": "text"
+     }
+    ]
+   },
+   {
+    "max_tokens": 12000,
+    "messages": [
+     {
+      "content": "Here are the segments of a short video script, in order. Each segment's footage is shown in several-second chunks, so a segment needing more than one clip should get several DIFFERENT clips in sequence, never one repeated:\n0. \"What if the hardest thing you do today is stop?\" (keywords: street, slow motion) - needs 2 distinct clips\n1. \"Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.\" (keywords: still water, sky) - needs 3 distinct clips\n2. \"Stillness can feel like losing, when every voice says keep moving.\" (keywords: bench, city) - needs 2 distinct clips\n3. \"This line was first sung by people whose city was surrounded, not people with time to spare.\" (keywords: stone wall, dusk) - needs 2 distinct clips\n4. \"Be still is not a suggestion to relax. It is permission to stop carrying what was never yours.\" (keywords: hands, stone) - needs 3 distinct clips\n\nIMPORTANT — this channel must never show: islamic, muslim, mosque, quran, koran, ramadan, hijab, minaret, imam, hajj, mecca, judaism, jewish, hinduism, hindu, pendulum, tarot, occult, witch, witchcraft, spell, divination, ouija, pentagram, crystal ball. This\noverrides everything else: a clip is disqualified the moment its imagery relates\nto any of these, however strong a thematic fit it otherwise is. A clip that is\nspecifically excluded-kind devotional imagery does NOT fit a segment about\n\"prayer\" or \"devotion\" in general — the specific excluded imagery always loses to\nthe general theme. Keep \"search_queries\" away from these too.",
+      "role": "user"
+     }
+    ],
+    "model": "claude-sonnet-5",
+    "operation": "footage_match",
+    "output_config": {
+     "effort": "medium",
+     "format": {
+      "schema": {
+       "additionalProperties": false,
+       "properties": {
+        "picks": {
+         "items": {
+          "additionalProperties": false,
+          "properties": {
+           "matches": {
+            "items": {
+             "additionalProperties": false,
+             "properties": {
+              "confidence": {
+               "type": "integer"
+              },
+              "filename": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "filename",
+              "confidence"
+             ],
+             "type": "object"
+            },
+            "type": "array"
+           },
+           "search_queries": {
+            "items": {
+             "type": "string"
+            },
+            "type": "array"
+           },
+           "segment_index": {
+            "type": "integer"
+           }
+          },
+          "required": [
+           "segment_index",
+           "matches",
+           "search_queries"
+          ],
+          "type": "object"
+         },
+         "type": "array"
+        }
+       },
+       "required": [
+        "picks"
+       ],
+       "type": "object"
+      },
+      "type": "json_schema"
+     }
+    },
+    "system": [
+     {
+      "text": "You match short video script segments to stock footage clips by visual and thematic meaning.\n\nEach segment comes with a SHOT BRIEF: what should be on screen while that\nline is spoken. Score each candidate clip 1-10 on one question only:\n\n    Would a competent video editor cut to this clip here?\n\n- 9-10: essentially the briefed shot, or a better version of it.\n- 7-8: shows the brief's subject or a clear equivalent, differing only in\n  incidental detail — setting, framing, time of day, who is in it.\n- 5-6: not the briefed shot, but the right feeling, and nothing in it\n  works against the line being spoken. Ordinary, usable background\n  footage. Most good b-roll lives here.\n- 3-4: harmless but inert. Nothing wrong with it; it adds nothing and\n  would leave the viewer wondering why this shot was chosen.\n- 1-2: actively wrong. It contradicts the words, breaks the tone, is\n  distractingly busy under quiet narration, or shows something that would\n  read as a mistake.\n\nTwo things this rubric deliberately does NOT penalise.\n\nAbstraction. A line about doubt or forgiveness has no literal subject to\ndepict, and demanding one would mean nothing ever scores. Background\nfootage carries mood; the shot brief already did the work of turning the\nidea into an image. Judge against the brief, not against the sentence.\n\nFamiliarity. A calm ocean under a calm line is not a failure of\nimagination, it is an editor making an easy correct choice. Score what\nworks on screen, not what is inventive.\n\nWhat to be strict about is contradiction and inertness. A clip that fights\nthe narration belongs at 1-2 however pretty it is, and a clip nobody would\nnotice belongs at 3-4 however inoffensive.\n\nA clip can only be used ONCE in the whole video. If an earlier segment\nclaims a clip, a later one cannot reuse it — so list every plausible fit\nwith its honest score, not just your favourite, or a later segment is left\nwith nothing.\n\nLeaving a segment short is the correct outcome when the candidates\ngenuinely do not work. Any shortfall is filled by fetching real footage,\nso there is no reason to inflate a score to pad a list.\n\nAlways include \"search_queries\": 2-3 SHORT phrases (1-3 words) that would\nfind the briefed shot on a stock footage site. Take them from the brief,\nnot from the spoken line. For a brief about open hands in window light\nthat is [\"open hands\", \"palms up\", \"window light\"] - literal, visual,\nthe kind of thing a clip would actually be tagged with. Never search on\nabstractions like \"hope\" or \"integrity\"; no stock library is tagged that\nway and the results come back unusable.\n\nAvailable footage (filename: description):\n- frozen_clip_00.mp4: still lake at dawn with mist over the water\n- frozen_clip_01.mp4: person sitting quietly on a wooden bench in a park\n- frozen_clip_02.mp4: candle flame flickering in a dark room\n- frozen_clip_03.mp4: waves rolling onto an empty beach at sunset\n- frozen_clip_04.mp4: sunlight through tall forest trees\n- frozen_clip_05.mp4: hands folded resting on a table by a window\n- frozen_clip_06.mp4: clouds drifting slowly across a blue sky\n- frozen_clip_07.mp4: open road through green hills\n- frozen_clip_08.mp4: birds flying over a calm river\n- frozen_clip_09.mp4: old stone church on a hill at golden hour\n- frozen_clip_10.mp4: rain drops running down a window pane\n- frozen_clip_11.mp4: night sky full of stars over a desert",
+      "type": "text"
+     }
+    ]
+   },
+   {
+    "max_tokens": 2000,
+    "messages": [
+     {
+      "content": "The channel's writing rules:\nYou are writing a short, warm, non-denominational reflection on a Bible verse for a YouTube Shorts audience. Plain, modern language. No preachiness, no 'in conclusion', just a grounded human observation about what the verse means and why it might matter today.\n\nSubjects this channel avoids: islamic, muslim, mosque, quran, koran, ramadan, hijab, minaret, imam, hajj, mecca, judaism, jewish, hinduism, hindu, pendulum, tarot, occult, witch, witchcraft, spell, divination, ouija, pentagram, crystal ball\n\nThe script, in order:\n[LINE 0] What if the hardest thing you do today is stop?\n[SOURCE] Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.\n[LINE 2] Stillness can feel like losing, when every voice says keep moving.\n[LINE 3] This line was first sung by people whose city was surrounded, not people with time to spare.\n[LINE 4] Be still is not a suggestion to relax. It is permission to stop carrying what was never yours.\n[CITATION, spoken after the source] Psalms 46:10\n[THE WRITER'S PLAN] Opening loop: why stopping can be brave. Closed by: stillness as letting go",
+      "role": "user"
+     }
+    ],
+    "model": "claude-haiku-4-5",
+    "operation": "check_script",
+    "output_config": {
+     "format": {
+      "schema": {
+       "additionalProperties": false,
+       "properties": {
+        "problems": {
+         "items": {
+          "additionalProperties": false,
+          "properties": {
+           "problem": {
+            "type": "string"
+           },
+           "severity": {
+            "enum": [
+             "block",
+             "note"
+            ],
+            "type": "string"
+           },
+           "where": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "where",
+           "problem",
+           "severity"
+          ],
+          "type": "object"
+         },
+         "type": "array"
+        }
+       },
+       "required": [
+        "problems"
+       ],
+       "type": "object"
+      },
+      "type": "json_schema"
+     }
+    },
+    "system": [
+     {
+      "text": "You are the last editor before a short vertical video is published\nwithout a person watching it. You are given the channel's own writing\nrules and the video's spoken script. Report only real problems:\n\n- A factual error: a misattributed quote, a wrong name, date, place or\n  context (for example, saying who said a verse, or to whom, incorrectly).\n- Medical, legal or financial advice, or a promised result, stated as\n  fact.\n- A line that breaks the channel's own rules below.\n- Text that is not a finished spoken line: a note, placeholder, stage\n  direction or bracketed slot. It is read aloud exactly as written.\n- Anything demeaning to a group, or unsuitable for a general audience.\n- The opening (the first line) doesn't hook: it opens no specific\n  question or tension, or starts with a greeting or preamble. A note.\n- The opening promises something the script never delivers: bait.\n  Block it.\n- The ending doesn't land: it trails off, leads into more, or never\n  closes the question the opening opened. A note.\n- A line that sounds machine-written rather than spoken by a person\n  (stock phrases like \"here's the thing\", \"that's the whole trick\",\n  \"it's not X, it's Y\", slogan-shaped closing lines). A note.\n\nText marked SOURCE is someone else's words, quoted verbatim. Never report\nit as a problem; judge only whether the lines around it describe it\naccurately.\n\nUse \"block\" only for something that should stop this going out unseen:\na person would have to fix it or would be embarrassed it was published.\nUse \"note\" for things worth a glance that are not wrong. Return an empty\nlist when nothing qualifies - most videos should have no problems at all.\nDo not report style preferences, word choices you would make differently,\nor anything you are unsure is actually a problem.",
+      "type": "text"
+     }
+    ]
+   },
+   {
+    "max_tokens": 2000,
+    "messages": [
+     {
+      "content": [
+       {
+        "text": "Frame 1. Spoken: \"What if the hardest thing you do today is stop?\" Shot asked for: \"a busy street slowing to a stop\"",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "Frame 2. Spoken: \"Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.\" Shot asked for: \"still water reflecting a quiet sky\"",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "Frame 3. Spoken: \"Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.\" Shot asked for: \"still water reflecting a quiet sky\"",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "Frame 4. Spoken: \"This line was first sung by people whose city was surrounded, not people with time to spare.\" Shot asked for: \"an old stone wall at dusk\"",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "Frame 5. Spoken: \"Be still is not a suggestion to relax. It is permission to stop carrying what was never yours.\" Shot asked for: \"hands opening and letting go of a small stone\"",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "Frame 6. Spoken: \"Be still is not a suggestion to relax. It is permission to stop carrying what was never yours.\" Shot asked for: \"hands opening and letting go of a small stone\"",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "This channel must never show: islamic, muslim, mosque, quran, koran, ramadan, hijab, minaret, imam, hajj, mecca, judaism, jewish, hinduism, hindu, pendulum, tarot, occult, witch, witchcraft, spell, divination, ouija, pentagram, crystal ball. Report problems by frame number.",
+        "type": "text"
+       }
+      ],
+      "role": "user"
+     }
+    ],
+    "model": "claude-haiku-4-5",
+    "operation": "check_frames",
+    "output_config": {
+     "format": {
+      "schema": {
+       "additionalProperties": false,
+       "properties": {
+        "problems": {
+         "items": {
+          "additionalProperties": false,
+          "properties": {
+           "problem": {
+            "type": "string"
+           },
+           "severity": {
+            "enum": [
+             "block",
+             "note"
+            ],
+            "type": "string"
+           },
+           "where": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "where",
+           "problem",
+           "severity"
+          ],
+          "type": "object"
+         },
+         "type": "array"
+        }
+       },
+       "required": [
+        "problems"
+       ],
+       "type": "object"
+      },
+      "type": "json_schema"
+     }
+    },
+    "system": [
+     {
+      "text": "You are checking frames from a short vertical video before it is\npublished without a person watching it. Each frame is labelled with the\nline being spoken at that moment and the shot the editor asked for.\nBurned-in captions are part of the video. Report only real problems:\n\n- The picture contradicts or undermines what is being said, or would\n  read as a mistake to a viewer.\n- It shows something this channel must never show (listed below), or\n  anything unsuitable for a general audience.\n- A technical fault: a black or frozen-looking frame, heavy compression\n  damage, or a visible watermark or logo.\n- The caption is unreadable against the picture.\n- It looks unfinished or amateur: mostly empty, a few small shapes adrift,\n  blank boxes, text too small to read on a phone, or a picture with no\n  clear connection to the words. Block it: a viewer scrolls past this.\n\nA shot that is merely generic, or only loosely related, is fine: this is\nbackground footage. Do not report it.\n\nSome frames are animated explanations (diagrams, labels, equations drawn\nin the channel's style) rather than footage. Judge those against the\nwords only: are the numbers, labels and pictures right for what is being\nsaid, and readable? A diagram is never a problem for not being the\nfootage a shot brief described, and a caption is only ever a few words\nof the line: never report a caption as incomplete.\n\nUse \"block\" only for something that should stop this going out unseen:\na person would have to fix it or would be embarrassed it was published.\nUse \"note\" for things worth a glance that are not wrong. Return an empty\nlist when nothing qualifies - most videos should have no problems at all.\nDo not report style preferences, word choices you would make differently,\nor anything you are unsure is actually a problem.",
+      "type": "text"
+     }
+    ]
+   }
+  ],
+  "files": {
+   ".mp4": "file",
+   "_audio.mp3": "file",
+   "_cost.json": {
+    "batch_calls": 0,
+    "batch_usd": 0,
+    "by_operation": {
+     "claude:check_frames": 0.0035,
+     "claude:check_script": 0.0035,
+     "claude:footage_match": 0.007,
+     "claude:script": 0.007,
+     "elevenlabs:voiceover": 0.1044
+    },
+    "cache_read_tokens": 0,
+    "calls": 12,
+    "input_tokens": 4000,
+    "total_usd": 0.1254
+   },
+   "_description.txt": "A short reflection on Psalm 46:10.\n\n#bible #reflection #faith\n\nReference: Psalms 46:10",
+   "_meta.txt": "Reference: Psalms 46:10\n\nTitle options:\n  - Permission to Stop\n  - Be Still, Even Now\n  - The Bravest Thing Today\n\n[segment 0]\nWhat if the hardest thing you do today is stop?\n  shot: a busy street slowing to a stop\n  keywords: street, slow motion\n\n[segment 1]\nBe still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.\n  shot: still water reflecting a quiet sky\n  keywords: still water, sky\n\n[segment 2]\nStillness can feel like losing, when every voice says keep moving.\n  shot: a person sitting alone on a bench as the city rushes past\n  keywords: bench, city\n\n[segment 3]\nThis line was first sung by people whose city was surrounded, not people with time to spare.\n  shot: an old stone wall at dusk\n  keywords: stone wall, dusk\n\n[segment 4]\nBe still is not a suggestion to relax. It is permission to stop carrying what was never yours.\n  shot: hands opening and letting go of a small stone\n  keywords: hands, stone\n\n",
+   "_publish.json": {
+    "approved_by": null,
+    "description": "A short reflection on Psalm 46:10.\n\n#bible #reflection #faith\n\nReference: Psalms 46:10",
+    "discard_reason": null,
+    "discarded": false,
+    "discarded_at": null,
+    "handoff": {},
+    "instagram_url": "",
+    "published_at": null,
+    "tiktok_url": "",
+    "title": "Permission to Stop",
+    "youtube_url": ""
+   },
+   "_report.json": {
+    "animation": {},
+    "artwork": [],
+    "checks": {
+     "frames": {
+      "error": "",
+      "problems": [],
+      "ran": true
+     },
+     "script": {
+      "error": "",
+      "problems": [],
+      "ran": true
+     }
+    },
+    "clips": [
+     "frozen_clip_00.mp4",
+     "frozen_clip_01.mp4",
+     "frozen_clip_02.mp4",
+     "frozen_clip_03.mp4",
+     "frozen_clip_04.mp4",
+     "frozen_clip_05.mp4",
+     "frozen_clip_06.mp4",
+     "frozen_clip_07.mp4",
+     "frozen_clip_08.mp4",
+     "frozen_clip_09.mp4",
+     "frozen_clip_10.mp4",
+     "frozen_clip_11.mp4"
+    ],
+    "footage_degraded": false,
+    "footage_repeated": false,
+    "footage_unconfident": 0,
+    "gate": {
+     "passed": true,
+     "reasons": []
+    },
+    "quiz_unverified": [],
+    "scene_notes": [],
+    "scenes": 0,
+    "scenes_fell_back": 0,
+    "script_suspect": "",
+    "shot_count": 12,
+    "similarity": {
+     "closest_title": null,
+     "flagged": false,
+     "max_cosine": 0.0,
+     "max_trigram": 0.0
+    },
+    "title_options": [
+     "Permission to Stop",
+     "Be Still, Even Now",
+     "The Bravest Thing Today"
+    ],
+    "video_seconds": 34.8,
+    "visuals": []
+   },
+   "_script.json": {
+    "citation": "Psalms 46:10",
+    "description_body": "A short reflection on Psalm 46:10.\n\n#bible #reflection #faith",
+    "emphasis": [
+     "still",
+     "permission",
+     "breathe"
+    ],
+    "hook_promise": "why stopping can be brave",
+    "payoff": "stillness as letting go",
+    "pronunciations": {},
+    "quiz": null,
+    "screen_hook": "Stopping is allowed",
+    "segments": [
+     {
+      "end": 3.56,
+      "keywords": [
+       "street",
+       "slow motion"
+      ],
+      "pause_after": null,
+      "shot_brief": "a busy street slowing to a stop",
+      "start": 0.0,
+      "text": "What if the hardest thing you do today is stop?"
+     },
+     {
+      "end": 13.41,
+      "keywords": [
+       "still water",
+       "sky"
+      ],
+      "pause_after": null,
+      "shot_brief": "still water reflecting a quiet sky",
+      "start": 3.56,
+      "text": "Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth."
+     },
+     {
+      "end": 18.2,
+      "keywords": [
+       "bench",
+       "city"
+      ],
+      "pause_after": null,
+      "shot_brief": "a person sitting alone on a bench as the city rushes past",
+      "start": 13.41,
+      "text": "Stillness can feel like losing, when every voice says keep moving."
+     },
+     {
+      "end": 24.68,
+      "keywords": [
+       "stone wall",
+       "dusk"
+      ],
+      "pause_after": null,
+      "shot_brief": "an old stone wall at dusk",
+      "start": 18.2,
+      "text": "This line was first sung by people whose city was surrounded, not people with time to spare."
+     },
+     {
+      "end": 31.79,
+      "keywords": [
+       "hands",
+       "stone"
+      ],
+      "pause_after": null,
+      "shot_brief": "hands opening and letting go of a small stone",
+      "start": 24.68,
+      "text": "Be still is not a suggestion to relax. It is permission to stop carrying what was never yours."
+     }
+    ],
+    "source_index": 1,
+    "title_options": [
+     "Permission to Stop",
+     "Be Still, Even Now",
+     "The Bravest Thing Today"
+    ]
+   }
+  },
+  "footage": [
+   {
+    "crossfade": 0.5,
+    "shots": [
+     {
+      "clip": "frozen_clip_00.mp4",
+      "end": 1.78,
+      "scene": false,
+      "segment": 0,
+      "start": 0.0
+     },
+     {
+      "clip": "frozen_clip_01.mp4",
+      "end": 3.56,
+      "scene": false,
+      "segment": 0,
+      "start": 1.78
+     },
+     {
+      "clip": "frozen_clip_02.mp4",
+      "end": 6.843,
+      "scene": false,
+      "segment": 1,
+      "start": 3.56
+     },
+     {
+      "clip": "frozen_clip_03.mp4",
+      "end": 10.127,
+      "scene": false,
+      "segment": 1,
+      "start": 6.843
+     },
+     {
+      "clip": "frozen_clip_04.mp4",
+      "end": 13.41,
+      "scene": false,
+      "segment": 1,
+      "start": 10.127
+     },
+     {
+      "clip": "frozen_clip_05.mp4",
+      "end": 15.805,
+      "scene": false,
+      "segment": 2,
+      "start": 13.41
+     },
+     {
+      "clip": "frozen_clip_06.mp4",
+      "end": 18.2,
+      "scene": false,
+      "segment": 2,
+      "start": 15.805
+     },
+     {
+      "clip": "frozen_clip_07.mp4",
+      "end": 21.44,
+      "scene": false,
+      "segment": 3,
+      "start": 18.2
+     },
+     {
+      "clip": "frozen_clip_08.mp4",
+      "end": 24.68,
+      "scene": false,
+      "segment": 3,
+      "start": 21.44
+     },
+     {
+      "clip": "frozen_clip_09.mp4",
+      "end": 27.05,
+      "scene": false,
+      "segment": 4,
+      "start": 24.68
+     },
+     {
+      "clip": "frozen_clip_10.mp4",
+      "end": 29.42,
+      "scene": false,
+      "segment": 4,
+      "start": 27.05
+     },
+     {
+      "clip": "frozen_clip_11.mp4",
+      "end": 31.79,
+      "scene": false,
+      "segment": 4,
+      "start": 29.42
+     }
+    ]
+   }
+  ],
+  "frame_check": [
+   [
+    0.89,
+    5.202,
+    11.768,
+    19.82,
+    25.865,
+    30.605
+   ]
+  ],
+  "mix": [
+   {
+    "channels": 2,
+    "fps": 44100,
+    "peak": 0.2061,
+    "rms": 0.0744,
+    "samples": 1534238,
+    "sha1": "7396ba1756cd92ba"
+   }
+  ],
+  "segments": [
+   {
+    "end": 3.56,
+    "pause_after": null,
+    "start": 0.0,
+    "text": "What if the hardest thing you do today is stop?"
+   },
+   {
+    "end": 13.41,
+    "pause_after": null,
+    "start": 3.56,
+    "text": "Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth."
+   },
+   {
+    "end": 18.2,
+    "pause_after": null,
+    "start": 13.41,
+    "text": "Stillness can feel like losing, when every voice says keep moving."
+   },
+   {
+    "end": 24.68,
+    "pause_after": null,
+    "start": 18.2,
+    "text": "This line was first sung by people whose city was surrounded, not people with time to spare."
+   },
+   {
+    "end": 31.79,
+    "pause_after": null,
+    "start": 24.68,
+    "text": "Be still is not a suggestion to relax. It is permission to stop carrying what was never yours."
+   }
+  ],
+  "title_card_at": 0.0,
+  "video": [
+   {
+    "audio": false,
+    "codec": "libx264",
+    "fps": 30,
+    "frames": [
+     "8b5eef2ede875c79",
+     "901fad1fe156e746",
+     "232fd081babff575",
+     "68ff717a6531b74c",
+     "da998d648f938db3"
+    ],
+    "frames_at": [
+     0.5,
+     8.697,
+     17.395,
+     26.092,
+     34.29
+    ],
+    "preset": "veryfast",
+    "seconds": 34.79,
+    "size": [
+     1080,
+     1920
+    ]
+   }
+  ],
+  "video_seconds": 34.79,
+  "voice": [
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.",
+    "output_format": "mp3_44100_128",
+    "text": "What if the hardest thing you do today is stop?",
+    "voice": "pNInz6obpgDQGcFmaJgB",
+    "voice_settings": {
+     "speed": 1.0
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Psalms, chapter 46, verse 10",
+    "output_format": "mp3_44100_128",
+    "previous_text": "What if the hardest thing you do today is stop?",
+    "text": "Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.",
+    "voice": "pNInz6obpgDQGcFmaJgB",
+    "voice_settings": {
+     "speed": 1.0
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Stillness can feel like losing, when every voice says keep moving.",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.",
+    "text": "Psalms, chapter 46, verse 10",
+    "voice": "pNInz6obpgDQGcFmaJgB",
+    "voice_settings": {
+     "speed": 1.0
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "This line was first sung by people whose city was surrounded, not people with time to spare.",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Psalms, chapter 46, verse 10",
+    "text": "Stillness can feel like losing, when every voice says keep moving.",
+    "voice": "pNInz6obpgDQGcFmaJgB",
+    "voice_settings": {
+     "speed": 1.0
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Be still is not a suggestion to relax. It is permission to stop carrying what was never yours.",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Stillness can feel like losing, when every voice says keep moving.",
+    "text": "This line was first sung by people whose city was surrounded, not people with time to spare.",
+    "voice": "pNInz6obpgDQGcFmaJgB",
+    "voice_settings": {
+     "speed": 1.0
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Psalms, chapter 46, verse 10",
+    "output_format": "mp3_44100_128",
+    "previous_text": "What if the hardest thing you do today is stop?",
+    "text": "Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.",
+    "voice": "pNInz6obpgDQGcFmaJgB",
+    "voice_settings": {
+     "speed": 1.0
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Psalms, chapter 46, verse 10",
+    "output_format": "mp3_44100_128",
+    "previous_text": "What if the hardest thing you do today is stop?",
+    "text": "Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.",
+    "voice": "pNInz6obpgDQGcFmaJgB",
+    "voice_settings": {
+     "speed": 1.0
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "This line was first sung by people whose city was surrounded, not people with time to spare.",
+    "text": "Be still is not a suggestion to relax. It is permission to stop carrying what was never yours.",
+    "voice": "pNInz6obpgDQGcFmaJgB",
+    "voice_settings": {
+     "speed": 1.0
+    }
+   }
+  ]
+ },
+ "slots": [
+  "Wed 11:00",
+  "Fri 11:00",
+  "Sun 11:00",
+  "Mon 11:00",
+  "Wed 11:00",
+  "Fri 11:00",
+  "Sun 11:00",
+  "Mon 11:00"
+ ],
+ "touched_real_data": []
+}

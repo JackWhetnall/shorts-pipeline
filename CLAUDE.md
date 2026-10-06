@@ -1,8 +1,12 @@
 # Shorts Pipeline — working notes
 
-An automated pipeline producing short-form vertical videos: a seed (quote
-or topic) becomes a script, narration with word-level timings, matched
-stock footage and burned-in captions.
+An automated pipeline making videos for the owner's YouTube channels. It
+was built for short-form vertical videos: a seed (quote or topic) becomes
+a script, narration with word-level timings, matched stock footage and
+burned-in captions. **It is now moving to long-form**: the plan is
+[docs/specs/longform-pivot.md](docs/specs/longform-pivot.md), and
+**Minute Pastor and Pub Quiz Buzz are frozen** exactly as they are
+(decision [075](docs/decisions/075-long-form-pivot-and-frozen-channels.md)).
 
 **Read these first, not this file:**
 
@@ -54,6 +58,12 @@ Windows, project at `C:\Users\JackW\Documents\YT\`, Python 3.10, Git Bash.
   Anything that degrades sets a flag the UI shows.
 - **Tests** — `python -m pytest -m "not slow"` before and after a change.
   Every documented bug has a regression test; keep it that way.
+- **Frozen channels** — Minute Pastor and Pub Quiz Buzz must keep making
+  exactly what they make. Shared code changes only additively, behind
+  defaults they keep. `tests/frozen/` (in the fast suite, or alone with
+  `-m frozen`) fails when one of them would change; never regenerate its
+  goldens (`python -m tests.frozen.regenerate`) without the owner's
+  agreement to that change.
 
 ## Where the risk actually is
 

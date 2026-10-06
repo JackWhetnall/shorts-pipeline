@@ -113,6 +113,7 @@
         "highlight_color": "#00FF4C",
         "outro_subtext_color": "#00FF4C"
       },
+      "archived": true,
       "channel_display_name": "Shakespeare Lines"
     },
     "wrens_guide_to_witchcraft": {
@@ -156,6 +157,7 @@
         "title_card_stroke_width": 4,
         "title_card_show_topic": true
       },
+      "archived": true,
       "content_mode": "topic"
     },
     "curiosity_leak": {
@@ -191,6 +193,7 @@
           "preset": "clean_flat"
         }
       },
+      "archived": true,
       "channel_display_name": "Curiosity Leak",
       "content_mode": "topic"
     },

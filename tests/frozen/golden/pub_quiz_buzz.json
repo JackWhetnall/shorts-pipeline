@@ -1,0 +1,1901 @@
+{
+ "config": {
+  "animation": {
+   "budget": 5.0,
+   "cast": [],
+   "enabled": false,
+   "energy": 50,
+   "finish": 100,
+   "image_model": "gpt_image_flare",
+   "pace": 50,
+   "palette": [],
+   "quality": "standard",
+   "style": {},
+   "style_notes": "",
+   "video_model": "h3_max"
+  },
+  "archived": false,
+  "artwork": {
+   "mode": "off"
+  },
+  "autopilot": {
+   "mode": "off",
+   "spot_check_every": 5
+  },
+  "avoid_imagery": [],
+  "build_on_previous": true,
+  "channel_display_name": "Pub Quiz Buzz",
+  "content_mode": "topic",
+  "context_scope": "all",
+  "context_topics": 3,
+  "documentary": {
+   "minutes": 10.0,
+   "scene_seconds": 12.0,
+   "teasers": 3
+  },
+  "end_screen": {
+   "ctas": {
+    "affiliate": {
+     "enabled": false,
+     "text": "Shop our picks below"
+    },
+    "merch": {
+     "enabled": false,
+     "text": "Check out our merch"
+    },
+    "patreon": {
+     "enabled": false,
+     "text": "Support us on Patreon"
+    }
+   },
+   "duration_seconds": 3.0,
+   "enabled": false
+  },
+  "format": "quiz",
+  "hook_style": "Open on the category and difficulty as a direct, friendly challenge or a bit of banter that sets the stakes for this round - a quick tease of how hard it's about to get, or a dare to beat last week's average - never a slow wind-up, but also never fake urgency; it should sound like a quizmaster tapping the mic and grinning, not a trailer voiceover.",
+  "key": "pub_quiz_buzz",
+  "manual_checklist_overrides": [],
+  "monetization": {
+   "affiliate_links": [],
+   "merch_url": "",
+   "patreon_url": ""
+  },
+  "ordering": {
+   "grouping": "round_robin",
+   "mode": "structured",
+   "stickiness": 0.8,
+   "subtopic_order": "random",
+   "topic_order": "random"
+  },
+  "output_dir": "output/pub_quiz_buzz",
+  "outro_subtext": "Subscribe for more",
+  "pacing": {
+   "caption_max_group_size": 4,
+   "caption_pause_gap_threshold": 0.25,
+   "crossfade": 0.5,
+   "end_hold": 0.9,
+   "max_shot_seconds": 3.5,
+   "outro_seconds": 3.0,
+   "pause_after_citation": 0.5,
+   "pause_after_first_segment": 0.7,
+   "pause_between_segments": 0.4,
+   "segment_count": 2,
+   "target_seconds": 150.0
+  },
+  "pronunciations": {},
+  "publishing": {
+   "buffer": 3,
+   "enabled": true,
+   "long_slots": [
+    "19:00"
+   ],
+   "long_weekdays": [
+    5
+   ],
+   "post_instagram": true,
+   "post_tiktok": true,
+   "posting_browser": "chrome",
+   "posting_profile": "Shorts pub_quiz_buzz",
+   "slots": [
+    "18:00"
+   ],
+   "weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  "quiz": {
+   "after_each_answer_pause": 1.2,
+   "after_each_clock_seconds": 6.0,
+   "answer_pause": 0.9,
+   "at_end_answer_pause": 1.2,
+   "at_end_clock_seconds": 10.0,
+   "at_end_finish_seconds": 30.0,
+   "at_end_reveal_gap": 1.1,
+   "countdown_seconds": 3.0,
+   "difficulties": [
+    "Easy (1.5)",
+    "Medium (3)",
+    "Hard (4.5)",
+    "Tricky (5.5)",
+    "Fiendish (6.5)",
+    "Impossible (8)"
+   ],
+   "longform_category_when_ready": true,
+   "longform_every_days": 0,
+   "longform_mixed_when_ready": true,
+   "longform_rounds": 6,
+   "longform_series_name": "Quiz Night",
+   "questions": 10
+  },
+  "scenes": {
+   "art": {
+    "accent1": "#B4652E",
+    "accent2": "#2F6E5B",
+    "accent3": "#8C2F39",
+    "accent4": "#3A5A78",
+    "accent5": "#C9A227",
+    "background": "#F6EEDD",
+    "font_display": "Georgia",
+    "ink": "#2B2118",
+    "ink_soft": "#6B5B48",
+    "label_fill": "#EADFC5",
+    "preset": "clean_flat",
+    "prop_style": "Flat vector icons with a slight hand-drawn wobble and thick warm-brown outline, filled with a small muted palette on the board background, like pub chalkboard signage redrawn cleanly"
+   },
+   "share": 0
+  },
+  "socials": {
+   "instagram_url": "https://www.instagram.com/pubquizbuzz/",
+   "tiktok_url": "https://www.tiktok.com/@pubquizbuzz",
+   "youtube_url": "https://www.youtube.com/@PubQuizBuzz"
+  },
+  "sound": {
+   "clock_level": 0.4,
+   "clock_sound": "soft",
+   "effects": true,
+   "effects_level": 0.35,
+   "music": true,
+   "music_level": 0.16,
+   "music_moods": [
+    "upbeat pub piano",
+    "light quiz tension",
+    "cheerful acoustic tick-tock"
+   ]
+  },
+  "source": "",
+  "speed": 1.02,
+  "style": {
+   "base_color": "#F5EFE3",
+   "captions_enabled": false,
+   "emphasis_enabled": false,
+   "font_face": "cambria_bold",
+   "font_size": 68,
+   "highlight_color": "#E0A94D",
+   "outro_bg_color": [
+    14,
+    12,
+    8,
+    255
+   ],
+   "outro_enabled": false,
+   "outro_font_size": 84,
+   "outro_stroke_width": 2,
+   "outro_subtext_color": "#E0A94D",
+   "outro_title_color": "#F5EFE3",
+   "screen_hook_enabled": false,
+   "stroke_color": "#12100A",
+   "stroke_width": 4,
+   "title_card_bg_color": [
+    14,
+    12,
+    8,
+    255
+   ],
+   "title_card_channel_color": "#E0A94D",
+   "title_card_enabled": false,
+   "title_card_font_size": 92,
+   "title_card_placement": "start",
+   "title_card_seconds": 1.8,
+   "title_card_show_topic": false,
+   "title_card_stroke_width": 3,
+   "title_card_title_color": "#F5EFE3",
+   "use_background_image": true
+  },
+  "style_prompt": "Write for the host of a local pub quiz who genuinely loves this job: warm, quick-witted, never mean, rooting for the listener even on the brutal rounds. Every question stands alone as a clean, unambiguous piece of trivia with one defensible correct answer, phrased the way a real quizmaster would say it aloud, and the accompanying on-screen text matches exactly what's spoken so no viewer is reading something different from what they hear. Move briskly from one question to the next with light, varied connective patter rather than a repeated formula: a short aside, a joke about the category, a nudge before a tricky one, but never padding that delays the countdown. When an answer lands, say it plainly and short, and only add context when it genuinely helps (a date, a one-clause reason) rather than out of habit. Never invent or fudge a fact under pressure to sound clever; if a question is borderline trivia (spelling variants, disputed records, recent events that might have changed), swap it for one that is unambiguous, and keep the difficulty ladder honest so 'impossible' means genuinely obscure rather than unfair or trick-worded. Close each round the same warm way in spirit but not in identical words: inviting the score, asking what topic or difficulty to run next, or nudging a share with mates - never scold, never oversell, keep the pub-night camaraderie.",
+  "topics": [],
+  "voice": "CwhRBWXzGAHq8TQ4Fs17"
+ },
+ "long": {
+  "audio": [
+   {
+    "codec": "libmp3lame",
+    "fps": null,
+    "seconds": 12.48,
+    "sha1": "d5003ec721c60d65"
+   },
+   {
+    "codec": "aac",
+    "fps": 44100,
+    "seconds": 291.095,
+    "sha1": "acacb3ad21b416db"
+   },
+   {
+    "codec": "aac",
+    "fps": 44100,
+    "seconds": 561.98,
+    "sha1": "68fc75a06a4de284"
+   }
+  ],
+  "board": [
+   {
+    "characters": 51330,
+    "fps": 30,
+    "seconds": 291.095,
+    "sha1": "fe149990dd158dbf8c57df8f9253e331ef6b3213",
+    "size": [
+     1920,
+     1080
+    ]
+   },
+   {
+    "characters": 72029,
+    "fps": 30,
+    "seconds": 561.98,
+    "sha1": "4d4b031e88a38be5effea81cfe2aea30544acb15",
+    "size": [
+     1920,
+     1080
+    ]
+   }
+  ],
+  "claude": [
+   {
+    "max_tokens": 6000,
+    "messages": [
+     {
+      "content": "This is Quiz Night #1. Every title starts with \"Quiz Night #1: \"; the welcome may name it once, naturally.\n2 rounds of 10 questions, 20 in total. Difficulty: Hard.\n\nRound 1: Science (Hard)\nRound 2: Geography (Hard)\n\nWrite 1 round_intros, 2 finish_lines and 2 answers_intros.",
+      "role": "user"
+     }
+    ],
+    "model": "claude-sonnet-5",
+    "operation": "longform_links",
+    "output_config": {
+     "effort": "low",
+     "format": {
+      "schema": {
+       "additionalProperties": false,
+       "properties": {
+        "answers_intros": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        "description": {
+         "type": "string"
+        },
+        "finish_lines": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        "round_intros": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        "signoff": {
+         "type": "string"
+        },
+        "thumbnail_line": {
+         "type": "string"
+        },
+        "title_options": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        "welcome": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "welcome",
+        "round_intros",
+        "finish_lines",
+        "answers_intros",
+        "signoff",
+        "title_options",
+        "description",
+        "thumbnail_line"
+       ],
+       "type": "object"
+      },
+      "type": "json_schema"
+     }
+    },
+    "system": [
+     {
+      "text": "You are the host of a pub-quiz channel, joining several rounds into one\nlong widescreen video. The rounds' questions and answers are already\nrecorded; you write only the lines between them, in the channel's voice\n(its brief follows). Spoken aloud, so write the way a person talks. Vary\nthe phrasing: no two lines should start or end the same way. Never explain\nthe format or how it works (how or when answers are given, what is read\nagain, how long they have): just host it. The video is made twice, once\nwith each answer straight after its question and once with a round's\nanswers at its end, and every line except the finish_lines and\nanswers_intros is used in both, so none of the others may depend on when\nthe answers come. No dashes; commas and full stops only.\n\n- welcome (under 45 words): welcome them to the quiz, say how many rounds\n  and questions and the difficulty, invite them to keep score, and lead\n  straight into round one by naming its category and ending on \"question\n  one\" (the first question follows immediately).\n- round_intros: one for each round after the first (under 25 words): a\n  touch of banter, the round number and its category, ending on \"question\n  one\".\n- finish_lines: one per round (under 15 words): that's the round's\n  questions done, a nudge to get their last answers down. Different every\n  round. (Used only where the answers come at the end.)\n- answers_intros: one per round (under 20 words): pens down, here come\n  this round's answers, ending on \"question one\". (Used only where the\n  answers come at the end.)\n- signoff (under 40 words): the total out of the number of questions, ask\n  for their score and a category for next time in the comments, and to\n  subscribe for more. Warm, not salesy.\n- title_options: three titles under 70 characters for a long quiz video:\n  the question count, the difficulty, the categories or the variety.\n  Inviting, never false.\n- description: two or three plain sentences about the quiz. No hashtags.\n- thumbnail_line: two to five words for the thumbnail, a friendly\n  challenge. No false claims (\"only 1% get this\" is out).",
+      "type": "text"
+     },
+     {
+      "text": "The channel's brief for its host:\n\nWrite for the host of a local pub quiz who genuinely loves this job: warm, quick-witted, never mean, rooting for the listener even on the brutal rounds. Every question stands alone as a clean, unambiguous piece of trivia with one defensible correct answer, phrased the way a real quizmaster would say it aloud, and the accompanying on-screen text matches exactly what's spoken so no viewer is reading something different from what they hear. Move briskly from one question to the next with light, varied connective patter rather than a repeated formula: a short aside, a joke about the category, a nudge before a tricky one, but never padding that delays the countdown. When an answer lands, say it plainly and short, and only add context when it genuinely helps (a date, a one-clause reason) rather than out of habit. Never invent or fudge a fact under pressure to sound clever; if a question is borderline trivia (spelling variants, disputed records, recent events that might have changed), swap it for one that is unambiguous, and keep the difficulty ladder honest so 'impossible' means genuinely obscure rather than unfair or trick-worded. Close each round the same warm way in spirit but not in identical words: inviting the score, asking what topic or difficulty to run next, or nudging a share with mates - never scold, never oversell, keep the pub-night camaraderie.",
+      "type": "text"
+     }
+    ]
+   }
+  ],
+  "files": {
+   "quiz_night_1": {
+    ".mp4": "file",
+    "_cost.json": {
+     "batch_calls": 0,
+     "batch_usd": 0,
+     "by_operation": {
+      "claude:longform_links": 0.007,
+      "elevenlabs:voiceover": 0.0299
+     },
+     "cache_read_tokens": 0,
+     "calls": 8,
+     "input_tokens": 1000,
+     "total_usd": 0.0369
+    },
+    "_meta.txt": "Answers as you go\n\nTitle options:\n  - Twenty Hard Questions\n\nRounds:\n  - Science (Hard): science_hard\n  - Geography (Hard): geography_hard\n\nJoining lines:\n  - Welcome to quiz night. Grab a pen, it's a hard one.\n  - On to round 2.\n  - That's the night. Same time next week.\n",
+    "_publish.json": {
+     "approved_by": null,
+     "description": "A hard pub quiz night, two rounds.\n\nChapters\n0:00 Welcome\n0:03 Round 1: Science\n2:25 Round 2: Geography\n4:47 Scores\n\nAnswers (spoilers!)\n\nRound 1: Science (Hard)\n1. W (0:13)\n2. Jupiter (0:27)\n3. Diamond (0:41)\n4. Nitrogen (0:56)\n5. The mitochondrion (1:10)\n6. 206 (1:25)\n7. The ohm (1:38)\n8. Hydrogen (1:51)\n9. Igneous (2:06)\n10. Albert Einstein (2:20)\n\nRound 2: Geography (Hard)\n1. Canberra (2:36)\n2. The Tigris (2:49)\n3. The Gobi (3:02)\n4. Canada (3:16)\n5. Suriname (3:31)\n6. The Strait of Gibraltar (3:44)\n7. Kilimanjaro (4:00)\n8. Alaska (4:14)\n9. Ulaanbaatar (4:27)\n10. The Adriatic (4:42)",
+     "discard_reason": null,
+     "discarded": false,
+     "discarded_at": null,
+     "handoff": {},
+     "instagram_url": "",
+     "published_at": null,
+     "tiktok_url": "",
+     "title": "Quiz Night #1: Twenty Hard Questions",
+     "youtube_url": ""
+    },
+    "_quiz.json": {
+     "category": "",
+     "chapters": [
+      [
+       0.0,
+       "Welcome"
+      ],
+      [
+       3.42,
+       "Round 1: Science"
+      ],
+      [
+       145.335,
+       "Round 2: Geography"
+      ],
+      [
+       287.025,
+       "Scores"
+      ]
+     ],
+     "difficulty": "Hard",
+     "episode": 1,
+     "label": "Quiz Night #1",
+     "longform": true,
+     "rounds": [
+      "science_hard",
+      "geography_hard"
+     ],
+     "series": "mixed",
+     "variant": "after_each"
+    },
+    "_report.json": {
+     "difficulty": "Hard",
+     "gate": {
+      "passed": false,
+      "reasons": [
+       "A long video always waits for a look before it goes out."
+      ]
+     },
+     "longform": true,
+     "quiz_unverified": [],
+     "rounds": [
+      "science_hard",
+      "geography_hard"
+     ],
+     "title_options": [
+      "Twenty Hard Questions"
+     ],
+     "variant": "after_each",
+     "video_seconds": 291.1
+    },
+    "_thumb.jpg": "file"
+   },
+   "quiz_night_1_answers_at_end": {
+    ".mp4": "file",
+    "_meta.txt": "Answers at the end\n\nTitle options:\n  - Twenty Hard Questions\n\nRounds:\n  - Science (Hard): science_hard\n  - Geography (Hard): geography_hard\n\nJoining lines:\n  - Welcome to quiz night. Grab a pen, it's a hard one.\n  - On to round 2.\n  - That's round 1 done.\n  - That's round 2 done.\n  - Answers to round 1.\n  - Answers to round 2.\n  - That's the night. Same time next week.\n",
+    "_publish.json": {
+     "approved_by": null,
+     "description": "A hard pub quiz night, two rounds.\n\nChapters\n0:00 Welcome\n0:03 Round 1: Science\n3:18 Round 1 answers\n4:42 Round 2: Geography\n7:54 Round 2 answers\n9:17 Scores\n\nAnswers (spoilers!)\n\nRound 1: Science (Hard)\n1. W (3:24)\n2. Jupiter (3:31)\n3. Diamond (3:40)\n4. Nitrogen (3:48)\n5. The mitochondrion (3:57)\n6. 206 (4:06)\n7. The ohm (4:13)\n8. Hydrogen (4:20)\n9. Igneous (4:29)\n10. Albert Einstein (4:38)\n\nRound 2: Geography (Hard)\n1. Canberra (8:00)\n2. The Tigris (8:07)\n3. The Gobi (8:14)\n4. Canada (8:22)\n5. Suriname (8:31)\n6. The Strait of Gibraltar (8:39)\n7. Kilimanjaro (8:48)\n8. Alaska (8:56)\n9. Ulaanbaatar (9:04)\n10. The Adriatic (9:13)",
+     "discard_reason": null,
+     "discarded": false,
+     "discarded_at": null,
+     "handoff": {},
+     "instagram_url": "",
+     "published_at": null,
+     "tiktok_url": "",
+     "title": "Quiz Night #1: Twenty Hard Questions",
+     "youtube_url": ""
+    },
+    "_quiz.json": {
+     "category": "",
+     "chapters": [
+      [
+       0.0,
+       "Welcome"
+      ],
+      [
+       3.42,
+       "Round 1: Science"
+      ],
+      [
+       198.635,
+       "Round 1 answers"
+      ],
+      [
+       282.89,
+       "Round 2: Geography"
+      ],
+      [
+       474.89,
+       "Round 2 answers"
+      ],
+      [
+       557.91,
+       "Scores"
+      ]
+     ],
+     "difficulty": "Hard",
+     "episode": 1,
+     "label": "Quiz Night #1",
+     "longform": true,
+     "rounds": [
+      "science_hard",
+      "geography_hard"
+     ],
+     "series": "mixed",
+     "variant": "at_end"
+    },
+    "_report.json": {
+     "difficulty": "Hard",
+     "gate": {
+      "passed": false,
+      "reasons": [
+       "A long video always waits for a look before it goes out."
+      ]
+     },
+     "longform": true,
+     "quiz_unverified": [],
+     "rounds": [
+      "science_hard",
+      "geography_hard"
+     ],
+     "title_options": [
+      "Twenty Hard Questions"
+     ],
+     "variant": "at_end",
+     "video_seconds": 562.0
+    },
+    "_thumb.jpg": "file"
+   }
+  },
+  "thumbnail": [
+   {
+    "sha1": "286750c0c5577d7933a1207220a7708b0ea4c52d",
+    "size": [
+     1280,
+     720
+    ],
+    "t": 0.0
+   },
+   {
+    "sha1": "fb4d3eb758908ccf672cf750efc24db63513327b",
+    "size": [
+     1280,
+     720
+    ],
+    "t": 0.0
+   }
+  ],
+  "voice": [
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "On to round 2.",
+    "output_format": "mp3_44100_128",
+    "text": "Welcome to quiz night. Grab a pen, it's a hard one.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "That's round 1 done.",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Welcome to quiz night. Grab a pen, it's a hard one.",
+    "text": "On to round 2.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "That's round 2 done.",
+    "output_format": "mp3_44100_128",
+    "previous_text": "On to round 2.",
+    "text": "That's round 1 done.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Answers to round 1.",
+    "output_format": "mp3_44100_128",
+    "previous_text": "That's round 1 done.",
+    "text": "That's round 2 done.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Answers to round 2.",
+    "output_format": "mp3_44100_128",
+    "previous_text": "That's round 2 done.",
+    "text": "Answers to round 1.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "That's the night. Same time next week.",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Answers to round 1.",
+    "text": "Answers to round 2.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Answers to round 2.",
+    "text": "That's the night. Same time next week.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   }
+  ]
+ },
+ "long_ready": {
+  "Easy": 0,
+  "Fiendish": 0,
+  "Hard": 2,
+  "Impossible": 0,
+  "Medium": 0,
+  "Tricky": 0,
+  "category:Geography": 1,
+  "category:Science": 1,
+  "rising": 2
+ },
+ "short": {
+  "audio": [
+   {
+    "codec": "libmp3lame",
+    "fps": null,
+    "seconds": 108.265,
+    "sha1": "035f58e02c79e544"
+   },
+   {
+    "codec": "aac",
+    "fps": 44100,
+    "seconds": 108.265,
+    "sha1": "25a7c3522556fe8e"
+   }
+  ],
+  "board": [
+   {
+    "characters": 26991,
+    "fps": 30,
+    "seconds": 108.265,
+    "sha1": "51202d83a04e377f8c39d35a8285adde22ef735d",
+    "size": null
+   }
+  ],
+  "claude": [
+   {
+    "max_tokens": 10000,
+    "messages": [
+     {
+      "content": "Category: Science\nDifficulty: Hard, level 4.5 on the 1-10 scale\nQuestions: exactly 10\nLength: the whole round as spoken (hook, intro, lead-ins, questions, answers, sign-off) is at most 276 words, about 21 per question with its answer. The clock time is extra and fixed, so this is what keeps the video under three minutes; count as you write.\n\nThe questions, in order:\n1. What is the chemical symbol for tungsten? Answer: W.\n2. Which planet has the shortest day in the solar system? Answer: Jupiter.\n3. What is the hardest natural substance on the Mohs scale? Answer: Diamond.\n4. Which gas makes up about 78 percent of Earth's atmosphere? Answer: Nitrogen.\n5. What is the powerhouse of the cell? Answer: The mitochondrion.\n6. How many bones are in the adult human body? Answer: 206.\n7. What is the SI unit of electrical resistance? Answer: The ohm.\n8. Which element has the atomic number 1? Answer: Hydrogen.\n9. What type of rock is formed from cooled lava? Answer: Igneous.\n10. Who proposed the theory of general relativity? Answer: Albert Einstein.",
+      "role": "user"
+     }
+    ],
+    "model": "claude-sonnet-5",
+    "operation": "quiz_write",
+    "output_config": {
+     "effort": "low",
+     "format": {
+      "schema": {
+       "additionalProperties": false,
+       "properties": {
+        "description_body": {
+         "type": "string"
+        },
+        "hook": {
+         "type": "string"
+        },
+        "intro": {
+         "type": "string"
+        },
+        "outro": {
+         "type": "string"
+        },
+        "questions": {
+         "items": {
+          "additionalProperties": false,
+          "properties": {
+           "lead_in": {
+            "type": "string"
+           },
+           "number": {
+            "type": "integer"
+           },
+           "spoken_answer": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "number",
+           "lead_in",
+           "spoken_answer"
+          ],
+          "type": "object"
+         },
+         "type": "array"
+        },
+        "title_options": {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        }
+       },
+       "required": [
+        "hook",
+        "intro",
+        "questions",
+        "outro",
+        "title_options",
+        "description_body"
+       ],
+       "type": "object"
+      },
+      "type": "json_schema"
+     }
+    },
+    "system": [
+     {
+      "cache_control": {
+       "type": "ephemeral"
+      },
+      "text": "You write one round for a pub-quiz channel of short vertical videos. The\nhost is chilled, fun and friendly: a good pub quizmaster, relaxed and a\nbit playful, never a game-show announcer and never corporate. It is\nspoken aloud, so write the way a person talks.\n\nThe round: a hook, a short intro, then the questions in order, then a\nsign-off. Each question's full text is shown on screen while the host\nreads it, then a clock counts down for a few seconds, then the host gives\nthe answer and the answer appears on a numbered board. Nothing else is on\nscreen: no pictures, no multiple-choice options.\n\nThe hook is the first thing heard, and it's shown on screen word by word\nas it's said: the first second decides whether someone keeps watching.\n- `hook`: 3 to 8 words. A plain, punchy challenge to the viewer about\n  this category: usually a question, sometimes a dare. It names the\n  category plainly, in everyday words, so anyone scrolling knows at once\n  what this quiz is and that it's aimed at them. Short and clear beats\n  clever: no wordplay, jargon, in-group slang or metaphors to decode.\n- Familiar is fine; identical isn't. This channel's recent openings are\n  listed with each request: don't repeat one, or begin the way the last\n  few began.\n- Honest and welcoming: no statistics or claims you can't know about how\n  people score, nothing the round doesn't have (these are questions read\n  aloud: no clips, no pictures unless it's a picture round), and never\n  telling anyone to leave or scroll on.\n\nThe intro (1-2 sentences, under 30 words), straight after the hook: how\nhard this one is, ending by leading straight into question one (so the\nfirst question needs no lead-in of its own). Only sometimes invite them\nto keep score; other times it's play along, shout it out, or no\ninvitation at all. This channel's recent intros are listed with each\nrequest: don't reuse their wording or their shape.\n\nEach question:\n- `question`: the complete question as shown and read. One sentence,\n  self-contained, plain, under 25 words. No \"which of these\", since no\n  options are shown. No trick wording.\n- Exactly one correct answer, which you are certain of, and which does\n  not change over time: never current record holders, office holders,\n  populations, prices or \"the latest\" anything. If reasonable sources\n  disagree, don't ask it.\n- `answer`: the answer as it appears on the board: a name, a number, a\n  word or a very short phrase, 1-4 words.\n- `spoken_answer`: how the host gives it, under 14 words. Often just\n  plainly, sometimes said twice when it's short (\"Beijing. Beijing.\"),\n  now and then with a quick fact the question didn't already give (a\n  date, a one-clause reason). Never repeat the question back as if it\n  were extra (\"Louis the Fourteenth, he was known as the Sun King\" when\n  the question asked who the Sun King was): no addition is better than\n  a repeat. Mix these across the round; not the same shape every time.\n  Any fact the host adds must be as certain as the answer.\n- Read each question back as a sentence: it must be grammatical and say\n  exactly one thing (\"What is the boundary between the crust and the\n  mantle called?\", never \"What is the name of ... called?\").\n- Superlatives and \"only\", \"first\", \"never\" questions are where quiz\n  answers go wrong: ask one only when you are sure there is no second\n  case, today.\n- Everything spoken is read by a voice engine exactly as written. No\n  dashes in anything spoken.\n- `lead_in`: for every question after the first, the host's short move\n  to it, which says its own number: \"Question two.\", \"Number three.\" and\n  so on, now and then with a bit of colour that's true at that point\n  (\"halfway there\" only at the middle question, \"last one\" only before\n  the last). Never a correction, aside or change of mind (\"wait\", \"I\n  mean\", \"actually\", \"scratch that\"), and never a mention of any other\n  category. Under 7 words. Empty for the first question.\n\nDifficulty is given as a level on this 1-10 scale. The level is what\ncounts; the label is only this channel's name for it.\n- 1-2: almost every adult knows it.\n- 3-4: most adults would get it: everyday general knowledge.\n- 5-6: a regular at the pub quiz would; about a third of adults.\n- 7-8: keen quizzers and fans of the category; about one in ten.\n- 9-10: specialists, or the rare person who happens to know an obscure\n  but real, checkable fact. Still fair: never a trick, never something\n  unknowable.\nHold the whole round within about a point of its level, easing in with\nthe first question or two.\n\nCover the category broadly, not one narrow corner of it, and never ask\ntwo questions whose answers give each other away.\n\nThe sign-off (under 30 words): ask how many they got, then at most one\nask of the viewer, rotated: their score in the comments, which category\nto run next, send it to a mate, subscribe or follow for more rounds, or\nsimply a warm goodbye with no ask at all. The recent sign-offs are\nlisted with each request: don't make the same ask as the last few.\n\nTitles: short (under 60 characters), naming the category and the\ndifficulty, inviting the viewer to test themselves. No claims you can't\nknow about how people score (\"most people get these wrong\"). The description body:\none or two plain sentences about the round, no hashtags.\n\nThe level number is for you alone. Never write it anywhere: not in a\ntitle, the description or anything spoken. Say how hard a round is only\nby its difficulty's name.",
+      "type": "text"
+     },
+     {
+      "text": "This round's questions are already written and checked, and are given in\norder with their answers. Keep every question and answer exactly as\ngiven: don't reword, reorder, add or drop any. Write everything around\nthem: the hook, the intro, each question's `lead_in` and each\n`spoken_answer`, which gives the answer as written and may add the note\ngiven with it, and nothing else of its own. Then the sign-off, titles and\ndescription as usual.",
+      "type": "text"
+     },
+     {
+      "text": "This channel's own brief for its host and its rounds:\n\nWrite for the host of a local pub quiz who genuinely loves this job: warm, quick-witted, never mean, rooting for the listener even on the brutal rounds. Every question stands alone as a clean, unambiguous piece of trivia with one defensible correct answer, phrased the way a real quizmaster would say it aloud, and the accompanying on-screen text matches exactly what's spoken so no viewer is reading something different from what they hear. Move briskly from one question to the next with light, varied connective patter rather than a repeated formula: a short aside, a joke about the category, a nudge before a tricky one, but never padding that delays the countdown. When an answer lands, say it plainly and short, and only add context when it genuinely helps (a date, a one-clause reason) rather than out of habit. Never invent or fudge a fact under pressure to sound clever; if a question is borderline trivia (spelling variants, disputed records, recent events that might have changed), swap it for one that is unambiguous, and keep the difficulty ladder honest so 'impossible' means genuinely obscure rather than unfair or trick-worded. Close each round the same warm way in spirit but not in identical words: inviting the score, asking what topic or difficulty to run next, or nudging a share with mates - never scold, never oversell, keep the pub-night camaraderie.",
+      "type": "text"
+     }
+    ]
+   },
+   {
+    "max_tokens": 2000,
+    "messages": [
+     {
+      "content": "The channel's writing rules:\nWrite for the host of a local pub quiz who genuinely loves this job: warm, quick-witted, never mean, rooting for the listener even on the brutal rounds. Every question stands alone as a clean, unambiguous piece of trivia with one defensible correct answer, phrased the way a real quizmaster would say it aloud, and the accompanying on-screen text matches exactly what's spoken so no viewer is reading something different from what they hear. Move briskly from one question to the next with light, varied connective patter rather than a repeated formula: a short aside, a joke about the category, a nudge before a tricky one, but never padding that delays the countdown. When an answer lands, say it plainly and short, and only add context when it genuinely helps (a date, a one-clause reason) rather than out of habit. Never invent or fudge a fact under pressure to sound clever; if a question is borderline trivia (spelling variants, disputed records, recent events that might have changed), swap it for one that is unambiguous, and keep the difficulty ladder honest so 'impossible' means genuinely obscure rather than unfair or trick-worded. Close each round the same warm way in spirit but not in identical words: inviting the score, asking what topic or difficulty to run next, or nudging a share with mates - never scold, never oversell, keep the pub-night camaraderie.\n\nSubjects this channel avoids: (none)\n\nThe script, in order:\n[LINE 0] Ten questions. Bet you can't get seven.\n[LINE 1] Tonight's round is a hard one. Here's question one.\n[LINE 2] What is the chemical symbol for tungsten?\n[LINE 3] W. It's W.\n[LINE 4] Question two. Which planet has the shortest day in the solar system?\n[LINE 5] Jupiter. It's Jupiter.\n[LINE 6] Number three. What is the hardest natural substance on the Mohs scale?\n[LINE 7] Diamond. It's Diamond.\n[LINE 8] Question four. Which gas makes up about 78 percent of Earth's atmosphere?\n[LINE 9] Nitrogen. It's Nitrogen.\n[LINE 10] Halfway there, question five. What is the powerhouse of the cell?\n[LINE 11] The mitochondrion. It's The mitochondrion.\n[LINE 12] Question six. How many bones are in the adult human body?\n[LINE 13] 206. It's 206.\n[LINE 14] Number seven. What is the SI unit of electrical resistance?\n[LINE 15] The ohm. It's The ohm.\n[LINE 16] Question eight. Which element has the atomic number 1?\n[LINE 17] Hydrogen. It's Hydrogen.\n[LINE 18] Nearly there, question nine. What type of rock is formed from cooled lava?\n[LINE 19] Igneous. It's Igneous.\n[LINE 20] Last one, question ten. Who proposed the theory of general relativity?\n[LINE 21] Albert Einstein. It's Albert Einstein.\n[LINE 22] How many did you get? Tell me in the comments.\n[FORMAT] This is a quiz round read by a host. After each question, the next line gives its answer. Every question and answer has already been fact-checked independently: do not judge whether answers are right, and do not report spellings of names or long words. The host's patter (the intro, 'question two') is the format; don't report the opening for not hooking.",
+      "role": "user"
+     }
+    ],
+    "model": "claude-haiku-4-5",
+    "operation": "check_script",
+    "output_config": {
+     "format": {
+      "schema": {
+       "additionalProperties": false,
+       "properties": {
+        "problems": {
+         "items": {
+          "additionalProperties": false,
+          "properties": {
+           "problem": {
+            "type": "string"
+           },
+           "severity": {
+            "enum": [
+             "block",
+             "note"
+            ],
+            "type": "string"
+           },
+           "where": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "where",
+           "problem",
+           "severity"
+          ],
+          "type": "object"
+         },
+         "type": "array"
+        }
+       },
+       "required": [
+        "problems"
+       ],
+       "type": "object"
+      },
+      "type": "json_schema"
+     }
+    },
+    "system": [
+     {
+      "text": "You are the last editor before a short vertical video is published\nwithout a person watching it. You are given the channel's own writing\nrules and the video's spoken script. Report only real problems:\n\n- A factual error: a misattributed quote, a wrong name, date, place or\n  context (for example, saying who said a verse, or to whom, incorrectly).\n- Medical, legal or financial advice, or a promised result, stated as\n  fact.\n- A line that breaks the channel's own rules below.\n- Text that is not a finished spoken line: a note, placeholder, stage\n  direction or bracketed slot. It is read aloud exactly as written.\n- Anything demeaning to a group, or unsuitable for a general audience.\n- The opening (the first line) doesn't hook: it opens no specific\n  question or tension, or starts with a greeting or preamble. A note.\n- The opening promises something the script never delivers: bait.\n  Block it.\n- The ending doesn't land: it trails off, leads into more, or never\n  closes the question the opening opened. A note.\n- A line that sounds machine-written rather than spoken by a person\n  (stock phrases like \"here's the thing\", \"that's the whole trick\",\n  \"it's not X, it's Y\", slogan-shaped closing lines). A note.\n\nText marked SOURCE is someone else's words, quoted verbatim. Never report\nit as a problem; judge only whether the lines around it describe it\naccurately.\n\nUse \"block\" only for something that should stop this going out unseen:\na person would have to fix it or would be embarrassed it was published.\nUse \"note\" for things worth a glance that are not wrong. Return an empty\nlist when nothing qualifies - most videos should have no problems at all.\nDo not report style preferences, word choices you would make differently,\nor anything you are unsure is actually a problem.",
+      "type": "text"
+     }
+    ]
+   },
+   {
+    "max_tokens": 2000,
+    "messages": [
+     {
+      "content": [
+       {
+        "text": "This video is a quiz board, not footage. The card at the top shows the current question, and keeps showing it while its answer is spoken. The numbered list below keeps every answer given so far on its own row (row 1 is question 1's answer), so earlier answers stay on screen by design, and empty rows are answers still to come. Which question or answer is on screen is set by the program: do not report it. Report only text that is too small, cut off or overlapping to read on a phone, or anything unsuitable.",
+        "type": "text"
+       },
+       {
+        "text": "Frame 1. Spoken: \"Ten questions. Bet you can't get seven.\" Shot asked for: an animated explanation of these words",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "Frame 2. Spoken: \"Question two. Which planet has the shortest day in the solar system?\" Shot asked for: an animated explanation of these words",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "Frame 3. Spoken: \"Nitrogen. It's Nitrogen.\" Shot asked for: an animated explanation of these words",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "Frame 4. Spoken: \"206. It's 206.\" Shot asked for: an animated explanation of these words",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "Frame 5. Spoken: \"Nearly there, question nine. What type of rock is formed from cooled lava?\" Shot asked for: an animated explanation of these words",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "Frame 6. Spoken: \"How many did you get? Tell me in the comments.\" Shot asked for: an animated explanation of these words",
+        "type": "text"
+       },
+       {
+        "source": {
+         "data": "sha1:6bad104c55693e06",
+         "media_type": "image/jpeg",
+         "type": "base64"
+        },
+        "type": "image"
+       },
+       {
+        "text": "This channel must never show: (none). Report problems by frame number.",
+        "type": "text"
+       }
+      ],
+      "role": "user"
+     }
+    ],
+    "model": "claude-haiku-4-5",
+    "operation": "check_frames",
+    "output_config": {
+     "format": {
+      "schema": {
+       "additionalProperties": false,
+       "properties": {
+        "problems": {
+         "items": {
+          "additionalProperties": false,
+          "properties": {
+           "problem": {
+            "type": "string"
+           },
+           "severity": {
+            "enum": [
+             "block",
+             "note"
+            ],
+            "type": "string"
+           },
+           "where": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "where",
+           "problem",
+           "severity"
+          ],
+          "type": "object"
+         },
+         "type": "array"
+        }
+       },
+       "required": [
+        "problems"
+       ],
+       "type": "object"
+      },
+      "type": "json_schema"
+     }
+    },
+    "system": [
+     {
+      "text": "You are checking frames from a short vertical video before it is\npublished without a person watching it. Each frame is labelled with the\nline being spoken at that moment and the shot the editor asked for.\nBurned-in captions are part of the video. Report only real problems:\n\n- The picture contradicts or undermines what is being said, or would\n  read as a mistake to a viewer.\n- It shows something this channel must never show (listed below), or\n  anything unsuitable for a general audience.\n- A technical fault: a black or frozen-looking frame, heavy compression\n  damage, or a visible watermark or logo.\n- The caption is unreadable against the picture.\n- It looks unfinished or amateur: mostly empty, a few small shapes adrift,\n  blank boxes, text too small to read on a phone, or a picture with no\n  clear connection to the words. Block it: a viewer scrolls past this.\n\nA shot that is merely generic, or only loosely related, is fine: this is\nbackground footage. Do not report it.\n\nSome frames are animated explanations (diagrams, labels, equations drawn\nin the channel's style) rather than footage. Judge those against the\nwords only: are the numbers, labels and pictures right for what is being\nsaid, and readable? A diagram is never a problem for not being the\nfootage a shot brief described, and a caption is only ever a few words\nof the line: never report a caption as incomplete.\n\nUse \"block\" only for something that should stop this going out unseen:\na person would have to fix it or would be embarrassed it was published.\nUse \"note\" for things worth a glance that are not wrong. Return an empty\nlist when nothing qualifies - most videos should have no problems at all.\nDo not report style preferences, word choices you would make differently,\nor anything you are unsure is actually a problem.",
+      "type": "text"
+     }
+    ]
+   }
+  ],
+  "files": {
+   ".mp4": "file",
+   "_audio.mp3": "file",
+   "_cost.json": {
+    "batch_calls": 0,
+    "batch_usd": 0,
+    "by_operation": {
+     "claude:check_frames": 0.0035,
+     "claude:check_script": 0.0035,
+     "claude:quiz_write": 0.007,
+     "elevenlabs:voiceover": 0.1662
+    },
+    "cache_read_tokens": 0,
+    "calls": 26,
+    "input_tokens": 3000,
+    "total_usd": 0.1802
+   },
+   "_description.txt": "Ten hard questions. Pause if you need longer.",
+   "_meta.txt": "Title options:\n  - Hard Quiz: Can You Get 7/10?\n\n[segment 0]\nTen questions. Bet you can't get seven.\n\n[segment 1]\nTonight's round is a hard one. Here's question one.\n\n[segment 2]\nWhat is the chemical symbol for tungsten?\n\n[segment 3]\nW. It's W.\n\n[segment 4]\nQuestion two. Which planet has the shortest day in the solar system?\n\n[segment 5]\nJupiter. It's Jupiter.\n\n[segment 6]\nNumber three. What is the hardest natural substance on the Mohs scale?\n\n[segment 7]\nDiamond. It's Diamond.\n\n[segment 8]\nQuestion four. Which gas makes up about 78 percent of Earth's atmosphere?\n\n[segment 9]\nNitrogen. It's Nitrogen.\n\n[segment 10]\nHalfway there, question five. What is the powerhouse of the cell?\n\n[segment 11]\nThe mitochondrion. It's The mitochondrion.\n\n[segment 12]\nQuestion six. How many bones are in the adult human body?\n\n[segment 13]\n206. It's 206.\n\n[segment 14]\nNumber seven. What is the SI unit of electrical resistance?\n\n[segment 15]\nThe ohm. It's The ohm.\n\n[segment 16]\nQuestion eight. Which element has the atomic number 1?\n\n[segment 17]\nHydrogen. It's Hydrogen.\n\n[segment 18]\nNearly there, question nine. What type of rock is formed from cooled lava?\n\n[segment 19]\nIgneous. It's Igneous.\n\n[segment 20]\nLast one, question ten. Who proposed the theory of general relativity?\n\n[segment 21]\nAlbert Einstein. It's Albert Einstein.\n\n[segment 22]\nHow many did you get? Tell me in the comments.\n\n",
+   "_publish.json": {
+    "approved_by": null,
+    "description": "Ten hard questions. Pause if you need longer.",
+    "discard_reason": null,
+    "discarded": false,
+    "discarded_at": null,
+    "handoff": {},
+    "instagram_url": "",
+    "published_at": null,
+    "tiktok_url": "",
+    "title": "Hard Quiz: Can You Get 7/10?",
+    "youtube_url": ""
+   },
+   "_quiz.json": {
+    "audio": "science_hard_audio.mp3",
+    "category": "Science",
+    "credits": [],
+    "difficulty": "Hard",
+    "level": 4.5,
+    "number": 1,
+    "questions": [
+     {
+      "answer": "W",
+      "answer_audio": [
+       12.605,
+       13.355
+      ],
+      "ask_audio": [
+       6.86,
+       9.605
+      ],
+      "bank_id": 1,
+      "question": "What is the chemical symbol for tungsten?",
+      "spoken_answer": "W. It's W."
+     },
+     {
+      "answer": "Jupiter",
+      "answer_audio": [
+       21.755,
+       23.285
+      ],
+      "ask_audio": [
+       14.255,
+       18.755
+      ],
+      "bank_id": 2,
+      "question": "Which planet has the shortest day in the solar system?",
+      "spoken_answer": "Jupiter. It's Jupiter."
+     },
+     {
+      "answer": "Diamond",
+      "answer_audio": [
+       31.815,
+       33.345
+      ],
+      "ask_audio": [
+       24.185,
+       28.815
+      ],
+      "bank_id": 3,
+      "question": "What is the hardest natural substance on the Mohs scale?",
+      "spoken_answer": "Diamond. It's Diamond."
+     },
+     {
+      "answer": "Nitrogen",
+      "answer_audio": [
+       42.07,
+       43.73
+      ],
+      "ask_audio": [
+       34.245,
+       39.07
+      ],
+      "bank_id": 4,
+      "question": "Which gas makes up about 78 percent of Earth's atmosphere?",
+      "spoken_answer": "Nitrogen. It's Nitrogen."
+     },
+     {
+      "answer": "The mitochondrion",
+      "answer_audio": [
+       51.935,
+       54.765
+      ],
+      "ask_audio": [
+       44.63,
+       48.935
+      ],
+      "bank_id": 5,
+      "question": "What is the powerhouse of the cell?",
+      "spoken_answer": "The mitochondrion. It's The mitochondrion."
+     },
+     {
+      "answer": "206",
+      "answer_audio": [
+       62.45,
+       63.46
+      ],
+      "ask_audio": [
+       55.665,
+       59.45
+      ],
+      "bank_id": 6,
+      "question": "How many bones are in the adult human body?",
+      "spoken_answer": "206. It's 206."
+     },
+     {
+      "answer": "The ohm",
+      "answer_audio": [
+       71.275,
+       72.805
+      ],
+      "ask_audio": [
+       64.36,
+       68.275
+      ],
+      "bank_id": 7,
+      "question": "What is the SI unit of electrical resistance?",
+      "spoken_answer": "The ohm. It's The ohm."
+     },
+     {
+      "answer": "Hydrogen",
+      "answer_audio": [
+       80.295,
+       81.955
+      ],
+      "ask_audio": [
+       73.705,
+       77.295
+      ],
+      "bank_id": 8,
+      "question": "Which element has the atomic number 1?",
+      "spoken_answer": "Hydrogen. It's Hydrogen."
+     },
+     {
+      "answer": "Igneous",
+      "answer_audio": [
+       90.745,
+       92.275
+      ],
+      "ask_audio": [
+       82.855,
+       87.745
+      ],
+      "bank_id": 9,
+      "question": "What type of rock is formed from cooled lava?",
+      "spoken_answer": "Igneous. It's Igneous."
+     },
+     {
+      "answer": "Albert Einstein",
+      "answer_audio": [
+       100.805,
+       103.375
+      ],
+      "ask_audio": [
+       93.175,
+       97.805
+      ],
+      "bank_id": 10,
+      "question": "Who proposed the theory of general relativity?",
+      "spoken_answer": "Albert Einstein. It's Albert Einstein."
+     }
+    ],
+    "unverified": [],
+    "version": 1
+   },
+   "_report.json": {
+    "animation": {},
+    "artwork": [],
+    "checks": {
+     "frames": {
+      "error": "",
+      "problems": [],
+      "ran": true
+     },
+     "script": {
+      "error": "",
+      "problems": [],
+      "ran": true
+     }
+    },
+    "clips": [],
+    "footage_degraded": false,
+    "footage_repeated": false,
+    "footage_unconfident": 0,
+    "gate": {
+     "passed": true,
+     "reasons": []
+    },
+    "quiz_unverified": [],
+    "scene_notes": [],
+    "scenes": 1,
+    "scenes_fell_back": 0,
+    "script_suspect": "",
+    "shot_count": 1,
+    "similarity": {
+     "closest_title": null,
+     "flagged": false,
+     "max_cosine": 0.0,
+     "max_trigram": 0.0
+    },
+    "title_options": [
+     "Hard Quiz: Can You Get 7/10?"
+    ],
+    "video_seconds": 108.3,
+    "visuals": [
+     {
+      "index": 0,
+      "medium": "quiz board",
+      "reason": "the quiz format",
+      "template": "quiz"
+     }
+    ]
+   },
+   "_script.json": {
+    "citation": null,
+    "description_body": "Ten hard questions. Pause if you need longer.",
+    "emphasis": [],
+    "hook_promise": "",
+    "payoff": "",
+    "pronunciations": {},
+    "quiz": {
+     "category": "Science",
+     "countdown": 3.0,
+     "credits": [],
+     "difficulty": "Hard",
+     "hook": "Ten questions. Bet you can't get seven.",
+     "intro": "Tonight's round is a hard one. Here's question one.",
+     "number": 1,
+     "outro": "How many did you get? Tell me in the comments.",
+     "pronunciations": {},
+     "questions": [
+      {
+       "answer": "W",
+       "ask": 2,
+       "bank_id": 1,
+       "question": "What is the chemical symbol for tungsten?",
+       "reveal": 3,
+       "spoken_answer": "W. It's W."
+      },
+      {
+       "answer": "Jupiter",
+       "ask": 4,
+       "bank_id": 2,
+       "question": "Which planet has the shortest day in the solar system?",
+       "reveal": 5,
+       "spoken_answer": "Jupiter. It's Jupiter."
+      },
+      {
+       "answer": "Diamond",
+       "ask": 6,
+       "bank_id": 3,
+       "question": "What is the hardest natural substance on the Mohs scale?",
+       "reveal": 7,
+       "spoken_answer": "Diamond. It's Diamond."
+      },
+      {
+       "answer": "Nitrogen",
+       "ask": 8,
+       "bank_id": 4,
+       "question": "Which gas makes up about 78 percent of Earth's atmosphere?",
+       "reveal": 9,
+       "spoken_answer": "Nitrogen. It's Nitrogen."
+      },
+      {
+       "answer": "The mitochondrion",
+       "ask": 10,
+       "bank_id": 5,
+       "question": "What is the powerhouse of the cell?",
+       "reveal": 11,
+       "spoken_answer": "The mitochondrion. It's The mitochondrion."
+      },
+      {
+       "answer": "206",
+       "ask": 12,
+       "bank_id": 6,
+       "question": "How many bones are in the adult human body?",
+       "reveal": 13,
+       "spoken_answer": "206. It's 206."
+      },
+      {
+       "answer": "The ohm",
+       "ask": 14,
+       "bank_id": 7,
+       "question": "What is the SI unit of electrical resistance?",
+       "reveal": 15,
+       "spoken_answer": "The ohm. It's The ohm."
+      },
+      {
+       "answer": "Hydrogen",
+       "ask": 16,
+       "bank_id": 8,
+       "question": "Which element has the atomic number 1?",
+       "reveal": 17,
+       "spoken_answer": "Hydrogen. It's Hydrogen."
+      },
+      {
+       "answer": "Igneous",
+       "ask": 18,
+       "bank_id": 9,
+       "question": "What type of rock is formed from cooled lava?",
+       "reveal": 19,
+       "spoken_answer": "Igneous. It's Igneous."
+      },
+      {
+       "answer": "Albert Einstein",
+       "ask": 20,
+       "bank_id": 10,
+       "question": "Who proposed the theory of general relativity?",
+       "reveal": 21,
+       "spoken_answer": "Albert Einstein. It's Albert Einstein."
+      }
+     ],
+     "unverified": []
+    },
+    "screen_hook": "",
+    "segments": [
+     {
+      "end": 3.04,
+      "keywords": [],
+      "pause_after": null,
+      "shot_brief": "",
+      "start": 0.0,
+      "text": "Ten questions. Bet you can't get seven."
+     },
+     {
+      "end": 6.86,
+      "keywords": [],
+      "pause_after": null,
+      "shot_brief": "",
+      "start": 3.04,
+      "text": "Tonight's round is a hard one. Here's question one."
+     },
+     {
+      "end": 12.605,
+      "keywords": [],
+      "pause_after": 3.0,
+      "shot_brief": "",
+      "start": 6.86,
+      "text": "What is the chemical symbol for tungsten?"
+     },
+     {
+      "end": 14.255,
+      "keywords": [],
+      "pause_after": 0.9,
+      "shot_brief": "",
+      "start": 12.605,
+      "text": "W. It's W."
+     },
+     {
+      "end": 21.755,
+      "keywords": [],
+      "pause_after": 3.0,
+      "shot_brief": "",
+      "start": 14.255,
+      "text": "Question two. Which planet has the shortest day in the solar system?"
+     },
+     {
+      "end": 24.185,
+      "keywords": [],
+      "pause_after": 0.9,
+      "shot_brief": "",
+      "start": 21.755,
+      "text": "Jupiter. It's Jupiter."
+     },
+     {
+      "end": 31.815,
+      "keywords": [],
+      "pause_after": 3.0,
+      "shot_brief": "",
+      "start": 24.185,
+      "text": "Number three. What is the hardest natural substance on the Mohs scale?"
+     },
+     {
+      "end": 34.245,
+      "keywords": [],
+      "pause_after": 0.9,
+      "shot_brief": "",
+      "start": 31.815,
+      "text": "Diamond. It's Diamond."
+     },
+     {
+      "end": 42.07,
+      "keywords": [],
+      "pause_after": 3.0,
+      "shot_brief": "",
+      "start": 34.245,
+      "text": "Question four. Which gas makes up about 78 percent of Earth's atmosphere?"
+     },
+     {
+      "end": 44.63,
+      "keywords": [],
+      "pause_after": 0.9,
+      "shot_brief": "",
+      "start": 42.07,
+      "text": "Nitrogen. It's Nitrogen."
+     },
+     {
+      "end": 51.935,
+      "keywords": [],
+      "pause_after": 3.0,
+      "shot_brief": "",
+      "start": 44.63,
+      "text": "Halfway there, question five. What is the powerhouse of the cell?"
+     },
+     {
+      "end": 55.665,
+      "keywords": [],
+      "pause_after": 0.9,
+      "shot_brief": "",
+      "start": 51.935,
+      "text": "The mitochondrion. It's The mitochondrion."
+     },
+     {
+      "end": 62.45,
+      "keywords": [],
+      "pause_after": 3.0,
+      "shot_brief": "",
+      "start": 55.665,
+      "text": "Question six. How many bones are in the adult human body?"
+     },
+     {
+      "end": 64.36,
+      "keywords": [],
+      "pause_after": 0.9,
+      "shot_brief": "",
+      "start": 62.45,
+      "text": "206. It's 206."
+     },
+     {
+      "end": 71.2749,
+      "keywords": [],
+      "pause_after": 3.0,
+      "shot_brief": "",
+      "start": 64.36,
+      "text": "Number seven. What is the SI unit of electrical resistance?"
+     },
+     {
+      "end": 73.7049,
+      "keywords": [],
+      "pause_after": 0.9,
+      "shot_brief": "",
+      "start": 71.2749,
+      "text": "The ohm. It's The ohm."
+     },
+     {
+      "end": 80.2949,
+      "keywords": [],
+      "pause_after": 3.0,
+      "shot_brief": "",
+      "start": 73.7049,
+      "text": "Question eight. Which element has the atomic number 1?"
+     },
+     {
+      "end": 82.8549,
+      "keywords": [],
+      "pause_after": 0.9,
+      "shot_brief": "",
+      "start": 80.2949,
+      "text": "Hydrogen. It's Hydrogen."
+     },
+     {
+      "end": 90.7449,
+      "keywords": [],
+      "pause_after": 3.0,
+      "shot_brief": "",
+      "start": 82.8549,
+      "text": "Nearly there, question nine. What type of rock is formed from cooled lava?"
+     },
+     {
+      "end": 93.1749,
+      "keywords": [],
+      "pause_after": 0.9,
+      "shot_brief": "",
+      "start": 90.7449,
+      "text": "Igneous. It's Igneous."
+     },
+     {
+      "end": 100.8049,
+      "keywords": [],
+      "pause_after": 3.0,
+      "shot_brief": "",
+      "start": 93.1749,
+      "text": "Last one, question ten. Who proposed the theory of general relativity?"
+     },
+     {
+      "end": 104.2749,
+      "keywords": [],
+      "pause_after": 0.9,
+      "shot_brief": "",
+      "start": 100.8049,
+      "text": "Albert Einstein. It's Albert Einstein."
+     },
+     {
+      "end": 108.2649,
+      "keywords": [],
+      "pause_after": null,
+      "shot_brief": "",
+      "start": 104.2749,
+      "text": "How many did you get? Tell me in the comments."
+     }
+    ],
+    "source_index": null,
+    "title_options": [
+     "Hard Quiz: Can You Get 7/10?"
+    ]
+   }
+  },
+  "footage": [
+   {
+    "crossfade": 0.5,
+    "shots": [
+     {
+      "clip": "board.mp4",
+      "end": 108.265,
+      "scene": true,
+      "segment": 0,
+      "start": 0.0
+     }
+    ]
+   }
+  ],
+  "frame_check": [
+   [
+    2.736,
+    21.005,
+    44.374,
+    64.169,
+    89.956,
+    107.866
+   ]
+  ],
+  "mix": [
+   {
+    "channels": 2,
+    "fps": 44100,
+    "peak": 0.424,
+    "rms": 0.0866,
+    "samples": 4774484,
+    "sha1": "25a7c3522556fe8e"
+   }
+  ],
+  "segments": [
+   {
+    "end": 3.04,
+    "pause_after": null,
+    "start": 0.0,
+    "text": "Ten questions. Bet you can't get seven."
+   },
+   {
+    "end": 6.86,
+    "pause_after": null,
+    "start": 3.04,
+    "text": "Tonight's round is a hard one. Here's question one."
+   },
+   {
+    "end": 12.605,
+    "pause_after": 3.0,
+    "start": 6.86,
+    "text": "What is the chemical symbol for tungsten?"
+   },
+   {
+    "end": 14.255,
+    "pause_after": 0.9,
+    "start": 12.605,
+    "text": "W. It's W."
+   },
+   {
+    "end": 21.755,
+    "pause_after": 3.0,
+    "start": 14.255,
+    "text": "Question two. Which planet has the shortest day in the solar system?"
+   },
+   {
+    "end": 24.185,
+    "pause_after": 0.9,
+    "start": 21.755,
+    "text": "Jupiter. It's Jupiter."
+   },
+   {
+    "end": 31.815,
+    "pause_after": 3.0,
+    "start": 24.185,
+    "text": "Number three. What is the hardest natural substance on the Mohs scale?"
+   },
+   {
+    "end": 34.245,
+    "pause_after": 0.9,
+    "start": 31.815,
+    "text": "Diamond. It's Diamond."
+   },
+   {
+    "end": 42.07,
+    "pause_after": 3.0,
+    "start": 34.245,
+    "text": "Question four. Which gas makes up about 78 percent of Earth's atmosphere?"
+   },
+   {
+    "end": 44.63,
+    "pause_after": 0.9,
+    "start": 42.07,
+    "text": "Nitrogen. It's Nitrogen."
+   },
+   {
+    "end": 51.935,
+    "pause_after": 3.0,
+    "start": 44.63,
+    "text": "Halfway there, question five. What is the powerhouse of the cell?"
+   },
+   {
+    "end": 55.665,
+    "pause_after": 0.9,
+    "start": 51.935,
+    "text": "The mitochondrion. It's The mitochondrion."
+   },
+   {
+    "end": 62.45,
+    "pause_after": 3.0,
+    "start": 55.665,
+    "text": "Question six. How many bones are in the adult human body?"
+   },
+   {
+    "end": 64.36,
+    "pause_after": 0.9,
+    "start": 62.45,
+    "text": "206. It's 206."
+   },
+   {
+    "end": 71.2749,
+    "pause_after": 3.0,
+    "start": 64.36,
+    "text": "Number seven. What is the SI unit of electrical resistance?"
+   },
+   {
+    "end": 73.7049,
+    "pause_after": 0.9,
+    "start": 71.2749,
+    "text": "The ohm. It's The ohm."
+   },
+   {
+    "end": 80.2949,
+    "pause_after": 3.0,
+    "start": 73.7049,
+    "text": "Question eight. Which element has the atomic number 1?"
+   },
+   {
+    "end": 82.8549,
+    "pause_after": 0.9,
+    "start": 80.2949,
+    "text": "Hydrogen. It's Hydrogen."
+   },
+   {
+    "end": 90.7449,
+    "pause_after": 3.0,
+    "start": 82.8549,
+    "text": "Nearly there, question nine. What type of rock is formed from cooled lava?"
+   },
+   {
+    "end": 93.1749,
+    "pause_after": 0.9,
+    "start": 90.7449,
+    "text": "Igneous. It's Igneous."
+   },
+   {
+    "end": 100.8049,
+    "pause_after": 3.0,
+    "start": 93.1749,
+    "text": "Last one, question ten. Who proposed the theory of general relativity?"
+   },
+   {
+    "end": 104.2749,
+    "pause_after": 0.9,
+    "start": 100.8049,
+    "text": "Albert Einstein. It's Albert Einstein."
+   },
+   {
+    "end": 108.2649,
+    "pause_after": null,
+    "start": 104.2749,
+    "text": "How many did you get? Tell me in the comments."
+   }
+  ],
+  "title_card_at": 0.0,
+  "video": [
+   {
+    "audio": false,
+    "codec": "libx264",
+    "fps": 30,
+    "frames": [
+     "d161578a23ceaab0",
+     "d161578a23ceaab0",
+     "d161578a23ceaab0",
+     "d161578a23ceaab0",
+     "d161578a23ceaab0"
+    ],
+    "frames_at": [
+     0.5,
+     27.066,
+     54.132,
+     81.199,
+     107.765
+    ],
+    "preset": "veryfast",
+    "seconds": 108.265,
+    "size": [
+     1080,
+     1920
+    ]
+   }
+  ],
+  "video_seconds": 108.2649,
+  "voice": [
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Tonight's round is a hard one. Here's question one.",
+    "output_format": "mp3_44100_128",
+    "text": "Ten questions. Bet you can't get seven.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "What is the chemical symbol for tungsten?",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Ten questions. Bet you can't get seven.",
+    "text": "Tonight's round is a hard one. Here's question one.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Tonight's round is a hard one. Here's question one.",
+    "text": "What is the chemical symbol for tungsten?",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Question two. Which planet has the shortest day in the solar system?",
+    "output_format": "mp3_44100_128",
+    "previous_text": "What is the chemical symbol for tungsten?",
+    "text": "W. It's W.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "W. It's W.",
+    "text": "Question two. Which planet has the shortest day in the solar system?",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Number three. What is the hardest natural substance on the Mohs scale?",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Question two. Which planet has the shortest day in the solar system?",
+    "text": "Jupiter. It's Jupiter.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Jupiter. It's Jupiter.",
+    "text": "Number three. What is the hardest natural substance on the Mohs scale?",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Question four. Which gas makes up about 78 percent of Earth's atmosphere?",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Number three. What is the hardest natural substance on the Mohs scale?",
+    "text": "Diamond. It's Diamond.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Diamond. It's Diamond.",
+    "text": "Question four. Which gas makes up about 78 percent of Earth's atmosphere?",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Halfway there, question five. What is the powerhouse of the cell?",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Question four. Which gas makes up about 78 percent of Earth's atmosphere?",
+    "text": "Nitrogen. It's Nitrogen.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Nitrogen. It's Nitrogen.",
+    "text": "Halfway there, question five. What is the powerhouse of the cell?",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Question six. How many bones are in the adult human body?",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Halfway there, question five. What is the powerhouse of the cell?",
+    "text": "The mitochondrion. It's The mitochondrion.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "The mitochondrion. It's The mitochondrion.",
+    "text": "Question six. How many bones are in the adult human body?",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Number seven. What is the SI unit of electrical resistance?",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Question six. How many bones are in the adult human body?",
+    "text": "206. It's 206.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "206. It's 206.",
+    "text": "Number seven. What is the SI unit of electrical resistance?",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Question eight. Which element has the atomic number 1?",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Number seven. What is the SI unit of electrical resistance?",
+    "text": "The ohm. It's The ohm.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "The ohm. It's The ohm.",
+    "text": "Question eight. Which element has the atomic number 1?",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Nearly there, question nine. What type of rock is formed from cooled lava?",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Question eight. Which element has the atomic number 1?",
+    "text": "Hydrogen. It's Hydrogen.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Hydrogen. It's Hydrogen.",
+    "text": "Nearly there, question nine. What type of rock is formed from cooled lava?",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "Last one, question ten. Who proposed the theory of general relativity?",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Nearly there, question nine. What type of rock is formed from cooled lava?",
+    "text": "Igneous. It's Igneous.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Igneous. It's Igneous.",
+    "text": "Last one, question ten. Who proposed the theory of general relativity?",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "next_text": "How many did you get? Tell me in the comments.",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Last one, question ten. Who proposed the theory of general relativity?",
+    "text": "Albert Einstein. It's Albert Einstein.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   },
+   {
+    "model_id": "eleven_turbo_v2_5",
+    "output_format": "mp3_44100_128",
+    "previous_text": "Albert Einstein. It's Albert Einstein.",
+    "text": "How many did you get? Tell me in the comments.",
+    "voice": "CwhRBWXzGAHq8TQ4Fs17",
+    "voice_settings": {
+     "speed": 1.02
+    }
+   }
+  ]
+ },
+ "slots": [
+  "Wed 18:00",
+  "Thu 18:00",
+  "Fri 18:00",
+  "Sat 18:00",
+  "Sun 18:00",
+  "Mon 18:00",
+  "Tue 18:00",
+  "Wed 18:00"
+ ],
+ "touched_real_data": []
+}

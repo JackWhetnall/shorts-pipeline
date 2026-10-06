@@ -1,0 +1,193 @@
+{
+ "minute_pastor": {
+  "content_mode": "static_corpus",
+  "voice": "pNInz6obpgDQGcFmaJgB",
+  "style_prompt": "You are writing a short, warm, non-denominational reflection on a Bible verse for a YouTube Shorts audience. Plain, modern language. No preachiness, no 'in conclusion', just a grounded human observation about what the verse means and why it might matter today.",
+  "hook_style": "Open with one line, before the verse is read, that names the quiet tension this particular verse speaks to: a worry, a longing or a question someone listening may already be carrying, or a surprising turn in a familiar line. Gentle and sincere, never hype and never a sermon's opening. It should make the listener want to hear the verse, and hear it freshly, without giving away what the reflection finds.",
+  "outro_subtext": "Follow for more",
+  "source": "bible",
+  "avoid_imagery": [
+   "islamic",
+   "muslim",
+   "mosque",
+   "quran",
+   "koran",
+   "ramadan",
+   "hijab",
+   "minaret",
+   "imam",
+   "hajj",
+   "mecca",
+   "judaism",
+   "jewish",
+   "hinduism",
+   "hindu",
+   "pendulum",
+   "tarot",
+   "occult",
+   "witch",
+   "witchcraft",
+   "spell",
+   "divination",
+   "ouija",
+   "pentagram",
+   "crystal ball"
+  ],
+  "monetization": {
+   "merch_url": "https://minute-pastor.printify.me/"
+  },
+  "socials": {
+   "youtube_url": "https://www.youtube.com/@MinutePastor",
+   "tiktok_url": "https://www.tiktok.com/@minutepastor?lang=en-GB",
+   "instagram_url": "https://www.instagram.com/minutepastor/"
+  },
+  "publishing": {
+   "enabled": true,
+   "slots": [
+    "11:00"
+   ],
+   "weekdays": [
+    0,
+    2,
+    4,
+    6
+   ],
+   "posting_browser": "chrome",
+   "posting_profile": "Shorts minute_pastor"
+  },
+  "scenes": {
+   "art": {
+    "preset": "clean_flat"
+   }
+  },
+  "animation": {
+   "style": {
+    "approach": "objects",
+    "stage": "tabletop",
+    "material": "felt",
+    "people": "stubby",
+    "presenter": "none",
+    "mood": "playful",
+    "motion": "stop_motion",
+    "words": "tags"
+   }
+  },
+  "sound": {
+   "music_moods": [
+    "calm contemplative piano",
+    "gentle acoustic strings",
+    "peaceful ambient background"
+   ]
+  },
+  "quiz": {
+   "difficulties": [
+    "Easy (2)",
+    "Medium (4)",
+    "Hard (5.5)",
+    "Very hard (7)",
+    "Impossible (9.5)"
+   ]
+  },
+  "manual_checklist_overrides": [
+   "affiliate",
+   "patreon"
+  ],
+  "channel_display_name": "Minute Pastor"
+ },
+ "pub_quiz_buzz": {
+  "format": "quiz",
+  "voice": "CwhRBWXzGAHq8TQ4Fs17",
+  "style_prompt": "Write for the host of a local pub quiz who genuinely loves this job: warm, quick-witted, never mean, rooting for the listener even on the brutal rounds. Every question stands alone as a clean, unambiguous piece of trivia with one defensible correct answer, phrased the way a real quizmaster would say it aloud, and the accompanying on-screen text matches exactly what's spoken so no viewer is reading something different from what they hear. Move briskly from one question to the next with light, varied connective patter rather than a repeated formula: a short aside, a joke about the category, a nudge before a tricky one, but never padding that delays the countdown. When an answer lands, say it plainly and short, and only add context when it genuinely helps (a date, a one-clause reason) rather than out of habit. Never invent or fudge a fact under pressure to sound clever; if a question is borderline trivia (spelling variants, disputed records, recent events that might have changed), swap it for one that is unambiguous, and keep the difficulty ladder honest so 'impossible' means genuinely obscure rather than unfair or trick-worded. Close each round the same warm way in spirit but not in identical words: inviting the score, asking what topic or difficulty to run next, or nudging a share with mates - never scold, never oversell, keep the pub-night camaraderie.",
+  "hook_style": "Open on the category and difficulty as a direct, friendly challenge or a bit of banter that sets the stakes for this round - a quick tease of how hard it's about to get, or a dare to beat last week's average - never a slow wind-up, but also never fake urgency; it should sound like a quizmaster tapping the mic and grinning, not a trailer voiceover.",
+  "build_on_previous": true,
+  "context_scope": "all",
+  "speed": 1.02,
+  "pacing": {
+   "segment_count": 2,
+   "target_seconds": 150.0
+  },
+  "style": {
+   "font_face": "cambria_bold",
+   "base_color": "#F5EFE3",
+   "highlight_color": "#E0A94D",
+   "stroke_color": "#12100A",
+   "outro_enabled": false,
+   "outro_bg_color": [
+    14,
+    12,
+    8,
+    255
+   ],
+   "outro_title_color": "#F5EFE3",
+   "outro_subtext_color": "#E0A94D",
+   "title_card_title_color": "#F5EFE3",
+   "title_card_channel_color": "#E0A94D",
+   "title_card_bg_color": [
+    14,
+    12,
+    8,
+    255
+   ],
+   "captions_enabled": false,
+   "screen_hook_enabled": false,
+   "emphasis_enabled": false
+  },
+  "socials": {
+   "youtube_url": "https://www.youtube.com/@PubQuizBuzz",
+   "tiktok_url": "https://www.tiktok.com/@pubquizbuzz",
+   "instagram_url": "https://www.instagram.com/pubquizbuzz/"
+  },
+  "ordering": {
+   "topic_order": "random",
+   "subtopic_order": "random",
+   "grouping": "round_robin"
+  },
+  "publishing": {
+   "enabled": true,
+   "post_tiktok": true,
+   "post_instagram": true,
+   "posting_browser": "chrome",
+   "posting_profile": "Shorts pub_quiz_buzz"
+  },
+  "scenes": {
+   "art": {
+    "preset": "clean_flat",
+    "ink": "#2B2118",
+    "ink_soft": "#6B5B48",
+    "label_fill": "#EADFC5",
+    "accent1": "#B4652E",
+    "accent2": "#2F6E5B",
+    "accent3": "#8C2F39",
+    "accent4": "#3A5A78",
+    "accent5": "#C9A227",
+    "background": "#F6EEDD",
+    "font_display": "Georgia",
+    "prop_style": "Flat vector icons with a slight hand-drawn wobble and thick warm-brown outline, filled with a small muted palette on the board background, like pub chalkboard signage redrawn cleanly"
+   }
+  },
+  "sound": {
+   "music_moods": [
+    "upbeat pub piano",
+    "light quiz tension",
+    "cheerful acoustic tick-tock"
+   ],
+   "effects_level": 0.35,
+   "clock_level": 0.4
+  },
+  "quiz": {
+   "countdown_seconds": 3.0,
+   "answer_pause": 0.9,
+   "difficulties": [
+    "Easy (1.5)",
+    "Medium (3)",
+    "Hard (4.5)",
+    "Tricky (5.5)",
+    "Fiendish (6.5)",
+    "Impossible (8)"
+   ],
+   "after_each_clock_seconds": 6.0
+  },
+  "channel_display_name": "Pub Quiz Buzz",
+  "content_mode": "topic"
+ }
+}

@@ -27,6 +27,13 @@ Bounded by:
   spending (a small fixed amount when the balance isn't known);
 - **horizon**: nothing more than MAX_DAYS_AHEAD ahead.
 
+**Long-form first** (decision 075): the narration still owed to
+documentaries in production (core.production.narration_still_to_voice)
+is kept back before anything goes on shorts made ahead, so a film the
+owner is working on is never left waiting for the reset. A documentary
+channel's own slots are never filled here: its videos are made stage by
+stage on Productions, each approved, never by the scheduler.
+
 `run` starts one planned video whenever nothing else is being made, at
 batch prices, and the plan is worked out again from live state every
 tick, so an estimate that was off corrects itself. Videos made this way go
@@ -73,6 +80,8 @@ class Situation:
     usd_available: float                 # what may be spent
     minutes: float = AHEAD_MINUTES       # a video, made ahead
     names: dict = field(default_factory=dict)
+    long_form: int = 0                   # credits kept for documentaries in production
+    long_form_films: int = 0             # how many films that is
 
 
 @dataclass
@@ -87,6 +96,8 @@ class Plan:
     credits: int = 0
     usd: float = 0.0
     names: dict = field(default_factory=dict)
+    kept: int = 0                        # credits kept for documentaries in production
+    kept_films: int = 0
 
     @property
     def by_channel(self) -> Counter:
@@ -96,11 +107,13 @@ class Plan:
         """One line: what's being made with the spare, and how far it reaches."""
         if not self.active:
             return self.why
+        kept = (f" Keeping {self.kept:,} credits for {self.kept_films} "
+                f"documentar{'y' if self.kept_films == 1 else 'ies'} in production." if self.kept else "")
         if not self.videos:
             return self.why or "Nothing to make with it."
         parts = ", ".join(f"{self.names.get(k, k)} {n}" for k, n in self.by_channel.most_common())
         reach = f", every slot filled to {self.filled_to.strftime('%a %d %b')}" if self.filled_to else ""
-        return f"Making {len(self.videos)} ahead ({parts}){reach}. Claude about ${self.usd:.2f}."
+        return f"Making {len(self.videos)} ahead ({parts}){reach}. Claude about ${self.usd:.2f}.{kept}"
 
 
 def make_plan(s: Situation) -> Plan:
@@ -120,12 +133,17 @@ def make_plan(s: Situation) -> Plan:
                     f"resets on {resets.strftime('%a %d %b')}.")
         return plan
     plan.active = True
+    plan.kept, plan.kept_films = s.long_form, s.long_form_films
     keys = [k for k in s.slots if s.slots[k] and s.credits.get(k)]
     if not keys:
         plan.why = "No channel publishes on a schedule, so there are no slots to fill."
         return plan
     margin = MARGIN_VIDEOS * max(s.credits[k] for k in keys)
-    plan.spare = spare = max(0, s.remaining - margin)
+    plan.spare = spare = max(0, s.remaining - margin - s.long_form)
+    if s.long_form and not spare:
+        plan.why = (f"What's left ({s.remaining:,} credits) is kept for the "
+                    f"documentar{'y' if s.long_form_films == 1 else 'ies'} in production.")
+        return plan
     usd_left = max(0.0, s.usd_available)
     room = int((left - TIME_MARGIN) // (s.minutes * 60)) if s.minutes > 0 else 0
     horizon = datetime.fromtimestamp(s.now + MAX_DAYS_AHEAD * DAY).astimezone()
@@ -175,7 +193,8 @@ def situation(channels: dict, now: float = None) -> Situation:
     slots, covered, credits, usd, names = {}, {}, {}, {}, {}
     for key, channel in channels.items():
         plan = channel.publishing
-        if channel.archived or not plan.enabled or not plan.slots or not plan.weekdays:
+        if (channel.archived or channel.format == "documentary"
+                or not plan.enabled or not plan.slots or not plan.weekdays):
             continue
         try:
             channel.validate()
@@ -195,10 +214,32 @@ def situation(channels: dict, now: float = None) -> Situation:
     else:
         daily = sum(r["monthly"] for r in money.plan_rows(channels, records)) / money.MONTH_DAYS
         available = balance - budget.remaining() - max(RESERVE_MIN_USD, RESERVE_DAYS * daily)
+    long_form, films = long_form_owed(channels, now)
     return Situation(now=now, remaining=quota.remaining if quota else 0,
                      resets_at=float(quota.resets_at or 0) if quota else 0,
                      slots=slots, covered=covered, credits=credits, usd=usd,
-                     usd_available=available, minutes=made_ahead_minutes(), names=names)
+                     usd_available=available, minutes=made_ahead_minutes(), names=names,
+                     long_form=long_form, long_form_films=films)
+
+
+def long_form_owed(channels: dict, now: float) -> tuple:
+    """(credits, films): the narration documentaries in production will
+    still need, across every documentary channel. A production untouched
+    for production.ACTIVE_DAYS isn't counted: credits kept for a film
+    nobody is making would only be lost at the reset."""
+    from core import production, voice_quota
+    credits = films = 0
+    for key, channel in channels.items():
+        if channel.archived or channel.format != "documentary":
+            continue
+        for data in production.all_for(key):
+            if now - production.last_touched(data) > production.ACTIVE_DAYS * DAY:
+                continue
+            characters = production.narration_still_to_voice(data)
+            if characters:
+                credits += voice_quota.credits_for(characters)
+                films += 1
+    return credits, films
 
 
 def made_ahead_minutes() -> float:
