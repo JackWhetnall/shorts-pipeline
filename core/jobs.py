@@ -409,18 +409,20 @@ def _refuse_if_stale() -> None:
 
 
 def start_job(channel_key: str, seed: dict, job_id: str = None, ahead: bool = False,
-              note: str = "") -> str:
+              note: str = "", behind: bool = False) -> str:
     """Queue or start a job. Raises JobError if this channel already has
     one in flight, or if the app is waiting to restart onto new code.
     `job_id` is given by a remake, whose checkpoints are written before it
     starts (core.remake). `ahead`: started by the scheduler with nobody
     waiting, so made at batch prices (see Job.ahead). `note`: why it was
-    started, shown with it (spare voice, core.spare_voice)."""
+    started, shown with it (spare voice, core.spare_voice). `behind`: queue
+    it even when this channel has one in flight (a remake: it's asked for
+    one particular video, so it can't be a double click making two)."""
     install()
     _refuse_if_stale()
     with _lock:
-        if any(j.status in RUNNING_STATES and j.channel_key == channel_key
-               for j in _jobs.values()):
+        if not behind and any(j.status in RUNNING_STATES and j.channel_key == channel_key
+                              for j in _jobs.values()):
             raise JobError(
                 f"job already active for {channel_key}",
                 user_message="This channel already has a video being generated.",
@@ -545,6 +547,15 @@ def latest_failed_for_channel(channel_key: str):
             return None
         best = max(candidates, key=lambda j: j.finished_at or j.queued_at or 0)
     return _with_extras(best)
+
+
+def numbers_in_flight(channel_key: str) -> list:
+    """The quiz numbers this channel's jobs in flight were asked for: a
+    remade #4 holds back #5 until it's made again (publish_queue)."""
+    with _lock:
+        return [int(j.seed.get("number") or 0) for j in _jobs.values()
+                if j.channel_key == channel_key and j.status in RUNNING_STATES
+                and int((j.seed or {}).get("number") or 0)]
 
 
 def active_jobs() -> dict:

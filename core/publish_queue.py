@@ -102,12 +102,14 @@ def queued(channel, long: bool = False) -> list:
 def waiting_for(channel, video_path: Path) -> int:
     """The lowest-numbered short of this channel still waiting for review
     below this one's number, or 0. A numbered short waits for it, so the
-    numbers go out in order; discarding or publishing it releases the wait."""
+    numbers go out in order; discarding or publishing it releases the wait.
+    A lower number being made (a remake) holds it too."""
     number = number_of(video_path)
     if not number:
         return 0
+    from core import jobs
     directory = gallery.resolve_output_dir(channel.output_dir)
-    lower = []
+    lower = [n for n in jobs.numbers_in_flight(channel.key) if n < number]
     for path in gallery.videos_in(directory):
         other = number_of(path)
         if other and other < number:

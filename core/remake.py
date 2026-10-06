@@ -239,7 +239,11 @@ def start(channel, video: Path, redo: set = frozenset(), redraw: set = frozenset
         from pipeline import quiz
         quiz.forget(channel.key, video.stem)
     try:
-        jobs.start_job(channel.key, seed, job_id=job_id)
+        # Queued behind whatever this channel is making, not refused.
+        number = f" #{seed['number']}" if seed.get("number") else ""
+        jobs.start_job(channel.key, seed, job_id=job_id, behind=True,
+                       note=f"A remake of{number} {video.stem}. The old one is discarded; this one "
+                            f"takes its place{' and its number' if number else ''} in review.")
     except PipelineError:
         if not was["discarded"]:
             gallery.set_discarded(video, False)

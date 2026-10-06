@@ -192,8 +192,10 @@ def remake(relpath):
     try:
         remaking.start(channel, video, script=drafted)
     except PipelineError as exc:
-        return _back("quiz_review.made", f"{exc.user_message} The new questions are saved on the "
-                                         f"topic plan.", relpath=relpath)
+        # Only the app waiting to restart refuses now (a remake queues
+        # behind anything this channel is making).
+        return _back("quiz_review.made", f"{exc.user_message} The new questions are kept, so "
+                                         f"Remake works once it's back.", relpath=relpath)
     path.unlink(missing_ok=True)
     if _phone():
         return redirect(url_for("phone.home", note="Remaking it; it'll be back in review when it's done."))

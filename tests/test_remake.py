@@ -196,3 +196,42 @@ def test_the_visuals_stage_makes_only_what_was_taken_out(monkeypatch, tmp_path):
                                           {"index": 3, "medium": "template"}],
                            "keep": keep, "redo": [2], "animate": True})
     assert made == [2] and animated == [[0]] and plan.scene_clips == keep
+
+
+# --- remaking while the channel is making something (6 Oct) ------------------
+# The owner: remaking while a video was being made said the questions were
+# saved on the topic plan instead of making it. A remake queues behind.
+
+@pytest.fixture
+def busy_channel(monkeypatch, tmp_path):
+    from core import jobs
+    monkeypatch.setattr(jobs, "_jobs", {})
+    monkeypatch.setattr(jobs, "_queue", [])
+    monkeypatch.setattr(jobs, "_persist", lambda job_id: None)
+    monkeypatch.setattr(jobs, "_spawn", lambda *a: None)
+    monkeypatch.setattr(jobs, "install", lambda: None)
+    monkeypatch.setattr(jobs, "_refuse_if_stale", lambda: None)
+    jobs._jobs["running"] = jobs.Job(id="running", channel_key="quiz", seed={}, status="running")
+    return jobs
+
+
+def test_a_remake_queues_behind_what_the_channel_is_making(busy_channel):
+    jobs = busy_channel
+    with pytest.raises(Exception):
+        jobs.start_job("quiz", {})                         # a second ordinary one is still refused
+    job_id = jobs.start_job("quiz", {"number": 4}, job_id="remake", behind=True)
+    assert jobs._jobs[job_id].status == "queued" and jobs._queue == ["remake"]
+
+
+def test_a_remade_number_holds_back_the_ones_after_it(busy_channel, tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from core import gallery, publish_queue
+    jobs = busy_channel
+    jobs.start_job("quiz", {"number": 4}, job_id="remake", behind=True)
+    channel = SimpleNamespace(key="quiz", output_dir=str(tmp_path))
+    monkeypatch.setattr(gallery, "videos_in", lambda d, long=None: [])
+    monkeypatch.setattr(publish_queue, "number_of", lambda path: 5)
+    assert publish_queue.waiting_for(channel, tmp_path / "five.mp4") == 4
+    monkeypatch.setattr(publish_queue, "number_of", lambda path: 3)
+    assert publish_queue.waiting_for(channel, tmp_path / "three.mp4") == 0
