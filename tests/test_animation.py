@@ -652,12 +652,13 @@ class TestSettingsPage:
         monkeypatch.setattr("web.blueprints.animation.OUTPUT_DIR", tmp_path / "out")
         started = []
         monkeypatch.setattr("web.blueprints.animation.jobs.start_job",
-                            lambda key, seed: started.append((key, seed)) or "job1")
+                            lambda key, seed, ahead=True: started.append((key, seed, ahead)) or "job1")
         response = client.post("/api/channels/test_channel/animation/preview",
                                headers={"X-CSRF-Token": csrf(client)},
                                json={"video": "test_channel/2026-09-01/v.mp4"})
         assert response.get_json() == {"job_id": "job1"}
         assert started[0][1]["type"] == "animation_preview" and started[0][1]["animate"] is False
+        assert started[0][2] is False             # a preview is wanted now, not at batch prices
 
     def test_animating_a_preview_needs_the_key(self, client, config_path, tmp_path,
                                                monkeypatch):

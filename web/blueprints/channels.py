@@ -730,7 +730,8 @@ def api_generate(key):
     seed = data.get("seed")
     if not seed:
         return jsonify({"error": "No quote or topic was chosen."}), 400
-    return jsonify({"job_id": jobs.start_job(key, seed)})
+    # At batch prices unless asked for now (decision 072).
+    return jsonify({"job_id": jobs.start_job(key, seed, ahead=not data.get("now"))})
 
 
 @bp.route("/api/channels/<key>/longform", methods=["POST"])
@@ -755,7 +756,7 @@ def api_longform(key):
     label = request_["difficulty"].replace(longform.CATEGORY_PREFIX, "") + (
         ", easiest to hardest" if request_["difficulty"].startswith(longform.CATEGORY_PREFIX) else "")
     seed.update(request_, topic=f"Long quiz: {request_['rounds']} rounds, {label}")
-    return jsonify({"job_id": jobs.start_job(key, seed)})
+    return jsonify({"job_id": jobs.start_job(key, seed, ahead=not data.get("now"))})
 
 
 @bp.route("/channels/<key>/generate-now", methods=["POST"])

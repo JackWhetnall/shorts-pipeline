@@ -817,10 +817,15 @@ decision [025](docs/decisions/025-voice-quota.md).
 - **Model calls** go through `pipeline.llm`, which checks `stop_reason`
   before trusting `content`, retries a truncated response once with a
   larger budget, and never retries a refusal. Budgets cover thinking as
-  well as output. Work nobody waits on (the hourly run; jobs started with
-  `ahead=True`) runs inside `llm.batched()`,
+  well as output. Work nobody waits on runs inside `llm.batched()`,
   which sends the same requests through the Message Batches API at half
-  price; independent calls there go through `llm.run_together`.
+  price; independent calls there go through `llm.run_together`. That is
+  the hourly run, and every video (`Job.ahead`, the default for
+  `jobs.start_job`) unless the owner asked for it now. **Accelerate**
+  (`jobs.accelerate`, on Activity and the progress view) moves a job to
+  the front of the queue and makes its calls direct, and a running job
+  stops batching once an accelerated one waits behind it
+  ([072](docs/decisions/072-batch-by-default.md)).
 - **Tests never reach a paid service**: `tests/conftest.py` blocks the
   Anthropic client and any non-local HTTP request. Mock `llm.call_json`,
   `llm.client` or the module's `requests`.

@@ -24,6 +24,9 @@
       <input type="number" id="video-number" min="1" value="{{ next_number }}" class="narrow-number">
     </label>
     {% endif %}
+    <label class="checkbox-label"><input type="checkbox" id="make-now">
+      <span>Make it now, at full price</span>
+      <button type="button" class="info-dot" data-tooltip="Otherwise it's made at batch prices: Claude at half the cost, but it can take an hour or more. You can still speed it up from Activity with Accelerate.">?</button></label>
     <div class="actions">
       <button type="button" id="chosen-make-btn" onclick="startGenerate('{{ key }}')" disabled>Make this video</button>
       <button type="button" class="btn-ghost" onclick="chooseVideo({mode: 'random'}, 'Picked at random')">Pick another at random</button>
@@ -130,6 +133,8 @@
   <h2 id="job-heading">Generating&hellip;</h2>
   <p id="job-eta" class="meta hidden"></p>
   <p id="job-queue-note" class="meta hidden"></p>
+  <p id="job-batch-note" class="meta hidden">At batch prices: Claude at half the cost, but slower.
+    <button type="button" class="btn-ghost btn-small" onclick="accelerateCurrentJob(this)">Accelerate</button></p>
   <p class="meta"><a href="{{ url_for('jobs.activity') }}">See everything being made &rarr;</a></p>
   <div id="job-banner" class="error hidden">
     <p id="job-banner-message"></p>

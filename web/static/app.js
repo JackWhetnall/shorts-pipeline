@@ -111,7 +111,8 @@ async function startGenerate(channelKey) {
     const res = await apiFetch(`/api/channels/${channelKey}/generate`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({seed: number ? {...currentSeed, number} : currentSeed}),
+      body: JSON.stringify({seed: number ? {...currentSeed, number} : currentSeed,
+                            now: Boolean(document.getElementById("make-now")?.checked)}),
     });
     const data = await res.json();
     if (res.status === 409) {
@@ -453,6 +454,8 @@ function pollJob(jobId) {
       if (heading) heading.textContent = job.status === "interrupted" ? "Interrupted" : "Generating…";
       if (queueNote) queueNote.classList.add("hidden");
     }
+    const batchNote = document.getElementById("job-batch-note");
+    if (batchNote) batchNote.classList.toggle("hidden", !(job.ahead && ["queued", "running"].includes(job.status)));
 
     // "Should I wait or come back later?" - answered here rather than
     // only on Activity, since this is where someone who just pressed
@@ -917,9 +920,14 @@ function activityRow(job) {
       ? `<div class="job-progress-bar-fill indeterminate"></div>`
       : `<div class="job-progress-bar-fill" style="width:${pct}%"></div>`;
 
-  const eta = job.eta_label
-    ? `<span class="activity-eta">${escapeHtml(job.eta_label)} left<span class="activity-eta-at"> &middot; done around ${activityTimeOfDay(job.eta_at)}</span></span>`
-    : "";
+  // At batch prices the timing is the batches', not ours: no estimate,
+  // and a button to make it now instead (decision 072).
+  const eta = job.ahead
+    ? `<span class="activity-eta">At batch prices <button type="button" class="btn-ghost btn-small" onclick="activityAccelerate('${job.id}', this)"
+         data-tooltip="Next in the queue and made at full speed, at full price">Accelerate</button></span>`
+    : job.eta_label
+      ? `<span class="activity-eta">${escapeHtml(job.eta_label)} left<span class="activity-eta-at"> &middot; done around ${activityTimeOfDay(job.eta_at)}</span></span>`
+      : "";
 
   return `
     <div class="card activity-item${running ? " activity-running" : ""}">
@@ -974,6 +982,22 @@ function activityFinishedRow(job) {
       <button type="button" class="btn-ghost" onclick="activityRetry('${job.id}', this)">Retry</button>
       <button type="button" class="btn-ghost danger-text" onclick="activityDismiss('${job.id}', this)">Discard</button>
     </div>`;
+}
+
+async function accelerateCurrentJob(button) {
+  if (currentJobId) await activityAccelerate(currentJobId, button);
+}
+
+async function activityAccelerate(jobId, button) {
+  await withButtonLoading(button, "Speeding up…", async () => {
+    const res = await apiFetch(`/api/jobs/${jobId}/accelerate`, {method: "POST"});
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Couldn't speed that one up.");
+      return;
+    }
+    refreshActivity();
+  });
 }
 
 async function activityDismiss(jobId, button) {

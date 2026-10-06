@@ -71,6 +71,7 @@ def _for_activity(job: dict, names: dict) -> dict:
         "eta_seconds": job.get("eta_seconds"),
         "eta_at": job.get("eta_at"),
         "eta_label": job_eta.describe(job.get("eta_seconds")),
+        "ahead": bool(job.get("ahead")),
     }
 
 
@@ -117,6 +118,13 @@ def get_job(job_id):
 def retry(job_id):
     jobs_core.retry_job(job_id)
     return jsonify({"job_id": job_id})
+
+
+@bp.route("/api/jobs/<job_id>/accelerate", methods=["POST"])
+def accelerate(job_id):
+    """Next in the queue and at full speed (decision 072)."""
+    jobs_core.accelerate(job_id)
+    return jsonify({"ok": True})
 
 
 @bp.route("/api/jobs/<job_id>/dismiss", methods=["POST"])

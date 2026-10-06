@@ -445,7 +445,8 @@ def start_preview(key):
             not style.composited(style.compile(channel.animation)[0]):
         raise PipelineError("no fal key", user_message="Animating needs FAL_KEY. See the APIs "
                                                        "page; an animatic doesn't.")
+    # A preview is looked at as soon as it's made: not at batch prices.
     job_id = jobs.start_job(channel.key, {"type": "animation_preview",
                                           "video": relative_to_output(video),
-                                          "animate": animate})
+                                          "animate": animate}, ahead=False)
     return jsonify({"job_id": job_id})

@@ -93,10 +93,13 @@ class Job:
     # A failed or interrupted attempt the owner has discarded: no longer
     # offered for retry on the Create page, Activity or the phone.
     dismissed: bool = False
-    # Started by the scheduler, hours before its slot, so nobody is waiting
-    # on it: its Claude calls go at batch prices (decision 063). Its timings
+    # Made at batch prices: its Claude calls go through the Message Batches
+    # API at half price (decision 063). Every video is, unless the owner
+    # asked for it now or pressed Accelerate (decision 072). Its timings
     # describe batch waits, so core.job_eta leaves it out of the history.
     ahead: bool = False
+    # Was made at batch prices, then accelerated.
+    accelerated: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -292,27 +295,52 @@ def _generate(job_id: str, channel, seed, generate):
 
 
 def _made_ahead(job_id: str, make):
-    """`make()`, at batch prices if this job was started ahead of its slot,
-    until someone's own job is queued behind it."""
+    """`make()`, at batch prices if this job is made that way, until it's
+    accelerated or someone's accelerated job is queued behind it."""
     from pipeline import llm
     with _lock:
         ahead = _jobs[job_id].ahead
     if not ahead:
         return make()
-    log.info("Made ahead of its slot, so its Claude calls go at batch prices (half); "
-             "slower, and they go direct again if another video is queued.")
-    with llm.batched(unless=someone_waiting):
+    log.info("Made at batch prices: its Claude calls go at half price and take longer. "
+             "Accelerate it on Activity to make it at full speed.")
+
+    def hurry() -> bool:
+        with _lock:
+            job = _jobs.get(job_id)
+            return job is None or not job.ahead
+    with llm.batched(unless=lambda: hurry() or someone_waiting()):
         made = make()
     with _lock:
-        _jobs[job_id].notes.append("Made ahead of its slot with Claude at batch prices (half the cost); "
-                                   "slower, but nobody was waiting on it.")
+        job = _jobs[job_id]
+        job.notes.append("Started at batch prices, then accelerated." if job.accelerated else
+                         "Made with Claude at batch prices (half the cost); slower, but nobody was "
+                         "waiting on it.")
     return made
 
 
 def someone_waiting() -> bool:
-    """A job queued that isn't itself being made ahead: someone wants it."""
+    """A job queued that isn't being made at batch prices: someone wants it."""
     with _lock:
         return any(not _jobs[j].ahead for j in _queue if j in _jobs)
+
+
+def accelerate(job_id: str) -> None:
+    """Make this job now, at full price: next in the queue if it's waiting,
+    and its Claude calls direct from here on (one already waiting on its
+    batch finishes that wait). Whatever is running stops taking its time
+    too, since someone is now waiting behind it."""
+    with _lock:
+        job = _jobs.get(job_id)
+        if job is None or job.status not in RUNNING_STATES:
+            raise JobError(f"no job {job_id} in flight", user_message="That video isn't being made any more.")
+        if job.ahead:
+            job.ahead = False
+            job.accelerated = True
+        if job_id in _queue:
+            _queue.remove(job_id)
+            _queue.insert(0, job_id)
+    _persist(job_id)
 
 
 def _animation_preview(job_id: str, channel, seed: dict) -> None:
@@ -408,13 +436,14 @@ def _refuse_if_stale() -> None:
         raise JobError("code changed since start", user_message=UPDATING)
 
 
-def start_job(channel_key: str, seed: dict, job_id: str = None, ahead: bool = False,
+def start_job(channel_key: str, seed: dict, job_id: str = None, ahead: bool = True,
               note: str = "", behind: bool = False) -> str:
     """Queue or start a job. Raises JobError if this channel already has
     one in flight, or if the app is waiting to restart onto new code.
     `job_id` is given by a remake, whose checkpoints are written before it
-    starts (core.remake). `ahead`: started by the scheduler with nobody
-    waiting, so made at batch prices (see Job.ahead). `note`: why it was
+    starts (core.remake). `ahead`: made at batch prices, the default for
+    every video (see Job.ahead); False when the owner asked for it now,
+    and `accelerate` turns it off later. `note`: why it was
     started, shown with it (spare voice, core.spare_voice). `behind`: queue
     it even when this channel has one in flight (a remake: it's asked for
     one particular video, so it can't be a double click making two)."""
@@ -499,8 +528,8 @@ def retry_job(job_id: str) -> str:
         job.started_at = None if running_now else now
         job.finished_at = None
         job.retried = True
-        # Retried by hand, so someone is waiting now: direct calls.
-        job.ahead = False
+        # At batch prices like any video, unless it was accelerated.
+        job.ahead = not job.accelerated
         channel_key, seed = job.channel_key, job.seed
         if running_now:
             _queue.append(job_id)

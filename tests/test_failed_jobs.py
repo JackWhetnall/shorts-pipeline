@@ -91,3 +91,63 @@ def test_the_key_test_reports_what_the_provider_says(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY")
     assert "isn't set" in services.test_key("anthropic")["message"]
     assert not services.test_key("elevenlabs")["ok"]
+
+
+# --- batch prices by default, Accelerate to make it now (6 Oct, decision 072) --
+
+@pytest.fixture
+def queue(monkeypatch):
+    monkeypatch.setattr(jobs, "_jobs", {})
+    monkeypatch.setattr(jobs, "_queue", [])
+    monkeypatch.setattr(jobs, "_persist", lambda job_id: None)
+    monkeypatch.setattr(jobs, "_spawn", lambda *a: None)
+    monkeypatch.setattr(jobs, "install", lambda: None)
+    monkeypatch.setattr(jobs, "_refuse_if_stale", lambda: None)
+    return jobs
+
+
+def test_a_video_is_made_at_batch_prices_unless_asked_for_now(queue):
+    first = queue.start_job("a", {})
+    assert queue._jobs[first].ahead
+    now = queue.start_job("b", {}, ahead=False)
+    assert not queue._jobs[now].ahead
+
+
+def test_accelerate_puts_it_next_and_at_full_speed(queue):
+    running = queue.start_job("a", {})
+    second = queue.start_job("b", {})
+    third = queue.start_job("c", {})
+    assert queue._queue == [second, third]
+    assert not queue.someone_waiting()                  # the running one can take its time
+    queue.accelerate(third)
+    assert queue._queue == [third, second]
+    job = queue._jobs[third]
+    assert not job.ahead and job.accelerated
+    assert queue.someone_waiting()                      # so the running one stops batching
+
+
+def test_a_running_video_accelerated_stops_batching_its_next_call(queue, monkeypatch):
+    from pipeline import llm
+    running = queue.start_job("a", {})
+    seen = []
+
+    def make():
+        seen.append(llm.in_batch_mode())
+        queue.accelerate(running)
+        seen.append(llm.in_batch_mode())
+        return "made"
+    assert queue._made_ahead(running, make) == "made"
+    assert seen == [True, False]
+    assert "accelerated" in queue._jobs[running].notes[-1]
+
+
+def test_accelerating_a_finished_job_says_so(queue):
+    with pytest.raises(JobError):
+        queue.accelerate("nope")
+
+
+def test_the_create_page_asks_for_now_and_activity_offers_accelerate():
+    from pathlib import Path
+    js = Path("web/static/app.js").read_text(encoding="utf-8")
+    assert 'now: Boolean(document.getElementById("make-now")' in js
+    assert "/accelerate" in js

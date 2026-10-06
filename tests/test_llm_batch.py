@@ -262,14 +262,20 @@ def test_the_scheduler_starts_its_videos_ahead(monkeypatch):
     assert started == [True]
 
 
-def test_a_video_retried_by_hand_is_no_longer_made_ahead(job_registry, monkeypatch):
+def test_a_retry_stays_at_batch_prices_unless_it_was_accelerated(job_registry, monkeypatch):
+    # Decision 072: batch prices are the default for every video; Accelerate
+    # is how the owner says they're waiting (before, a retry always went direct).
     jobs = job_registry
     monkeypatch.setattr(jobs, "install", lambda: None)
     monkeypatch.setattr(jobs, "_refuse_if_stale", lambda: None)
     monkeypatch.setattr(jobs, "_spawn", lambda *a: None)
     jobs._jobs["a"] = jobs.Job(id="a", channel_key="pub", seed={}, status="error", ahead=True)
     jobs.retry_job("a")
-    assert jobs._jobs["a"].ahead is False
+    assert jobs._jobs["a"].ahead is True
+    jobs._jobs["b"] = jobs.Job(id="b", channel_key="quiz", seed={}, status="error", ahead=False,
+                               accelerated=True)
+    jobs.retry_job("b")
+    assert jobs._jobs["b"].ahead is False
 
 
 def test_a_video_made_ahead_doesnt_teach_the_eta_how_long_videos_take():
