@@ -3363,6 +3363,9 @@ function initAnimationSettings() {
   const customPalette = $("[data-anim-palette-custom]");
   const paletteInputs = $$("[data-anim-palette]");
   const list = $("[data-style-questions]");
+  // A long-form channel's pictures are stills: questions only animation
+  // reads are kept (and submitted) but not asked (decision 076).
+  const hiddenQuestions = (root.dataset.hiddenQuestions || "").split(" ").filter(Boolean);
 
   // --- the questions ---------------------------------------------------------
   // Every option is in the page; the ones that don't fit are hidden (and
@@ -3479,7 +3482,7 @@ function initAnimationSettings() {
     for (const q of questions) {
       const li = item(q.id);
       const offered = q.options.filter(o => styleFits(o, upto));
-      li.hidden = offered.length <= 1;
+      li.hidden = offered.length <= 1 || hiddenQuestions.includes(q.id);
       if (!li.hidden) number += 1;
       li.querySelector(".style-q-num").textContent = number;
       li.querySelectorAll(".style-option").forEach(label => {
@@ -3556,7 +3559,7 @@ function initAnimationSettings() {
 
   let current = {};
   let ready = false;
-  let frameKey = "vertical";           // what previews are made for: a short, or widescreen
+  let frameKey = root.dataset.frame || "vertical";   // what previews are made for: a short, or widescreen
   const showStyle = answers => {
     current = answers;
     $("[data-style-title]").textContent = title(answers);

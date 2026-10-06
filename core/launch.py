@@ -73,7 +73,14 @@ GROW = (
     ("affiliate", "Add affiliate links", "you"),
 )
 
-STAGE_IDS = tuple(i for i, _, _ in LAUNCH) + tuple(i for i, _, _ in GROW)
+# A long-form channel launches by its own steps (core.long_form, decision
+# 076): its films always wait for review, so the shorts' last stages (the
+# checks proving themselves, then autopilot) could never be done.
+LONG_FORM_LAUNCH = ("about", "voice", "look", "films", "first", "youtube", "slots")
+LONG_FORM_GROW = ("profile", "audit")
+
+STAGE_IDS = (tuple(i for i, _, _ in LAUNCH) + tuple(i for i, _, _ in GROW)
+             + tuple(i for i in LONG_FORM_LAUNCH if i != "youtube"))
 
 
 def gate_agreement(channel) -> tuple:
@@ -112,6 +119,8 @@ def _shadow_detail(decided: int, agreed: int, ok: bool) -> str:
 def stages(channel, state: dict = None) -> tuple:
     """(launch, grow): lists of Stage, launch in order."""
     state = state or gallery.video_state_counts(channel.output_dir)
+    if channel.long_form:
+        return _long_form_stages(channel, state)
     skipped = set(channel.manual_checklist_overrides)
     connection = youtube.connection(channel.key)
     plan = channel.publishing
@@ -175,6 +184,34 @@ def stages(channel, state: dict = None) -> tuple:
         return out
 
     return build(LAUNCH, launch_facts, False), build(GROW, grow_facts, True)
+
+
+def _long_form_stages(channel, state: dict) -> tuple:
+    from core import long_form
+    skipped = set(channel.manual_checklist_overrides)
+    steps = {s.id: s for s in long_form.steps(channel)}
+    launch = [Stage(i, steps[i].label, "you", done=steps[i].done,
+                    skipped=(i in skipped and not steps[i].done), detail=steps[i].detail)
+              for i in LONG_FORM_LAUNCH if i in steps]
+    _, grow = stages_for_shorts_grow(channel)
+    return launch, [g for g in grow if g.id in LONG_FORM_GROW]
+
+
+def stages_for_shorts_grow(channel) -> tuple:
+    """(None, grow stages) as a shorts channel has them; the growing steps
+    that apply to long-form too are taken from here."""
+    from core import banner, channel_profile
+    profile_done = bool(channel_profile.load(channel.key).get("about")) and banner.exists(channel.key)
+    skipped = set(channel.manual_checklist_overrides)
+    facts = {
+        "profile": (profile_done, "The About text and a YouTube banner, written for you to paste."
+                    if not profile_done else ""),
+        "audit": (False, "Mark it done once Google has approved the audit."),
+    }
+    grow = [Stage(i, label, who, done=facts[i][0], skipped=(i in skipped and not facts[i][0]),
+                  detail=facts[i][1], optional=True)
+            for i, label, who in GROW if i in facts]
+    return None, grow
 
 
 def current(launch: list):

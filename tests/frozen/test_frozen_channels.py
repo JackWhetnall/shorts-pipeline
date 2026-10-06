@@ -54,7 +54,7 @@ def test_a_frozen_channel_makes_exactly_what_it_did(key, tmp_path, monkeypatch):
 
     assert path.exists(), (f"No golden for {key}. Write it with: python -m tests.frozen.regenerate")
     expected = harness.read_golden(key)
-    changed = harness.differences(expected, actual)
+    changed = harness.differences(expected, actual, allow_new=("/config",))
     if changed:
         saved = tmp_path / "actual.json"
         saved.write_text(json.dumps(actual, indent=1, ensure_ascii=False, sort_keys=True), encoding="utf-8")

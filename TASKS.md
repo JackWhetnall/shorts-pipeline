@@ -4,7 +4,7 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 6 Oct 2026. The project is pivoting to long-form: Phase 0 is built and step 0 has your part. History Unmystified is now a documentary channel: see F to H. Pub Quiz Buzz and Minute Pastor both publish
+*Last updated: 6 Oct 2026. The project is pivoting to long-form: Phase 0 is built and step 0 has your part. History Unmystified has its own, shorter settings page and is ready for its first film: see F to H. Pub Quiz Buzz and Minute Pastor both publish
 by themselves. Do the "Now" section first. The app's new home page,
 **Today**, now lists what needs you as it happens, and **Money** shows
 costs, runway and payback; this file is for steps outside the app. The
@@ -24,7 +24,8 @@ Guide and Shakespeare Lines are archived (their data is kept; restore any
 of them from Channels).
 
 ### 0. Phase 0: your part (10 minutes, then Phase 1 is F to H)
-1. **Minute Pastor's YouTube**: step A below, with step 7 first.
+1. ~~Minute Pastor's YouTube~~: done 6 Oct (its numbers refreshed with no error). Do step 7
+   (publish the consent screen) if you haven't, or it expires again in 7 days.
 2. **Long quizzes twice a week**: step D below.
 3. **Check uploads go out public** (2 minutes). Google can lock videos
    uploaded by an app it hasn't audited to private, whatever was asked
@@ -101,55 +102,50 @@ old code until it restarts.
 
 ---
 
-## History Unmystified, the first documentary channel (6 Oct)
+## History Unmystified, the first long-form channel (6 Oct)
 
-It's now a long-form channel (decision 074): each video is made on its
-**Productions** tab in five stages you approve one at a time. Nothing is
-made until you start it, and it costs nothing until then.
+Its settings page is now its own (decision 076): only what its films
+use. At the top, **Setting up** lists what's done and what's next, and
+the same list is on its **Productions** tab until the first film starts.
+As of 6 Oct everything a film needs is set: the writing brief, the voice,
+the look (an ink-wash storybook style) and 30 films in the plan. No FAL
+key is needed: the pictures are drawn stills the camera moves across.
 
-### F. Choose its look (10 minutes)
-Every storyboard picture on the channel is drawn in it, and the people
-in it are drawn once and reused in every later video, so choose it first.
-Drawing is refused until you do (with none, it would be felt on a
-tabletop).
-1. **Channels → History Unmystified → Settings → Animation**: pick a
-   style. "Stubby paper history", "Painted history drama" and "Engraved
-   legends" suit history, or build your own.
-2. The first storyboard draws three style frames for it; check you like
-   them before going further.
+### F. Check its settings once (5 minutes, optional)
+**Channels → History Unmystified → Settings**:
+- **Films**: length (10 minutes), how long each picture stays on
+  screen (12 seconds; 15 to 20 suits a calm, slow film, and costs less),
+  teasers per film (3).
+- **Voice**: speed 0.9 suits a calm film.
+- **Look**: press **See this style**, and **Draw style frames** (about 3
+  cents) to see it on the channel's own world; click the one you like.
+  Skip this and they're drawn with the first storyboard.
+- **Save changes** if you changed anything.
 
-### G. Decide its first topic's videos (5 minutes)
-Its plan was written for shorts, so the first topic's 30 videos are
-*moments* ("Lincoln and the Gettysburg Address", "Napoleon's Retreat
-from Moscow") rather than one person each. They'd make fine ten-minute
-films of a moment. If you'd rather each video were one whole life:
-1. **Plan tab** → the first topic → **Edit** → **Remove** (it takes its
-   unmade videos with it), then add the topic again at the bottom of the
-   page with the same name and a line saying it's one person per video,
-   and **Write them** with the number you want (or type the people
-   yourself, one a line).
-2. Any topic can be given more later: **Room for more? → Write that
-   many more**.
+### G. The plan's films are moments, not whole lives (decide, 2 minutes)
+The first topic's films are moments ("Lincoln and the Gettysburg
+Address"). They make fine 10-minute films of a moment. For one person per
+film instead: **Plan tab** → the first topic → **Edit** → **Remove** (it
+takes its unmade films with it), then add the topic again at the bottom of
+the page with the same name and a line saying it's one person per film,
+and **Write them** with the number you want (or type the people yourself,
+one a line).
 
-### H. Make the first one, a stage at a time (an hour of your time, about $3)
-**Productions** → the first video:
-1. **Write the outline** (2 cents). Read the chapters and the cast, and
-   edit anything; **Approve**.
-2. **Write the script** (10 cents). Each scene's stage direction and its
-   words; edit, rewrite a chapter with a note, **Approve**.
-3. **Draw the storyboard** (about $2). Redraw any picture with a note;
+### H. Make the first film, a stage at a time (an hour of your time, about $3)
+**Productions** → the first film (it says "Now: press Write the outline"):
+1. **Write the outline** (2 cents). Nothing is made until you press it.
+   At batch prices it's usually done within the hour (tick *now, at full
+   price* for a minute or two). Refresh, read it, edit anything,
    **Approve**.
-4. **Make the video** (about 1,800 voice credits). Watch it from the
-   link; it's in Review like any video. **Approve** the stage.
-5. **Write the teasers**, read them, **Approve, and make them**. They go
-   to Review as shorts.
+2. **Write the script** (10 cents): read, edit or rewrite a chapter,
+   **Approve**.
+3. **Draw the storyboard** (about $2): redraw any picture with a note,
+   **Approve**.
+4. **Make the video** (about 1,800 voice credits): **Watch it**, then
+   **Approve** the stage. It's also in Review.
+5. **Write the teasers**, read them, **Approve** (that makes them).
 
-Each stage runs at batch prices (slower); tick "now, at full price" or
-press **Accelerate** on Activity to hurry one. Once you're happy, turning
-its publishing plan on makes the app write outlines ahead for the next
-videos for you to approve.
-
----
+The box at the top of the film's page always says what to do now.
 
 ## Launching The Pub Quiz Round, in order
 
@@ -713,6 +709,7 @@ tune.
 
 ## Done
 
+- 6 Oct: Minute Pastor's YouTube reconnected; its numbers refresh again.
 - 6 Oct: The long-form plan's seven decisions agreed, all as recommended:
   History Unmystified as the pilot, illustrated stills, 12 minutes twice a
   week, about $25 a month through the pilot, test channels archived,

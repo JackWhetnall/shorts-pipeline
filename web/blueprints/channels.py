@@ -27,6 +27,7 @@ from pipeline import quote_source
 from pipeline.run import fetch_seed
 from web.blueprints.curriculum import channels_running_low
 from web.blueprints.animation import form_context as animation_form_context
+from web.blueprints.animation import long_form_context as animation_long_form_context
 from web.blueprints.scenes import form_context as scene_form_context
 from pipeline.scenes import art
 from core import music_library
@@ -160,7 +161,9 @@ def _channel_cost(key: str) -> dict:
 # redirect puts one of them in a URL fragment, and a fragment is not
 # somewhere to echo back whatever was posted.
 SETTINGS_SECTIONS = ("section-content", "section-voice", "section-look", "section-graphics",
-                     "section-music", "section-publishing", "section-money")
+                     "section-music", "section-publishing", "section-money",
+                     # A long-form channel's page (decision 076).
+                     "section-films", "section-pictures")
 
 
 @bp.route("/channels/<key>/settings", methods=["GET", "POST"])
@@ -286,12 +289,43 @@ def _settings_context(channel, error: str = None) -> dict:
         "posting_error": request.args.get("posting_error"),
         "posting_ready": request.args.get("posting_ready"),
         "plan_estimate": _plan_estimate(channel.key, channel),
-        **animation_form_context(channel),
+        **(animation_long_form_context(channel) if channel.long_form else animation_form_context(channel)),
+        **(_long_form_context(channel) if channel.long_form else {}),
         **scene_form_context(channel.scenes.art, channel.scenes.share,
                              board_only=channel.format == "quiz"),
         "music_channel_key": channel.key, "music_tracks": music_library.tracks(channel.key),
         "music_suggest_url": url_for("music.suggest", key=channel.key),
     }
+
+
+def _long_form_context(channel) -> dict:
+    """What a long-form channel's settings page adds (decision 076): its
+    setup steps, its kinds of pictures, and what a film of this length takes."""
+    from core import long_form
+    from core.channels import LONG_FORM_PICTURES, LONG_FORM_PICTURES_READY
+    from core.production import CHARACTERS_PER_WORD
+    from pipeline.documentary.script import WORDS_PER_SECOND
+    words = round(channel.documentary.minutes * 60 * WORDS_PER_SECOND)
+    return {
+        "setup_steps": long_form.steps(channel),
+        "first_film": _first_film(channel),
+        "long_form_pictures": LONG_FORM_PICTURES,
+        "long_form_pictures_ready": LONG_FORM_PICTURES_READY,
+        "film_estimate": {"words": words,
+                          "pictures": round(channel.documentary.minutes * 60 / channel.documentary.scene_seconds),
+                          "credits": voice_quota.credits_for(words * CHARACTERS_PER_WORD)},
+    }
+
+
+def _first_film(channel):
+    """The plan entry Productions lists first, or None."""
+    try:
+        from core import storyboard
+        upcoming = storyboard.upcoming(channel, count=1)
+    except Exception:  # noqa: BLE001 - a link is never worth an error page
+        log.exception("Could not work out the first film")
+        return None
+    return upcoming[0] if upcoming else None
 
 
 def _voice_name(voice_id: str) -> str:

@@ -188,6 +188,9 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
         doc.teasers = min(6, max(0, _maybe_int(form, "documentary_teasers", doc.teasers)))
         doc.scene_seconds = min(40.0, max(5.0, _maybe_float(form, "documentary_scene_seconds",
                                                             doc.scene_seconds)))
+        from core.channels import LONG_FORM_PICTURES
+        if form.get("documentary_pictures") in LONG_FORM_PICTURES:
+            doc.pictures = form.get("documentary_pictures")
 
     if "quiz_present" in form:
         from core.channels import FORMATS

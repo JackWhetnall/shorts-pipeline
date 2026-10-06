@@ -69,9 +69,16 @@ def index(key):
         row = curriculum.find(key, data["subtopic_id"])
         if row and row["id"] not in shown and production.current(data):
             others.append(row)
+    from core import long_form
+    setup_steps = long_form.steps(channel)
+    # Shown until the first film is started, and whenever a needed step
+    # comes undone (decision 076).
+    show_setup = any(not s.done and not s.optional for s in setup_steps)
     return render_template("productions.html", key=key, channel=channel,
                            upcoming=[summary(channel, r, working) for r in upcoming],
                            others=[summary(channel, r, working) for r in others],
+                           setup_steps=setup_steps, show_setup=show_setup,
+                           first_film=upcoming[0] if upcoming else None,
                            note=request.args.get("note", ""))
 
 

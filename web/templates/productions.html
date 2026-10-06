@@ -8,6 +8,8 @@
 
 {% if note %}<p class="meta info-banner" role="status">{{ note }}</p>{% endif %}
 
+{% if show_setup %}{% include "_long_form_setup.html" %}{% endif %}
+
 {% macro production_row(p, n) %}
 <a class="card prod-row" href="{{ url_for('productions.page', key=key, subtopic_id=p.row.id) }}">
   <div class="prod-row-head">

@@ -126,6 +126,9 @@ def write(channel, row: dict, note: str = "") -> dict:
     if before:
         parts.append("The channel's other films, for a series that feels like one but never "
                      "repeats a film:\n" + before)
+    if channel.avoid_imagery:
+        parts.append("Never show (the channel rules these out; keep them out of every chapter's "
+                     "pictures): " + ", ".join(channel.avoid_imagery))
     if note:
         parts.append(f"The owner asks: {note}")
     data = call_json(system, "\n\n".join(p for p in parts if p), schema(),

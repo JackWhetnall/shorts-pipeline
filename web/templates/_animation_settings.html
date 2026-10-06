@@ -4,7 +4,11 @@
    builder's questions are drawn by initAnimationSettings (app.js) from
    the grammar, so they only ever offer what fits. #}
 <input type="hidden" name="anim_present" value="1">
-<div class="anim-settings" data-animation-settings data-channel="{{ channel.key }}"
+{# On a long-form channel (anim_long_form, decision 076) the pictures are drawn
+   stills, never animated: what only animation uses is still in the page, for
+   the builder's script, but hidden (data-lf-hide), and previews are widescreen. #}
+<div class="anim-settings{% if anim_long_form %} long-form{% endif %}" data-animation-settings data-channel="{{ channel.key }}"
+     {% if anim_long_form %}data-frame="wide" data-hidden-questions="{{ anim_hidden_questions|join(' ') }}"{% endif %}
      data-fal-ready="{{ 1 if anim_fal_ready else 0 }}"
      data-style-new="{{ 1 if anim.enabled and not anim.style else 0 }}">
   <script type="application/json" data-anim-grammar>{{ anim_grammar|tojson }}</script>
@@ -12,6 +16,9 @@
   <script type="application/json" data-anim-materials>{{ anim_materials|tojson }}</script>
   <script type="application/json" data-anim-state>{{ anim_state|tojson }}</script>
 
+  {% if anim_long_form %}
+  <input type="hidden" name="anim_enabled" value="on">
+  {% else %}
   <fieldset>
     <legend>Animation</legend>
     <label class="checkbox-label">
@@ -26,13 +33,21 @@
       illustrations in the style. Styles marked <em>composited</em> don't need it.</p>
     {% endif %}
   </fieldset>
+  {% endif %}
 
   <fieldset class="style-builder">
     <legend>The channel's style</legend>
+    {% if anim_long_form %}
+    <p class="hint">Every picture in every film is drawn in this style, and anyone who appears is
+      drawn once and looks the same in every later film. Answer the questions, or start from an
+      example or a description, then press <strong>See this style</strong> to see one picture in it
+      (about 3 cents). Save when you like it.</p>
+    {% else %}
     <p class="hint">A few questions, one at a time. Each offers only what makes sense after your
       answers so far, so wherever you end up is a style that works. Start from an example or a
       description to fill them all in at once, then change anything you like. A style makes both
       vertical shorts and widescreen videos; preview either.</p>
+    {% endif %}
 
     <div class="style-starts-bar">
       <button type="button" class="btn-ghost" data-style-open="starts">Start from an example</button>
@@ -55,7 +70,7 @@
             <strong>{{ sp.label }}</strong>
             <span class="hint">{{ sp.description }}</span>
             <span class="hint anim-suits">Suits {{ sp.suits }}.</span>
-            <span class="style-engine-badge {{ 'composited' if sp.composited else 'generated' }}">{{ 'Composited' if sp.composited else 'Video model' }}</span>
+            <span data-lf-hide class="style-engine-badge {{ 'composited' if sp.composited else 'generated' }}">{{ 'Composited' if sp.composited else 'Video model' }}</span>
           </span>
         </button>
         {% endfor %}
@@ -81,7 +96,7 @@
       <ol class="style-questions" data-style-questions></ol>
 
       <aside class="style-card" data-style-card>
-        <div class="style-frame-switch" role="group" aria-label="Preview for">
+        <div class="style-frame-switch" role="group" aria-label="Preview for" data-lf-hide>
           <button type="button" class="active" data-style-frame="vertical" aria-pressed="true">Vertical short</button>
           <button type="button" data-style-frame="wide" aria-pressed="false">Widescreen</button>
         </div>
@@ -89,7 +104,7 @@
         <p class="hint style-card-caption" data-style-caption></p>
         <strong class="style-card-title" data-style-title>{{ anim_state.title }}</strong>
         <p class="style-card-summary" data-style-summary>{{ anim_state.summary }}</p>
-        <p class="hint" data-style-engine></p>
+        <p class="hint" data-style-engine data-lf-hide></p>
         <p class="hint warning-text" data-style-changed hidden></p>
         <label class="field-row style-subject">
           <span class="field-label">Preview it on</span>
@@ -97,7 +112,7 @@
         </label>
         <div class="style-card-actions">
           <button type="button" class="btn-primary" data-style-preview="still">See this style</button>
-          <button type="button" class="btn-ghost" data-style-preview="moving">Make it move</button>
+          <button type="button" class="btn-ghost" data-style-preview="moving" data-lf-hide>Make it move</button>
         </div>
         <p class="hint" data-style-preview-status></p>
       </aside>
@@ -150,7 +165,7 @@
     </div>
   </fieldset>
 
-  <fieldset data-anim-cast-block>
+  <fieldset data-anim-cast-block data-lf-hide>
     <legend>Cast</legend>
     <p class="hint" data-anim-host-hint {% if not anim_state.avatar %}hidden{% endif %}>
       <strong>The first person here is the host</strong>, drawn in eight poses and kept on-model.
@@ -200,7 +215,7 @@
     </div>
   </fieldset>
 
-  <fieldset>
+  <fieldset data-lf-hide>
     <legend>Motion and cutting</legend>
     <label class="field-row"><span class="field-label">Energy</span>
       <span class="slider-row">
@@ -232,7 +247,7 @@
     </label>
   </fieldset>
 
-  <fieldset>
+  <fieldset data-lf-hide>
     <legend>Quality and cost</legend>
     <p class="hint" data-anim-composited-only {% if not anim_state.composited %}hidden{% endif %}>
       This style is <strong>composited</strong>: made from pictures drawn once and reused, filmed on
@@ -275,7 +290,7 @@
     </div>
   </fieldset>
 
-  <fieldset>
+  <fieldset data-lf-hide>
     <legend>Try it on one of this channel's videos</legend>
     {% if anim_videos %}
     <p class="hint">A whole video in the <strong>saved</strong> style (save first), from its own
@@ -306,3 +321,8 @@
     {% endif %}
   </fieldset>
 </div>
+
+<style>
+  /* Hidden on a long-form channel whatever the builder's script sets. */
+  .anim-settings.long-form [data-lf-hide] { display: none !important; }
+</style>

@@ -46,6 +46,14 @@ CONTENT_MODES = ("static_corpus", "topic")
 # What a video is: narration over footage and graphics, or a quiz board
 # (pipeline.quiz, decision 041).
 FORMATS = ("narrated", "quiz", "documentary")
+# Shorts channels (narrated, quiz) and long-form ones (documentary) have
+# separate settings pages (decision 076): each shows only what its videos use.
+LONG_FORM_FORMATS = ("documentary",)
+# What fills a long-form channel's pictures. "drawn": scenes drawn in the
+# channel's look. "diagrams": diagrams and equations drawn exactly, with no
+# generated pictures (not built yet: offered so the choice is visible).
+LONG_FORM_PICTURES = {"drawn": "Drawn scenes", "diagrams": "Diagrams and equations"}
+LONG_FORM_PICTURES_READY = ("drawn",)
 CTA_KEYS = ("patreon", "merch", "affiliate")
 
 
@@ -458,6 +466,8 @@ class Documentary(_MappingLike):
     # Seconds a scene's still holds, about: the script is written in
     # scenes this long, so the picture keeps moving with the story.
     scene_seconds: float = 12.0
+    # What fills the pictures: a key of LONG_FORM_PICTURES.
+    pictures: str = "drawn"
 
 
 @dataclass
@@ -558,6 +568,12 @@ class ChannelConfig:
         if not self.channel_display_name:
             self.channel_display_name = self.key.replace("_", " ").title()
 
+    @property
+    def long_form(self) -> bool:
+        """A long-form channel (decision 076): made in stages on Productions,
+        with its own, shorter settings page."""
+        return self.format in LONG_FORM_FORMATS
+
     # Templates and older call sites index channels like dicts. Jinja
     # already falls back from subscript to attribute access, but Python
     # callers don't, and supporting both kept this refactor from having
@@ -606,6 +622,9 @@ class ChannelConfig:
             if not 0 <= self.documentary.teasers <= 6:
                 raise ConfigError(f"{where} makes {self.documentary.teasers} teasers a video. "
                                   f"Pick 0 to 6.")
+            if self.documentary.pictures not in LONG_FORM_PICTURES:
+                raise ConfigError(f"{where} has an unknown kind of pictures "
+                                  f"({self.documentary.pictures!r}).")
             if not 5 <= self.documentary.scene_seconds <= 40:
                 raise ConfigError(f"{where} holds each scene {self.documentary.scene_seconds} "
                                   f"seconds. Pick 5 to 40.")

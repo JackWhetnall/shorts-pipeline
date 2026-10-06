@@ -1,0 +1,50 @@
+{# A long-form channel's setup (core.long_form, decision 076): each step done
+   or not, the next one marked, each linked to where it's done. Shown on its
+   Settings and Productions pages. Needs setup_steps, key and first_film. #}
+{% set links = {
+  'about': url_for('channels.settings', key=key, _anchor='section-content'),
+  'voice': url_for('channels.settings', key=key, _anchor='section-voice'),
+  'look': url_for('channels.settings', key=key, _anchor='section-pictures'),
+  'frames': url_for('channels.settings', key=key, _anchor='section-pictures'),
+  'films': url_for('curriculum.page', key=key),
+  'first': (url_for('productions.page', key=key, subtopic_id=first_film.id, _anchor='outline')
+            if first_film else url_for('productions.index', key=key)),
+  'youtube': url_for('channels.settings', key=key, _anchor='section-publishing'),
+  'slots': url_for('channels.settings', key=key, _anchor='section-publishing'),
+} %}
+{% set ns = namespace(next=None) %}
+{% for s in setup_steps %}{% if ns.next is none and not s.done and not s.optional %}{% set ns.next = s.id %}{% endif %}{% endfor %}
+<section class="card lf-setup" aria-label="Setting up this channel">
+  <h2>{% if ns.next %}Setting up{% else %}Ready to make films{% endif %}</h2>
+  {% if ns.next == 'first' %}
+  <p class="lf-next">Everything a film needs is set. <strong>Next: open
+    {% if first_film %}&ldquo;{{ first_film.title }}&rdquo;{% else %}the first film{% endif %} and press
+    <em>Write the outline</em>.</strong> Nothing is made or spent until you do, and every stage after it
+    waits for you to approve it.</p>
+  {% elif ns.next %}
+  <p class="lf-next">Next: <strong>{% for s in setup_steps if s.id == ns.next %}{{ s.label }}{% endfor %}</strong>.</p>
+  {% endif %}
+  <ol class="lf-steps">
+    {% for s in setup_steps %}
+    <li class="lf-step {{ 'done' if s.done else ('next' if s.id == ns.next else ('blocked' if s.blocked else '')) }}">
+      <span class="lf-mark" aria-hidden="true">{{ '✓' if s.done else ('!' if s.blocked else '○') }}</span>
+      <span class="lf-text">
+        <a href="{{ links[s.id] }}">{{ s.label }}</a>{% if s.optional %} <span class="hint">(optional)</span>{% endif %}
+        {% if not s.done %}<span class="hint">{{ s.detail }}</span>{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+<style>
+  .lf-setup h2 { margin: 0 0 var(--sp-2); }
+  .lf-next { margin: 0 0 var(--sp-3); }
+  .lf-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-2); }
+  .lf-step { display: grid; grid-template-columns: 1.4em minmax(0, 1fr); gap: var(--sp-2); align-items: baseline; }
+  .lf-step .lf-text { display: grid; gap: 2px; }
+  .lf-mark { color: var(--text-faint); font-weight: 700; text-align: center; }
+  .lf-step.done .lf-mark { color: var(--success); }
+  .lf-step.done a { color: var(--text-dim); }
+  .lf-step.next .lf-mark, .lf-step.next a { color: var(--accent); font-weight: 600; }
+  .lf-step.blocked .lf-mark { color: var(--danger); }
+</style>

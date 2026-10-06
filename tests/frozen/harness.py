@@ -751,8 +751,13 @@ def write_golden(key: str, data: dict) -> None:
                                 encoding="utf-8")
 
 
-def differences(expected, actual, where: str = "", limit: int = 25) -> list:
-    """Where two fingerprints differ, as readable lines, most specific path first."""
+def differences(expected, actual, where: str = "", limit: int = 25, allow_new: tuple = ()) -> list:
+    """Where two fingerprints differ, as readable lines, most specific path first.
+
+    `allow_new`: paths under which a key that's new is not a difference.
+    The frozen check passes ("/config",): a setting added with a default
+    changes nothing by being there; if anything reads it differently for a
+    frozen channel, that shows in the rest of the fingerprint."""
     out = []
 
     def walk(a, b, path):
@@ -761,7 +766,8 @@ def differences(expected, actual, where: str = "", limit: int = 25) -> list:
         if isinstance(a, dict) and isinstance(b, dict):
             for k in sorted(set(a) | set(b)):
                 if k not in a:
-                    out.append(f"{path}/{k}: new -> {_brief(b[k])}")
+                    if not any(f"{path}/{k}".startswith(prefix) for prefix in allow_new):
+                        out.append(f"{path}/{k}: new -> {_brief(b[k])}")
                 elif k not in b:
                     out.append(f"{path}/{k}: gone (was {_brief(a[k])})")
                 else:

@@ -1,0 +1,306 @@
+{# A long-form channel's settings (decision 076).
+
+   Shorts channels keep the full form (_channel_form.html). A long-form
+   channel's films are made stage by stage on Productions, and this page
+   holds only what that uses: what the films are about, how long they run
+   and how fast the pictures change, the narrator, the look, the music and
+   when they go out. Same form mechanics as the shorts page (one form,
+   sections switched by the side navigation, one Save), posting to the
+   same route; web.forms only changes the fields a form carries, so every
+   shorts setting this page leaves out is kept as it was, unused. #}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+{% include "_long_form_setup.html" %}
+
+<div class="settings-layout">
+
+<nav class="settings-nav" aria-label="Settings sections">
+  <a href="#section-content" class="settings-nav-link active"><strong>Channel</strong></a>
+  <a href="#section-films" class="settings-nav-link"><strong>Films</strong></a>
+  <a href="#section-voice" class="settings-nav-link"><strong>Voice</strong></a>
+  <a href="#section-pictures" class="settings-nav-link"><strong>Look</strong></a>
+  <a href="#section-music" class="settings-nav-link"><strong>Music</strong></a>
+  <a href="#section-publishing" class="settings-nav-link"><strong>Publishing</strong></a>
+  <a href="#section-danger" class="settings-nav-link settings-nav-danger"><strong>Archive or delete</strong></a>
+</nav>
+
+<form method="post" class="channel-form settings-body" id="settings-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="settings_section" id="settings-section-field" value="section-content">
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-content" class="settings-section">
+    <h2>Channel</h2>
+    <p class="meta">A <strong>long-form</strong> channel: widescreen films, each made in stages on
+      <a href="{{ url_for('productions.index', key=key) }}">Productions</a> and approved by you, with
+      teaser shorts made from them.</p>
+
+    <label>Name
+      <input type="text" name="channel_display_name" required value="{{ channel.channel_display_name or '' }}">
+    </label>
+
+    <label>Writing brief: what the films are about, who they're for, and how they're told
+      <textarea name="style_prompt" rows="8" required>{{ channel.style_prompt or '' }}</textarea>
+      <span class="hint">Every outline and script is written to this. Say the tone you want (calm and
+        unhurried, warm and playful), what each film should leave the viewer with, and anything to
+        avoid in the telling.</span>
+    </label>
+
+    <label>How a film opens
+      <textarea name="hook_style" rows="3" placeholder="e.g. Open on one quiet, concrete moment from the person's life, then step back.">{{ channel.hook_style or '' }}</textarea>
+      <span class="hint">The first 30 seconds decide whether people stay.</span>
+    </label>
+
+    <label>Never show, one a line
+      <textarea name="avoid_imagery" rows="3" placeholder="gore">{{ (channel.avoid_imagery or [])|join('\n') }}</textarea>
+      <span class="hint">Kept out of every outline's pictures and every drawn still.</span>
+    </label>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-films" class="settings-section">
+    <h2>Films</h2>
+    <input type="hidden" name="documentary_present" value="1">
+    <input type="hidden" name="format" value="{{ channel.format }}">
+
+    <fieldset>
+      <legend>Pictures</legend>
+      {% for value, label in long_form_pictures.items() %}
+      {% set ready = value in long_form_pictures_ready %}
+      <label class="checkbox-label">
+        <input type="radio" name="documentary_pictures" value="{{ value }}"
+               {% if channel.documentary.pictures == value %}checked{% endif %}
+               {% if not ready and channel.documentary.pictures != value %}disabled{% endif %}>
+        <span><strong>{{ label }}</strong>
+          {% if value == 'drawn' %}<span class="hint">Every scene is a picture drawn in the channel's
+            look, held on screen with a slow camera move. For history, stories, people and places.</span>
+          {% else %}<span class="hint">Formulas, charts, number lines and diagrams drawn exactly as the
+            narration explains, with no generated pictures. For maths, money and science.
+            <strong>Not built yet.</strong></span>{% endif %}
+        </span>
+      </label>
+      {% endfor %}
+      <p class="hint">No video model is used: the pictures are stills that the camera moves across, so
+        nothing here needs a FAL key.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Length and pace</legend>
+      <label class="field-row"><span class="field-label">Length of a film (minutes)</span>
+        <input type="number" name="documentary_minutes" min="2" max="30" step="0.5" class="narrow-number"
+               value="{{ channel.documentary.minutes }}">
+      </label>
+      <label class="field-row"><span class="field-label">Each picture stays on screen (seconds)</span>
+        <input type="number" name="documentary_scene_seconds" min="5" max="40" class="narrow-number"
+               value="{{ channel.documentary.scene_seconds|int }}">
+        <span class="hint">About. Calm, slow films: 15 to 20. Livelier ones: 8 to 10. Fewer, longer
+          pictures also cost less.</span>
+      </label>
+      <p class="hint">At these settings a film is about {{ '{:,}'.format(film_estimate.words) }} words of
+        narration ({{ '{:,}'.format(film_estimate.credits) }} voice credits) and about
+        {{ film_estimate.pictures }} drawn pictures (about ${{ '%.2f'|format(film_estimate.pictures * 0.025) }}).</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Teaser shorts</legend>
+      <label class="field-row"><span class="field-label">Teasers made from each film</span>
+        <input type="number" name="documentary_teasers" min="0" max="6" class="narrow-number"
+               value="{{ channel.documentary.teasers }}">
+        <span class="hint">Vertical shorts in new words, each leaving one question open, pointing at
+          the film. 0 for none.</span>
+      </label>
+    </fieldset>
+
+    <p class="meta">Which films get made, and in what order, is on the
+      <a href="{{ url_for('curriculum.page', key=key) }}">Plan</a> tab.</p>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-voice" class="settings-section">
+    <h2>Voice</h2>
+    {% if voice_error %}
+    <p class="error-banner">{{ voice_error }} <span class="hint">You can still paste a voice ID below.</span></p>
+    {% endif %}
+    <p class="meta">Currently
+      {% if voice_name %}<strong>{{ voice_name }}</strong>{% elif channel.voice %}<code>{{ channel.voice }}</code>
+      {% else %}<strong>no voice chosen</strong>{% endif %}.
+      <a href="{{ url_for('voice_lab.page') }}">Voice Lab</a> tries a voice on your own words.</p>
+
+    {% if voices %}
+    <div class="voice-picker">
+      {% for voice in voices %}
+      <label class="voice-option">
+        <input type="radio" name="voice" value="{{ voice.voice_id }}" {% if channel.voice == voice.voice_id %}checked{% endif %}>
+        <span class="voice-option-body">
+          <strong>{{ voice.name }}</strong>
+          {% if voice.description %}<span class="hint">{{ voice.description }}</span>{% endif %}
+          {% if voice.preview_url %}<audio controls preload="none" src="{{ voice.preview_url }}"></audio>{% endif %}
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <details class="card">
+      <summary class="summary-heading">Paste an ID instead</summary>
+      <label>ElevenLabs voice ID, for a cloned or custom voice
+        <input type="text" name="voice_id_manual" spellcheck="false" placeholder="{{ channel.voice or '21m00Tcm4TlvDq8ikWAM' }}">
+      </label>
+    </details>
+
+    <label class="field-row"><span class="field-label">Speed</span>
+      <span class="slider-row">
+        <input type="range" name="speed" min="0.7" max="1.2" step="0.01"
+               value="{{ channel.speed if channel.speed is not none else 1.0 }}"
+               oninput="this.nextElementSibling.value = this.value">
+        <output class="slider-value">{{ channel.speed if channel.speed is not none else 1.0 }}</output>
+      </span>
+      <span class="hint">1.0 is the voice's own pace. Calm films: about 0.85 to 0.95.</span>
+    </label>
+
+    <label>Words the voice says wrong, one a line: <code>word = say it like this</code>
+      <textarea name="pronunciations" rows="3" placeholder="Worcester = Wuster">{% for word, said in (channel.pronunciations or {}).items() %}{{ word }} = {{ said }}
+{% endfor %}</textarea>
+    </label>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-pictures" class="settings-section">
+    <h2>Look</h2>
+    {% if channel.documentary.pictures in long_form_pictures_ready %}
+    {% include "_animation_settings.html" %}
+    {% else %}
+    <p class="meta">{{ long_form_pictures[channel.documentary.pictures] }} films aren't built yet. When
+      they are, their board, colours and type are set here. To make films now, choose
+      <strong>{{ long_form_pictures['drawn'] }}</strong> under <a href="#section-films">Films</a>.</p>
+    {% endif %}
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-music" class="settings-section">
+    <h2>Music</h2>
+    <fieldset>
+      <legend>Under the narration</legend>
+      <input type="hidden" name="sound_present" value="1">
+      {# Not used by films; carried so saving here doesn't change it. #}
+      {% if channel.sound.effects %}<input type="hidden" name="sound_effects" value="on">{% endif %}
+      <label class="checkbox-label">
+        <input type="checkbox" name="sound_music" {% if channel.sound.music %}checked{% endif %}>
+        Music, ducked under the voice
+      </label>
+      <label class="field-row"><span class="field-label">Music level in the pauses</span>
+        <span class="slider-row">
+          <input type="range" name="sound_music_level" min="0" max="0.4" step="0.02"
+                 value="{{ channel.sound.music_level }}"
+                 oninput="this.nextElementSibling.value = Math.round(this.value * 250) + '%'">
+          <output class="slider-value">{{ (channel.sound.music_level * 250)|round|int }}%</output>
+        </span>
+      </label>
+    </fieldset>
+    <fieldset>
+      <legend>Tracks</legend>
+      <p class="hint">A film plays these one after another, crossfaded.</p>
+      {% include "_music_picker.html" %}
+    </fieldset>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="section-publishing" class="settings-section">
+    <h2>Publishing</h2>
+    <p class="meta">A film always waits for you in Review; nothing goes out unapproved. Approved films and
+      teasers wait for their times below.</p>
+
+    <fieldset>
+      <legend>Schedule</legend>
+      <input type="hidden" name="publishing_plan_present" value="1">
+      {# Kept as they are: the posting profile is set up from the shorts page. #}
+      <input type="hidden" name="posting_profile"
+             value="{{ channel.publishing.posting_browser ~ '|' ~ channel.publishing.posting_profile if channel.publishing.posting_profile else '' }}">
+      <label class="checkbox-label">
+        <input type="checkbox" name="plan_enabled" {% if channel.publishing.enabled %}checked{% endif %}>
+        Publish on a schedule
+        <button type="button" class="info-dot" data-tooltip="While this is on, the app also writes the outlines of the next films ahead, at batch prices (about a cent each), for you to read on Productions. It never makes a film by itself.">?</button>
+      </label>
+      <label>Films go out at (24-hour; several separated by commas)
+        <input type="text" name="long_slots" value="{{ channel.publishing.long_slots|join(', ') }}" placeholder="18:00">
+      </label>
+      <fieldset class="weekday-picker">
+        <legend>On</legend>
+        {% for name in weekday_names %}
+        <label class="checkbox-label">
+          <input type="checkbox" name="long_weekdays" value="{{ loop.index0 }}" {% if loop.index0 in channel.publishing.long_weekdays %}checked{% endif %}>
+          {{ name }}
+        </label>
+        {% endfor %}
+      </fieldset>
+      <label>Teaser shorts go out at
+        <input type="text" name="slots" value="{{ channel.publishing.slots|join(', ') }}" placeholder="12:00">
+      </label>
+      <fieldset class="weekday-picker">
+        <legend>On</legend>
+        {% for name in weekday_names %}
+        <label class="checkbox-label">
+          <input type="checkbox" name="weekdays" value="{{ loop.index0 }}" {% if loop.index0 in channel.publishing.weekdays %}checked{% endif %}>
+          {{ name }}
+        </label>
+        {% endfor %}
+      </fieldset>
+      <label class="checkbox-label">
+        <input type="checkbox" name="post_tiktok" {% if channel.publishing.post_tiktok %}checked{% endif %}>
+        Also post teasers to TikTok (by hand, from To post)
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="post_instagram" {% if channel.publishing.post_instagram %}checked{% endif %}>
+        Also post teasers to Instagram (by hand, from To post)
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>YouTube</legend>
+      {% if youtube_upload.connected %}
+        <p class="meta">Connected as <strong>{{ youtube_upload.account or 'a Google account' }}</strong>.</p>
+      {% elif youtube_upload.configured %}
+        <p class="meta">Not connected yet. Only needed once a film is ready to go out.</p>
+      {% else %}
+        <p class="meta">Uploading needs a Google OAuth client for this installation, shared by every channel.</p>
+      {% endif %}
+      <p class="hint">
+        <a href="{{ url_for('youtube.setup') }}">YouTube upload setup</a>
+        {%- if youtube_upload.configured %} &middot;
+        <a href="{{ url_for('youtube.connect', key=channel.key) }}" target="_blank" rel="noopener">{{ 'Reconnect' if youtube_upload.connected else 'Connect' }} this channel</a>
+        {%- endif %}
+      </p>
+      <label>YouTube channel URL
+        <input type="text" name="youtube_url" placeholder="https://youtube.com/@yourchannel" value="{{ channel.socials.youtube_url or '' }}">
+      </label>
+      <input type="hidden" name="tiktok_url" value="{{ channel.socials.tiktok_url or '' }}">
+      <input type="hidden" name="instagram_url" value="{{ channel.socials.instagram_url or '' }}">
+    </fieldset>
+  </section>
+
+  <div class="settings-save-bar">
+    <span class="settings-save-state" id="settings-save-state">No changes yet</span>
+    <button type="submit" class="btn btn-primary" onclick="return confirmSettingsSave()">Save changes</button>
+  </div>
+</form>
+
+<section id="section-danger" class="settings-section settings-body settings-outside" hidden>
+  <h2>Archive or delete</h2>
+  <p class="meta">Key <code>{{ channel.key }}</code>, videos in <code>{{ channel.output_dir }}</code></p>
+  <div class="card danger-zone">
+    {% if channel.archived %}
+    <form method="post" action="{{ url_for('channels.unarchive', key=channel.key) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-ghost">Unarchive channel</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ url_for('channels.archive', key=channel.key) }}"
+          onsubmit="return confirm('Archive this channel? You can unarchive it from here again any time.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn-ghost">Archive channel</button>
+    </form>
+    {% endif %}
+    <p><a class="btn btn-danger" href="{{ url_for('channels.delete_confirm', key=channel.key) }}">Delete channel&hellip;</a></p>
+  </div>
+</section>
+
+</div>

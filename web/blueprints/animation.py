@@ -104,6 +104,32 @@ def form_context(channel) -> dict:
     }
 
 
+# A long-form channel's look (decision 076). Its pictures are drawn stills,
+# never animated, so the builder there offers only the approaches its kind
+# of pictures can use, and leaves out the questions only animation reads.
+LONG_FORM_APPROACHES = {"drawn": ("acted", "scenic"), "diagrams": ("diagrams",)}
+STILLS_HIDDEN_QUESTIONS = ("presenter", "motion", "words")
+
+
+def long_form_context(channel) -> dict:
+    """What _animation_settings.html needs on a long-form channel's page:
+    the same builder, previewed widescreen, offering only the styles that
+    fit the channel's kind of pictures."""
+    context = form_context(channel)
+    allowed = LONG_FORM_APPROACHES.get(channel.documentary.pictures, ())
+    grammar = copy.deepcopy(context["anim_grammar"])
+    for question in grammar["questions"]:
+        if question["id"] == "approach":
+            question["options"] = [o for o in question["options"] if o["id"] in allowed]
+    context.update(
+        anim_grammar=grammar,
+        anim_starts=[sp for sp in context["anim_starts"] if sp["answers"].get("approach") in allowed],
+        anim_state=style_state(channel, frame="wide"),
+        anim_long_form=True,
+        anim_hidden_questions=list(STILLS_HIDDEN_QUESTIONS))
+    return context
+
+
 def style_state(channel, subject: str = "", frame: str = "vertical") -> dict:
     """What the builder shows beside the questions for the style as it
     stands: its name and sentence, which engine makes it, the palettes it

@@ -84,6 +84,7 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
                 browser profile at the upload page, the video in Explorer.
   launch        Each channel's launch pipeline: ordered stages from idea to
                 publishing on its own, computed from real state.
+  long_form     A long-form channel's setup steps: done, next, blocked (076).
   drafts        Draft channels from a pitch: kept as files until accepted,
                 then created with their topic plan — see decision 032.
   youtube       OAuth and resumable upload to YouTube.
@@ -737,6 +738,20 @@ prices unless asked for now:
   (`finish.camera_shot`), chapter titles and captions overlaid, music,
   into the long-video folder for review;
 - `teasers`: vertical shorts written, then drawn and made, into review.
+
+**Settings and setup** (decision
+[076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
+channel (`ChannelConfig.long_form`) has its own settings page,
+`_longform_form.html`, with only what a film reads: the writing brief,
+opening and never-show; what fills the pictures (`documentary.pictures`,
+drawn scenes, or diagrams, not built yet), length, seconds per picture
+and teasers; voice; the look (the style builder in stills mode, offering
+only the approaches its pictures can draw, previewed widescreen); music;
+when films and teasers go out. The shorts page stays as it was.
+`core.long_form.steps` lists what's done and what's next (shown on
+Settings and on Productions until the first film starts; it's also the
+channel's launch list in `core.launch`), and each film's page says what
+to do now.
 
 Changing a stage makes later ones `stale`. A channel-wide cast library
 (`channels/<key>/cast_library.json`, `pipeline.documentary.cast`) keeps

@@ -64,6 +64,13 @@ STAGE_LINKS = {
     "merch_logo": ("logos.logo_page", {}),
     "merch_store": ("channels.settings", {"_anchor": "section-money"}),
     "affiliate": ("channels.settings", {"_anchor": "section-money"}),
+    # A long-form channel's launch (core.long_form, decision 076).
+    "about": ("channels.settings", {"_anchor": "section-content"}),
+    "voice": ("channels.settings", {"_anchor": "section-voice"}),
+    "look": ("channels.settings", {"_anchor": "section-pictures"}),
+    "films": ("curriculum.page", {}),
+    "first": ("productions.index", {}),
+    "slots": ("channels.settings", {"_anchor": "section-publishing"}),
 }
 
 

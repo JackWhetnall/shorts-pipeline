@@ -62,6 +62,9 @@ def prompt_for(shot: dict, board: dict, look: dict, refs: list, fix: list = None
         lines.append(f"The film's colour script, for this moment's light: {board['colour_script']}")
     lines.append(looks.style_text(look))
     lines.append(looks.frame_rules(look))
+    if board.get("never"):
+        # A documentary channel's "Never show" (decision 076).
+        lines.append("Never show any of these: " + ", ".join(board["never"]) + ".")
     if fix:
         lines.append("Fix these problems from the last attempt: " + "; ".join(fix))
     return "\n".join(lines)

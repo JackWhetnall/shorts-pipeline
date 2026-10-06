@@ -16,8 +16,8 @@
 {% if published_count %}
 <p class="info-banner" id="published-warning" data-published="{{ published_count }}"
    data-name="{{ channel.channel_display_name }}">
-  Viewers already know this channel's voice, pace and captions. Changes apply to new videos only.
+  Viewers already know this channel's voice{{ ' and look' if channel.long_form else ', pace and captions' }}. Changes apply to new videos only.
 </p>
 {% endif %}
-{% include "_channel_form.html" %}
+{% if channel.long_form %}{% include "_longform_form.html" %}{% else %}{% include "_channel_form.html" %}{% endif %}
 {% endblock %}

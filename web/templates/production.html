@@ -16,9 +16,38 @@
 </ol>
 
 {% if note %}<p class="meta info-banner" role="status">{{ note }}</p>{% endif %}
+
+{# What to do now, in one line (decision 076): the first stage not approved, and its state. #}
+{% set cur = info.current %}
+{% set start_labels = {'outline': 'Write the outline', 'script': 'Write the script', 'stills': 'Draw the storyboard',
+                       'video': 'Make the video', 'teasers': 'Write the teasers'} %}
+{% set what = {'outline': 'the outline', 'script': 'the script', 'stills': 'the storyboard pictures',
+               'video': 'the finished video', 'teasers': "the teasers' scripts"} %}
+<div class="card prod-now" role="status">
+  {% if not cur %}
+  <strong>This film is finished.</strong> The video and its teasers are in Review; approving them there queues them to go out.
+  {% elif cur in stage_jobs or data.stages[cur].state == 'working' %}
+  <strong>Now: {{ what[cur] }} {{ 'are' if cur in ('stills', 'teasers') else 'is' }} being made.</strong> Nothing to do until it's done.
+  At batch prices that's usually within the hour; <a href="{{ url_for('jobs.activity') }}">Activity</a> has Accelerate to hurry it.
+  Refresh this page to see it.
+  {% elif data.stages[cur].state == 'ready' %}
+  <strong>Now: read {{ what[cur] }} below{% if cur == 'video' %} (Watch it){% endif %}, then press Approve.</strong>
+  Or change it and press <em>Save my changes and approve</em>, or have it made again with a note.
+  {% if cur == 'teasers' %}Approving them is what makes them.{% else %}Approving it unlocks the next stage.{% endif %}
+  {% elif data.stages[cur].state == 'failed' %}
+  <strong>Now: {{ what[cur] }} failed.</strong> The reason is in its section below; press <em>{{ start_labels[cur] }}</em> to try again.
+  {% elif data.stages[cur].state == 'stale' %}
+  <strong>Now: make {{ what[cur] }} again.</strong> An earlier stage changed after it was made.
+  {% else %}
+  <strong>Now: press <a href="#{{ cur }}">{{ start_labels[cur] }}</a></strong> in its section below.
+  {% if cur == 'outline' %}This is what starts the film. Nothing has been made or spent before it.{% endif %}
+  It runs at batch prices (half price, usually within the hour); tick <em>now, at full price</em> to have it in a minute or two.
+  {% endif %}
+</div>
+
 {% if not look_chosen %}<p class="meta info-banner">This channel's drawn look isn't chosen yet. Every storyboard
   picture, on every video, is drawn in it, so choose it before the storyboard:
-  <a href="{{ url_for('channels.settings', key=key, _anchor='section-animation') }}">Settings, Animation</a>.</p>{% endif %}
+  <a href="{{ url_for('channels.settings', key=key, _anchor='section-pictures') }}">Settings, Look</a>.</p>{% endif %}
 {% if stage_jobs %}<p class="meta info-banner">Being made now: {{ stage_jobs|map('capitalize')|join(', ') }}.
   <a href="{{ url_for('jobs.activity') }}">Activity</a> shows it (and Accelerate). Refresh when it's done.</p>{% endif %}
 
@@ -226,6 +255,7 @@
 </section>
 
 <style>
+  .prod-now { border-color: var(--accent); }
   .prod-title { margin-bottom: var(--sp-1); }
   .prod-stages { list-style: none; padding: 0; margin: var(--sp-3) 0; display: flex; gap: var(--sp-2); flex-wrap: wrap; }
   .prod-stages-big .prod-stage { display: inline-flex; flex-direction: column; text-decoration: none; padding: .45em .9em;

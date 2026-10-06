@@ -81,6 +81,7 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
     look = look_for(channel, frame)
     style_ref = bible.reference(channel, look)
     the_board = board(outline, channel.key)
+    the_board["never"] = list(channel.avoid_imagery or [])
     the_shots = shots(scenes)
     wanted = [s for s in the_shots if only is None or s["index"] in only]
     sheets = _sheets(channel, look, the_board, wanted, style_ref)
