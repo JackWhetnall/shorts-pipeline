@@ -4,13 +4,33 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 6 Oct 2026. History Unmystified is now a documentary channel: see F to H. Pub Quiz Buzz and Minute Pastor both publish
+*Last updated: 6 Oct 2026. The project is pivoting to long-form: read the plan and answer its seven decisions (step 0). History Unmystified is now a documentary channel: see F to H. Pub Quiz Buzz and Minute Pastor both publish
 by themselves. Do the "Now" section first. The app's new home page,
 **Today**, now lists what needs you as it happens, and **Money** shows
 costs, runway and payback; this file is for steps outside the app. The
 app has a new look (decision 068): restart it (step E) to see it.*
 
 ---
+
+## The long-form pivot (6 Oct)
+
+### 0. Read the plan and answer its decisions (15 minutes)
+Shorts stop earning from 1 Feb 2027, so the project is moving to
+long-form. Minute Pastor and Pub Quiz Buzz carry on exactly as they are.
+The plan says what to keep, adapt and freeze, the cheapest good way to
+make a 12-minute video (about $2 plus voice you've prepaid), a cost model
+you can change, and the order of work.
+1. Open the plan: https://claude.ai/artifact/4pTMj19UuRP7y6ThQ9NQCu
+   (a copy is in `docs/specs/longform-pivot.md`).
+2. Go to **Your decisions** at the bottom. Each has a recommendation;
+   say which you agree with and change any you don't. The ones that block
+   work: the pilot channel, the monthly budget, and archiving the four
+   test channels (Curiosity Leak, Wren's Guide, Shakespeare Lines,
+   maths_demo; their data is kept).
+3. In **Cost model**, try your own numbers. At 12 minutes and two a week
+   the Starter voice plan runs about 1,100 credits short a month; 10
+   minutes, 7 a month, or one teaser instead of two each fit.
+4. Then do F to H below: the first documentary is Phase 1 of the plan.
 
 ## Now (5 Oct)
 
