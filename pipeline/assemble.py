@@ -144,9 +144,11 @@ class CaptionLayout:
     height: int
 
 
-def layout_caption(words: list, style) -> CaptionLayout:
+def layout_caption(words: list, style, leave_out=frozenset()) -> CaptionLayout:
     """Lay out and render one caption group once, all words in the base
-    colour, recording each word's box."""
+    colour, recording each word's box. Words at `leave_out` positions get
+    their box but aren't drawn: a word that pops is drawn on its own,
+    so the line underneath doesn't show a second copy of it."""
     font = load_font(style.font_size, style.font_face)
     draw_measure = _measurer()
     lines = wrap_words(words, font, CAPTION_MAX_WIDTH)
@@ -166,15 +168,16 @@ def layout_caption(words: list, style) -> CaptionLayout:
         x = (CAPTION_MAX_WIDTH - line_width) / 2
         y = line_index * line_height
         for word, width in zip(line_words, widths):
-            draw.text((x, y), word, font=font, fill=style.base_color,
-                      stroke_width=stroke, stroke_fill=style.stroke_color)
+            if len(boxes) not in leave_out:
+                draw.text((x, y), word, font=font, fill=style.base_color,
+                          stroke_width=stroke, stroke_fill=style.stroke_color)
             boxes.append((x, y, width, line_height))
             x += width + space_width
 
     return CaptionLayout(image=np.array(image), boxes=boxes, height=height)
 
 
-def render_word_overlay(word: str, box, style) -> np.ndarray:
+def render_word_overlay(word: str, box, style, color: str = None) -> np.ndarray:
     """Just the active word, in the highlight colour, sized to its own
     box plus stroke padding.
 
@@ -187,13 +190,16 @@ def render_word_overlay(word: str, box, style) -> np.ndarray:
     _, _, width, line_height = box
     image = Image.new("RGBA", (int(width) + stroke * 2 + 4, line_height + stroke * 2), (0, 0, 0, 0))
     ImageDraw.Draw(image).text(
-        (stroke + 2, stroke), word, font=font, fill=style.highlight_color,
+        (stroke + 2, stroke), word, font=font, fill=color or style.highlight_color,
         stroke_width=stroke, stroke_fill=style.stroke_color,
     )
     return np.array(image)
 
 
-EMPHASIS_POP = (1.32, 1.1, 0.16)   # starting scale, resting scale, seconds to settle
+# Starting scale, resting scale, seconds to settle. Gentler than it was
+# (1.32 to 1.1): a big pop on a key word every few seconds was jarring.
+EMPHASIS_POP = (1.15, 1.04, 0.14)
+POP_GAP = 3.0                      # seconds at least between two pops; at most one per caption
 
 
 def _norm(word: str) -> str:
@@ -215,8 +221,15 @@ def build_caption_clips(word_timings: list, style, pacing, emphasis=()) -> list:
 
     emphasised = {_norm(w) for phrase in emphasis for w in phrase.split()} - {""}
     clips = []
+    last_pop = -POP_GAP
     for group in group_words(word_timings, pacing):
-        layout = layout_caption([w.word for w in group], style)
+        # At most one word pops in a caption, and not within POP_GAP of the last.
+        pop = next((i for i, w in enumerate(group)
+                    if _norm(w.word) in emphasised and w.start - last_pop >= POP_GAP), None)
+        if pop is not None:
+            last_pop = group[pop].start
+        layout = layout_caption([w.word for w in group], style,
+                                leave_out=frozenset() if pop is None else {pop})
         group_start = group[0].start
         group_end = group[-1].end
 
@@ -235,10 +248,18 @@ def build_caption_clips(word_timings: list, style, pacing, emphasis=()) -> list:
             x = CAPTION_LEFT + int(box[0]) - style.stroke_width - 2
             y = CAPTION_Y + int(box[1]) - style.stroke_width
             clip = ImageClip(overlay).set_start(word.start).set_end(end)
-            if _norm(word.word) in emphasised:
-                # A key word pops: it lands big and settles a little larger
-                # than the rest, centred on where it sits in the line.
+            if i == pop:
+                # A key word pops: it lands a little big and settles slightly
+                # larger than the rest, centred on where it sits in the line.
+                # It's left out of the line itself, so outside its own moment
+                # it's drawn here in the line's colour, and there's only ever
+                # one copy of it on screen (two showed as a shadow).
                 clip = _popped(clip, overlay, x, y)
+                plain = render_word_overlay(word.word, box, style, color=style.base_color)
+                if word.start > group_start:
+                    clips.append(ImageClip(plain).set_start(group_start).set_end(word.start).set_position((x, y)))
+                if group_end > end:
+                    clips.append(ImageClip(plain).set_start(end).set_end(group_end).set_position((x, y)))
             else:
                 clip = clip.set_position((x, y))
             clips.append(clip)
