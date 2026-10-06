@@ -179,6 +179,16 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
         channel.scenes.share = min(100, max(0, _maybe_int(form, "scene_share", channel.scenes.share)))
         channel.scenes.art = art_from(form)
 
+    if "documentary_present" in form:
+        from core.channels import FORMATS
+        if form.get("format") in FORMATS:
+            channel.format = form.get("format")
+        doc = channel.documentary
+        doc.minutes = min(30.0, max(2.0, _maybe_float(form, "documentary_minutes", doc.minutes)))
+        doc.teasers = min(6, max(0, _maybe_int(form, "documentary_teasers", doc.teasers)))
+        doc.scene_seconds = min(40.0, max(5.0, _maybe_float(form, "documentary_scene_seconds",
+                                                            doc.scene_seconds)))
+
     if "quiz_present" in form:
         from core.channels import FORMATS
         if form.get("format") in FORMATS:

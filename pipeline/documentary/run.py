@@ -1,0 +1,127 @@
+"""
+A production stage as a job (decision 074): its work done, its state in
+core.production kept honest, whatever happens.
+
+Each stage starts only once every stage before it is approved, and ends
+"ready" for the owner to look at (or "failed", with the reason shown).
+Redoing an earlier stage makes every later one stale.
+"""
+
+from __future__ import annotations
+
+import shutil
+from types import SimpleNamespace
+
+from core import curriculum, production
+from core.errors import PipelineError
+from core.logging_setup import get_logger
+
+log = get_logger(__name__)
+
+
+def run_stage(channel, subtopic_id: str, stage: str, note: str = "", only: list = None,
+              chapter: int = 0, notes: dict = None) -> SimpleNamespace:
+    """Do one stage of a production. `note`: the owner's instruction for
+    a rewrite. `only`/`notes`: stills to redraw, and why. `chapter`: one
+    chapter of the script to rewrite. Returns what a job reports."""
+    row = curriculum.find(channel.key, subtopic_id)
+    if row is None:
+        raise PipelineError(f"no plan entry {subtopic_id}", user_message="That video is no longer in the plan.")
+    title = row["title"]
+    data = production.load(channel.key, subtopic_id, title)
+    if stage not in production.STAGES:
+        raise PipelineError(f"unknown stage {stage}", user_message="That isn't a stage of a production.")
+    if not production.can_start(data, stage) and not (stage == "teasers" and _making_teasers(data)):
+        raise PipelineError(f"{stage} before its stages are approved", user_message=(
+            "Approve the stages before this one first."))
+    production.update(channel.key, subtopic_id, lambda d: production.mark(d, stage, "working"), title)
+    try:
+        result = _do(channel, row, data, stage, note, only, chapter, notes)
+    except Exception as exc:
+        from core.errors import friendly_message
+        production.update(channel.key, subtopic_id,
+                          lambda d: production.mark(d, stage, "failed", friendly_message(exc)))
+        raise
+    return result
+
+
+def _making_teasers(data: dict) -> bool:
+    return bool((data.get("teasers") or {}).get("scripts"))
+
+
+def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespace:
+    key, sid, title = channel.key, row["id"], row["title"]
+    folder = production.folder(key, sid)
+    done = SimpleNamespace(video_path=None, warnings=[], similarity=None)
+
+    if stage == "outline":
+        from pipeline.documentary import outline
+        made = outline.write(channel, row, note)
+        production.update(key, sid, lambda d: production.made(d, "outline", made))
+        return done
+
+    if stage == "script":
+        from pipeline.documentary import script
+        if chapter and data.get("script"):
+            made = script.rewrite_chapter(channel, title, data["outline"], data["script"], chapter, note)
+        else:
+            made = script.write(channel, title, data["outline"], note)
+        production.update(key, sid, lambda d: production.made(d, "script", made))
+        return done
+
+    if stage == "stills":
+        from pipeline.documentary import cast, stills
+        cast.merge(key, sid, data["outline"].get("cast") or [])
+        scenes = data["script"]["scenes"]
+        target = folder / "stills"
+        if only is None:
+            # Drawn afresh: the old ones belong to an older script.
+            shutil.rmtree(target, ignore_errors=True)
+        drawn = stills.draw(channel, data["outline"], scenes, target, frame="wide", only=only,
+                            notes=notes)
+        names = {str(i): str(p.relative_to(folder)).replace("\\", "/") for i, p in drawn.items()}
+
+        def store(d):
+            kept = {} if only is None else dict(d.get("stills") or {})
+            kept.update(names)
+            production.made(d, "stills", kept)
+        production.update(key, sid, store)
+        missing = len(scenes) - len(production.load(key, sid)["stills"])
+        if missing:
+            done.warnings.append(f"{missing} still(s) couldn't be drawn; redraw them from the storyboard.")
+        return done
+
+    if stage == "video":
+        from pipeline.documentary import render
+        made = render.make(channel, data, folder)
+        relpath = str(made.video_path.relative_to(_root(channel))).replace("\\", "/")
+        production.update(key, sid, lambda d: production.made(d, "video", {"path": relpath}))
+        # The plan entry is made now: the scheduler moves on from it.
+        if (curriculum.find(key, sid) or {}).get("status") == curriculum.PENDING:
+            curriculum.claim(key, sid)
+        curriculum.attach_video(key, sid, made.video_path.stem)
+        return made
+
+    if stage == "teasers":
+        from pipeline.documentary import teasers
+        if note or not _making_teasers(data) or production.state(data, "teasers") in ("stale", "todo"):
+            scripts = teasers.write(channel, data["outline"].get("title_options", [title])[0]
+                                    if data["outline"].get("title_options") else title,
+                                    data["outline"], data["script"], note)
+            production.update(key, sid, lambda d: production.made(d, "teasers", {"scripts": scripts, "videos": []}))
+            return done
+        paths = teasers.make(channel, data, folder)
+        rel = [str(p.relative_to(_root(channel))).replace("\\", "/") for p in paths]
+
+        def store(d):
+            d["teasers"]["videos"] = rel
+            production.mark(d, "teasers", "approved")
+        production.update(key, sid, store)
+        return teasers.summary(paths)
+
+    raise PipelineError(f"unknown stage {stage}", user_message="That isn't a stage of a production.")
+
+
+def _root(channel):
+    from core import gallery
+    return gallery.resolve_output_dir(channel.output_dir)

@@ -130,6 +130,55 @@ def still_shot(image: Path, out: Path, seconds: float, look: dict, hold: float =
     return out
 
 
+# How a still moves while it's on screen (a documentary's storyboard,
+# pipeline.documentary): zoom from, zoom to, and the left edge's travel
+# across the spare width (0 = left, 1 = right), from and to.
+CAMERA_MOVES = {
+    "push_in": (1.0, 1.12, 0.5, 0.5),
+    "pull_out": (1.12, 1.0, 0.5, 0.5),
+    "pan_left": (1.12, 1.12, 1.0, 0.0),
+    "pan_right": (1.12, 1.12, 0.0, 1.0),
+    "still": (1.04, 1.06, 0.5, 0.5),
+}
+CAMERA_SCALE = 1.5          # drawn larger than the frame first, so the move is smooth
+
+
+def camera_shot(image: Path, out: Path, seconds: float, look: dict, move: str = "push_in",
+                overlay: Path = None, overlay_until: float = 0.0) -> Path:
+    """A still on screen for `seconds`, the camera moving across it, in
+    the look's grade and grain. `overlay` (a transparent picture the
+    frame's size: a chapter title, a caption) fades in at half a second
+    and out at `overlay_until`."""
+    z0, z1, x0, x1 = CAMERA_MOVES.get(move, CAMERA_MOVES["push_in"])
+    frames = max(2, round(seconds * FPS))
+    w, h = _size(look)
+    big_w, big_h = round(w * CAMERA_SCALE / 2) * 2, round(h * CAMERA_SCALE / 2) * 2
+    p = f"(on/{frames})"
+    ease = f"(0.5-0.5*cos(PI*{p}))"
+    zoom = (f"zoompan=z='{z0}+({z1 - z0})*{ease}':"
+            f"x='(iw-iw/zoom)*({x0}+({x1 - x0})*{ease})':y='(ih-ih/zoom)/2':"
+            f"d={frames}:s={w}x{h}:fps={FPS}")
+    chain = [f"scale={big_w}:{big_h}:force_original_aspect_ratio=increase:flags=lanczos",
+             f"crop={big_w}:{big_h}", zoom, "setsar=1"]
+    chain += grade_filters(look) + texture_filters(look) + ["format=yuv420p"]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [_ffmpeg(), "-v", "error", "-y", "-loop", "1", "-i", str(image)]
+    if overlay is not None:
+        until = max(1.2, min(overlay_until or seconds - 0.4, seconds - 0.2))
+        cmd += ["-loop", "1", "-i", str(overlay)]
+        graph = (f"[0:v]{','.join(chain[:-1])}[base];"
+                 f"[1:v]format=rgba,fade=in:st=0.4:d=0.5:alpha=1,"
+                 f"fade=out:st={max(0.9, until - 0.5):.3f}:d=0.5:alpha=1[label];"
+                 f"[base][label]overlay=0:0:shortest=1,format=yuv420p[v]")
+        cmd += ["-filter_complex", graph, "-map", "[v]"]
+    else:
+        cmd += ["-vf", ",".join(chain)]
+    cmd += ["-t", f"{seconds:.3f}", "-r", str(FPS), "-c:v", "libx264", "-preset", "veryfast",
+            "-crf", "18", str(out)]
+    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return out
+
+
 def grade(source: Path, out: Path, look: dict) -> Path:
     """A composited clip in the look's grade and grain (its timing and
     cadence are already the compositor's)."""

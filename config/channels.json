@@ -289,6 +289,48 @@
       },
       "channel_display_name": "Pub Quiz Buzz",
       "content_mode": "topic"
+    },
+    "history_unmystified": {
+      "format": "documentary",
+      "voice": "JBFqnCBsd6RMkjVDRZzb",
+      "style_prompt": "Write for someone who half-remembers this person's name from school and wants to actually understand why they mattered, told as a brisk little story rather than a list of dates. Each video should find a human decision, flaw, or turning point that can be used as an interesting point to explain everything else about the figure, and build the whole script around paying that off. Open by putting the audience inside a moment of real stakes for this person, not by announcing a biography. Then explore the history of this person chronologically, move scene to scene the way a storybook does: a setting, a problem, a choice, a consequence, seeing how their life lead them to being the famous person that they are today. Keep the tone warm, light and a little playful even when the subject is serious, but never make light of tragedy, illness, war or death for cheapness. Be precise about dates, titles and outcomes, but without making the subject feel too dry and monotonous - there is room to make this more interesting, even if the facts aren't 100% verified (as long as they are legitimate speculation or myths or legends, not invented). Avoid treating every figure's arc the same way \u2014 a scientist's turning point is not shaped like a monarch's. Each script should leave the viewer with a holistic view of the person and how they came to be famous for what they did.",
+      "hook_style": "Open on a small, concrete moment of tension or decision this person actually faced, stated as a plain, specific question or scene rather than a grand claim about their importance; keep the energy warm and curious, never shouty or clickbait, and always something the video goes on to resolve honestly.",
+      "avoid_imagery": [
+        "gore",
+        "graphic violence",
+        "modern office",
+        "nazi uniform"
+      ],
+      "pacing": {
+        "segment_count": 4,
+        "target_seconds": 60.0
+      },
+      "scenes": {
+        "share": 100,
+        "art": {
+          "preset": "clean_flat",
+          "ink": "#2E2A26",
+          "ink_soft": "#6B5E52",
+          "accent1": "#E3A93D",
+          "accent2": "#2E8B8B",
+          "accent3": "#C14E4E",
+          "accent4": "#4C7A52",
+          "accent5": "#4A5F8A",
+          "background": "#FBF4E6",
+          "font_display": "Segoe UI Black",
+          "font_text": "Candara",
+          "prop_style": "Round, big-headed cartoon characters with simple dot eyes and flat pastel costumes, drawn in thick clean storybook outlines with soft sticker shadows, minimal shading, warm and approachable."
+        }
+      },
+      "sound": {
+        "music_moods": [
+          "warm acoustic storytelling",
+          "gentle orchestral uplift",
+          "playful pizzicato strings"
+        ]
+      },
+      "channel_display_name": "History Unmystified",
+      "content_mode": "topic"
     }
   }
 }

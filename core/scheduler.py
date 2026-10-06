@@ -53,6 +53,8 @@ def generation_block(key: str, channel, state: dict = None, active: dict = None)
         return "The channel is archived."
     if not plan.enabled:
         return "The publishing plan is off."
+    if channel.format == "documentary":
+        return "Its videos are made stage by stage on Productions, each approved."
     try:
         channel.validate()
     except PipelineError as exc:

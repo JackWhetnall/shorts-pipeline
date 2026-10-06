@@ -958,6 +958,14 @@ function activityWarnings(warnings) {
 }
 
 function activityFinishedRow(job) {
+  if (job.status === "done" && job.link && !job.result_path_rel) {
+    return `
+      <div class="card activity-item">
+        <p class="meta">${escapeHtml(job.channel_name)}, finished ${activityTimeOfDay(job.finished_at)}</p>
+        <h3>${escapeHtml(job.title)}</h3>
+        <a class="btn btn-ghost btn-small" href="${job.link}">Look at it</a>
+      </div>`;
+  }
   if (job.status === "done" && job.result_path_rel) {
     // Warnings were collected on every job and shown nowhere; this is the
     // page you look at to see what just finished, so they belong here.

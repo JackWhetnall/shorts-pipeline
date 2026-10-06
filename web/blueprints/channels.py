@@ -406,6 +406,9 @@ def create_video(key):
     what you want most days.
     """
     channel = channel_or_404(key)
+    if channel.format == "documentary":
+        # Made in stages, each approved (decision 074).
+        return redirect(url_for("productions.index", key=key))
     plan = None
     up_next = ""
     if channel.content_mode == "topic" and curriculum.exists(key):

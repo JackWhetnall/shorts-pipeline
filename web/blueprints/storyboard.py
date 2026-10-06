@@ -33,6 +33,8 @@ def _row(key: str, subtopic_id: str) -> dict:
 @bp.route("/channels/<key>/coming-up")
 def page(key):
     channel = channel_or_404(key)
+    if channel.format == "documentary":
+        return redirect(url_for("productions.index", key=key))
     rows = storyboard.upcoming(channel)
     return render_template("storyboard.html", key=key, channel=channel,
                            boards=[storyboard.view(channel, row) for row in rows],

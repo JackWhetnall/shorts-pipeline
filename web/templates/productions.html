@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Productions · {{ channel.channel_display_name }}{% endblock %}
+{% block content %}
+{% set tab = 'productions' %}
+{% include "_channel_head.html" %}
+<p class="page-sub tab-intro">Each video is made in stages, and each waits for you: the outline of what it says and
+  shows, the script with its stage directions, a drawn storyboard, the video, then its teaser shorts.</p>
+
+{% if note %}<p class="meta info-banner" role="status">{{ note }}</p>{% endif %}
+
+{% macro production_row(p, n) %}
+<a class="card prod-row" href="{{ url_for('productions.page', key=key, subtopic_id=p.row.id) }}">
+  <div class="prod-row-head">
+    <div>
+      {% if n %}<p class="meta">{{ n }}{{ ['st', 'nd', 'rd'][n - 1] if n <= 3 else 'th' }} up</p>{% endif %}
+      <h2>{{ p.row.title }}</h2>
+      {% if p.row.angle %}<p class="hint">{{ p.row.angle }}</p>{% endif %}
+    </div>
+    <span class="prod-next">{% if p.current %}{{ {'outline': 'Outline', 'script': 'Script', 'stills': 'Storyboard',
+      'video': 'Video', 'teasers': 'Teasers'}[p.current] }}{% else %}Done{% endif %} &rarr;</span>
+  </div>
+  <ol class="prod-stages" aria-label="Stages">
+    {% for s in p.stages %}
+    <li class="prod-stage state-{{ s.state }}" title="{{ s.label }}: {{ s.state }}">{{ s.label }}</li>
+    {% endfor %}
+  </ol>
+</a>
+{% endmacro %}
+
+{% for p in upcoming %}{{ production_row(p, loop.index) }}{% endfor %}
+{% if not upcoming %}
+<div class="empty-state"><p><strong>Nothing in the plan to make.</strong></p>
+  <p><a href="{{ url_for('curriculum.page', key=key) }}">Add videos on the Plan page.</a></p></div>
+{% endif %}
+
+{% if others %}
+<h2>Also part-way through</h2>
+{% for p in others %}{{ production_row(p, 0) }}{% endfor %}
+{% endif %}
+
+<style>
+  .prod-row { display: block; text-decoration: none; color: inherit; }
+  .prod-row:hover { border-color: var(--border-light); }
+  .prod-row-head { display: flex; justify-content: space-between; gap: var(--sp-3); align-items: flex-start; }
+  .prod-row h2 { margin: 0 0 var(--sp-1); }
+  .prod-next { color: var(--accent); white-space: nowrap; }
+  .prod-stages { list-style: none; padding: 0; margin: var(--sp-3) 0 0; display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+  .prod-stage { font-size: .8rem; padding: .2em .7em; border-radius: 999px; border: 1px solid var(--border);
+                color: var(--text-faint); }
+  .prod-stage.state-approved { color: var(--success); border-color: var(--success); }
+  .prod-stage.state-ready { color: var(--accent); border-color: var(--accent); }
+  .prod-stage.state-working { color: var(--text); border-style: dashed; }
+  .prod-stage.state-failed, .prod-stage.state-stale { color: var(--danger); border-color: var(--danger); }
+</style>
+{% endblock %}

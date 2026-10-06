@@ -110,8 +110,24 @@
         <select name="format">
           <option value="narrated" {{ 'selected' if channel.format == 'narrated' }}>Narrated: a script read over footage and graphics</option>
           <option value="quiz" {{ 'selected' if channel.format == 'quiz' }}>Quiz: questions on a board, a countdown, then the answer</option>
+          <option value="documentary" {{ 'selected' if channel.format == 'documentary' }}>Documentary: long widescreen videos made in stages, with teaser shorts</option>
         </select>
       </label>
+      <div data-show-when="format=documentary" class="field-group">
+        <input type="hidden" name="documentary_present" value="1">
+        <label class="field-row"><span class="field-label">Video length (minutes)</span>
+          <input type="number" name="documentary_minutes" min="2" max="30" step="0.5" value="{{ channel.documentary.minutes }}">
+        </label>
+        <label class="field-row"><span class="field-label">Teaser shorts from each video</span>
+          <input type="number" name="documentary_teasers" min="0" max="6" value="{{ channel.documentary.teasers }}">
+        </label>
+        <label class="field-row"><span class="field-label">Seconds each scene's picture holds, about
+          <button type="button" class="info-dot" data-tooltip="The script is written in scenes this long: one drawn still each. Shorter is livelier and costs more pictures (about 3 cents each).">?</button></span>
+          <input type="number" name="documentary_scene_seconds" min="5" max="40" value="{{ channel.documentary.scene_seconds }}">
+        </label>
+        <p class="hint">Its look, cast and style are under Pictures &rarr; Animation. Each video is made on the
+          Productions tab.</p>
+      </div>
       <div data-show-when="format=quiz" class="field-group">
         <label class="field-row"><span class="field-label">Questions a quiz</span>
           <input type="number" name="quiz_questions" min="3" max="15" value="{{ channel.quiz.questions }}">

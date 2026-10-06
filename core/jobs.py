@@ -239,13 +239,20 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
             # A long quiz recut from finished shorts (pipeline.longform).
             from pipeline import longform
             plan = _made_ahead(job_id, lambda: longform.make(channel, seed))
+        elif seed.get("type") == "production":
+            # One stage of a documentary (pipeline.documentary, decision 074).
+            from pipeline.documentary import run as documentary
+            plan = _made_ahead(job_id, lambda: documentary.run_stage(
+                channel, seed["subtopic_id"], seed["stage"], note=seed.get("note", ""),
+                only=seed.get("only"), chapter=int(seed.get("chapter") or 0),
+                notes={int(k): v for k, v in (seed.get("notes") or {}).items()}))
         else:
             plan = _generate(job_id, channel, Seed.from_jsonable(seed), generate)
         with _lock:
             job = _jobs[job_id]
             job.status = "done"
             job.stage = job_context.STAGE_COUNT
-            job.result_path = str(plan.video_path)
+            job.result_path = str(plan.video_path) if plan.video_path else None
             job.finished_at = time.time()
             job.progress_percent = None
             job.warnings.extend(getattr(plan, "warnings", None) or [])
@@ -268,6 +275,10 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
             if getattr(plan, "similarity", None) is not None and plan.similarity.flagged:
                 job.warnings.append(f"Originality check: {plan.similarity.summary}")
         _persist(job_id)
+        if seed.get("type") == "production":
+            # Each stage waits for the owner; nothing publishes itself.
+            job_context.clear_checkpoints(job_id)
+            return
         _autopilot(job_id, channel, plan)
         # What it was made of goes beside the video, for a remake that
         # keeps most of it (core.remake). Nothing else needs it now.

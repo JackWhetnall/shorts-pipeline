@@ -10,7 +10,7 @@ count in the header and guessing. The header's count now leads here.
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, jsonify, render_template
+from flask import Blueprint, abort, jsonify, render_template, url_for
 
 from core import job_eta, jobs as jobs_core
 from core.paths import OUTPUT_DIR, relative_to_output
@@ -72,6 +72,9 @@ def _for_activity(job: dict, names: dict) -> dict:
         "eta_at": job.get("eta_at"),
         "eta_label": job_eta.describe(job.get("eta_seconds")),
         "ahead": bool(job.get("ahead")),
+        # A documentary's stage (decision 074) is looked at on its own page.
+        "link": (url_for("productions.page", key=job["channel_key"], subtopic_id=seed["subtopic_id"])
+                 if seed.get("type") == "production" else None),
     }
 
 
