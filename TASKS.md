@@ -102,9 +102,11 @@ Its plan was written for shorts, so the first topic's 30 videos are
 *moments* ("Lincoln and the Gettysburg Address", "Napoleon's Retreat
 from Moscow") rather than one person each. They'd make fine ten-minute
 films of a moment. If you'd rather each video were one whole life:
-1. **Plan tab** → the first topic → **Edit** → delete its videos (or
-   remove and re-add the topic), then **Write them** with the number you
-   want, or type the people yourself, one a line.
+1. **Plan tab** → the first topic → **Edit** → **Remove** (it takes its
+   unmade videos with it), then add the topic again at the bottom of the
+   page with the same name and a line saying it's one person per video,
+   and **Write them** with the number you want (or type the people
+   yourself, one a line).
 2. Any topic can be given more later: **Room for more? → Write that
    many more**.
 
