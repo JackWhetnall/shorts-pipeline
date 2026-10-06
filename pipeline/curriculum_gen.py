@@ -168,9 +168,9 @@ def plan_outline(channel, topic_count: int = DEFAULT_TOPIC_COUNT,
     """
     system = [
         SystemBlock(
-            "You design syllabuses for short-form video channels: the running "
-            "order a channel should cover its subject in, from its first video "
-            "to its thousandth.\n\n" + ORDERING_RULES,
+            "You design syllabuses for video channels: the running order a "
+            "channel should cover its subject in, from its first video to its "
+            "last.\n\n" + ORDERING_RULES,
             cacheable=True),
         SystemBlock(
             f"This channel's own description of what it makes:\n\n"
@@ -182,7 +182,7 @@ def plan_outline(channel, topic_count: int = DEFAULT_TOPIC_COUNT,
     user = (
         f"{subject_line}"
         f"Design a syllabus of exactly {topic_count} topics covering roughly "
-        f"{total_subtopics} short videos in total — about {per_topic} videos "
+        f"{total_subtopics} videos in total — about {per_topic} videos "
         f"per topic, with the targets summing to about {total_subtopics}.\n\n"
         f"Sizes need not be equal: an early topic covering the obvious ground "
         f"can be larger, a late specialist one smaller.\n\n"
@@ -237,8 +237,8 @@ def write_subtopics(channel, curriculum: dict, topic: dict,
 
     system = [
         SystemBlock(
-            "You write the video list for one topic of a short-form video "
-            "channel's syllabus. Each subtopic is one video.\n\n"
+            "You write the video list for one topic of a video channel's "
+            "syllabus. Each subtopic is one video.\n\n"
             "A subtopic must be narrow enough that it could not be confused "
             "with any other in the list — 'how interest works' and 'compound "
             "interest' are two videos; 'money' is not a subtopic at all. Stay "
@@ -331,11 +331,27 @@ def extend_outline(channel, curriculum: dict, count: int) -> list:
     return topics[:count]
 
 
-def fill_topic(channel, topic: dict) -> list:
+def fill_topic(channel, topic: dict, count: int = None) -> list:
     """A topic's subtopics: a quiz category's rounds by rule (free), or a
-    narrated topic's videos written by the model."""
+    narrated topic's videos written by the model (`count` of them, or the
+    topic's target)."""
     if getattr(channel, "format", "narrated") == "quiz":
         from pipeline import quiz
         return quiz.subtopic_rows(topic["title"], channel.quiz.difficulties)
     from core import curriculum as plan
-    return write_subtopics(channel, plan.load(channel.key), topic)
+    return write_subtopics(channel, plan.load(channel.key), topic, count)
+
+
+def more_for_topic(channel, topic: dict, count: int) -> list:
+    """`count` more videos for a topic that already has some, none
+    repeating them (its own titles are among those the writer is shown)."""
+    from core import curriculum as plan
+    written = []
+    while len(written) < count:
+        batch = write_subtopics(channel, plan.load(channel.key), topic,
+                                min(MAX_SUBTOPICS_PER_CALL, count - len(written)))
+        if not batch:
+            break
+        plan.add_subtopics(channel.key, topic["id"], batch)
+        written += batch
+    return written

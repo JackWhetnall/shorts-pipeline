@@ -123,10 +123,22 @@
 
   <div class="card">
     <h2>Length and pace</h2>
+    {% if body.format == 'documentary' %}
+    <label>Video length in minutes
+      <input type="number" name="minutes" min="2" max="30" step="0.5" value="{{ body.minutes }}">
+    </label>
+    <label>Teaser shorts from each video
+      <input type="number" name="teasers" min="0" max="6" value="{{ body.teasers }}">
+    </label>
+    <p class="hint">Each video is made in stages you approve: an outline of what it says and shows, the
+      narration with stage directions, a drawn still for every scene, then the video. The teasers are
+      vertical shorts in the same look that leave a viewer wanting the full story.</p>
+    {% else %}
     <label>Video length in seconds
       <input type="number" name="target_seconds" min="15" max="180" value="{{ body.target_seconds }}">
     </label>
-    {% if body.format != 'quiz' %}
+    {% endif %}
+    {% if body.format not in ('quiz', 'documentary') %}
     <label>Spoken segments
       <input type="number" name="segment_count" min="1" max="8" value="{{ body.segment_count }}">
     </label>
@@ -178,15 +190,19 @@
   {% if draft.outline and body.format != 'quiz' %}
   <div class="card">
     <h2>Topic plan</h2>
-    <p class="meta">{{ body.subject }}. {{ draft.outline|length }} topics in teaching order;
-      the first topic's videos are written when you create the channel, the rest as
-      it reaches them. Editable afterwards on its Topic plan page.</p>
-    <ol class="draft-outline">
-      {% for topic in draft.outline %}
-      <li><strong>{{ topic.title }}</strong> <span class="hint">{{ topic.level }}</span>
-        <div class="hint">{{ topic.summary }}</div></li>
-      {% endfor %}
-    </ol>
+    <p class="meta">{{ body.subject }}. Change it as you like: one topic a line, in the order to make them,
+      as &ldquo;Title: what it covers&rdquo;. Add, remove, rename or reorder lines. The first topic's videos
+      are written when you create the channel, the rest as it reaches them.</p>
+    <label>Topics
+      <textarea name="outline" rows="{{ [draft.outline|length + 2, 24]|min }}">{% for topic in draft.outline %}{{ topic.title }}: {{ topic.summary }}
+{% endfor %}</textarea>
+    </label>
+    <label>Videos each topic starts with
+      <input type="number" name="base_videos" min="1" max="200"
+             value="{{ body.base_videos or ((draft.outline|map(attribute='target_subtopics')|select|sum) // (draft.outline|length) if draft.outline else 10) }}">
+    </label>
+    <p class="hint">A starting size, not a limit: a topic with more in it worth a video (fifty scientists
+      to a dozen presidents) can be given more from the Plan page whenever you like.</p>
   </div>
   {% endif %}
 

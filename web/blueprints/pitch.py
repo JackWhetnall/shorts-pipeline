@@ -30,7 +30,8 @@ def _draft_or_404(draft_id: str) -> dict:
 def pitch():
     text = request.form.get("pitch", "")
     try:
-        record = drafts.create(text, note=request.form.get("note", ""))
+        record = drafts.create(text, note=request.form.get("note", ""),
+                               kind="documentary" if request.form.get("kind") == "documentary" else "shorts")
     except PipelineError as exc:
         return render_template("new_channel.html", display_name="", key="",
                                pitch_text=text, pitch_error=exc.user_message,
@@ -93,6 +94,9 @@ def accept(draft_id):
     }
     if "quotes" in form:
         choices["quotes"] = form.get("quotes", "")
+    for field in ("outline", "base_videos", "minutes", "teasers"):
+        if field in form:
+            choices[field] = form.get(field)
     for field in ("quiz_categories", "quiz_difficulties", "quiz_questions",
                   "quiz_countdown_seconds"):
         if field in form:

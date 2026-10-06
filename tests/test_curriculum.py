@@ -2105,7 +2105,7 @@ class TestGrowingThePlan:
             {"title": "Tunnels", "summary": "", "level": "advanced"},
             {"title": "Basics", "summary": "", "level": "advanced"}])      # a duplicate is skipped
         monkeypatch.setattr(curriculum_gen, "write_subtopics",
-                            lambda ch, data, topic: [{"title": f"{topic['title']} one"}])
+                            lambda ch, data, topic, count=None: [{"title": f"{topic['title']} one"}])
         grown = client.post("/api/channels/c/curriculum/topics/generate", headers=headers,
                             json={"count": 2}).get_json()
         assert grown["topics"] == ["Tunnels"] and "Tunnels one" in [s["title"] for s in curriculum.subtopics("c")]

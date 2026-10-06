@@ -1975,7 +1975,8 @@ async function fillTopics(key, count, topicId) {
     const res = await apiFetch(`/api/channels/${key}/curriculum/fill`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({count, topic_id: topicId || ""}),
+      body: JSON.stringify({count, topic_id: topicId || "",
+                            videos: Number(document.getElementById(`fill-count-${topicId}`)?.value || 0)}),
     });
     const data = await res.json();
     if (!res.ok) { status.textContent = data.error || "Couldn't write those subtopics."; return; }
@@ -3215,6 +3216,12 @@ async function planAddSubtopics(channelKey, topicId, button) {
   const text = document.getElementById(`add-subs-${topicId}`).value;
   const data = await planPost(`/api/channels/${channelKey}/curriculum/${topicId}/subtopics`,
                               {subtopics: text}, button);
+  if (data) { window.location.hash = topicId; window.location.reload(); }
+}
+
+async function planMore(channelKey, topicId, button) {
+  const count = Number(document.getElementById(`more-count-${topicId}`).value || 10);
+  const data = await planPost(`/api/channels/${channelKey}/curriculum/${topicId}/more`, {count}, button);
   if (data) { window.location.hash = topicId; window.location.reload(); }
 }
 

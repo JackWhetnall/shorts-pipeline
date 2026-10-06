@@ -33,6 +33,14 @@
       <textarea name="pitch" rows="3" required autofocus
                 placeholder="science news for curious teenagers">{{ pitch_text or '' }}</textarea>
     </label>
+    <fieldset class="pitch-kind">
+      <legend class="hint">What it makes</legend>
+      <label class="checkbox-label"><input type="radio" name="kind" value="shorts" checked>
+        Shorts: vertical videos under a minute or so</label>
+      <label class="checkbox-label"><input type="radio" name="kind" value="documentary">
+        Long-form documentaries: widescreen videos of about ten minutes, made in stages you approve,
+        with a few teaser shorts from each</label>
+    </fieldset>
     <label>Anything else it should know (optional)
       <input type="text" name="note" placeholder="e.g. British English; no politics; aimed at beginners">
     </label>

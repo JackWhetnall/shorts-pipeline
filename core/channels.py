@@ -45,7 +45,7 @@ VOICE_ID_RE = re.compile(r"^[A-Za-z0-9]{20}$")
 CONTENT_MODES = ("static_corpus", "topic")
 # What a video is: narration over footage and graphics, or a quiz board
 # (pipeline.quiz, decision 041).
-FORMATS = ("narrated", "quiz")
+FORMATS = ("narrated", "quiz", "documentary")
 CTA_KEYS = ("patreon", "merch", "affiliate")
 
 
@@ -441,6 +441,26 @@ class Quiz(_MappingLike):
 
 
 @dataclass
+class Documentary(_MappingLike):
+    """A long-form channel's shape (pipeline.documentary, decision 074).
+    Read only when the channel's format is "documentary".
+
+    Each video is one plan entry (a person, an event), made in stages the
+    owner approves one at a time: an outline of what it says and shows,
+    a narration script with stage directions, a still for every scene,
+    then the widescreen video. `minutes` is its length. `teasers` vertical
+    shorts are made from each one afterwards, in the same look, to leave
+    a viewer wanting the full story.
+    """
+
+    minutes: float = 10.0
+    teasers: int = 3
+    # Seconds a scene's still holds, about: the script is written in
+    # scenes this long, so the picture keeps moving with the story.
+    scene_seconds: float = 12.0
+
+
+@dataclass
 class Publishing(_MappingLike):
     """When this channel's videos go out, and how many to keep ready.
 
@@ -525,6 +545,7 @@ class ChannelConfig:
     sound: Sound = field(default_factory=Sound)
     artwork: Artwork = field(default_factory=Artwork)
     quiz: Quiz = field(default_factory=Quiz)
+    documentary: Documentary = field(default_factory=Documentary)
     archived: bool = False
     # Launch-checklist items marked done by hand. Some steps (Patreon's
     # signup flow) are annoying enough that "noting I'm skipping this"
@@ -576,6 +597,18 @@ class ChannelConfig:
                                   f"Pick 1 to 10.")
             if not [d for d in self.quiz.difficulties if str(d).strip()]:
                 raise ConfigError(f"{where} is a quiz with no difficulty levels.")
+        if self.format == "documentary":
+            if self.content_mode != "topic":
+                raise ConfigError(f"{where} makes documentaries, which come from a topic plan.")
+            if not 2 <= self.documentary.minutes <= 30:
+                raise ConfigError(f"{where} makes {self.documentary.minutes}-minute videos. "
+                                  f"Pick 2 to 30.")
+            if not 0 <= self.documentary.teasers <= 6:
+                raise ConfigError(f"{where} makes {self.documentary.teasers} teasers a video. "
+                                  f"Pick 0 to 6.")
+            if not 5 <= self.documentary.scene_seconds <= 40:
+                raise ConfigError(f"{where} holds each scene {self.documentary.scene_seconds} "
+                                  f"seconds. Pick 5 to 40.")
         if not self.voice.strip():
             raise ConfigError(f"{where} has no voice set. Add an ElevenLabs voice ID in its settings.")
         # ElevenLabs voice ids are 20 alphanumeric characters. Checking the
@@ -707,6 +740,7 @@ _NESTED = {
     "sound": Sound,
     "artwork": Artwork,
     "quiz": Quiz,
+    "documentary": Documentary,
 }
 
 

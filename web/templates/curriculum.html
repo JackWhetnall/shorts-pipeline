@@ -217,6 +217,13 @@
     {% endfor %}
   </ol>
   {% if not quiz %}
+  <div class="actions plan-more">
+    <label class="hint">Room for more?
+      <input type="number" id="more-count-{{ topic.id }}" min="1" max="100" value="10" class="narrow-number"
+             aria-label="How many more videos"></label>
+    <button type="button" class="btn-ghost" onclick="planMore('{{ key }}', '{{ topic.id }}', this)"
+            data-tooltip="Written to follow on from this topic's videos, none repeating them">Write that many more</button>
+  </div>
   <details class="plan-add-by-hand">
     <summary class="hint">Add videos to this topic by hand</summary>
     <textarea rows="4" id="add-subs-{{ topic.id }}" placeholder="One video per line"></textarea>
@@ -239,11 +246,16 @@
   </div>
   {% if not topic.placeholder %}
   <div class="actions">
+    {% if not quiz %}
+    <label class="hint">Videos to start with
+      <input type="number" id="fill-count-{{ topic.id }}" min="1" max="200" value="{{ topic.target_subtopics }}"
+             class="narrow-number"></label>
+    {% endif %}
     <button type="button" class="btn-ghost"
             id="curriculum-fill-{{ topic.id }}"
             onclick="fillTopics('{{ key }}', 1, '{{ topic.id }}')">
-      {% if quiz %}Add its rounds (free){% else %}Write this topic's {{ topic.target_subtopics }} subtopics
-      (~{{ '%.2f'|format(cost.per_topic_usd) }} dollars){% endif %}
+      {% if quiz %}Add its rounds (free){% else %}Write them (about {{ '%.2f'|format(cost.per_topic_usd) }}
+      dollars; you can add more later){% endif %}
     </button>
     <button type="button" class="btn-ghost danger-text" onclick="planRemove('{{ key }}', '{{ topic.id }}', this)">Remove</button>
   </div>

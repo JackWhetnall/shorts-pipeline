@@ -33,6 +33,27 @@ DRAFT_MAX_TOKENS = 12000
 DRAFT_EFFORT = "medium"      # real judgement: positioning, tone, risk
 OUTLINE_TOPICS = 25
 OUTLINE_SUBTOPICS = 750      # ~2 years at one a day; units are written as needed
+# A documentary channel: fewer, bigger subjects, a base of videos each
+# that a topic can grow beyond (decision 074).
+DOC_OUTLINE_TOPICS = 12
+DOC_BASE_VIDEOS = 10
+
+DOCUMENTARY = """
+This channel is different from the above: it makes LONG-FORM widescreen
+documentaries, about ten minutes each, one subject per video (a person,
+an event, a place), told in chapters over an illustrated storyboard in
+one consistent drawn look, with a few vertical teaser Shorts cut from
+each. Everything above about footage, segments and 30-90 second length
+does not apply: set `format` to "narrated", `content_mode` to "topic",
+`target_seconds` to 90 and `segment_count` to 4 (both are ignored), and
+`scene_share` to 100. The style prompt briefs a documentary writer: how
+a ten-minute story is shaped (an opening that puts the viewer inside a
+moment, chapters that each turn on something, a landing that pays off
+the opening), the narrator's register, and how careful it is with facts.
+The topic plan's topics are groups of subjects (American presidents,
+famous scientists), each holding as many videos as it has subjects worth
+a full story.
+""".strip()
 
 BUILT_IN_SOURCES = ("bible", "shakespeare")
 VOICE_DESCRIPTION_CHARS = 220
@@ -244,10 +265,12 @@ def _schema(palette_keys: list, voice_ids: list) -> dict:
     }
 
 
-def draft(pitch: str, voices: list, note: str = "", previous: dict = None) -> dict:
+def draft(pitch: str, voices: list, note: str = "", previous: dict = None,
+          kind: str = "shorts") -> dict:
     """A draft channel for `pitch`. `voices` is the account's voice list
     (core.voice_lab); `note` and `previous` redraft an earlier attempt
-    with the owner's correction."""
+    with the owner's correction. `kind` "documentary" drafts a long-form
+    channel (decision 074)."""
     from core import palettes
 
     pitch = (pitch or "").strip()
@@ -267,6 +290,8 @@ def draft(pitch: str, voices: list, note: str = "", previous: dict = None) -> di
         SystemBlock(f"Narrator voices available:\n{voice_list}\n\n"
                     f"Caption palettes available:\n{palette_list}\n\n{_art_menu()}"),
     ]
+    if kind == "documentary":
+        system.append(SystemBlock(DOCUMENTARY))
     user = f"The pitch: {pitch}"
     if previous and note:
         user += (f"\n\nA previous draft was:\n- names: {', '.join(previous.get('name_options', []))}"
@@ -280,7 +305,13 @@ def draft(pitch: str, voices: list, note: str = "", previous: dict = None) -> di
     data = call_json(system, user, _schema([p.key for p in palettes.PALETTES], voice_ids),
                      operation="channel_draft", max_tokens=DRAFT_MAX_TOKENS,
                      effort=DRAFT_EFFORT)
-    return clean(data, voice_ids)
+    out = clean(data, voice_ids)
+    if kind == "documentary":
+        out.update(format="documentary", content_mode="topic", corpus_source="", custom_quotes=[],
+                   quiz_categories=[], quiz_difficulties=[], minutes=10, teasers=3,
+                   base_videos=DOC_BASE_VIDEOS)
+        out["art"]["scene_share"] = 100
+    return out
 
 
 def clean(data: dict, voice_ids: list) -> dict:
@@ -364,14 +395,16 @@ def _clamp(value, default, low, high) -> float:
     return min(high, max(low, number))
 
 
-def outline(style_prompt: str, subject: str, name: str) -> list:
+def outline(style_prompt: str, subject: str, name: str, documentary: bool = False) -> list:
     """The topic plan's outline for a topic-mode draft: ordered topics,
-    no subtopics yet. Reuses the syllabus designer every channel uses."""
+    no subtopics yet. Reuses the syllabus designer every channel uses. A
+    documentary channel gets fewer topics with a base of videos each."""
     from core.channels import ChannelConfig
     from pipeline import curriculum_gen
 
     stand_in = ChannelConfig(key="draft", channel_display_name=name, style_prompt=style_prompt)
-    data = curriculum_gen.plan_outline(stand_in, topic_count=OUTLINE_TOPICS,
-                                       total_subtopics=OUTLINE_SUBTOPICS,
+    topics = DOC_OUTLINE_TOPICS if documentary else OUTLINE_TOPICS
+    total = DOC_OUTLINE_TOPICS * DOC_BASE_VIDEOS if documentary else OUTLINE_SUBTOPICS
+    data = curriculum_gen.plan_outline(stand_in, topic_count=topics, total_subtopics=total,
                                        subject_hint=subject)
     return data.get("topics") or []

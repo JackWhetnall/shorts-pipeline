@@ -146,6 +146,9 @@ def fill(key):
     data = request.get_json(force=True, silent=True) or {}
     wanted = as_int(data.get("count"), 1, 1, 10)
     only = (data.get("topic_id") or "").strip()
+    # How many videos to write for the one topic asked for (its target
+    # otherwise); the owner chooses it on the plan page.
+    videos = as_int(data.get("videos"), 0, 0, 200) if only else 0
 
     from pipeline.curriculum_gen import fill_topic
 
@@ -156,7 +159,9 @@ def fill(key):
         if topic is None or (only and topic.get("filled")):
             break
         try:
-            subtopics = fill_topic(channel, topic)
+            if videos:
+                topic = curriculum.set_topic_target(key, topic["id"], videos)
+            subtopics = fill_topic(channel, topic, videos or None)
         except PipelineError as exc:
             log.warning(f"{key}: subtopics for {topic['id']} failed: {exc}")
             # Partial success is still success: report what was written
@@ -260,6 +265,28 @@ def add_subtopics_by_hand(key, topic_id):
     before = curriculum.progress(key)["total"]
     curriculum.add_subtopics(key, topic_id, [{"title": t} for t in typed])
     return jsonify({"ok": True, "added": curriculum.progress(key)["total"] - before})
+
+
+@bp.route("/api/channels/<key>/curriculum/<topic_id>/more", methods=["POST"])
+def more_videos(key, topic_id):
+    """More videos for a topic that has room for them, written to follow
+    on from what it has."""
+    channel = channel_or_404(key)
+    _require_plan(key)
+    topic = curriculum.find_topic(key, topic_id)
+    if topic is None:
+        abort(404, description="That topic is no longer in the plan.")
+    if channel.format == "quiz":
+        return jsonify({"error": "A quiz category's rounds are added by rule: use Another set."}), 400
+    count = as_int((request.get_json(force=True, silent=True) or {}).get("count"), 10, 1, 100)
+    from pipeline.curriculum_gen import more_for_topic
+    try:
+        written = more_for_topic(channel, topic, count)
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 502
+    have = len(curriculum.subtopics(key, topic_id=topic_id))
+    curriculum.set_topic_target(key, topic_id, max(have, topic.get("target_subtopics", 0)))
+    return jsonify({"ok": True, "added": len(written)})
 
 
 @bp.route("/api/channels/<key>/curriculum/<topic_id>/rename", methods=["POST"])

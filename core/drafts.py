@@ -38,13 +38,16 @@ def _path(draft_id: str) -> Path:
     return safe_join(DRAFTS_DIR, f"{draft_id}.json")
 
 
-def create(pitch: str, note: str = "", previous: dict = None) -> dict:
-    """Draft a channel from a pitch and save it. Returns the saved draft."""
+def create(pitch: str, note: str = "", previous: dict = None, kind: str = None) -> dict:
+    """Draft a channel from a pitch and save it. Returns the saved draft.
+    `kind`: "shorts" or "documentary" (long-form, decision 074); a redraft
+    keeps the kind it had."""
     from pipeline import channel_draft
 
+    kind = kind or (previous or {}).get("kind") or "shorts"
     voices = voice_lab.get_cached_voices()
     body = channel_draft.draft(pitch, voices, note=note,
-                               previous=(previous or {}).get("channel"))
+                               previous=(previous or {}).get("channel"), kind=kind)
     topics = []
     if body.get("format") == "quiz":
         # The categories are the plan; no outline call needed.
@@ -52,12 +55,14 @@ def create(pitch: str, note: str = "", previous: dict = None) -> dict:
                   for c in body["quiz_categories"]]
     elif body["content_mode"] == "topic":
         topics = channel_draft.outline(body["style_prompt"], body["subject"],
-                                       body["name_options"][0])
+                                       body["name_options"][0],
+                                       documentary=body.get("format") == "documentary")
     record = {
         "id": (previous or {}).get("id") or uuid.uuid4().hex[:12],
         "pitch": pitch.strip(),
         "notes": [*(previous or {}).get("notes", []), *([note.strip()] if note.strip() else [])],
         "created_at": time.time(),
+        "kind": kind,
         "channel": body,
         "outline": topics,
         "voices": [v for v in voices if v["voice_id"] in body["voice_ids"]],
@@ -146,6 +151,8 @@ def accept(draft_id: str, choices: dict) -> ChannelConfig:
         channel.artwork.mode = "allowed"
     if body.get("format") == "quiz":
         _set_up_quiz(channel, body, choices)
+    if body.get("format") == "documentary":
+        _set_up_documentary(channel, body, choices)
 
     # Written before the channel exists, because validation looks for them:
     # a quote channel needs its list, a topic channel its plan.
@@ -157,7 +164,10 @@ def accept(draft_id: str, choices: dict) -> ChannelConfig:
         categories = _lines(choices.get("quiz_categories")) or body["quiz_categories"]
         _start_quiz_plan(channel, body["subject"], categories)
     elif channel.content_mode == "topic":
-        _start_topic_plan(channel, body["subject"], record["outline"])
+        outline = outline_from_text(choices.get("outline"), record["outline"])
+        base = int(_number(choices.get("base_videos"), body.get("base_videos")
+                           or _base_from(record["outline"]), 1, 200))
+        _start_topic_plan(channel, body["subject"], outline, base)
 
     channel.sound.music_moods = list(body.get("music_moods") or [])
     channel_admin.create_channel(channel, complete=False)
@@ -172,6 +182,47 @@ def _lines(text) -> list:
         return []
     items = text if isinstance(text, list) else str(text).replace(",", "\n").splitlines()
     return list(dict.fromkeys(i.strip() for i in items if i and i.strip()))
+
+
+def _set_up_documentary(channel, body: dict, choices: dict) -> None:
+    """A long-form channel (decision 074): widescreen videos made in
+    approved stages, drawn in its own animation look, with teaser shorts.
+    Footage, word-by-word captions and the short-form cards don't apply."""
+    channel.format = "documentary"
+    doc = channel.documentary
+    doc.minutes = _number(choices.get("minutes"), body.get("minutes", doc.minutes), 2, 30)
+    doc.teasers = int(_number(choices.get("teasers"), body.get("teasers", doc.teasers), 0, 6))
+    channel.animation.enabled = True
+    channel.scenes.share = 100
+    channel.ordering.grouping = "topic_first"
+
+
+def outline_from_text(text, drafted: list) -> list:
+    """The topic plan as edited on the draft page: one topic a line,
+    "Title: what it covers" (or just a title), in the order given. A
+    drafted topic keeps its level when its title is kept. None given
+    means the drafted outline as it was."""
+    if text is None:
+        return drafted
+    by_title = {t["title"].strip().lower(): t for t in drafted}
+    out = []
+    for line in str(text).splitlines():
+        line = line.strip(" -\t")
+        if not line:
+            continue
+        title, _, summary = line.partition(":")
+        title, summary = title.strip(), summary.strip()
+        if not title or title.lower() in {t["title"].lower() for t in out}:
+            continue
+        old = by_title.get(title.lower(), {})
+        out.append({"title": title, "summary": summary or old.get("summary", ""),
+                    "level": old.get("level", "intermediate")})
+    return out
+
+
+def _base_from(outline: list) -> int:
+    targets = [int(t.get("target_subtopics") or 0) for t in outline if t.get("target_subtopics")]
+    return round(sum(targets) / len(targets)) if targets else 10
 
 
 def _set_up_quiz(channel, body: dict, choices: dict) -> None:
@@ -223,13 +274,17 @@ def _add_music(channel_key: str, track_ids: list) -> None:
             log.warning(f"{channel_key}: couldn't add track {track_id}: {exc}")
 
 
-def _start_topic_plan(channel, subject: str, outline: list) -> None:
+def _start_topic_plan(channel, subject: str, outline: list, base: int = None) -> None:
     """The syllabus from the draft's outline, and the first topic's videos
-    written now, so the channel can make its first video straight away."""
+    written now, so the channel can make its first video straight away.
+    `base`: how many videos each topic starts with (any topic can grow
+    from the plan page)."""
     from pipeline import curriculum_gen
 
     if not outline:
         return
+    if base:
+        outline = [{**t, "target_subtopics": base} for t in outline]
     data = curriculum.start(channel.key, subject, outline)
     first = data["topics"][0]
     try:

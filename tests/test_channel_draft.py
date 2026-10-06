@@ -121,15 +121,15 @@ def world(tmp_path, monkeypatch):
     monkeypatch.setattr(drafts.voice_lab, "get_cached_voices", lambda: VOICES)
     answers = {"body": model_answer()}
     monkeypatch.setattr(channel_draft, "draft",
-                        lambda pitch, voices, note="", previous=None:
+                        lambda pitch, voices, note="", previous=None, kind="shorts":
                         channel_draft.clean(answers["body"], VOICE_IDS))
-    monkeypatch.setattr(channel_draft, "outline", lambda style, subject, name: [
+    monkeypatch.setattr(channel_draft, "outline", lambda style, subject, name, documentary=False: [
         {"title": "What things are made of", "summary": "atoms", "level": "foundation",
          "target_subtopics": 20},
         {"title": "Forces", "summary": "pushes", "level": "intermediate", "target_subtopics": 20},
     ])
     from pipeline import curriculum_gen
-    monkeypatch.setattr(curriculum_gen, "write_subtopics", lambda channel, data, topic: [
+    monkeypatch.setattr(curriculum_gen, "write_subtopics", lambda channel, data, topic, count=None: [
         {"title": "Why you can't see atoms", "angle": "scale"},
         {"title": "What a molecule is", "angle": "joining"},
     ])

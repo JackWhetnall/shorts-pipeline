@@ -324,6 +324,17 @@ def rename_topic(channel_key: str, topic_id: str, title: str, summary: str = Non
     return topic
 
 
+def set_topic_target(channel_key: str, topic_id: str, target: int) -> dict:
+    """How many videos a topic is meant to hold: a base the owner can grow
+    one topic at a time ("American presidents" may want 15, "Famous
+    scientists" 50)."""
+    data = load(channel_key)
+    topic = _topic(data, topic_id)
+    topic["target_subtopics"] = max(1, int(target))
+    save(data)
+    return topic
+
+
 def set_topic_picture(channel_key: str, topic_id: str, kind: str) -> dict:
     """Make a quiz category a picture round of one kind (pipeline.pictures
     .KINDS), or an ordinary one with "". Its rounds already written keep
