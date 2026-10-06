@@ -15,7 +15,7 @@
 {%- endmacro %}
 
 {% macro what_it_makes(channel) -%}
-{{ 'Quiz' if channel.format == 'quiz' else {'topic': 'Explainers', 'static_corpus': 'Readings'}.get(channel.content_mode, channel.content_mode) }}
+{{ 'Quiz' if channel.format == 'quiz' else 'Documentaries' if channel.format == 'documentary' else {'topic': 'Explainers', 'static_corpus': 'Readings'}.get(channel.content_mode, channel.content_mode) }}
 {%- endmacro %}
 
 {% macro back_arrow() -%}

@@ -705,6 +705,34 @@ whatever order the ordering picks. See decisions
 [041](docs/decisions/041-quiz-format.md) and
 [042](docs/decisions/042-settings-that-apply-and-the-quiz-ladder.md).
 
+## Documentaries
+
+`format` `documentary` (decision
+[074](docs/decisions/074-documentaries-in-stages.md)) makes long
+widescreen videos, each from one plan entry, in five stages the owner
+approves one at a time (`core.production`, kept under
+`channels/<key>/productions/<entry>/`; pages under the channel's
+Productions tab, `web/blueprints/productions.py`). Each stage is a job of
+seed type `production` (`pipeline.documentary.run.run_stage`), at batch
+prices unless asked for now:
+
+- `outline`: through-line, visual concept, chapters (says, shows,
+  minutes), cast;
+- `script`: scenes with a stage direction, framing, camera move, cast,
+  caption and narration, written a chapter at a time;
+- `stills`: a keyframe per scene (`pipeline.animation.keyframes`) with
+  the style sheet and the cast's sheets, vision-checked;
+- `video`: voiced, each still held for its words with a camera move
+  (`finish.camera_shot`), chapter titles and captions overlaid, music,
+  into the long-video folder for review;
+- `teasers`: vertical shorts written, then drawn and made, into review.
+
+Changing a stage makes later ones `stale`. A channel-wide cast library
+(`channels/<key>/cast_library.json`, `pipeline.documentary.cast`) keeps
+each person's name, description and sheet across videos. The scheduler
+writes outlines ahead for the next videos (`storyboard.outline_ahead`)
+and never makes a documentary itself.
+
 ## How long a video runs
 
 `pacing.target_seconds` is the setting; the script's word budget is

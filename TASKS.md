@@ -4,7 +4,7 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 5 Oct 2026. Pub Quiz Buzz and Minute Pastor both publish
+*Last updated: 6 Oct 2026. History Unmystified is now a documentary channel: see F to H. Pub Quiz Buzz and Minute Pastor both publish
 by themselves. Do the "Now" section first. The app's new home page,
 **Today**, now lists what needs you as it happens, and **Money** shows
 costs, runway and payback; this file is for steps outside the app. The
@@ -77,6 +77,54 @@ old code until it restarts.
    ```
 3. Reload the page. If anything looks wrong or harder to find than before,
    say what and where.
+
+---
+
+## History Unmystified, the first documentary channel (6 Oct)
+
+It's now a long-form channel (decision 074): each video is made on its
+**Productions** tab in five stages you approve one at a time. Nothing is
+made until you start it, and it costs nothing until then.
+
+### F. Choose its look (10 minutes)
+Every storyboard picture on the channel is drawn in it, and the people
+in it are drawn once and reused in every later video, so choose it first.
+Drawing is refused until you do (with none, it would be felt on a
+tabletop).
+1. **Channels → History Unmystified → Settings → Animation**: pick a
+   style. "Stubby paper history", "Painted history drama" and "Engraved
+   legends" suit history, or build your own.
+2. The first storyboard draws three style frames for it; check you like
+   them before going further.
+
+### G. Decide its first topic's videos (5 minutes)
+Its plan was written for shorts, so the first topic's 30 videos are
+*moments* ("Lincoln and the Gettysburg Address", "Napoleon's Retreat
+from Moscow") rather than one person each. They'd make fine ten-minute
+films of a moment. If you'd rather each video were one whole life:
+1. **Plan tab** → the first topic → **Edit** → delete its videos (or
+   remove and re-add the topic), then **Write them** with the number you
+   want, or type the people yourself, one a line.
+2. Any topic can be given more later: **Room for more? → Write that
+   many more**.
+
+### H. Make the first one, a stage at a time (an hour of your time, about $3)
+**Productions** → the first video:
+1. **Write the outline** (2 cents). Read the chapters and the cast, and
+   edit anything; **Approve**.
+2. **Write the script** (10 cents). Each scene's stage direction and its
+   words; edit, rewrite a chapter with a note, **Approve**.
+3. **Draw the storyboard** (about $2). Redraw any picture with a note;
+   **Approve**.
+4. **Make the video** (about 1,800 voice credits). Watch it from the
+   link; it's in Review like any video. **Approve** the stage.
+5. **Write the teasers**, read them, **Approve, and make them**. They go
+   to Review as shorts.
+
+Each stage runs at batch prices (slower); tick "now, at full price" or
+press **Accelerate** on Activity to hurry one. Once you're happy, turning
+its publishing plan on makes the app write outlines ahead for the next
+videos for you to approve.
 
 ---
 
