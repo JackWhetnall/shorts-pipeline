@@ -679,7 +679,13 @@ def set_script(channel_key: str, subtopic_id: str, script: dict) -> None:
     published video, since editing the writing and deciding what to do
     with an existing video are two different actions (see `release`).
     """
-    _set(channel_key, subtopic_id, script=script, script_written_at=_now())
+    # New words haven't been looked at (core.storyboard).
+    _set(channel_key, subtopic_id, script=script, script_written_at=_now(), storyboard_approved_at=None)
+
+
+def mark_storyboard(channel_key: str, subtopic_id: str, approved: bool = True) -> None:
+    """The owner looked at this entry's storyboard and passed it (or not)."""
+    _set(channel_key, subtopic_id, storyboard_approved_at=_now() if approved else None)
 
 
 def clear_scripts(channel_key: str) -> list:

@@ -207,6 +207,13 @@ def _keep_facts(channels: dict) -> None:
     keep.keep_up(channels)
 
 
+def _storyboards(channels: dict) -> None:
+    """The next few videos' storyboards written ahead, to look at before
+    they're made (core.storyboard; at most hourly, at batch prices)."""
+    from core import storyboard
+    storyboard.keep_up(channels)
+
+
 def tick() -> None:
     """One pass of all three duties. Each is isolated from the others: a
     failed upload must not stop generation, nor either stop the stats."""
@@ -218,6 +225,7 @@ def tick() -> None:
                        ("category quizzes", lambda: fill_category_quizzes(channels)),
                        ("spare voice", lambda: _spare_voice(channels)),
                        ("fact store", lambda: _keep_facts(channels)),
+                       ("storyboards", lambda: _storyboards(channels)),
                        ("statistics", lambda: _refresh_audience(channels)),
                        ("remake kits", lambda: _sweep_kits(channels))):
         try:

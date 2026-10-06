@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Coming up · {{ channel.channel_display_name }}{% endblock %}
+{% block content %}
+{% set tab = 'coming' %}
+{% include "_channel_head.html" %}
+<p class="page-sub tab-intro">The next {{ coming_up }} videos, written ahead. Look at them if you like:
+  one you don't look at is made as it is, and every finished video still comes to review.</p>
+
+{% if note %}<p class="meta info-banner" role="status">{{ note }}</p>{% endif %}
+
+{% if writing %}
+<p class="meta info-banner">Being written now. <a href="{{ url_for('storyboard.page', key=key) }}">Refresh</a> in a minute.</p>
+{% elif boards|rejectattr('written')|list %}
+<form method="post" action="{{ url_for('storyboard.write_now', key=key) }}" class="actions">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="btn-ghost"
+          data-tooltip="Otherwise they're written within the hour at batch prices (half the cost)">Write the rest now</button>
+  <span class="hint">About a cent each; the video would have paid for it anyway.</span>
+</form>
+{% endif %}
+
+{% if not boards %}
+<div class="empty-state">
+  <p><strong>Nothing coming up.</strong></p>
+  <p>The topic plan has nothing waiting to be made.</p>
+</div>
+{% endif %}
+
+{% for b in boards %}
+<section class="card sb-card {{ 'approved' if b.approved }}" id="{{ b.id }}">
+  <div class="sb-head">
+    <div>
+      <p class="meta">{{ loop.index }}{{ ['st', 'nd', 'rd'][loop.index0] if loop.index0 < 3 else 'th' }} up{% if b.topic and b.topic != b.title %} &middot; {{ b.topic }}{% endif %}</p>
+      <h2>{{ b.title }}</h2>
+      {% if b.angle and not b.quiz %}<p class="hint">{{ b.angle }}</p>{% endif %}
+    </div>
+    {% if b.approved %}<span class="badge badge-good">Approved</span>
+    {% elif b.written %}<span class="badge">Not looked at</span>
+    {% else %}<span class="badge">Not written yet</span>{% endif %}
+  </div>
+
+  {% if b.quiz and b.written %}
+  <ol class="sb-questions">
+    {% for q in b.questions %}
+    <li class="{{ 'approved' if q.approved }}">{{ q.question }} <strong>{{ q.answer }}</strong>{% if q.picture %} <span class="meta">(picture: {{ q.picture }})</span>{% endif %}</li>
+    {% endfor %}
+  </ol>
+  <div class="actions">
+    <a class="btn btn-ghost" href="{{ url_for('quiz_review.written', key=key, subtopic_id=b.id) }}">Check the questions one by one</a>
+    {% if not b.approved %}
+    <form method="post" action="{{ url_for('quiz_review.judge_written', key=key, subtopic_id=b.id) }}" style="display: inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="index" value="all">
+      <input type="hidden" name="verdict" value="ok">
+      <input type="hidden" name="back" value="coming-up">
+      <button type="submit" class="btn-primary">They're all fine</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% elif b.written %}
+  <form method="post" action="{{ url_for('storyboard.edit', key=key, subtopic_id=b.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <ol class="sb-lines">
+      {% for s in b.segments %}
+      <li>
+        <label class="sb-said"><span class="sb-label">Said</span>
+          <textarea name="text" rows="3">{{ s.text }}</textarea></label>
+        <label class="sb-shot"><span class="sb-label">On screen</span>
+          <textarea name="shot_brief" rows="2">{{ s.shot_brief }}</textarea></label>
+      </li>
+      {% endfor %}
+    </ol>
+    <div class="actions">
+      {% if not b.approved %}
+      <button type="submit" formaction="{{ url_for('storyboard.approve', key=key, subtopic_id=b.id) }}" class="btn-primary"
+              data-tooltip="As it is, without your edits below">Approve</button>
+      {% endif %}
+      <button type="submit" class="btn-ghost">Save my changes{{ ' and approve' if not b.approved }}</button>
+    </div>
+  </form>
+  {% endif %}
+
+  {% if b.written %}
+  <details class="sb-rewrite">
+    <summary class="hint">Write it again&hellip;</summary>
+    <form method="post" action="{{ url_for('storyboard.rewrite', key=key, subtopic_id=b.id) }}" class="sb-rewrite-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if not b.quiz %}<input type="text" name="note" placeholder="What to change (optional): e.g. a stronger opening, less about dates">{% endif %}
+      <button type="submit" class="btn-ghost">Write it again</button>
+      <span class="hint">About a cent. {{ 'Another round of questions; these go back in the bank.' if b.quiz else 'Your edits above are replaced.' }}</span>
+    </form>
+  </details>
+  {% endif %}
+</section>
+{% endfor %}
+
+<style>
+  .sb-card.approved { border-color: var(--success); }
+  .sb-head { display: flex; justify-content: space-between; gap: var(--sp-3); align-items: flex-start; }
+  .sb-head h2 { margin: 0 0 var(--sp-1); }
+  .sb-questions { margin: var(--sp-3) 0; padding-left: 1.4rem; display: grid; gap: var(--sp-1); }
+  .sb-questions li.approved::marker { color: var(--success); }
+  .sb-questions strong { color: var(--accent); margin-left: var(--sp-1); }
+  .sb-lines { list-style: none; padding: 0; margin: var(--sp-3) 0; display: grid; gap: var(--sp-3); counter-reset: line; }
+  .sb-lines li { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+  .sb-lines label { display: grid; gap: var(--sp-1); }
+  .sb-lines textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+  .sb-shot textarea { color: var(--text-dim); }
+  .sb-label { font-size: .8rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; }
+  .sb-rewrite-form { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; margin-top: var(--sp-2); }
+  .sb-rewrite-form input { flex: 1 1 18rem; }
+  @media (max-width: 700px) { .sb-lines li { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}

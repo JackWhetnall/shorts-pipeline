@@ -610,6 +610,15 @@ then Sonnet checks each category's questions against its own definition.
 A new, edited or renamed category is sorted again before its next round.
 See decision [060](docs/decisions/060-category-scopes.md).
 
+**Coming up** (`core/storyboard.py`, `web/blueprints/storyboard.py`, a channel
+tab) shows the next three plan entries as storyboards: each one's stored
+script, the lines with their shot briefs or a quiz's questions, written
+ahead hourly at batch prices for channels that publish. They're pinned
+on the plan (`coming_up`, honoured by `core.ordering` after "Make
+next"), so the three shown are the three made. Approving, editing or
+rewriting one is optional: one not looked at is made as it is
+([073](docs/decisions/073-storyboards-ahead.md)).
+
 **Question review** (`pipeline/quiz_review.py`, `web/blueprints/quiz_review.py`)
 lays a round's questions out to judge one by one: fine, too easy, too
 hard, wrong, reworded or in the wrong category. Too easy or too hard

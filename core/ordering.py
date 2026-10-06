@@ -51,6 +51,12 @@ def choose_next_subtopic(channel, curriculum_data: dict = None, rng=None) -> dic
                    and row["status"] == curriculum.PENDING), None)
     if queued is not None:
         return queued
+    # Then the ones pinned as coming up, whose storyboards the owner may
+    # have looked at (core.storyboard), in their order.
+    pending_ids = {row["id"]: row for row in subtopics if row["status"] == curriculum.PENDING}
+    pinned = next((pending_ids[i] for i in data.get("coming_up") or [] if i in pending_ids), None)
+    if pinned is not None:
+        return pinned
 
     pending_topics = [t for t in topics if _pending(by_topic, t["id"])]
     if not pending_topics:

@@ -90,6 +90,8 @@ def judge_written(key, subtopic_id):
     except PipelineError as exc:
         return _back("quiz_review.written", exc.user_message, key=key, subtopic_id=subtopic_id)
     curriculum.set_script(key, subtopic_id, script)
+    if request.form.get("back") == "coming-up":
+        return redirect(url_for("storyboard.page", key=key, note=_summary(notes), _anchor=subtopic_id))
     return _back("quiz_review.written", _summary(notes), key=key, subtopic_id=subtopic_id)
 
 
