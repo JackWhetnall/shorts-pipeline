@@ -39,6 +39,95 @@ def _channel(n=3):
     return channel
 
 
+class TestHostLines:
+    """The owner's examples of lines that were jarring (6 Oct): a lead-in
+    that corrects itself, a milestone in the wrong place, and an answer
+    that "elaborates" by saying the question back."""
+
+    @pytest.mark.parametrize("line, n", [
+        ("Halfway there... wait, I mean number eight.", 8),
+        ("Science now... actually this is geography. Question four.", 4),
+        ("Halfway there, question seven.", 7),
+        ("Seven, let's get metallic for a moment.", 6),
+        ("Last one, number nine!", 9),
+        ("On to the next.", 4),
+    ])
+    def test_a_bad_lead_in_is_replaced_with_a_plain_one(self, line, n):
+        assert not quiz.lead_in_ok(line, n, 10)
+
+    @pytest.mark.parametrize("line, n", [
+        ("Number eight.", 8), ("Question five, halfway there.", 5), ("Last one.", 10),
+        ("Nearly there, question eight.", 8), ("Question 6.", 6), ("Two to go, number eight.", 8),
+    ])
+    def test_a_good_lead_in_stands(self, line, n):
+        assert quiz.lead_in_ok(line, n, 10)
+
+    @pytest.mark.parametrize("question, answer, spoken, plain", [
+        ("Which French king was known as the Sun King?", "Louis XIV",
+         "Louis the Fourteenth, he was called the Sun King.", "Louis the Fourteenth."),
+        ("What is the capital of China?", "Beijing", "Beijing. Beijing is the capital of China.", "Beijing."),
+        ("Who wrote The Lord of the Rings trilogy?", "J.R.R. Tolkien",
+         "J.R.R. Tolkien wrote The Lord of the Rings.", "J.R.R. Tolkien."),
+        ("Which ancient wonder, located in Egypt, is the only one still standing today?",
+         "Great Pyramid of Giza", "The Great Pyramid of Giza. It's the only one of the seven ancient "
+         "wonders still standing.", "The Great Pyramid of Giza."),
+        ("How many grams are there in a kilogram?", "1000", "1000. There are 1000 grams in a kilogram.", "1000."),
+    ])
+    def test_an_answer_that_says_the_question_back_is_cut_to_the_answer(self, question, answer, spoken, plain):
+        assert quiz.answer_adds_nothing(question, answer, spoken)
+        assert quiz.plain_answer(question, answer, spoken) == plain
+
+    @pytest.mark.parametrize("question, answer, spoken", [
+        ("Which planet is closest to the Sun?", "Mercury", "Mercury. It's also the smallest planet."),
+        ("Who painted the Mona Lisa?", "Leonardo da Vinci", "Leonardo da Vinci, painted around 1503."),
+        ("What is the capital of China?", "Beijing", "Beijing. Beijing."),
+        ("Which element has the symbol Au?", "Gold", "It's gold."),
+    ])
+    def test_a_real_addition_or_a_plain_answer_stands(self, question, answer, spoken):
+        assert not quiz.answer_adds_nothing(question, answer, spoken)
+
+    def test_a_round_is_put_right_as_it_becomes_a_script(self):
+        data = _round(3)
+        data["questions"][1]["lead_in"] = "Halfway... wait, I mean number two."
+        data["questions"][2]["spoken_answer"] = "A3. That's the answer to Q question number 3."
+        script = quiz.to_script(data, _channel(), "Science", "Easy")
+        assert script.segments[3].text == "Number two. Q question number 2?"
+        assert script.quiz["questions"][2]["spoken_answer"] == "A3."
+        assert script.segments[6].text == "A3."
+
+    def test_a_round_written_ahead_is_put_right_when_its_made(self):
+        from pipeline.plan import Script
+        script = quiz.to_script(_round(3), _channel(), "Science", "Easy")
+        stored = script.to_jsonable()
+        stored["segments"][3]["text"] = "Last one, number seven. Q question number 2?"
+        stored["quiz"]["questions"][1]["spoken_answer"] = "A2, the answer to Q question number 2."
+        back = Script.from_jsonable(stored)
+        assert quiz.retidy(back)
+        assert back.segments[3].text == "Number two. Q question number 2?"
+        assert back.segments[4].text == "A2." and back.quiz["questions"][1]["spoken_answer"] == "A2."
+
+
+class TestIntrosAndSignOffs:
+    def test_the_writer_is_shown_the_recent_ones_and_told_to_vary(self, monkeypatch):
+        # The owner: every intro said keep tally, every sign-off asked for
+        # the score in the comments.
+        made = [{"video": "v1", "hook": "h", "intro": "Keep tally, here we go.",
+                 "outro": "Pop your score in the comments!", "questions": []}]
+        monkeypatch.setattr(quiz, "bank", lambda key: made)
+        monkeypatch.setattr(quiz, "_written", lambda key: [])
+        text = quiz._user("Science", "Easy", 3, _channel(), ([], []), "")
+        assert "Keep tally, here we go." in text and "Pop your score in the comments!" in text
+        assert "subscribe" in quiz.SYSTEM and "no ask at all" in quiz.SYSTEM
+        assert "invitation to keep score, ending" not in quiz.SYSTEM
+
+    def test_a_made_round_remembers_its_intro_and_sign_off(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(quiz, "_bank_path", lambda key: tmp_path / "bank.json")
+        script = quiz.to_script(_round(3), _channel(), "Science", "Easy")
+        quiz.remember("pub_quiz", "v1", script)
+        assert quiz.recent_lines("pub_quiz", "outro") == ["How many did you get?"]
+        assert quiz.recent_lines("pub_quiz", "intro")[0].startswith("Today's quiz")
+
+
 class TestScript:
     def test_questions_are_followed_by_their_countdown_then_the_answer(self):
         script = quiz.to_script(_round(), _channel(), "Science", "Easy")

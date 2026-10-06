@@ -636,7 +636,12 @@ def _stored_script(plan) -> Script:
     row = curriculum.find(plan.channel.key, plan.seed.topic_id)
     if not row or not row.get("script"):
         return None
-    return Script.from_jsonable(row["script"])
+    script = Script.from_jsonable(row["script"])
+    if script.quiz:
+        # Written ahead, perhaps before the host's lines were checked.
+        from pipeline import quiz
+        quiz.retidy(script)
+    return script
 
 
 def preview_script(seed: Seed, channel) -> Script:

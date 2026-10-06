@@ -74,9 +74,11 @@ as it's said: the first second decides whether someone keeps watching.
   telling anyone to leave or scroll on.
 
 The intro (1-2 sentences, under 30 words), straight after the hook: how
-hard this one is and an invitation to keep score, ending by leading
-straight into question one (so the first question needs no lead-in of
-its own). Vary the wording from video to video.
+hard this one is, ending by leading straight into question one (so the
+first question needs no lead-in of its own). Only sometimes invite them
+to keep score; other times it's play along, shout it out, or no
+invitation at all. This channel's recent intros are listed with each
+request: don't reuse their wording or their shape.
 
 Each question:
 - `question`: the complete question as shown and read. One sentence,
@@ -88,12 +90,14 @@ Each question:
   disagree, don't ask it.
 - `answer`: the answer as it appears on the board: a name, a number, a
   word or a very short phrase, 1-4 words.
-- `spoken_answer`: how the host gives it, under 14 words. When the
-  answer is short, the host usually says it twice, sometimes with the
-  question's context the second time ("Beijing. Beijing is the capital
-  of China."), now and then with a quick fact, often just plainly. Mix
-  these across the round; not the same shape every time. Any fact the
-  host adds must be as certain as the answer.
+- `spoken_answer`: how the host gives it, under 14 words. Often just
+  plainly, sometimes said twice when it's short ("Beijing. Beijing."),
+  now and then with a quick fact the question didn't already give (a
+  date, a one-clause reason). Never repeat the question back as if it
+  were extra ("Louis the Fourteenth, he was known as the Sun King" when
+  the question asked who the Sun King was): no addition is better than
+  a repeat. Mix these across the round; not the same shape every time.
+  Any fact the host adds must be as certain as the answer.
 - Read each question back as a sentence: it must be grammatical and say
   exactly one thing ("What is the boundary between the crust and the
   mantle called?", never "What is the name of ... called?").
@@ -103,9 +107,12 @@ Each question:
 - Everything spoken is read by a voice engine exactly as written. No
   dashes in anything spoken.
 - `lead_in`: for every question after the first, the host's short move
-  to it, which says its number: "Question two.", "Number three." and so
-  on, with the odd bit of colour ("halfway there", "last one"). Under 7
-  words. Empty for the first question.
+  to it, which says its own number: "Question two.", "Number three." and
+  so on, now and then with a bit of colour that's true at that point
+  ("halfway there" only at the middle question, "last one" only before
+  the last). Never a correction, aside or change of mind ("wait", "I
+  mean", "actually", "scratch that"), and never a mention of any other
+  category. Under 7 words. Empty for the first question.
 
 Difficulty is given as a level on this 1-10 scale. The level is what
 counts; the label is only this channel's name for it.
@@ -122,9 +129,11 @@ the first question or two.
 Cover the category broadly, not one narrow corner of it, and never ask
 two questions whose answers give each other away.
 
-The sign-off (under 30 words): ask how many they got, and either for
-their score and next category in the comments or to send it to a friend
-to see how they do. Vary it.
+The sign-off (under 30 words): ask how many they got, then at most one
+ask of the viewer, rotated: their score in the comments, which category
+to run next, send it to a mate, subscribe or follow for more rounds, or
+simply a warm goodbye with no ask at all. The recent sign-offs are
+listed with each request: don't make the same ask as the last few.
 
 Titles: short (under 60 characters), naming the category and the
 difficulty, inviting the viewer to test themselves. No claims you can't
@@ -467,7 +476,7 @@ def remember(channel_key: str, video: str, script: Script) -> None:
     quiz = script.quiz or {}
     rounds = [r for r in bank(channel_key) if r.get("video") != video]
     rounds.append({"video": video, "category": base_category(quiz.get("category", "")),
-                   **({"hook": quiz["hook"]} if quiz.get("hook") else {}),
+                   **{k: quiz[k] for k in ("hook", "intro", "outro") if quiz.get(k)},
                    "questions": [{"question": q.get("question", ""), "answer": q.get("answer", ""),
                                   **({"kind": q["kind"], "subject": q.get("subject", "")}
                                      if q.get("kind") else {})}
@@ -512,6 +521,17 @@ def recent_openings(channel_key: str) -> list:
     what a new round's opening mustn't repeat."""
     rounds = [q for _, q in _written(channel_key)] + [q for _, q in _made(channel_key)]
     return [r["hook"] for r in rounds if r.get("hook")][:OPENINGS_SHOWN]
+
+
+LINES_SHOWN = 8
+
+
+def recent_lines(channel_key: str, field: str) -> list:
+    """This channel's latest intros or sign-offs ("intro", "outro"),
+    newest first: every intro said "keep tally" and every sign-off asked
+    for the score in the comments until the writer was shown them."""
+    rounds = [q for _, q in _written(channel_key)] + [q for _, q in _made(channel_key)]
+    return [r[field] for r in rounds if r.get(field)][:LINES_SHOWN]
 
 
 def _keywords(text: str) -> set:
@@ -747,6 +767,11 @@ def _user(category: str, difficulty: str, count: int, channel, context: tuple, e
         text += ("This channel's recent hooks, newest first. Don't repeat one, or begin "
                  "the way the first few begin:\n"
                  + "\n".join(f"- {hook}" for hook in openings) + "\n\n")
+    for field, name in (("intro", "intros"), ("outro", "sign-offs")):
+        said = recent_lines(channel.key, field)
+        if said:
+            text += (f"This channel's recent {name}, newest first. Vary from these:\n"
+                     + "\n".join(f"- {line}" for line in said) + "\n\n")
     return text + extra
 
 
@@ -1298,11 +1323,176 @@ def no_level(text: str) -> str:
     return " ".join(_LEVEL_MENTION.sub("", text or "").split()).strip(" :-,")
 
 
+# --- the host's lines, checked ---------------------------------------------
+#
+# Two kinds of line the owner found jarring, caught here as well as asked
+# against in the prompt, since the prompt alone didn't stop them:
+#   - a lead-in that corrects itself or says the wrong thing for where it
+#     is ("halfway there... wait, I mean number eight", "science now...
+#     actually this is geography"), replaced by a plain "Question eight.";
+#   - an answer that "elaborates" by saying the question back ("Louis the
+#     Fourteenth, he was called the Sun King"), cut back to the answer.
+
+NUMBER_WORDS = ("zero one two three four five six seven eight nine ten eleven twelve "
+                "thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()
+ORDINALS = ("zeroth first second third fourth fifth sixth seventh eighth ninth tenth eleventh "
+            "twelfth thirteenth fourteenth fifteenth sixteenth seventeenth eighteenth "
+            "nineteenth twentieth").split()
+SELF_CORRECTION = re.compile(r"\b(wait|i mean|actually|scratch that|sorry|oops|hang on|"
+                             r"correction|my mistake|or rather|no no)\b", re.I)
+HALFWAY = re.compile(r"\bhalf\s?way\b", re.I)
+LAST = re.compile(r"\b(last|final)\b", re.I)
+NEARLY = re.compile(r"\b(nearly|almost) (there|done)\b|\bhome (stretch|straight)\b", re.I)
+
+
+def _numbers_in(text: str) -> set:
+    """The question numbers a line mentions ("one" left out: "last one",
+    "this one")."""
+    found = set()
+    for w in re.findall(r"[a-z0-9]+", text.lower()):
+        if w.isdigit():
+            found.add(int(w))
+        elif w in NUMBER_WORDS[2:]:
+            found.add(NUMBER_WORDS.index(w))
+        elif w in ORDINALS[2:]:
+            found.add(ORDINALS.index(w))
+    return found
+
+
+def lead_in_ok(lead_in: str, n: int, count: int) -> bool:
+    """Whether question `n` of `count`'s lead-in can stand: it doesn't
+    correct itself, any number it says is its own, and any milestone is
+    true here. One that says neither its number nor a milestone is
+    replaced too: the viewer keeps count by it."""
+    if not lead_in or SELF_CORRECTION.search(lead_in):
+        return False
+    numbers = _numbers_in(lead_in)
+    if numbers and n not in numbers:
+        return False
+    milestone = False
+    if HALFWAY.search(lead_in):
+        if n not in {count // 2, count // 2 + 1, (count + 1) // 2}:
+            return False
+        milestone = True
+    if LAST.search(lead_in):
+        if n != count:
+            return False
+        milestone = True
+    if NEARLY.search(lead_in):
+        if n < count - 3 or n == count:
+            return False
+        milestone = True
+    return n in numbers or milestone
+
+
+def plain_lead_in(n: int) -> str:
+    said = NUMBER_WORDS[n] if n < len(NUMBER_WORDS) else str(n)
+    return f"{'Question' if n % 2 else 'Number'} {said}."
+
+
+ANSWER_FILLER = frozenset("""
+called known named name was were is are it its it's he she they his her their them this that
+these those the a an of in on to and as also for by with from at be been being one which what
+who whose where when how did does do had has have there here yes right correct answer that's
+he's she's they're famously so course indeed well
+""".split())
+
+
+def _content(text: str) -> set:
+    out = set()
+    for w in re.findall(r"[a-z0-9']+", (text or "").lower()):
+        w = w.strip("'")
+        if len(w) < 2 or w in ANSWER_FILLER:
+            continue
+        if len(w) > 4 and w.endswith("ies"):
+            w = w[:-3] + "y"
+        elif len(w) > 3 and w.endswith("s") and not w.endswith("ss"):
+            w = w[:-1]
+        out.add(w)
+    return out
+
+
+def _first_clause(spoken: str) -> str:
+    return re.split(r"[.,;:!?]", spoken, maxsplit=1)[0].strip()
+
+
+def answer_adds_nothing(question: str, answer: str, spoken: str) -> bool:
+    """Whether the spoken answer's extra words only say the question back.
+    The answer said plainly or twice is fine; so is a real addition."""
+    said = _content(spoken)
+    lead = _first_clause(spoken)
+    # The answer as the host says it ("Louis the Fourteenth" for "Louis XIV").
+    named = _content(answer)
+    if len(lead.split()) <= 5 and not (_content(lead) - named) & _content(question):
+        named |= _content(lead)
+    extra = said - named
+    if not extra:
+        return False
+    new = extra - _content(question)
+    if any(ch.isdigit() for w in new for ch in w):
+        return False
+    return not new or (len(new) == 1 and len(extra) >= 4)
+
+
+def plain_answer(question: str, answer: str, spoken: str) -> str:
+    """The spoken answer without its echo of the question: the answer as
+    the host first says it, else the answer."""
+    said = re.match(r"\s*((?:the |a |an )?" + re.escape(answer.rstrip(".")) + ")", spoken, re.I)
+    if said:
+        return said.group(1) + "."
+    lead = _first_clause(spoken)
+    if lead and len(lead.split()) <= 6 and not (_content(lead) - _content(answer)) & _content(question):
+        return lead + "."
+    return answer.rstrip(".") + "."
+
+
+def tidy_lines(questions: list) -> list:
+    """Put right the host lines above, in place. Returns what changed, for
+    the log. A lead-in of None is left alone (not known)."""
+    changed = []
+    count = len(questions)
+    for i, q in enumerate(questions):
+        n = i + 1
+        if i and q.get("lead_in") is not None and not lead_in_ok(q["lead_in"], n, count):
+            changed.append(f"Q{n} lead-in {q.get('lead_in', '')!r}")
+            q["lead_in"] = plain_lead_in(n)
+        spoken = q.get("spoken_answer") or ""
+        if spoken and answer_adds_nothing(q.get("question", ""), q.get("answer", ""), spoken):
+            changed.append(f"Q{n} answer {spoken!r}")
+            q["spoken_answer"] = plain_answer(q.get("question", ""), q.get("answer", ""), spoken)
+    if changed:
+        log.info("  [quiz] host lines put right: " + "; ".join(changed))
+    return changed
+
+
+def retidy(script) -> list:
+    """tidy_lines for a round already turned into a script: one written
+    ahead before the checks existed. Its segments and questions are put
+    right in place."""
+    quiz = getattr(script, "quiz", None) or {}
+    questions = quiz.get("questions") or []
+    rows = []
+    for q in questions:
+        ask = script.segments[q["ask"]].text
+        lead = ask[:-len(q["question"])].strip() if ask.endswith(q["question"]) else None
+        rows.append({"lead_in": lead, "question": q["question"], "answer": q["answer"],
+                     "spoken_answer": q.get("spoken_answer") or script.segments[q["reveal"]].text})
+    changed = tidy_lines(rows)
+    for q, row in zip(questions, rows):
+        if row["lead_in"] is not None:
+            script.segments[q["ask"]].text = f"{row['lead_in']} {q['question']}".strip()
+        if row["spoken_answer"] != q.get("spoken_answer"):
+            q["spoken_answer"] = row["spoken_answer"]
+            script.segments[q["reveal"]].text = row["spoken_answer"]
+    return changed
+
+
 def to_script(data: dict, channel, category: str, difficulty: str,
               unverified: list = ()) -> Script:
     """Spoken segments: intro, then question and answer for each, then
     the sign-off. The silence after each question is its countdown."""
     quiz = channel.quiz
+    tidy_lines(data["questions"])
     hook = (data.get("hook") or "").strip()
     segments = ([Segment(text=hook)] if hook else []) + [Segment(text=data["intro"].strip())]
     rows = []
@@ -1324,6 +1514,7 @@ def to_script(data: dict, channel, category: str, difficulty: str,
                   description_body=no_level(data.get("description_body") or ""),
                   quiz={"category": category, "difficulty": difficulty, "questions": rows,
                         "hook": hook,
+                        "intro": data["intro"].strip(), "outro": data["outro"].strip(),
                         "countdown": float(quiz.countdown_seconds),
                         "unverified": list(unverified),
                         # Respellings for the voice only (pipeline.tts.speakable).

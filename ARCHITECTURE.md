@@ -671,6 +671,13 @@ only:
   (`quiz.next_number`). Each question segment carries
   `pause_after`, the countdown. The round is fact-checked by an
   independent call that must list every correct answer before judging.
+  The host's lines are checked locally as the round becomes a script
+  (`quiz.tidy_lines`, and `quiz.retidy` for one written ahead): a
+  lead-in that corrects itself or misplaces a milestone becomes
+  "Question eight.", and an answer that only says the question back is
+  cut to the answer. The writer sees the channel's recent hooks, intros
+  and sign-offs, to vary them
+  ([070](docs/decisions/070-quiz-polish.md)).
 - `visuals` films one board for the whole video.
 
 Captions are off (`style.captions_enabled`), and the clock's ticks are
