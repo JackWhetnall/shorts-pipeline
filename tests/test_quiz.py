@@ -67,6 +67,28 @@ class TestScript:
         assert "Q question number 2? A2" in text
         assert "Starting with question one" not in text and "Question 2." not in text
 
+    def test_two_flag_rounds_arent_copies_because_they_ask_alike(self, tmp_path):
+        # The owner: picture rounds were flagged as similar, but every
+        # flag question is worded the same by design.
+        from types import SimpleNamespace
+
+        from pipeline import similarity
+
+        def flags(countries):
+            qs = [{"question": "Which country's flag is this?", "answer": c, "subject": c,
+                   "kind": "flags"} for c in countries]
+            return SimpleNamespace(quiz={"questions": qs}, segments=[], citation=None)
+
+        history = tmp_path / "history.json"
+        similarity.record("pq", "one", flags(["France", "Japan", "Brazil", "Kenya", "Chile"]),
+                          path=history)
+        fresh = similarity.check("pq", flags(["Peru", "Italy", "Ghana", "Nepal", "Spain"]),
+                                 path=history)
+        assert not fresh.flagged
+        again = similarity.check("pq", flags(["France", "Japan", "Brazil", "Kenya", "Chile"]),
+                                 path=history)
+        assert again.flagged, "the same flags asked again is still a repeat"
+
     def test_a_script_round_trips_through_a_checkpoint(self):
         from pipeline.plan import Script
         script = quiz.to_script(_round(), _channel(), "Science", "Easy")

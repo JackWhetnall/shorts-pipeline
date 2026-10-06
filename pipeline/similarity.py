@@ -135,9 +135,13 @@ def script_text(script) -> str:
     # ("question four...") is the same in every quiz and would make each
     # one look like a copy of the last; a question asked again is exactly
     # what this should catch.
+    # A picture round asks the same question every time ("which country's
+    # flag is this?") by design, so two flag rounds looked like copies of
+    # each other. What's pictured is what it asks; that's its words.
     quiz = getattr(script, "quiz", None)
     if quiz:
-        return " ".join(f"{q.get('question', '')} {q.get('answer', '')}"
+        return " ".join(str(q.get("subject") or q.get("answer", "")) if q.get("kind")
+                        else f"{q.get('question', '')} {q.get('answer', '')}"
                         for q in quiz.get("questions") or [])
     segments = list(script.segments)
     source = getattr(script, "source_index", 0 if script.citation else None)
