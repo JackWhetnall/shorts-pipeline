@@ -55,7 +55,7 @@ from pathlib import Path
 
 from core.errors import PipelineError
 from core.logging_setup import get_logger
-from core.paths import PROJECT_ROOT, safe_join
+from core.paths import PROJECT_ROOT, safe_join, write_atomically
 
 log = get_logger(__name__)
 
@@ -161,11 +161,7 @@ def save(data: dict) -> None:
     would mean regenerating subtopics that have been published.
     """
     data["version"] = SCHEMA_VERSION
-    path = path_for(data["channel"])
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    temporary.replace(path)
+    write_atomically(path_for(data["channel"]), json.dumps(data, indent=2, ensure_ascii=False))
 
 
 def _now() -> str:

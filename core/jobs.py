@@ -429,8 +429,9 @@ def _advance_queue() -> None:
             # Loop round and try the next one instead of stranding the queue.
 
 
-UPDATING = ("The app was updated since it started and is restarting to pick "
-            "the update up. Try again in a minute.")
+UPDATING = ("The app was updated and restarts onto the update as soon as the video it's "
+            "making now is finished (Activity shows it). Nothing new starts until then; "
+            "try again after that.")
 
 
 def busy() -> bool:

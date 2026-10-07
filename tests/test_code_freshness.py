@@ -63,7 +63,7 @@ def test_new_jobs_are_refused_while_stale(monkeypatch):
     monkeypatch.setattr(code_freshness, "is_stale", lambda: True)
     with pytest.raises(jobs.JobError) as err:
         jobs.start_job("minute_pastor", {"type": "topic", "topic": "x"})
-    assert "restarting" in err.value.user_message
+    assert "restarts onto the update" in err.value.user_message
 
 
 def test_restart_relaunches_the_original_command_then_exits(monkeypatch):

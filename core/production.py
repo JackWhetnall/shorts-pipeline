@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.errors import PipelineError
-from core.paths import CHANNELS_DIR, safe_join
+from core.paths import CHANNELS_DIR, safe_join, write_atomically
 
 STAGES = ("outline", "script", "stills", "video", "teasers")
 LABELS = {"outline": "Outline", "script": "Script", "stills": "Storyboard", "video": "Video",
@@ -89,11 +89,7 @@ def load(channel_key: str, subtopic_id: str, title: str = "") -> dict:
 
 
 def save(channel_key: str, data: dict) -> None:
-    path = _path(channel_key, data["subtopic_id"])
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
-    temporary.replace(path)
+    write_atomically(_path(channel_key, data["subtopic_id"]), json.dumps(data, indent=1, ensure_ascii=False))
 
 
 def all_for(channel_key: str) -> list:

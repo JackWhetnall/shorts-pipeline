@@ -709,6 +709,10 @@ tune.
 
 ## Done
 
+- 7 Oct: Pub Quiz Buzz's "General Knowledge: Hard Round" missed its 6 Oct upload (a
+  temporary YouTube error); it's back in its queue and goes out at 18:00. Uploads now
+  retry such errors (decision 077). Its topic plan file was damaged overnight and is
+  repaired (a copy of the damaged one is in `cache/`).
 - 6 Oct: Minute Pastor's YouTube reconnected; its numbers refresh again.
 - 6 Oct: The long-form plan's seven decisions agreed, all as recommended:
   History Unmystified as the pilot, illustrated stills, 12 minutes twice a

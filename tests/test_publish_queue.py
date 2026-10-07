@@ -38,12 +38,19 @@ def world(tmp_path, monkeypatch):
     monkeypatch.setattr(gallery, "_channel_key_for", lambda path: "c")
     monkeypatch.setattr("core.channels.load_channels", lambda validate=True: {"c": channel})
 
-    state = {"connected": True, "fail": False, "locked": False, "uploads": []}
+    state = {"connected": True, "fail": False, "fail_status": None, "fail_times": 0,
+             "locked": False, "uploads": []}
 
     def upload(key, path, title, description, **kwargs):
         state["uploads"].append(title)
+        if state["fail_times"]:
+            state["fail_times"] -= 1
+            raise ExternalServiceError("YouTube", "500 Internal error encountered.",
+                                       user_message="YouTube wouldn't start the upload (HTTP 500).",
+                                       status=state["fail_status"])
         if state["fail"]:
-            raise ExternalServiceError("YouTube", "boom", user_message="YouTube said no.")
+            raise ExternalServiceError("YouTube", "boom", user_message="YouTube said no.",
+                                       status=state["fail_status"])
         return {"url": f"https://www.youtube.com/watch?v={len(state['uploads']):011d}",
                 "locked_private": state["locked"]}
 
@@ -125,6 +132,39 @@ class TestPublishing:
         assert "back in review" in gallery.load_report(path)["autopilot"]["message"]
         # And nothing was handed off for TikTok on the strength of it.
         assert not info["handoff"]
+
+    def test_a_temporary_youtube_failure_is_tried_again_not_sent_back(self, world):
+        """Regression (decision 077): on 6 Oct a single "500 Internal error
+        encountered" sent Pub Quiz Buzz's approved video back to review and
+        its slot went by."""
+        path = world.video("a")
+        world.state.update(fail_status=500, fail_times=2)
+        at = local(2026, 9, 24, 18, 1)
+        for minutes in (0, 5):
+            results = publish_queue.publish_due({"c": world.channel}, now=at + timedelta(minutes=minutes))
+            assert "trying again" in results[0]
+            assert gallery.load_publish_info(path)["queued_at"]           # still queued
+        publish_queue.publish_due({"c": world.channel}, now=at + timedelta(minutes=10))
+        assert gallery.load_publish_info(path)["youtube_url"]
+        assert len(world.state["uploads"]) == 3
+        # And the slot is used once: nothing more goes out until the next one.
+        world.video("b")
+        assert publish_queue.publish_due({"c": world.channel}, now=at + timedelta(minutes=15)) == []
+
+    def test_a_temporary_failure_that_lasts_goes_back_to_review_in_the_end(self, world):
+        path = world.video("a")
+        world.state.update(fail=True, fail_status=503)
+        at = local(2026, 9, 24, 18, 1)
+        results = [publish_queue.publish_due({"c": world.channel}, now=at + timedelta(minutes=5 * i))
+                   for i in range(publish_queue.RETRY_TRIES)]
+        assert all("trying again" in r[0] for r in results[:-1]) and "upload failed" in results[-1][0]
+        assert not gallery.load_publish_info(path)["queued_at"]
+
+    def test_a_refusal_goes_back_to_review_at_once(self, world):
+        path = world.video("a")
+        world.state.update(fail=True, fail_status=403)
+        results = publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 24, 18, 1))
+        assert "upload failed" in results[0] and not gallery.load_publish_info(path)["queued_at"]
 
     def test_posting_by_hand_lists_it_to_post_and_leaves_review(self, world):
         world.state["connected"] = False

@@ -21,6 +21,7 @@ correct.
 from __future__ import annotations
 
 import re
+import threading
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -148,3 +149,45 @@ def relative_to_output(path: Path) -> str:
     video (`minute_pastor/2026-09-03/john_3_16.mp4`). Always forward
     slashes — these end up in URLs, and this project runs on Windows."""
     return str(Path(path).resolve().relative_to(OUTPUT_DIR)).replace("\\", "/")
+
+
+def write_atomically(path: Path, text: str) -> None:
+    """Write `text` to `path` so a reader only ever sees the old file or the
+    new one. Each write goes through its own temporary file: a temporary
+    name shared by every writer let two saves at once interleave into one
+    file, which is how Pub Quiz Buzz's topic plan was found with half of an
+    older copy after its end on 7 Oct (decision 077)."""
+    import os
+    import tempfile
+    import time
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with _write_lock(path):
+        handle, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8") as f:
+                f.write(text)
+            # Windows refuses to replace a file another process has open for
+            # a moment (a reader, a virus scanner); that passes.
+            for attempt in range(20):
+                try:
+                    os.replace(temporary, path)
+                    break
+                except PermissionError:
+                    if attempt == 19:
+                        raise
+                    time.sleep(0.05)
+        except BaseException:
+            Path(temporary).unlink(missing_ok=True)
+            raise
+
+
+_write_locks = {}
+_write_locks_guard = threading.Lock()
+
+
+def _write_lock(path: Path):
+    """One writer at a time per file, within this process."""
+    key = str(Path(path).resolve()).lower()
+    with _write_locks_guard:
+        return _write_locks.setdefault(key, threading.Lock())

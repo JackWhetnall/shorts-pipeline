@@ -48,6 +48,25 @@ PLATFORM_LABELS = {"tiktok": "TikTok", "instagram": "Instagram"}
 # the 18:00 video goes out when it comes back on, but one missed slot is
 # made up, not a week's worth in a burst.
 MISSED_SLOT_GRACE = timedelta(hours=20)
+# A failure that's Google's own (a 5xx, rate limiting) or a dropped
+# connection is tried again at the next checks, five minutes apart, before
+# the video goes back to review (decision 077). On 6 Oct a single "500
+# Internal error encountered" sent an approved video back and its slot
+# went by.
+RETRY_TRIES = 6
+TRANSIENT_STATUS = {408, 429, 500, 502, 503, 504}
+
+
+class _TryAgain(Exception):
+    """A temporary failure: the video stays queued and its slot stays due."""
+
+
+def transient(exc: Exception) -> bool:
+    """Whether a failed upload is worth trying again unchanged."""
+    import requests
+    if isinstance(exc, requests.RequestException):
+        return True
+    return getattr(exc, "status", None) in TRANSIENT_STATUS
 
 
 # --- queue state -----------------------------------------------------
@@ -238,8 +257,25 @@ def publish_due(channels: dict, now: datetime = None) -> list:
                     continue
                 if waiting_for(channel, videos[0]):
                     continue        # an earlier number is still in review; this slot waits for it
-                state.setdefault(lane, {})["last_slot"] = due.isoformat()
+                lane_state = state.setdefault(lane, {})
+                previous = lane_state.get("last_slot")
+                tries = lane_state.get("tries", 0) if lane_state.get("tries_slot") == due.isoformat() else 0
+                lane_state["last_slot"] = due.isoformat()
                 _save_state(state)
+                try:
+                    results.append(send(channel, videos[0], may_retry=tries + 1 < RETRY_TRIES))
+                    lane_state.pop("tries", None)
+                    lane_state.pop("tries_slot", None)
+                except _TryAgain as again:
+                    # The slot is still due at the next check.
+                    if previous:
+                        lane_state["last_slot"] = previous
+                    else:
+                        lane_state.pop("last_slot", None)
+                    lane_state.update(tries=tries + 1, tries_slot=due.isoformat())
+                    results.append(str(again))
+                _save_state(state)
+                continue
             elif waiting_for(channel, videos[0]):
                 continue
             results.append(send(channel, videos[0]))
@@ -344,12 +380,15 @@ def publish_now(channel, video_path: Path, privacy: str = "public") -> dict:
     return result
 
 
-def send(channel, video_path: Path) -> str:
+def send(channel, video_path: Path, may_retry: bool = False) -> str:
     """Put one video out on every platform this channel uses.
 
     YouTube failing is not the end of the video: it goes back to review
     with the reason, the same as anything else a person needs to look at.
+    With `may_retry`, a temporary failure (`transient`) raises _TryAgain
+    instead, and the video stays queued for the next check.
     """
+    import requests
     try:
         result = put_out(channel, video_path)
     except NowhereToPublish:
@@ -357,8 +396,14 @@ def send(channel, video_path: Path) -> str:
         _note_on_report(video_path, "Approved and ready, but this channel has nowhere to "
                                     "publish yet: connect YouTube or turn on a hand-off.")
         return f"{channel.channel_display_name}: nowhere to publish yet"
-    except PipelineError as exc:
+    except (PipelineError, requests.RequestException) as exc:
+        if may_retry and transient(exc):
+            log.warning(f"{channel.key}: queued upload failed for now, trying again at the next check: {exc}")
+            raise _TryAgain(f"{channel.channel_display_name}: YouTube had a temporary problem; "
+                            f"trying again in five minutes") from exc
         log.warning(f"{channel.key}: queued upload failed: {exc}")
+        if not isinstance(exc, PipelineError):
+            exc = PipelineError(str(exc), user_message="The connection to YouTube failed.")
         unqueue(video_path)
         _note_on_report(video_path, f"The scheduled upload failed: {exc.user_message} "
                                     f"It's back in review.")

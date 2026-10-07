@@ -2169,3 +2169,32 @@ def test_one_script_or_one_topics_scripts_can_be_deleted(monkeypatch, tmp_path):
     client.post("/channels/c/curriculum/t1/clear-topic-scripts", data={"csrf_token": token})
     scripts = {s["id"]: s["script"] for s in data["subtopics"]}
     assert scripts["s2"] is None and scripts["s3"] == {"x": 1} and scripts["s4"] == {"x": 1}
+
+
+def test_saves_at_the_same_moment_never_leave_a_damaged_file(tmp_path, monkeypatch):
+    """Regression (decision 077): two saves at once shared one temporary
+    file, and Pub Quiz Buzz's plan was left with the end of an older copy
+    after its own end, which stopped every Pub Quiz Buzz video."""
+    import json
+    import threading
+    from core import curriculum
+    monkeypatch.setattr(curriculum, "CURRICULA_DIR", tmp_path)
+    long = {"channel": "c", "topics": [], "subtopics": [{"id": f"t{i:04d}", "title": "x" * 200}
+                                                         for i in range(300)]}
+    short = {"channel": "c", "topics": [], "subtopics": []}
+    errors = []
+
+    def writer(data):
+        try:
+            for _ in range(40):
+                curriculum.save(json.loads(json.dumps(data)))
+        except Exception as exc:  # noqa: BLE001 - collected and asserted on
+            errors.append(exc)
+    threads = [threading.Thread(target=writer, args=(d,)) for d in (long, short, long, short)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors
+    json.loads((tmp_path / "c.json").read_text(encoding="utf-8"))      # whole, whichever won
+    assert not list(tmp_path.glob("*.tmp"))

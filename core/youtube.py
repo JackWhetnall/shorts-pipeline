@@ -512,7 +512,8 @@ def _api_error(response, doing: str) -> YouTubeError:
     }
     message = messages.get(reason) or f"YouTube wouldn't {doing} (HTTP {response.status_code})."
     log.error(f"YouTube API error while trying to {doing}: {response.status_code} {detail}")
-    return YouTubeError(f"{response.status_code} {detail}", user_message=message)
+    return YouTubeError(f"{response.status_code} {detail}", user_message=message,
+                        status=response.status_code)
 
 
 def _json_or_raise(response, doing: str) -> dict:
