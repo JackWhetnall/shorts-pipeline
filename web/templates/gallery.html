@@ -85,6 +85,26 @@
 <p class="meta">Nothing published yet.</p>
 {% endif %}
 
+{% if set_aside %}
+<details class="gallery-section-spaced">
+  <summary class="section-title">Other versions, set aside <span class="section-count">{{ set_aside|length }}</span></summary>
+  <p class="meta">Each long quiz is made twice, answers as you go and answers at the end. Only one
+    goes out: the same quiz twice is the repetition YouTube penalises. These are the versions not
+    chosen. They aren't discards.</p>
+  <ul class="plain-list">
+    {% for v in set_aside %}
+    <li>
+      <a href="{{ url_for('gallery.video_detail', key=key, relpath=v.relpath) }}">{{ v.title }}</a>
+      <form method="post" action="{{ url_for('gallery.approve', key=key, relpath=v.relpath) }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost btn-small">Publish this version instead</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+
 <details class="gallery-section-spaced">
   <summary class="section-title">Discarded <span class="section-count">{{ discarded|length }}</span></summary>
   {% if discarded %}

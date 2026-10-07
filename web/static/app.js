@@ -1218,6 +1218,8 @@ function renderReview() {
   document.getElementById("review-channel").textContent = item.channel_name;
   document.getElementById("review-name").textContent = item.title || item.name;
   document.getElementById("review-created").textContent = item.created_label || "";
+  const pair = document.getElementById("review-pair");
+  if (pair) { pair.textContent = item.pair_note || ""; pair.hidden = !item.pair_note; }
   document.getElementById("review-script").textContent = item.meta_text || "(no script recorded)";
   document.getElementById("review-download").href = `/videos/${item.relpath}/download`;
   const remakeLink = document.getElementById("review-remake");
@@ -1489,6 +1491,14 @@ async function reviewApprove() {
   const res = await apiFetch(`/api/videos/${item.relpath}/queue`, {method: "POST"});
   const data = await res.json();
   if (!res.ok) { alert(data.error || "Couldn't queue that one."); return; }
+  // A long quiz's other version is set aside, not reviewed (decision 078).
+  if (data.set_aside) {
+    reviewAll = reviewAll.filter(i => i.relpath !== data.set_aside);
+    const before = reviewItems.length;
+    reviewItems = reviewItems.filter(i => i.relpath !== data.set_aside);
+    if (reviewItems.length < before) decrementNavCount();
+    reviewIndex = Math.max(0, reviewItems.indexOf(item));
+  }
   // Stays in the list, now under Queued, rather than vanishing.
   item.queued = true;
   item.approved_by = "you";

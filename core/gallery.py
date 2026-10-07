@@ -124,6 +124,9 @@ def load_publish_info(video_path: Path) -> dict:
         "queued_at": data.get("queued_at"),
         "approved_by": data.get("approved_by"),
         "handoff": data.get("handoff") or {},
+        # Only when set, so a video that's never been paired keeps the
+        # sidecar it always had (decision 078).
+        **({"set_aside_for": data["set_aside_for"]} if data.get("set_aside_for") else {}),
     }
 
 
@@ -150,6 +153,25 @@ def is_out(info: dict) -> bool:
 def is_queued(info: dict) -> bool:
     """Approved and waiting for its publishing slot."""
     return bool(info.get("queued_at")) and not info["discarded"] and not is_out(info)
+
+
+def is_set_aside(info: dict) -> bool:
+    """One of a long quiz's two versions, put aside because the other was
+    chosen to go out (core.long_pairs, decision 078). Not a discard: it was
+    fine, and only one of the two may be published."""
+    return bool(info.get("set_aside_for")) and not info["discarded"] and not is_out(info)
+
+
+def set_aside(video_path: Path, for_stem: str) -> dict:
+    """Put a video aside for the version named `for_stem` (and out of the
+    queue), or with "" bring it back to waiting for a decision."""
+    info = load_publish_info(video_path)
+    if for_stem:
+        info.update(set_aside_for=for_stem, queued_at=None, approved_by=None)
+    else:
+        info.pop("set_aside_for", None)
+    _write_publish(video_path, info)
+    return info
 
 
 def is_published(info: dict) -> bool:
@@ -425,27 +447,30 @@ def video_state_counts(output_dir: str, long: bool = None) -> dict:
     """
     directory = resolve_output_dir(output_dir)
     empty = {"total": 0, "active": 0, "published": 0, "unpublished": 0, "discarded": 0,
-             "queued": 0, "waiting": 0}
+             "queued": 0, "waiting": 0, "set_aside": 0}
     if not directory.exists():
         return empty
 
-    total = discarded = published = queued = 0
+    total = discarded = published = queued = aside = 0
     for path in videos_in(directory, long=long):
         total += 1
         info = load_publish_info(path)
         if info["discarded"]:
             discarded += 1
+        elif is_set_aside(info):
+            aside += 1
         elif is_out(info):
             published += 1
         elif is_queued(info):
             queued += 1
 
-    active = total - discarded
+    # A version set aside for its pair is neither a deliverable nor a discard.
+    active = total - discarded - aside
     # `waiting` is unpublished and not yet approved: what the review queue
     # shows. `queued` is approved and waiting for its publishing slot.
     return {"total": total, "active": active, "published": published,
             "unpublished": active - published, "discarded": discarded,
-            "queued": queued, "waiting": active - published - queued}
+            "queued": queued, "waiting": active - published - queued, "set_aside": aside}
 
 
 def latest_video_mtime(output_dir: str):
@@ -496,6 +521,7 @@ def list_videos(output_dir: str) -> list:
             # not come back to the review queue.
             "out": is_out(links),
             "queued": is_queued(links),
+            "set_aside": is_set_aside(links),
             "discarded": links["discarded"],
             "cost": load_cost_summary(path),
             "report": load_report(path),

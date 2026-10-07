@@ -108,6 +108,27 @@
   {% endif %}
 </div>
 
+{% if long_styles %}
+<div class="card">
+  <h2>Long quiz styles</h2>
+  <p class="meta">Only one version of each long quiz goes out, alternating by episode, so the two
+    styles can be compared here as their numbers come in.</p>
+  <table>
+    <thead><tr><th>Style</th><th>Published</th><th>Views (average)</th><th>Watched (average)</th><th>Minutes watched (average)</th></tr></thead>
+    <tbody>
+    {% for r in long_styles %}
+    <tr><td>{{ r.label }}</td><td>{{ r.videos }}</td>
+      <td>{{ r.views if r.views is not none else '–' }}</td>
+      <td>{{ (r.avg_view_percent|string ~ '%') if r.avg_view_percent is not none else '–' }}</td>
+      <td>{{ r.avg_view_minutes if r.avg_view_minutes is not none else '–' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if long_styles|sum(attribute='videos') < 6 %}<p class="hint">A few of each are needed before the
+    difference means much; minutes watched is what YouTube rewards.</p>{% endif %}
+</div>
+{% endif %}
+
 <div class="card">
   <h2>Why videos get discarded</h2>
   {% if data.discard_reasons.rows %}

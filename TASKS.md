@@ -34,6 +34,25 @@ of them from Channels).
    Private, tell me: the fix is either Google's audit or switching each
    to Public in Studio until it's granted.
 
+## Pub Quiz Buzz fixes (7 Oct)
+
+### I. Fix "Ra" in Ancient History: Impossible (2 minutes, a few voice credits)
+The sun god Ra was read out as the symbol for radium; that rule now only
+applies to questions about elements (decision 078). The video is still in
+Review, so:
+1. **Review** → the Ancient History: Impossible quiz → **Remake**.
+2. Tick **Voice again any line the voice would now say differently**, and
+   press **Remake it**. Only the Ra line is voiced again; the remake comes
+   back to Review.
+
+### J. Long quizzes: approve one version of each (nothing to do now)
+Each long quiz is still made both ways, but approving one now sets the
+other aside (not a discard) and only one ever goes out. Review says which
+version is suggested; they alternate by episode so **Insights → Long quiz
+styles** can compare them. Quiz Night 1's "answers as you go" goes out
+Sat 10 Oct and its "answers at the end" is set aside. To swap: **Videos tab →
+Other versions, set aside → Publish this version instead**.
+
 ## Now (5 Oct)
 
 ### A. Reconnect Minute Pastor's YouTube, before Wed 7 Oct 11:00 (3 minutes)

@@ -78,17 +78,33 @@ def _now() -> datetime:
 def enqueue(video_path: Path, approved_by: str) -> dict:
     """Approve a video to go out at its channel's next slot. `approved_by`
     is "you" or "checks". Approving twice keeps the first place in line."""
+    from core import long_pairs
     info = gallery.load_publish_info(video_path)
     if info["discarded"] or gallery.is_out(info):
         raise PipelineError(f"{video_path} can't be queued",
                             user_message="That video is already published or discarded.")
+    # A long quiz's other version (decision 078): only one of the two goes out.
+    other = long_pairs.partner(video_path)
+    if other is not None:
+        if gallery.is_out(gallery.load_publish_info(other)):
+            raise PipelineError(f"{video_path}: its other version is out", user_message=(
+                "Its other version has already gone out, so this one can't: the same quiz twice "
+                "is the repetition YouTube penalises."))
+        gallery.set_aside(other, Path(video_path).stem)
+    if info.get("set_aside_for"):
+        gallery.set_aside(video_path, "")
     return gallery.save_queue_state(video_path,
                                     queued_at=info["queued_at"] or _now().isoformat(),
                                     approved_by=approved_by)
 
 
 def unqueue(video_path: Path) -> dict:
-    """Take a video out of the queue and back to review."""
+    """Take a video out of the queue and back to review. A long quiz's other
+    version, set aside for it, comes back to review with it."""
+    from core import long_pairs
+    other = long_pairs.partner(video_path)
+    if other is not None and gallery.load_publish_info(other).get("set_aside_for") == Path(video_path).stem:
+        gallery.set_aside(other, "")
     return gallery.save_queue_state(video_path, queued_at=None, approved_by=None)
 
 
@@ -389,6 +405,12 @@ def send(channel, video_path: Path, may_retry: bool = False) -> str:
     instead, and the video stays queued for the next check.
     """
     import requests
+    from core import long_pairs
+    other = long_pairs.partner(video_path)
+    if other is not None and gallery.is_out(gallery.load_publish_info(other)):
+        # Never both versions of one long quiz (decision 078).
+        gallery.set_aside(video_path, other.stem)
+        return f"{channel.channel_display_name}: not sent, its other version already went out"
     try:
         result = put_out(channel, video_path)
     except NowhereToPublish:

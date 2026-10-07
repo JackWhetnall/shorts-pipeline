@@ -58,8 +58,12 @@ def start(relpath):
         return redirect(url_for("remake.page", relpath=relpath, m="1" if _phone() else None,
                                 note="This video has gone out, so it isn't remade from here."))
     try:
+        # Its own script, voiced line by line: unchanged lines keep their
+        # recording, and a line the voice now says differently (a respelling
+        # fixed, decision 078) is voiced again.
+        script = remake.kept_script(channel, video) if request.form.get("revoice") else None
         remake.start(channel, video, redo=set(request.form.getlist("redo")),
-                     redraw=set(request.form.getlist("redraw")))
+                     redraw=set(request.form.getlist("redraw")), script=script)
     except PipelineError as exc:
         return redirect(url_for("remake.page", relpath=relpath, m="1" if _phone() else None,
                                 note=exc.user_message))

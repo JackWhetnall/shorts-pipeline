@@ -876,6 +876,9 @@ LETTER_NAMES = {"A": "ay", "B": "bee", "C": "see", "D": "dee", "E": "ee", "F": "
                 "V": "vee", "W": "double you", "X": "ex", "Y": "why", "Z": "zed"}
 
 
+_ABOUT_ELEMENTS = re.compile(r"\b(symbols?|elements?|chemical|periodic|atomic)\b", re.I)
+
+
 def element_respellings(questions: list) -> dict:
     """{symbol: its letters' names} for every two-letter chemical symbol a
     round gives as an answer or asks about ("the symbol Fe"), so the voice
@@ -883,7 +886,11 @@ def element_respellings(questions: list) -> dict:
     to notice."""
     found = set()
     for q in questions:
-        candidates = re.findall(r"\b[A-Z][a-z]\b", q.get("answer", ""))
+        # An answer is a symbol only when its question is about elements:
+        # "Ra" is radium's symbol, and also the Egyptian sun god, who was
+        # read out letter by letter (the owner, 7 Oct; decision 078).
+        about_elements = bool(_ABOUT_ELEMENTS.search(q.get("question", "")))
+        candidates = re.findall(r"\b[A-Z][a-z]\b", q.get("answer", "")) if about_elements else []
         candidates += re.findall(r"symbols?\s+(?:is\s+|of\s+)?([A-Z][a-z])\b", q.get("question", ""))
         found.update(c for c in candidates if c in ELEMENT_SYMBOLS and c not in _WORDLIKE)
     return {s: " ".join(LETTER_NAMES[ch.upper()] for ch in s) for s in sorted(found)}

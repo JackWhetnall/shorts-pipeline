@@ -38,7 +38,9 @@ def channel_gallery(key):
     _label_approved(channel, approved)
     return render_template(
         "gallery.html", key=key, channel=channel,
-        unpublished=[v for v in active if not v["out"] and not v["queued"]],
+        unpublished=[v for v in active if not v["out"] and not v["queued"] and not v.get("set_aside")],
+        # A long quiz's other version, set aside for the one chosen (decision 078).
+        set_aside=[v for v in active if v.get("set_aside")],
         approved=approved,
         published=[v for v in active if v["out"]],
         discarded=discarded,

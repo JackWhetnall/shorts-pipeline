@@ -235,3 +235,16 @@ def test_a_remade_number_holds_back_the_ones_after_it(busy_channel, tmp_path, mo
     assert publish_queue.waiting_for(channel, tmp_path / "five.mp4") == 4
     monkeypatch.setattr(publish_queue, "number_of", lambda path: 3)
     assert publish_queue.waiting_for(channel, tmp_path / "three.mp4") == 0
+
+
+def test_voicing_again_keeps_the_script_and_voices_it_line_by_line(world):
+    """The owner, 7 Oct: "Ra" (the sun god) was read as radium's symbol.
+    Once the respelling rule was fixed, a remake that voices its own
+    script line by line picks the fix up; unchanged lines keep their
+    recording from the voice cache (decision 078)."""
+    channel, video, tmp = world
+    _kit(video, quiz=True)
+    kept = remake.kept_script(channel, video)
+    job_id, seed = remake.prepare(channel, video, script=kept)
+    assert _checkpoint(job_id, "script.json")["segments"] == kept["segments"]
+    assert _checkpoint(job_id, "voiceover.json") is None and seed["remake_of"]

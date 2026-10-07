@@ -87,6 +87,11 @@ def _script(channel, video: Path) -> dict:
     return _read(quiz.script_sidecar(video))
 
 
+def kept_script(channel, video: Path) -> dict:
+    """The script this video was made from, as a remake takes it."""
+    return _script(channel, video)
+
+
 def _seed(channel, video: Path) -> dict:
     """What the video was made from: kept with its kit, or for a short on
     a topic plan, its subtopic."""

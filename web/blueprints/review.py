@@ -57,8 +57,9 @@ def _queue() -> list:
             # for every other channel.
             log.warning(f"Couldn't list videos for {key}: {exc}")
             continue
+        from core import long_pairs
         for video in videos:
-            if video["discarded"] or video["out"]:
+            if video["discarded"] or video["out"] or video.get("set_aside"):
                 continue
             report = video.get("report") or {}
             similarity = report.get("similarity") or {}
@@ -87,9 +88,16 @@ def _queue() -> list:
                 "slot_label": _slot_label(slots, video) if video["queued"] else "",
                 # A quiz round, whose questions have their own page.
                 "is_quiz": quiz.round_sidecar(gallery.OUTPUT_DIR / video["relpath"]).exists(),
+                # One of a long quiz's two versions (decision 078).
+                "pair_note": long_pairs.note(gallery.OUTPUT_DIR / video["relpath"]),
+                "partner": _relpath_of(long_pairs.partner(gallery.OUTPUT_DIR / video["relpath"])),
             })
     items.sort(key=lambda v: v["mtime"])
     return items
+
+
+def _relpath_of(path) -> str:
+    return str(Path(path).relative_to(gallery.OUTPUT_DIR)).replace("\\", "/") if path else ""
 
 
 def _slot_label(slots: dict, video: dict) -> str:
@@ -170,7 +178,28 @@ def insights_page():
         audience_status={channels[k].channel_display_name: v
                          for k, v in audience.status().items() if k in channels},
         spend_kinds=costs.by_kind(((data.get("spend") or {}).get("all_time") or {}).get("by_operation") or {}),
+        long_styles=_long_quiz_styles(channels),
     )
+
+
+def _long_quiz_styles(channels: dict) -> list:
+    """Published long quizzes by style, for comparing them (decision 078);
+    [] when no channel makes long quizzes."""
+    from core import long_pairs
+    videos = []
+    for channel in channels.values():
+        if channel.format != "quiz":
+            continue
+        try:
+            listed = gallery.list_videos(channel.output_dir)
+        except Exception:  # noqa: BLE001 - one unreadable channel mustn't break Insights
+            log.warning(f"Couldn't list {channel.key}'s videos for the long quiz styles")
+            continue
+        for v in listed:
+            path = gallery.OUTPUT_DIR / v["relpath"]
+            if gallery.is_long(path):
+                videos.append({**v, "path": path})
+    return long_pairs.compare(videos) if videos else []
 
 
 @bp.route("/insights/refresh-stats", methods=["POST"])
@@ -220,7 +249,9 @@ def approve(relpath):
         return jsonify({"error": exc.user_message}), 400
     when = next((w for p, w in publish_queue.schedule_for(channel)
                  if Path(p).resolve() == target.resolve()), None)
-    return jsonify({"ok": True, "slot_label": _when_label(when, queued=True)})
+    from core import long_pairs
+    return jsonify({"ok": True, "slot_label": _when_label(when, queued=True),
+                    "set_aside": _relpath_of(long_pairs.partner(target))})
 
 
 def _channel_of(target: Path):

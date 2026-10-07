@@ -52,6 +52,10 @@
     {% endfor %}
   </ul>
   {% endif %}
+  <h2>Voice</h2>
+  <label><input type="checkbox" name="revoice" value="1"> Voice again any line the voice would now say
+    differently, such as a pronunciation that's since been fixed
+    <button type="button" class="info-dot" data-tooltip="Every other line keeps its recording, so it costs only the lines that changed. Unticked, the whole voice track is kept as it is.">?</button></label>
   <div class="actions">
     <button type="submit" class="btn-primary">Remake it</button>
   </div>
