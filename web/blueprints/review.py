@@ -109,11 +109,17 @@ def queue():
     names = {}
     for item in items:
         names.setdefault(item["channel_key"], item["channel_name"])
+    # The oldest waiting for a decision come first, then the oldest already
+    # approved (the "Queued" filter). Taking the oldest of both together let
+    # approved videos made ahead fill the page: 40 approved, none shown by
+    # the default filter, "All caught up" with 32 waiting (decision 077).
+    to_review = [i for i in items if not i["queued"]]
+    approved = [i for i in items if i["queued"]]
     return render_template(
         "review.html",
-        items=items[:QUEUE_PAGE_SIZE],
+        items=to_review[:QUEUE_PAGE_SIZE] + approved[:QUEUE_PAGE_SIZE],
         review_channels=sorted(names.items(), key=lambda kv: kv[1].lower()),
-        total_waiting=len(items),
+        total_waiting=len(to_review), page_size=QUEUE_PAGE_SIZE,
         discard_reasons=gallery.DISCARD_REASONS,
     )
 

@@ -6,7 +6,7 @@
   <div>
     <h1>Review</h1>
     <p class="page-sub" id="review-counter">
-      {% if items %}{{ total_waiting }} video{{ 's' if total_waiting != 1 }} waiting, oldest first.{% if total_waiting > items|length %} Showing the first {{ items|length }}.{% endif %}
+      {% if total_waiting %}{{ total_waiting }} video{{ 's' if total_waiting != 1 }} waiting, oldest first.{% if total_waiting > page_size %} Showing the first {{ page_size }}.{% endif %}
       {% else %}All caught up.{% endif %}
     </p>
   </div>

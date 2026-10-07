@@ -42,6 +42,21 @@ Three separate things, found in the app's log:
   entries); the damaged file is kept in `cache/`. The bounced video,
   approved before, was put back in its queue.
 
+## Later the same day: Review said "All caught up" with 32 waiting
+
+The review page sent the browser the 40 oldest videos, approved or not,
+and its default view shows only those waiting for a decision. Spare voice
+had made dozens of videos ahead, many already approved into the queue, so
+the 40 oldest were all approved: the page showed none of the 32 waiting
+while the header counted them. Videos waiting for a decision are now sent
+first (the oldest 40 of them), then the approved ones for the Queued view.
+
+The owner also saw "This channel's topic plan is damaged" once more. The
+old copy of the app, which saved the old way, ran until 14:11; with both
+of two clashing saves eventually landing whole, the file could read as
+damaged for a moment and then be whole again. The copy started at 14:11:56
+saves through write_atomically.
+
 ## Not done
 
 - Two saves at the same moment can still lose one of the two changes
