@@ -637,7 +637,7 @@ def _voiced_in_this_job() -> set:
     return set((job_context.load_json_checkpoint(VOICED_CHECKPOINT) or {}).get("keys") or [])
 
 
-def _stitch(results, segments, out_audio_path: str):
+def _stitch(results, segments, out_audio_path: str, close: bool = False):
     """Assemble segment audio into one track, filling in segment spans.
 
     Sequential by necessity: each segment's start time depends on the
@@ -663,7 +663,8 @@ def _stitch(results, segments, out_audio_path: str):
             nchannels = samples.shape[1]
         samples = match_channels(samples, nchannels)
 
-        held = not is_final and pause >= HELD_PAUSE
+        # `close`: every line cut as a held one is (see generate_voiceover).
+        held = not is_final and (close or pause >= HELD_PAUSE)
         if timings:
             pad = FINAL_TRAILING_PAD if is_final else HELD_TRAILING_PAD if held else TRAILING_PAD
             trim = int(min(len(samples), (timings[-1].end + pad) * fps))
@@ -700,7 +701,7 @@ def _stitch(results, segments, out_audio_path: str):
 
 def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: str,
                        pacing, speed: float = 1.0, source_index: int = 0,
-                       say_as: dict = None, reuse: bool = False) -> Voiceover:
+                       say_as: dict = None, reuse: bool = False, close: bool = False) -> Voiceover:
     """Synthesize the whole narration and fill in each segment's real
     start/end times.
 
@@ -708,6 +709,12 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
     written file: re-decoding a lossily-encoded file back into
     frame-accurate samples near its exact end is unreliable, and the real
     samples are already here.
+
+    `close`: no line is told what comes after it, and each is cut close
+    after its last word, as a quiz question before its countdown is. For a
+    documentary, whose scenes run on one into the next: given the next
+    line, the engine sometimes began saying it, and the usual pad kept
+    that stutter at the end of the line before (decision 079).
     """
     plan = build_plan(segments, citation, pacing, source_index)
     out_path = Path(out_audio_path)
@@ -747,7 +754,7 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
             timings, samples, _ = synthesize_segment(
                 text, voice_id, str(segment_paths[i]), speed,
                 previous_text=plan[i - 1][0] if i > 0 else "",
-                next_text=plan[i + 1][0] if i + 1 < len(plan) and pause < HELD_PAUSE else "",
+                next_text=plan[i + 1][0] if i + 1 < len(plan) and pause < HELD_PAUSE and not close else "",
                 say_as=say_as)
         except Exception:
             job_context.report_detail("tts", i, {"status": "error"})
@@ -760,7 +767,7 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
     try:
         results = job_context.parallel_map(synth_one, list(enumerate(plan)),
                                            max_workers=TTS_MAX_WORKERS)
-        all_timings, final, fps = _stitch(results, segments, out_audio_path)
+        all_timings, final, fps = _stitch(results, segments, out_audio_path, close)
     finally:
         for path in segment_paths:
             path.unlink(missing_ok=True)

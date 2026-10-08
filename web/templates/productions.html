@@ -40,6 +40,12 @@
 {% for p in others %}{{ production_row(p, 0) }}{% endfor %}
 {% endif %}
 
+{% if made %}
+<h2>Made</h2>
+<p class="hint">Their outline, script and storyboard, and their teasers.</p>
+{% for p in made %}{{ production_row(p, 0) }}{% endfor %}
+{% endif %}
+
 <style>
   .prod-row { display: block; text-decoration: none; color: inherit; }
   .prod-row:hover { border-color: var(--border-light); }

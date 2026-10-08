@@ -126,6 +126,7 @@ def test_the_script_is_written_a_chapter_at_a_time_each_knowing_the_last(world, 
                             "framing": "wide", "camera": "zoom", "caption": "", "narration": f"Line {n}."}],
                 "description": "About him." if n == 2 else ""}
     monkeypatch.setattr(scripts, "call_json", fake)
+    monkeypatch.setattr(scripts, "SHORT_OF", 0)          # its chapters are short on purpose
     out = scripts.write(channel, row["title"], OUTLINE)
     assert len(calls) == 2 and "[1] Line 1." in calls[1]
     assert [s["chapter"] for s in out["scenes"]] == [1, 2]
@@ -204,7 +205,7 @@ def test_a_stage_runs_marks_itself_ready_and_a_failure_says_why(world, monkeypat
 def test_chapters_get_a_longer_pause_and_marks_from_the_real_timings(world):
     scenes = [_scene(1, "a"), _scene(1, "b"), _scene(2, "c")]
     segments = render.segments_for(scenes)
-    assert [s.pause_after for s in segments] == [render.SCENE_GAP, render.CHAPTER_GAP, 2.0]
+    assert [s.pause_after for s in segments] == [render.RUN_ON_GAP, render.CHAPTER_GAP, render.END_HOLD]
     for s, start in zip(segments, (0.0, 4.0, 9.5)):
         s.start = start
     assert render.chapter_marks(scenes, segments, OUTLINE) == [(0.0, "The surveyor"), (9.5, "The farewell")]
@@ -311,3 +312,87 @@ def test_a_documentary_channel_isnt_made_by_the_shorts_scheduler(world, monkeypa
     production.update("hist", row["id"], lambda d: None)                 # this one has begun
     assert storyboard.outline_ahead(channel) == 1
     assert started == [curriculum.subtopics("hist")[1]["id"]]
+
+
+# --- the first film's notes (8 Oct, decision 079) --------------------------------------
+# The owner on the first History Unmystified film: "the start of some lines
+# are briefly stuttered at the end of the preceding line"; the "Chapter"
+# text "appearing too frequently ... makes the video seem disjoint"; it was
+# "shorter than ... the plan suggested"; "gaps in pauses that seem
+# unnatural"; and the music "seems to fade out and then back in ... a gap
+# of silence"; and the plan couldn't be found again once it was made.
+
+def test_the_pause_after_a_scene_follows_how_its_words_end():
+    assert render.gap_after("He wrote it himself.") == render.SENTENCE_GAP
+    assert render.gap_after("and so, by candlelight,") == render.CLAUSE_GAP
+    assert render.gap_after("and the crowd waited for") == render.RUN_ON_GAP
+    assert render.gap_after('He asked, "Why?"') == render.SENTENCE_GAP
+    assert render.CHAPTER_GAP > 3 * render.SENTENCE_GAP          # infrequent and longer
+
+
+def test_a_documentarys_lines_are_not_told_what_follows_and_are_cut_close(tmp_path, monkeypatch):
+    import numpy as np
+    from pipeline import tts
+    from pipeline.plan import Segment, WordTiming
+    seen = {}
+
+    def fake_segment(text, voice_id, out_path, speed=1.0, **kwargs):
+        seen[text] = kwargs.get("next_text")
+        return [WordTiming(text, 0.1, 1.0)], np.ones((tts.SAMPLE_RATE * 2, 1)) * 0.5, tts.SAMPLE_RATE
+    monkeypatch.setattr(tts, "synthesize_segment", fake_segment)
+    monkeypatch.setattr(tts.job_context, "report_detail", lambda *a, **k: None)
+    pacing = SimpleNamespace(pause_after_first_segment=0.1, pause_after_citation=0.1,
+                             pause_between_segments=0.1, end_hold=0.5)
+    segments = [Segment(text="One,", pause_after=0.06), Segment(text="two."), Segment(text="three.")]
+    tts.generate_voiceover(segments, None, "v", str(tmp_path / "a.mp3"), pacing, close=True)
+    assert seen == {"One,": "", "two.": "", "three.": ""}
+    assert segments[0].end - segments[0].start == pytest.approx(1.0 + tts.HELD_TRAILING_PAD + 0.06, abs=0.01)
+    # Without it (every short), the next line is still given.
+    seen.clear()
+    tts.generate_voiceover([Segment(text="One,"), Segment(text="two.")], None, "v",
+                           str(tmp_path / "b.mp3"), pacing)
+    assert seen["One,"] == "two."
+
+
+def test_chapter_titles_are_off_unless_asked_for():
+    from core.channels import Documentary
+    assert Documentary().chapter_titles is False
+
+
+def test_a_short_chapter_is_written_again_at_length(world, monkeypatch):
+    channel, row = world
+    calls = []
+
+    def fake(system, user, schema, **kw):
+        calls.append(user)
+        words = 5 if len(calls) == 1 else 60
+        return {"scenes": [{"chapter": 1, "direction": "d", "cast": [], "framing": "wide", "camera": "still",
+                            "caption": "", "narration": " ".join(["word"] * words)}], "description": ""}
+    monkeypatch.setattr(scripts, "call_json", fake)
+    out = scripts._chapter(channel, row["title"], OUTLINE, 1, [])
+    assert len(calls) == 2 and "was 5 words" in calls[1]
+    assert scripts.words(out) == 60
+
+
+def test_a_seamless_bed_doesnt_dip_to_silence_where_a_track_loops(monkeypatch, tmp_path):
+    import numpy as np
+    from pipeline import longform, sound
+    fps = 8000
+    t = np.arange(fps * 20) / fps
+    tone = 0.5 * np.sin(2 * np.pi * 220 * t)
+    # Mastered with a three-second fade-out and two seconds of silence.
+    tone[-5 * fps:-2 * fps] *= np.linspace(1, 0, 3 * fps)
+    tone[-2 * fps:] = 0
+    track = np.stack([tone, tone], axis=1)
+    monkeypatch.setattr(sound, "music_tracks", lambda key: [tmp_path / "one.mp3"])
+    monkeypatch.setattr("pipeline.audio.decode_audio_file", lambda path, fps=0, nchannels=2: track.copy())
+    monkeypatch.setattr(sound, "speech_envelope", lambda voice, fps: np.zeros(len(voice)))
+    channel = SimpleNamespace(key="c", sound=SimpleNamespace(music_level=1.0))
+    voice = np.zeros((fps * 45, 2), dtype=np.float32)
+
+    def quietest(bed):
+        level = np.abs(bed[:, 0])
+        middle = level[fps * 6: len(level) - fps * 8]
+        return np.convolve(middle, np.ones(fps // 5) / (fps // 5), mode="valid").min()
+    assert quietest(longform.music_bed(channel, voice, fps, "s", [], seamless=True)) > 0.15
+    assert quietest(longform.music_bed(channel, voice, fps, "s", [])) < 0.05     # as long quizzes have it

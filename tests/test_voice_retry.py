@@ -63,7 +63,7 @@ def voice(monkeypatch, tmp_path):
     monkeypatch.setattr(job_context, "checkpoint_dir", lambda job_id: tmp_path / "job" if job_id else None)
     (tmp_path / "job").mkdir()
     monkeypatch.setattr(tts, "decode_audio_file", lambda path, fps: np.zeros((4410, 1)))
-    monkeypatch.setattr(tts, "_stitch", lambda results, segments, out: ([], np.zeros((1, 1)), tts.SAMPLE_RATE))
+    monkeypatch.setattr(tts, "_stitch", lambda results, segments, out, close=False: ([], np.zeros((1, 1)), tts.SAMPLE_RATE))
     said, failing = [], set()
 
     def fake(text, voice_id, out_path, speed=1.0, **kw):

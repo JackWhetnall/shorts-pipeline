@@ -1092,11 +1092,35 @@ def _make_variant(job, variant: str, video_path: Path) -> None:
         "gate": {"passed": False, "reasons": reasons}})
 
 
-def music_bed(channel, voice: np.ndarray, fps: int, stem: str, credits: list) -> np.ndarray:
+SEAMLESS_JOIN = 5.0        # seconds of crossfade between tracks, seamless
+QUIET = 0.12               # of a track's loudness: quieter ends are trimmed, seamless
+
+
+def _audible(music: np.ndarray, fps: int) -> np.ndarray:
+    """A track without its quiet ends: the silence and the fade-out a
+    track is mastered with, which a join would otherwise play as a gap."""
+    hop = max(1, fps // 10)
+    level = np.abs(music).max(axis=1)
+    frames = level[: len(level) // hop * hop].reshape(-1, hop).max(axis=1)
+    if not len(frames):
+        return music
+    loud = np.flatnonzero(frames >= QUIET * float(np.percentile(frames, 90) or 1.0))
+    if not len(loud):
+        return music
+    return music[loud[0] * hop:(loud[-1] + 1) * hop]
+
+
+def music_bed(channel, voice: np.ndarray, fps: int, stem: str, credits: list,
+              seamless: bool = False) -> np.ndarray:
     """The channel's tracks one after another, crossfaded, ducked under
     the voice: one track looped for twenty minutes would wear thin. In
     float32 throughout, since a long video's soundtrack is tens of
-    millions of samples."""
+    millions of samples.
+
+    `seamless` (a documentary's, decision 079): each track's quiet ends
+    are trimmed and the joins crossfade over five seconds. A track that
+    ends in a fade, joined with two seconds' crossfade, dipped to silence
+    and came back. Long quizzes keep the bed they have."""
     from core import music_library
     from pipeline import sound
     from pipeline.audio import decode_audio_file
@@ -1111,7 +1135,7 @@ def music_bed(channel, voice: np.ndarray, fps: int, stem: str, credits: list) ->
         return np.zeros_like(voice)
     order = list(tracks)
     random.Random(stem).shuffle(order)
-    join = int(2.0 * fps)
+    join = int((SEAMLESS_JOIN if seamless else 2.0) * fps)
     pieces, have, tried = [], 0, 0
     while have < length + join and tried < len(order) * 50:
         path = order[tried % len(order)]
@@ -1119,8 +1143,14 @@ def music_bed(channel, voice: np.ndarray, fps: int, stem: str, credits: list) ->
         music = decode_audio_file(str(path), fps=fps, nchannels=2)
         if len(music) < join * 3:
             continue
+        if seamless:
+            music = _audible(music, fps)
+            if len(music) < join * 3:
+                continue
         music = (music / (np.abs(music).max() or 1.0)).astype(np.float32)
         ramp = np.linspace(0, 1, join, dtype=np.float32)[:, None]
+        if seamless:
+            ramp = np.sin(ramp * (np.pi / 2))     # equal power: no dip in the middle of a join
         music[:join] *= ramp
         music[-join:] *= ramp[::-1]
         if pieces:

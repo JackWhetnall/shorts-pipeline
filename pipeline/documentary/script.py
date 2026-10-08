@@ -25,6 +25,7 @@ log = get_logger(__name__)
 MAX_TOKENS = 12000              # one chapter at a time
 EFFORT = "medium"
 WORDS_PER_SECOND = 2.4          # a documentary narrator, a touch slower than a short's
+SHORT_OF = 0.85                 # a chapter below this share of its words is written again, once
 FRAMINGS = ("extreme wide", "wide", "medium", "close-up", "extreme close-up")
 CAMERA = ("push_in", "pull_out", "pan_left", "pan_right", "still")
 
@@ -100,20 +101,33 @@ def _chapter(channel, title: str, outline: dict, number: int, before: list, note
     seconds = float(chapter["minutes"]) * 60
     scenes = max(2, round(seconds / float(doc.scene_seconds)))
     so_far = "\n".join(f"[{s['chapter']}] {s['narration']}" for s in before)
+    target = round(seconds * WORDS_PER_SECOND)
+    each = max(12, round(target / scenes))
     user = (f"The video: {title}\n\n{outline_text(outline)}\n\n"
             + (f"The narration so far, chapter by chapter:\n{so_far}\n\n" if so_far else "")
-            + f"Write chapter {number} of {len(outline['chapters'])} now: about "
-              f"{round(seconds * WORDS_PER_SECOND)} words of narration in about {scenes} scenes, "
-              f"continuing straight on from the narration so far.")
+            + f"Write chapter {number} of {len(outline['chapters'])} now: {target} words of narration "
+              f"in all, in about {scenes} scenes of about {each} words each, continuing straight on "
+              f"from the narration so far. The length matters: the chapter has {chapter['minutes']:g} "
+              f"minutes of the film to fill.")
     if number == len(outline["chapters"]):
         user += " This is the last chapter: also write the `description`."
     else:
         user += " Leave `description` empty."
     if note:
         user += f"\n\nThe owner asks: {note}"
-    data = call_json(_system(channel), user, schema(), operation="documentary_script",
-                     max_tokens=MAX_TOKENS, effort=EFFORT)
-    out = clean(data, outline)
+    out = None
+    for attempt in range(2):
+        data = call_json(_system(channel), user, schema(), operation="documentary_script",
+                         max_tokens=MAX_TOKENS, effort=EFFORT)
+        out = clean(data, outline)
+        got = words(out)
+        if got >= SHORT_OF * target:
+            break
+        # The first film came out 919 words for a ten-minute plan (6.4
+        # minutes): the writer keeps a chapter short unless told it is.
+        log.info(f"  [documentary] chapter {number} came back {got} words of {target}; asking again")
+        user += (f"\n\nYour last version of this chapter was {got} words; it needs about {target}. "
+                 f"Write it again at full length: more scenes and fuller narration, not padding.")
     for s in out["scenes"]:
         s["chapter"] = number
     return out

@@ -183,6 +183,9 @@
         {{ sub.title }}
         {% if sub.angle %}<span class="hint">{{ sub.angle }}</span>{% endif %}
         {% if sub.script %}<span class="hint">Script ready</span>{% endif %}
+        {% if channel.format == 'documentary' %}
+        <a class="hint" href="{{ url_for('productions.page', key=key, subtopic_id=sub.id) }}">Its production</a>
+        {% endif %}
         {% if quiz and ((sub.script or {}).get('quiz') or sub.video_stem) %}
         <a class="hint" href="{{ url_for('quiz_review.written', key=key, subtopic_id=sub.id) }}"
            title="Its questions laid out: keep each, or move it easier or harder, or take it out, and swap in another">Check questions</a>

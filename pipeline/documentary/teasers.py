@@ -158,7 +158,7 @@ def _render(channel, teaser: dict, pictures: dict, long_title: str, number: int)
     voice_quota.require_room(tts.characters_to_voice(segments, None, channel.pacing, 0, channel.voice,
                                                      channel.speed, say_as, False))
     voice = tts.generate_voiceover(segments, None, channel.voice, str(work / "voice.mp3"), channel.pacing,
-                                   speed=channel.speed, say_as=say_as)
+                                   speed=channel.speed, say_as=say_as, close=True)
 
     job_context.report_stage(4)
     parts = [finish.camera_shot(pictures[i], work / f"scene_{i:02d}.mp4", max(0.5, seg.end - seg.start),
@@ -184,7 +184,7 @@ def _render(channel, teaser: dict, pictures: dict, long_title: str, number: int)
         audio = np.repeat(audio, 2, axis=1)
     credits = []
     if channel.sound.music:
-        audio = audio + music_bed(channel, audio, voice.fps, stem, credits)
+        audio = audio + music_bed(channel, audio, voice.fps, stem, credits, seamless=True)
     peak = float(np.abs(audio).max() or 1.0)
     if peak > 0.98:
         audio *= 0.98 / peak

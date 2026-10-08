@@ -466,6 +466,10 @@ class Documentary(_MappingLike):
     # Seconds a scene's still holds, about: the script is written in
     # scenes this long, so the picture keeps moving with the story.
     scene_seconds: float = 12.0
+    # A chapter's title on screen as it starts. Off by default: the owner
+    # found a card every minute or so made the film feel disjointed; the
+    # chapters are in the description's marks either way.
+    chapter_titles: bool = False
     # What fills the pictures: a key of LONG_FORM_PICTURES.
     pictures: str = "drawn"
 

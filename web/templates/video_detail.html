@@ -9,6 +9,8 @@
 <div class="video-detail-layout">
   <div class="video-detail-info">
     <h1 class="video-title">{{ title }}</h1>
+    {% if production %}<p class="hint"><a href="{{ url_for('productions.page', key=production[0], subtopic_id=production[1]) }}">Its
+      production: outline, script and storyboard &rarr;</a></p>{% endif %}
     <div class="video-sub">
       {% if discarded %}<span class="status-pill"><span class="tally tally-off" aria-hidden="true"></span>Discarded</span>
       {% elif out %}<span class="status-pill"><span class="tally tally-good" aria-hidden="true"></span>Published</span>

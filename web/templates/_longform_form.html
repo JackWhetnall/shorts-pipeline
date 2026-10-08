@@ -96,6 +96,12 @@
         <span class="hint">About. Calm, slow films: 15 to 20. Livelier ones: 8 to 10. Fewer, longer
           pictures also cost less.</span>
       </label>
+      <input type="hidden" name="documentary_chapter_titles_present" value="1">
+      <label class="checkbox-label">
+        <input type="checkbox" name="documentary_chapter_titles" {% if channel.documentary.chapter_titles %}checked{% endif %}>
+        Show each chapter's title on screen as it starts
+        <span class="hint">Off, the chapters are only marks in the description, and the film runs as one.</span>
+      </label>
       <p class="hint">At these settings a film is about {{ '{:,}'.format(film_estimate.words) }} words of
         narration ({{ '{:,}'.format(film_estimate.credits) }} voice credits) and about
         {{ film_estimate.pictures }} drawn pictures (about ${{ '%.2f'|format(film_estimate.pictures * 0.025) }}).</p>

@@ -144,7 +144,9 @@
   <p class="hint">Approve the outline first.</p>
   {% elif data.script %}
   <p class="hint">{{ data.script.scenes|length }} scenes, {{ words }} words: about {{ (words / 2.4 / 60)|round(1) }}
-    minutes.</p>
+    minutes{% if words < 0.85 * channel.documentary.minutes * 60 * 2.4 %}, <span class="danger-text">short of the
+    {{ channel.documentary.minutes|round(1) }} minutes planned</span>: write a chapter again with "longer", or the whole
+    script{% endif %}.</p>
   <form method="post" action="{{ url_for('productions.save_script', key=key, subtopic_id=row.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% set ns = namespace(chapter=0) %}

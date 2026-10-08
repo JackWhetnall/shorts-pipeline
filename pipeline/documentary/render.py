@@ -37,17 +37,34 @@ from pipeline.plan import Script, Segment
 
 log = get_logger(__name__)
 
-SCENE_GAP = 0.3             # silence after a scene's words
-CHAPTER_GAP = 1.1           # and after a chapter's last scene
+# The silence after a scene's words, by how its last sentence ends. A
+# scene often ends mid-thought ("...and so he wrote,") with the next
+# picture carrying it on, and the same pause after every scene sounded
+# like the narrator stopping for breath at random (decision 079).
+SENTENCE_GAP = 0.45         # after a full stop, question or exclamation
+CLAUSE_GAP = 0.2            # after a comma, semicolon or colon
+RUN_ON_GAP = 0.06           # mid-sentence: the line carries straight on
+CHAPTER_GAP = 1.6           # and a longer one, now and then, between chapters
+END_HOLD = 2.0
 THUMB = (1280, 720)
+
+
+def gap_after(text: str) -> float:
+    end = text.rstrip().rstrip("\"'\u201d\u2019)")[-1:]
+    if end in ".!?":
+        return SENTENCE_GAP
+    if end in ",;:":
+        return CLAUSE_GAP
+    return RUN_ON_GAP
 
 
 def segments_for(scenes: list) -> list:
     out = []
     for i, s in enumerate(scenes):
         last_of_chapter = i + 1 == len(scenes) or scenes[i + 1]["chapter"] != s["chapter"]
-        out.append(Segment(text=s["narration"], pause_after=CHAPTER_GAP if last_of_chapter else SCENE_GAP))
-    out[-1].pause_after = 2.0
+        out.append(Segment(text=s["narration"],
+                           pause_after=CHAPTER_GAP if last_of_chapter else gap_after(s["narration"])))
+    out[-1].pause_after = END_HOLD
     return out
 
 
@@ -153,7 +170,7 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
                                                      channel.speed, say_as, False))
     log.info(f"[2/5] Voicing {len(scenes)} scenes...")
     voice = tts.generate_voiceover(segments, None, channel.voice, str(work / "voice.mp3"), channel.pacing,
-                                   speed=channel.speed, say_as=say_as)
+                                   speed=channel.speed, say_as=say_as, close=True)
 
     job_context.report_stage(4)
     log.info(f"[4/5] Putting {len(scenes)} stills on screen ({segments[-1].end / 60:.1f} minutes)...")
@@ -167,10 +184,11 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
         first = scene["chapter"] not in started
         started.add(scene["chapter"])
         overlay = None
-        chapter_title = outline["chapters"][scene["chapter"] - 1]["title"] if first and i > 0 else ""
+        chapter_title = (outline["chapters"][scene["chapter"] - 1]["title"]
+                         if first and i > 0 and channel.documentary.chapter_titles else "")
         if chapter_title or scene.get("caption"):
             overlay = work / f"label_{i:03d}.png"
-            label_overlay(size, chapter_title, scene["chapter"] if chapter_title else 0,
+            label_overlay(size, chapter_title, 0,
                           scene.get("caption", ""), art).save(overlay)
         parts.append(finish.camera_shot(pictures[i], work / f"scene_{i:03d}.mp4", seconds, look,
                                         scene.get("camera", "push_in"), overlay,
@@ -186,7 +204,7 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
     if audio.shape[1] == 1:
         audio = np.repeat(audio, 2, axis=1)
     if channel.sound.music:
-        audio = audio + music_bed(channel, audio, voice.fps, stem, credits)
+        audio = audio + music_bed(channel, audio, voice.fps, stem, credits, seamless=True)
     peak = float(np.abs(audio).max() or 1.0)
     if peak > 0.98:
         audio *= 0.98 / peak

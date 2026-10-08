@@ -34,6 +34,23 @@ of them from Channels).
    Private, tell me: the fix is either Google's audit or switching each
    to Public in Studio until it's granted.
 
+## The first documentary's fixes (8 Oct)
+
+### K. Remake the Lincoln film, or make the next one (2 to 20 minutes)
+The stutters, the chapter cards, the pauses and the music gap are fixed
+for every film from now on (decision 079). The Lincoln film itself:
+- **Quick (2 minutes, almost no voice credits):** **Productions → Made →
+  Lincoln → 4. Video → Make the video again**. Same script and pictures,
+  without the stutters, chapter cards or music gap, with the new pauses.
+  It stays about 6.5 minutes.
+- **Full length (about $1 and 2,000 voice credits):** **2. Script →
+  Write it again** with a note like "longer, fill the plan's ten
+  minutes", approve it, redraw the storyboard, then make the video.
+- Chapter titles on screen are now off. To have them back (titles only,
+  never "Chapter 3"): **Settings → Length and pace**.
+
+---
+
 ## Pub Quiz Buzz fixes (7 Oct)
 
 ### I. Fix "Ra" in Ancient History: Impossible (2 minutes, a few voice credits)

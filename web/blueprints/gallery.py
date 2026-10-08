@@ -132,7 +132,20 @@ def video_detail(key, relpath):
         hand_off=publish_queue.hand_off_platforms(channel, target, manual=True),
         out=gallery_core.is_out(links),
         post=_post_plan(channel, target, links),
+        production=_production_of(target),
     )
+
+
+def _production_of(target):
+    """The documentary production a video was made by (decision 074), as
+    (channel key, plan entry id), from the sidecar written beside it."""
+    import json
+    sidecar = target.with_name(f"{target.stem}_production.json")
+    try:
+        data = json.loads(sidecar.read_text(encoding="utf-8"))
+        return data["channel"], data["subtopic_id"]
+    except (OSError, ValueError, KeyError):
+        return None
 
 
 def _post_plan(channel, target, links):
