@@ -39,7 +39,7 @@ of them from Channels).
 ### K. Remake the Lincoln film, or make the next one (2 to 20 minutes)
 The stutters, the chapter cards, the pauses and the music gap are fixed
 for every film from now on (decision 079). The Lincoln film itself:
-- **Quick (2 minutes, almost no voice credits):** **Productions → Made →
+- **Quick (2 minutes, no voice credits: every line is reused from the voice cache):** **Productions → Made →
   Lincoln → 4. Video → Make the video again**. Same script and pictures,
   without the stutters, chapter cards or music gap, with the new pauses.
   It stays about 6.5 minutes.

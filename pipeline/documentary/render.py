@@ -167,10 +167,12 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
     segments = segments_for(scenes)
     say_as = dict(getattr(channel, "pronunciations", None) or {})
     voice_quota.require_room(tts.characters_to_voice(segments, None, channel.pacing, 0, channel.voice,
-                                                     channel.speed, say_as, False))
+                                                     channel.speed, say_as, True))
     log.info(f"[2/5] Voicing {len(scenes)} scenes...")
     voice = tts.generate_voiceover(segments, None, channel.voice, str(work / "voice.mp3"), channel.pacing,
-                                   speed=channel.speed, say_as=say_as, close=True)
+                                   speed=channel.speed, say_as=say_as, close=True,
+                                   # A film made again re-voices only lines whose words changed.
+                                   reuse=True)
 
     job_context.report_stage(4)
     log.info(f"[4/5] Putting {len(scenes)} stills on screen ({segments[-1].end / 60:.1f} minutes)...")

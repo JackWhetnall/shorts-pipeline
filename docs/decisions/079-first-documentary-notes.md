@@ -66,5 +66,6 @@ documentary's video page links back to it.
 Its script is short, and only a new script would make it longer. That
 in turn means a new storyboard for the scenes that change. Making only
 the video again, from the same script and stills, fixes the stutters,
-pauses, chapter cards and music. It costs almost no voice: the lines are
-in the voice cache, and are cut close now.
+pauses, chapter cards and music. It costs no voice: a documentary's video now reuses the voice
+cache (`reuse=True`), so only lines whose words changed are voiced again. Before,
+a remake re-voiced every line, about a thousand credits for this film.
