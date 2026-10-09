@@ -42,7 +42,34 @@ def run_stage(channel, subtopic_id: str, stage: str, note: str = "", only: list 
         production.update(channel.key, subtopic_id,
                           lambda d: production.mark(d, stage, "failed", friendly_message(exc)))
         raise
+    if stage in ("outline", "script", "stills"):
+        retire_video(channel, subtopic_id)
     return result
+
+
+def retire_video(channel, subtopic_id: str, keep: str = "") -> bool:
+    """A made video that no longer follows from its plan (an earlier stage
+    was redone, or a new one made) is discarded, unless it has gone out,
+    and remembered as the old version (decision 081). Restorable from
+    the channel's Videos like any discard. True if one was."""
+    from core import gallery
+    data = production.load(channel.key, subtopic_id)
+    rel = (data.get("video") or {}).get("path")
+    if not rel or rel == keep:
+        return False
+    path = _root(channel) / rel
+    if not path.exists():
+        return False
+    info = gallery.load_publish_info(path)
+    if gallery.is_out(info) or info.get("discarded"):
+        return False
+    gallery.set_discarded(path, True, reason="remade")
+
+    def note(d):
+        d.setdefault("video", {})["retired"] = rel
+    production.update(channel.key, subtopic_id, note)
+    log.info(f"  [documentary] {rel} discarded: it no longer follows from its plan")
+    return True
 
 
 def _making_teasers(data: dict) -> bool:
@@ -95,6 +122,7 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
         from pipeline.documentary import render
         made = render.make(channel, data, folder)
         relpath = str(made.video_path.relative_to(_root(channel))).replace("\\", "/")
+        retire_video(channel, sid, keep=relpath)
         production.update(key, sid, lambda d: production.made(d, "video", {"path": relpath}))
         # The plan entry is made now: the scheduler moves on from it.
         if (curriculum.find(key, sid) or {}).get("status") == curriculum.PENDING:

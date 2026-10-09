@@ -922,9 +922,11 @@ function activityRow(job) {
 
   // At batch prices the timing is the batches', not ours: no estimate,
   // and a button to make it now instead (decision 072).
+  const acc = job.accelerate;
+  const accLabel = acc ? ` ${acc.extra_usd >= 0.01 ? "+$" + acc.extra_usd.toFixed(2) : "same price"}, ~${Math.max(1, acc.minutes_now)} min` : "";
   const eta = job.ahead
-    ? `<span class="activity-eta">At batch prices <button type="button" class="btn-ghost btn-small" onclick="activityAccelerate('${job.id}', this)"
-         data-tooltip="Next in the queue and made at full speed, at full price">Accelerate</button></span>`
+    ? `<span class="activity-eta">${acc ? `Batch: ~${acc.minutes_batch} min ` : ""}<button type="button" class="btn-ghost btn-small" onclick="activityAccelerate('${job.id}', this)"
+         title="Next in the queue, at full speed">Accelerate${accLabel}</button></span>`
     : job.eta_label
       ? `<span class="activity-eta">${escapeHtml(job.eta_label)} left<span class="activity-eta-at"> &middot; done around ${activityTimeOfDay(job.eta_at)}</span></span>`
       : "";
@@ -942,7 +944,7 @@ function activityRow(job) {
       <div class="job-progress-bar${running ? "" : " job-progress-bar-queued"}">
         <div class="job-progress-bar-track">${fill}</div>
       </div>
-      <p class="hint"><a href="/channels/${encodeURIComponent(job.channel_key)}/create">Open ${escapeHtml(job.channel_name)}'s progress view &rarr;</a></p>
+      <p class="hint"><a href="${job.link || `/channels/${encodeURIComponent(job.channel_key)}/create`}">Open it &rarr;</a></p>
     </div>`;
 }
 
@@ -3273,8 +3275,42 @@ async function planRemove(channelKey, topicId, button) {
 
 // --- Create video: a long quiz ------------------------------------------------
 
+// The rounds a long quiz at the chosen level could use, ticked for the
+// first that go together, to untick, add or reorder (decision 081).
+async function longformRounds(channelKey) {
+  const list = document.getElementById("longform-picks");
+  if (!list) return;
+  const difficulty = document.getElementById("longform-difficulty").value;
+  const wanted = Number(document.getElementById("longform-rounds").value) || 6;
+  const res = await fetch(`/api/channels/${channelKey}/longform/rounds?difficulty=${encodeURIComponent(difficulty)}`);
+  const data = await res.json().catch(() => ({rounds: []}));
+  let ticked = 0;
+  list.innerHTML = data.rounds.map(r => {
+    const on = r.chosen && ticked < wanted;
+    if (on) ticked++;
+    return `<li data-stem="${escapeHtml(r.stem)}"><label class="checkbox-label"><input type="checkbox" ${on ? "checked" : ""}>
+      ${escapeHtml(r.category)}${difficulty === "rising" || difficulty.startsWith("category:") ? ` <span class="hint">${escapeHtml(r.difficulty)}</span>` : ""}
+      ${r.chosen ? "" : '<span class="hint" title="Clashes with a ticked round">clashes</span>'}</label>
+      <button type="button" class="btn-ghost btn-small" onclick="longformMove(this, -1)" aria-label="Up">&uarr;</button>
+      <button type="button" class="btn-ghost btn-small" onclick="longformMove(this, 1)" aria-label="Down">&darr;</button></li>`;
+  }).join("");
+}
+
+function longformMove(button, step) {
+  const item = button.closest("li");
+  const other = step < 0 ? item.previousElementSibling : item.nextElementSibling;
+  if (other) step < 0 ? other.before(item) : other.after(item);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const card = document.getElementById("longform-card");
+  if (card) longformRounds(card.dataset.channelKey);
+});
+
 async function startLongform(channelKey, button) {
   const status = document.getElementById("longform-status");
+  const pick = [...document.querySelectorAll("#longform-picks li")]
+    .filter(li => li.querySelector("input").checked).map(li => li.dataset.stem);
   await withButtonLoading(button, "Starting…", async () => {
     const res = await apiFetch(`/api/channels/${channelKey}/longform`, {
       method: "POST",
@@ -3282,6 +3318,8 @@ async function startLongform(channelKey, button) {
       body: JSON.stringify({
         difficulty: document.getElementById("longform-difficulty").value,
         rounds: Number(document.getElementById("longform-rounds").value),
+        pick,
+        now: Boolean(document.getElementById("longform-now")?.checked),
       }),
     });
     const data = await res.json();

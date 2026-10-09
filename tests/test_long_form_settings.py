@@ -121,7 +121,8 @@ def test_the_setup_says_the_next_thing_is_to_start_the_first_film(world):
     page = world.get("/channels/films/productions").get_data(as_text=True)
     assert "Next: open" in page and "Elizabeth I" in page and "Write the outline" in page
     film = world.get("/channels/films/productions/t0001").get_data(as_text=True)
-    assert "Now: press" in film and "This is what starts the film" in film
+    # Decision 081: no paragraph of instructions, the first stage's button and its price.
+    assert "Write the outline" in film and "speed-batch" in film and "Now: press" not in film
 
     # Started: the list steps back on Productions, and the film says what's next.
     data = production.load("films", "t0001", "Elizabeth I")
@@ -130,7 +131,7 @@ def test_the_setup_says_the_next_thing_is_to_start_the_first_film(world):
     assert long_form.next_step(_channel()) is None
     assert "lf-setup" not in world.get("/channels/films/productions").get_data(as_text=True)
     film = world.get("/channels/films/productions/t0001").get_data(as_text=True)
-    assert "Now: read the outline below" in film
+    assert "To approve" in film and ">Approve<" in film
 
 
 def test_without_a_look_the_next_step_is_choosing_one(world):

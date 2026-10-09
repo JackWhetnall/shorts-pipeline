@@ -207,16 +207,22 @@ def ready_difficulty(channel) -> str:
     return next((label for label in candidates if len(choose_rounds(channel, label, count)) >= count), None)
 
 
-def availability(channel) -> dict:
+def availability(channel, clash_free: bool = False) -> dict:
     """{difficulty label: rounds ready, "rising": categories ready} for the
     mixed series, and {"category:<name>": difficulty levels ready} for the
-    category series."""
+    category series.
+
+    `clash_free`: how many can go in one quiz together, as `choose_rounds`
+    would pick them (no two giving each other's answers away). The menu
+    said "Tricky: 7 ready" while making one said 5 of 6 were (decision
+    081). The scheduler keeps the plain count it has always used."""
     rows = available_rounds(channel, MIXED)
     counts = {}
     for label in quiz.labels(channel):
-        counts[label] = len({r["category"].lower() for r in rows
-                             if r["difficulty"].lower() == label.lower()})
-    counts[RISING] = len({r["category"].lower() for r in rows})
+        counts[label] = (len(choose_rounds(channel, label, MAX_ROUNDS)) if clash_free else
+                         len({r["category"].lower() for r in rows if r["difficulty"].lower() == label.lower()}))
+    counts[RISING] = (len(choose_rounds(channel, RISING, MAX_ROUNDS)) if clash_free else
+                      len({r["category"].lower() for r in rows}))
     singles = available_rounds(channel, CATEGORY)
     for category in sorted({r["category"] for r in singles}):
         counts[CATEGORY_PREFIX + category] = len({r["level"] for r in singles if r["category"] == category})
@@ -256,6 +262,46 @@ def clashes(a: list, b: list) -> bool:
             if len(words | other) >= 4 and len(words & other) / len(words | other) >= 0.6:
                 return True
     return False
+
+
+MAX_ROUNDS = 12
+
+
+def rounds_for(channel, difficulty: str) -> list:
+    """Every approved round a quiz at `difficulty` could use, for picking
+    by hand: {stem, category, difficulty, title, chosen}, `chosen` being
+    the ones `choose_rounds` would take (clash-free), in its order."""
+    chosen = [r["stem"] for r in choose_rounds(channel, difficulty, MAX_ROUNDS)]
+    rows = available_rounds(channel, series_of(difficulty))
+    if difficulty.startswith(CATEGORY_PREFIX):
+        name = difficulty[len(CATEGORY_PREFIX):].lower()
+        rows = [r for r in rows if r["category"].lower() == name]
+    elif difficulty != RISING:
+        rows = [r for r in rows if r["difficulty"].lower() == difficulty.lower()]
+    out = []
+    for r in rows:
+        out.append({"stem": r["stem"], "category": r["category"], "difficulty": r["difficulty"],
+                    "title": gallery.load_publish_info(r["video"]).get("title") or r["stem"],
+                    "chosen": r["stem"] in chosen})
+    order = {stem: i for i, stem in enumerate(chosen)}
+    return sorted(out, key=lambda r: (not r["chosen"], order.get(r["stem"], 0), r["category"]))
+
+
+def picked_rounds(channel, difficulty: str, stems: list) -> list:
+    """The rounds the owner picked, in their order, refusing a pair that
+    clashes (one would give the other's answer away)."""
+    by_stem = {r["stem"]: r for r in available_rounds(channel, series_of(difficulty))}
+    rows = [by_stem[s] for s in stems if s in by_stem]
+    if len(rows) < len(stems):
+        raise LongformError("picked rounds gone", user_message=(
+            "One of the rounds picked is no longer available. Pick again."))
+    for i, a in enumerate(rows):
+        for b in rows[i + 1:]:
+            if clashes(_questions(a, channel), _questions(b, channel)):
+                raise LongformError(f"{a['stem']} clashes with {b['stem']}", user_message=(
+                    f"{a['category']} and {b['category']} would give each other's answers away. "
+                    f"Drop one of them."))
+    return rows
 
 
 def choose_rounds(channel, difficulty: str, count: int) -> list:
@@ -917,7 +963,8 @@ def plan_request(channel, seed: dict) -> dict:
     if not difficulty or difficulty == "best":
         counts = availability(channel)
         ready = [label for label in quiz.labels(channel) if counts.get(label, 0) >= count]
-        difficulty = ready[0] if ready else RISING
+        # Rising (mixed levels) is made only when it's asked for (decision 081).
+        difficulty = ready[0] if ready else quiz.labels(channel)[0]
     return {"rounds": count, "difficulty": difficulty}
 
 
@@ -939,6 +986,10 @@ def make(channel, seed: dict, out_dir: Path = None):
         wanted = set(saved["rounds"])
         rounds = [r for r in available_rounds(channel, series) if r["stem"] in wanted]
         rounds = sorted(rounds, key=lambda r: saved["rounds"].index(r["stem"]))
+    elif seed.get("pick"):
+        # Picked and ordered by hand (decision 081).
+        rounds = picked_rounds(channel, difficulty, list(seed["pick"]))
+        count = len(rounds)
     else:
         rounds = choose_rounds(channel, difficulty, count)
     if len(rounds) < count:

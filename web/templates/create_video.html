@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}New video · {{ channel.channel_display_name }}{% endblock %}
 {% block content %}
+{% from "_speed.html" import speed_choice %}
 {% set tab = 'new' %}
 {% include "_channel_head.html" %}
 
@@ -24,9 +25,7 @@
       <input type="number" id="video-number" min="1" value="{{ next_number }}" class="narrow-number">
     </label>
     {% endif %}
-    <label class="checkbox-label"><input type="checkbox" id="make-now">
-      <span>Make it now, at full price</span>
-      <button type="button" class="info-dot" data-tooltip="Otherwise it's made at batch prices: Claude at half the cost, but it can take an hour or more. You can still speed it up from Activity with Accelerate.">?</button></label>
+    {{ speed_choice(speed_short, id="make-now") }}
     <div class="actions">
       <button type="button" id="chosen-make-btn" onclick="startGenerate('{{ key }}')" disabled>Make this video</button>
       <button type="button" class="btn-ghost" onclick="chooseVideo({mode: 'random'}, 'Picked at random')">Pick another at random</button>
@@ -88,30 +87,35 @@
 {% endif %}
 {% if longform %}
   <div class="card" id="longform-card" data-channel-key="{{ key }}">
-    <h2>A long quiz
-      <button type="button" class="info-dot" data-tooltip="Widescreen, recut from approved shorts; only the host's joining lines are voiced. Made in both formats, answers as you go and answers at the end, and both go to review.">?</button>
-    </h2>
+    <h2>Long quiz <span class="prod-count" title="{{ longform.auto_rule }}">Auto: {{ longform.auto }}</span></h2>
     <div class="channel-form">
-      <label>Difficulty
-        <select id="longform-difficulty">
+      <label>Which
+        <select id="longform-difficulty" onchange="longformRounds('{{ key }}')">
+          <optgroup label="One level, mixed categories">
           {% for label in longform.labels %}
-          <option value="{{ label }}" {{ 'disabled' if longform.ready[label] < 2 }}>{{ label }} &mdash; {{ longform.ready[label] }} ready</option>
+          <option value="{{ label }}" {{ 'disabled' if longform.ready[label] < 2 }}>{{ label }} &middot; {{ longform.ready[label] }}</option>
           {% endfor %}
-          <option value="rising">Rising &mdash; {{ longform.ready.rising }} categories ready</option>
+          </optgroup>
           {% if longform.singles %}
           <optgroup label="One category, easiest to hardest">
             {% for option, count in longform.singles %}
-            <option value="{{ option }}" {{ 'disabled' if count < longform.labels|length }}>{{ option[9:] }} &mdash; {{ count }} of {{ longform.labels|length }} levels</option>
+            <option value="{{ option }}" {{ 'disabled' if count < longform.labels|length }}>{{ option[9:] }} &middot; {{ count }}/{{ longform.labels|length }} levels</option>
             {% endfor %}
           </optgroup>
           {% endif %}
+          <optgroup label="Mixed levels">
+            <option value="rising">Rising, easiest to hardest &middot; {{ longform.ready.rising }}</option>
+          </optgroup>
         </select>
       </label>
       <label>Rounds
-        <input type="number" id="longform-rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}" class="narrow-number">
+        <input type="number" id="longform-rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}" class="narrow-number"
+               onchange="longformRounds('{{ key }}')">
       </label>
+      <ol id="longform-picks" class="longform-picks"></ol>
       <div class="actions">
         <button type="button" onclick="startLongform('{{ key }}', this)">Make the long quiz</button>
+        {{ speed_choice(speed_long, id="longform-now") }}
         <span class="hint" id="longform-status"></span>
       </div>
     </div>
@@ -133,7 +137,7 @@
   <h2 id="job-heading">Generating&hellip;</h2>
   <p id="job-eta" class="meta hidden"></p>
   <p id="job-queue-note" class="meta hidden"></p>
-  <p id="job-batch-note" class="meta hidden">At batch prices: Claude at half the cost, but slower.
+  <p id="job-batch-note" class="meta hidden">Batch prices.
     <button type="button" class="btn-ghost btn-small" onclick="accelerateCurrentJob(this)">Accelerate</button></p>
   <p class="meta"><a href="{{ url_for('jobs.activity') }}">See everything being made &rarr;</a></p>
   <div id="job-banner" class="error hidden">

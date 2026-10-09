@@ -108,8 +108,31 @@ def page(key, subtopic_id):
             minutes * 60 / channel.documentary.scene_seconds)),
         voice_chars=sum(len(s["narration"]) + 1 for s in (data.get("script") or {}).get("scenes") or []),
         video=_made(channel, (data.get("video") or {}).get("path")),
+        old_video=_made(channel, (data.get("video") or {}).get("retired")),
         teaser_videos=[v for v in (_made(channel, p) for p in (data.get("teasers") or {}).get("videos") or []) if v],
+        speed={stage: _speed(key, stage) for stage in production.STAGES},
         note=request.args.get("note", ""))
+
+
+def _speed(channel_key: str, stage: str) -> dict:
+    """Each stage's price and finish, at batch prices and now (core.estimates)."""
+    from core import estimates
+    try:
+        return estimates.describe({"type": "production", "stage": stage}, channel_key)
+    except Exception as exc:  # noqa: BLE001 - the page shows without the estimate
+        log.warning(f"Couldn't estimate {stage}: {exc}")
+        return None
+
+
+@bp.route("/channels/<key>/productions/<subtopic_id>/state")
+def state(key, subtopic_id):
+    """The stages' states, polled by the page while one is being made so it
+    fills in by itself when it's done."""
+    from flask import jsonify
+    _channel(key)
+    data = production.load(key, subtopic_id)
+    working = [stage for (sid, stage) in busy(key) if sid == subtopic_id]
+    return jsonify({"stages": {s: production.state(data, s) for s in production.STAGES}, "busy": working})
 
 
 def _made(channel, rel: str):

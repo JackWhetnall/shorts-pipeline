@@ -73,9 +73,21 @@ def _for_activity(job: dict, names: dict) -> dict:
         "eta_label": job_eta.describe(job.get("eta_seconds")),
         "ahead": bool(job.get("ahead")),
         # A documentary's stage (decision 074) is looked at on its own page.
-        "link": (url_for("productions.page", key=job["channel_key"], subtopic_id=seed["subtopic_id"])
-                 if seed.get("type") == "production" else None),
+        "link": (url_for("productions.page", key=job["channel_key"], subtopic_id=seed["subtopic_id"],
+                         _anchor=seed.get("stage")) if seed.get("type") == "production" else None),
+        # What Accelerate costs and gains (core.estimates, decision 081).
+        "accelerate": _accelerate(job) if job.get("ahead") and job.get("status") in ("queued", "running") else None,
     }
+
+
+def _accelerate(job: dict) -> dict:
+    from core import estimates
+    try:
+        e = estimates.estimate(job.get("seed") or {}, job.get("channel_key"))
+    except Exception:  # noqa: BLE001 - the button shows without its numbers
+        return None
+    return {"extra_usd": round(e.saving, 2), "minutes_now": round(e.minutes_now),
+            "minutes_batch": round(e.minutes_batch)}
 
 
 def _activity_payload() -> dict:

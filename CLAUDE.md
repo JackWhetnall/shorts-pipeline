@@ -58,6 +58,13 @@ Windows, project at `C:\Users\JackW\Documents\YT\`, Python 3.10, Git Bash.
   Anything that degrades sets a flag the UI shows.
 - **Tests** — `python -m pytest -m "not slow"` before and after a change.
   Every documented bug has a regression test; keep it that way.
+- **Interface text** — labels, not sentences. Never leave always-visible
+  text explaining how something works; show state with a brief visual
+  (pill, strikethrough, colour), and use a tooltip only where it's truly
+  needed, in one short line. Every action that costs money shows its
+  expected cost in $ (voice credits converted too), and a batch-or-now
+  choice shows both prices and when each would be done. The owner's
+  standing instruction (decision 081).
 - **Frozen channels** — Minute Pastor and Pub Quiz Buzz must keep making
   exactly what they make. Shared code changes only additively, behind
   defaults they keep. `tests/frozen/` (in the fast suite, or alone with

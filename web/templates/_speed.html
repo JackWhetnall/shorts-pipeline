@@ -1,0 +1,13 @@
+{# A paid action's price and finish, at batch prices and now (core.estimates,
+   decision 081). `est` from estimates.describe; the checkbox is named "now". #}
+{% macro speed_choice(est, id=None) -%}
+{% if est %}
+<span class="speed-choice">
+  <span class="speed-batch" title="At batch prices{{ '' if est.measured else ', a rough guess until one has been made' }}">${{ '%.2f'|format(est.usd_batch) }} &middot; {{ est.done_batch }}</span>
+  <label class="checkbox-label speed-now"><input type="checkbox" name="now"{% if id %} id="{{ id }}"{% endif %} {{ 'checked' if est.extra_now < 0.01 }}>
+    now {{ ('+$%.2f'|format(est.extra_now)) if est.extra_now >= 0.01 else 'same price' }}, {{ est.done_now }}</label>
+</span>
+{% else %}
+<label class="checkbox-label speed-now"><input type="checkbox" name="now"{% if id %} id="{{ id }}"{% endif %}> now</label>
+{% endif %}
+{%- endmacro %}

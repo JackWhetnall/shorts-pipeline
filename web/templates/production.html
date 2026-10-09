@@ -7,58 +7,30 @@
 <h1 class="prod-title">{{ row.title }}</h1>
 {% if row.angle %}<p class="page-sub">{{ row.angle }}</p>{% endif %}
 
+{% from "_speed.html" import speed_choice %}
+{% set order = ['outline', 'script', 'stills', 'video', 'teasers'] %}
+{% set busy_at = (order|select('in', stage_jobs)|list or order|select('equalto', 'x')|list) %}
+{% set first_busy = order.index(busy_at[0]) if busy_at else 99 %}
+{% set labels = {'todo': '', 'working': 'Being made', 'ready': 'To approve', 'approved': 'Approved',
+                 'failed': 'Failed', 'stale': 'Out of date'} %}
+
 <ol class="prod-stages prod-stages-big">
   {% for s in info.stages %}
-  <li><a href="#{{ s.stage }}" class="prod-stage state-{{ s.state }}">{{ loop.index }}. {{ s.label }}
-    <span class="prod-state">{{ {'todo': 'not started', 'working': 'being made', 'ready': 'to look at',
-      'approved': 'approved', 'failed': 'failed', 'stale': 'out of date'}[s.state] }}</span></a></li>
+  <li><a href="#{{ s.stage }}" class="prod-stage state-{{ s.state }} {{ 'redo' if loop.index0 > first_busy and s.state not in ('todo',) }}">{{ s.label }}</a></li>
   {% endfor %}
 </ol>
 
 {% if note %}<p class="meta info-banner" role="status">{{ note }}</p>{% endif %}
+{% if not look_chosen %}<p class="meta info-banner">No look chosen yet:
+  <a href="{{ url_for('channels.settings', key=key, _anchor='section-pictures') }}">choose one</a> before the storyboard.</p>{% endif %}
 
-{# What to do now, in one line (decision 076): the first stage not approved, and its state. #}
-{% set cur = info.current %}
-{% set start_labels = {'outline': 'Write the outline', 'script': 'Write the script', 'stills': 'Draw the storyboard',
-                       'video': 'Make the video', 'teasers': 'Write the teasers'} %}
-{% set what = {'outline': 'the outline', 'script': 'the script', 'stills': 'the storyboard pictures',
-               'video': 'the finished video', 'teasers': "the teasers' scripts"} %}
-<div class="card prod-now" role="status">
-  {% if not cur %}
-  <strong>This film is finished.</strong> The video and its teasers are in Review; approving them there queues them to go out.
-  {% elif cur in stage_jobs or data.stages[cur].state == 'working' %}
-  <strong>Now: {{ what[cur] }} {{ 'are' if cur in ('stills', 'teasers') else 'is' }} being made.</strong> Nothing to do until it's done.
-  At batch prices that's usually within the hour; <a href="{{ url_for('jobs.activity') }}">Activity</a> has Accelerate to hurry it.
-  Refresh this page to see it.
-  {% elif data.stages[cur].state == 'ready' %}
-  <strong>Now: read {{ what[cur] }} below{% if cur == 'video' %} (Watch it){% endif %}, then press Approve.</strong>
-  Or change it and press <em>Save my changes and approve</em>, or have it made again with a note.
-  {% if cur == 'teasers' %}Approving them is what makes them.{% else %}Approving it unlocks the next stage.{% endif %}
-  {% elif data.stages[cur].state == 'failed' %}
-  <strong>Now: {{ what[cur] }} failed.</strong> The reason is in its section below; press <em>{{ start_labels[cur] }}</em> to try again.
-  {% elif data.stages[cur].state == 'stale' %}
-  <strong>Now: make {{ what[cur] }} again.</strong> An earlier stage changed after it was made.
-  {% else %}
-  <strong>Now: press <a href="#{{ cur }}">{{ start_labels[cur] }}</a></strong> in its section below.
-  {% if cur == 'outline' %}This is what starts the film. Nothing has been made or spent before it.{% endif %}
-  It runs at batch prices (half price, usually within the hour); tick <em>now, at full price</em> to have it in a minute or two.
-  {% endif %}
-</div>
-
-{% if not look_chosen %}<p class="meta info-banner">This channel's drawn look isn't chosen yet. Every storyboard
-  picture, on every video, is drawn in it, so choose it before the storyboard:
-  <a href="{{ url_for('channels.settings', key=key, _anchor='section-pictures') }}">Settings, Look</a>.</p>{% endif %}
-{% if stage_jobs %}<p class="meta info-banner">Being made now: {{ stage_jobs|map('capitalize')|join(', ') }}.
-  <a href="{{ url_for('jobs.activity') }}">Activity</a> shows it (and Accelerate). Refresh when it's done.</p>{% endif %}
-
-{% macro start_form(stage, label, cost='', with_note=true, placeholder='What to change (optional)', extra='') %}
+{% macro start_form(stage, label, placeholder='What to change (optional)', with_note=true, extra='') %}
 <form method="post" action="{{ url_for('productions.start_stage', key=key, subtopic_id=row.id, stage=stage) }}" class="prod-start">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {{ extra|safe }}
   {% if with_note %}<input type="text" name="note" placeholder="{{ placeholder }}">{% endif %}
   <button type="submit" class="btn-ghost">{{ label }}</button>
-  <label class="checkbox-label hint"><input type="checkbox" name="now"> now, at full price</label>
-  {% if cost %}<span class="hint">{{ cost }}</span>{% endif %}
+  {{ speed_choice(speed[stage]) }}
 </form>
 {% endmacro %}
 
@@ -69,44 +41,42 @@
 </form>
 {% endmacro %}
 
-{% macro state_line(stage) %}
+{# One pill: this stage's state, or "will be redone" while an earlier one is being made. #}
+{% macro pill(stage) %}
 {% set st = data.stages[stage].state %}
-{% if stage in stage_jobs %}<p class="meta">Being made&hellip;</p>
-{% elif st == 'failed' %}<p class="error">It failed: {{ data.stages[stage].error or 'see Activity' }}</p>
-{% elif st == 'stale' %}<p class="error">An earlier stage changed after this was made, so it no longer follows from it.
-  Make it again.</p>{% endif %}
+{% if stage in stage_jobs %}<span class="prod-pill pill-working">Being made</span>
+{% elif order.index(stage) > first_busy and st != 'todo' %}<span class="prod-pill pill-redo" title="Redone once the stage above is">Will be redone</span>
+{% elif st == 'failed' %}<span class="prod-pill pill-bad" title="{{ data.stages[stage].error or '' }}">Failed</span>
+{% elif labels[st] %}<span class="prod-pill pill-{{ st }}">{{ labels[st] }}</span>{% endif %}
 {% endmacro %}
 
+{% macro section_class(stage) -%}
+prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first_busy and data.stages[stage].state != 'todo') }}
+{%- endmacro %}
+
 {# --- 1. Outline ------------------------------------------------------------ #}
-<section class="card prod-section" id="outline">
-  <h2>1. Outline</h2>
-  <p class="meta">What the video says, chapter by chapter, and how each part is shown; who and what recurs in it.</p>
-  {{ state_line('outline') }}
+<section class="card {{ section_class('outline') }}" id="outline">
+  <h2>Outline {{ pill('outline') }}</h2>
   {% if data.outline %}
   <form method="post" action="{{ url_for('productions.save_outline', key=key, subtopic_id=row.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label>The through-line: what the whole film builds to
-      <textarea name="through_line" rows="2">{{ data.outline.through_line }}</textarea></label>
-    <label>The visual concept: what carries every picture
-      <textarea name="visual_concept" rows="2">{{ data.outline.visual_concept }}</textarea></label>
-    <label>Title options, one a line
-      <textarea name="title_options" rows="3">{{ data.outline.title_options|join('\n') }}</textarea></label>
+    <label>Through-line <textarea name="through_line" rows="2">{{ data.outline.through_line }}</textarea></label>
+    <label>Visual concept <textarea name="visual_concept" rows="2">{{ data.outline.visual_concept }}</textarea></label>
+    <label>Titles <textarea name="title_options" rows="3">{{ data.outline.title_options|join('\n') }}</textarea></label>
     <h3>Chapters</h3>
     <ol class="prod-chapters">
       {% for c in data.outline.chapters %}
       <li>
         <div class="prod-row2">
           <input type="text" name="chapter_title" value="{{ c.title }}" aria-label="Chapter title">
-          <label class="hint">minutes <input type="number" name="chapter_minutes" value="{{ c.minutes }}" step="0.1" min="0.1" class="narrow-number"></label>
+          <label class="hint">min <input type="number" name="chapter_minutes" value="{{ c.minutes }}" step="0.1" min="0.1" class="narrow-number"></label>
         </div>
         <label class="hint">Says<textarea name="chapter_says" rows="3">{{ c.says }}</textarea></label>
         <label class="hint">Shows<textarea name="chapter_shows" rows="3">{{ c.shows }}</textarea></label>
       </li>
       {% endfor %}
     </ol>
-    <h3>Cast</h3>
-    <p class="hint">Drawn once and kept for the channel's other videos, so a person looks the same in every film.
-      Someone at a very different age is a separate member.</p>
+    <h3>Cast <button type="button" class="info-dot" data-tooltip="Drawn once, reused in every film on the channel.">?</button></h3>
     <ul class="prod-cast">
       {% for m in data.outline.cast %}
       <li class="prod-row2">
@@ -117,76 +87,63 @@
       </li>
       {% endfor %}
       <li class="prod-row2">
-        <input type="text" name="cast_name" placeholder="Add someone or something" aria-label="Name">
+        <input type="text" name="cast_name" placeholder="Add" aria-label="Name">
         <select name="cast_kind" aria-label="Kind"><option>character</option><option>place</option><option>object</option></select>
         <textarea name="cast_description" rows="2" placeholder="How they look" aria-label="Description"></textarea>
       </li>
     </ul>
-    <div class="actions">
-      <button type="submit" class="btn-ghost">Save my changes and approve</button>
-    </div>
+    <div class="actions"><button type="submit" class="btn-ghost">Save and approve</button></div>
   </form>
-  <div class="actions">
-    {% if data.stages.outline.state == 'ready' %}{{ approve_form('outline') }}{% endif %}
-  </div>
-  {{ start_form('outline', 'Write it again', 'About two cents.', placeholder='What to change, e.g. start with the crossing of the Delaware') }}
+  <div class="actions">{% if data.stages.outline.state == 'ready' %}{{ approve_form('outline') }}{% endif %}</div>
+  {% if 'outline' not in stage_jobs %}{{ start_form('outline', 'Write again', 'What to change') }}{% endif %}
   {% elif 'outline' not in stage_jobs %}
-  {{ start_form('outline', 'Write the outline', 'About two cents.', placeholder='Anything it should cover or avoid (optional)') }}
+  {{ start_form('outline', 'Write the outline', 'Anything to cover or avoid (optional)') }}
   {% endif %}
 </section>
 
 {# --- 2. Script ------------------------------------------------------------- #}
-<section class="card prod-section" id="script">
-  <h2>2. Script</h2>
-  <p class="meta">The narration as a play: every scene's stage direction and the words spoken over it.</p>
-  {{ state_line('script') }}
+<section class="card {{ section_class('script') }}" id="script">
+  <h2>Script {{ pill('script') }}
+    {% if data.script %}<span class="prod-count">{{ data.script.scenes|length }} scenes &middot; {{ (words / 2.4 / 60)|round(1) }} min
+      {% if words < 0.85 * channel.documentary.minutes * 60 * 2.4 %}<span class="danger-text" title="Planned {{ channel.documentary.minutes|round(1) }} min">short</span>{% endif %}</span>{% endif %}</h2>
   {% if data.stages.outline.state != 'approved' %}
-  <p class="hint">Approve the outline first.</p>
   {% elif data.script %}
-  <p class="hint">{{ data.script.scenes|length }} scenes, {{ words }} words: about {{ (words / 2.4 / 60)|round(1) }}
-    minutes{% if words < 0.85 * channel.documentary.minutes * 60 * 2.4 %}, <span class="danger-text">short of the
-    {{ channel.documentary.minutes|round(1) }} minutes planned</span>: write a chapter again with "longer", or the whole
-    script{% endif %}.</p>
   <form method="post" action="{{ url_for('productions.save_script', key=key, subtopic_id=row.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% set ns = namespace(chapter=0) %}
     {% for s in data.script.scenes %}
     {% if s.chapter != ns.chapter %}{% set ns.chapter = s.chapter %}
-    <h3 class="prod-chapter-head">Chapter {{ s.chapter }}: {{ data.outline.chapters[s.chapter - 1].title if s.chapter <= data.outline.chapters|length else '' }}</h3>
+    <h3 class="prod-chapter-head">{{ s.chapter }}. {{ data.outline.chapters[s.chapter - 1].title if s.chapter <= data.outline.chapters|length else '' }}</h3>
     {% endif %}
     <div class="prod-scene">
       <input type="hidden" name="chapter" value="{{ s.chapter }}">
       <span class="prod-scene-n">{{ loop.index }}</span>
-      <label class="hint">Stage direction<textarea name="direction" rows="3">{{ s.direction }}</textarea></label>
+      <label class="hint">Direction<textarea name="direction" rows="3">{{ s.direction }}</textarea></label>
       <label class="hint">Said<textarea name="narration" rows="3">{{ s.narration }}</textarea></label>
       <div class="prod-row2 prod-scene-meta">
         <select name="framing" aria-label="Framing">{% for f in framings %}<option {{ 'selected' if s.framing == f }}>{{ f }}</option>{% endfor %}</select>
         <select name="camera" aria-label="Camera">{% for c in cameras %}<option value="{{ c }}" {{ 'selected' if s.camera == c }}>{{ c.replace('_', ' ') }}</option>{% endfor %}</select>
-        <input type="text" name="caption" value="{{ s.caption }}" placeholder="On-screen label (optional)" aria-label="Caption">
-        <input type="text" name="cast" value="{{ s.cast|join('; ') }}" placeholder="Cast in it, separated by ;" aria-label="Cast in it">
+        <input type="text" name="caption" value="{{ s.caption }}" placeholder="Caption" aria-label="Caption">
+        <input type="text" name="cast" value="{{ s.cast|join('; ') }}" placeholder="Cast (; between)" aria-label="Cast in it">
       </div>
     </div>
     {% endfor %}
-    <label>YouTube description
-      <textarea name="description" rows="3">{{ data.script.description }}</textarea></label>
-    <div class="actions"><button type="submit" class="btn-ghost">Save my changes and approve</button></div>
+    <label>Description <textarea name="description" rows="3">{{ data.script.description }}</textarea></label>
+    <div class="actions"><button type="submit" class="btn-ghost">Save and approve</button></div>
   </form>
   <div class="actions">{% if data.stages.script.state == 'ready' %}{{ approve_form('script') }}{% endif %}</div>
-  {% set chapter_choice %}<select name="chapter" aria-label="Which chapter"><option value="">The whole script</option>
-    {% for c in data.outline.chapters %}<option value="{{ loop.index }}">Chapter {{ loop.index }}: {{ c.title }}</option>{% endfor %}</select>{% endset %}
-  {{ start_form('script', 'Write it again', 'About ten cents for all of it.', placeholder='What to change', extra=chapter_choice) }}
+  {% set chapter_choice %}<select name="chapter" aria-label="Which chapter"><option value="">All</option>
+    {% for c in data.outline.chapters %}<option value="{{ loop.index }}">{{ loop.index }}. {{ c.title }}</option>{% endfor %}</select>{% endset %}
+  {% if 'script' not in stage_jobs %}{{ start_form('script', 'Write again', 'What to change', extra=chapter_choice) }}{% endif %}
   {% elif 'script' not in stage_jobs %}
-  {{ start_form('script', 'Write the script', 'About ten cents.', placeholder='Anything to add (optional)') }}
+  {{ start_form('script', 'Write the script', 'Anything to add (optional)') }}
   {% endif %}
 </section>
 
 {# --- 3. Storyboard --------------------------------------------------------- #}
-<section class="card prod-section" id="stills">
-  <h2>3. Storyboard</h2>
-  <p class="meta">A drawn still for every scene, in the channel's look, with its cast drawn from their sheets.</p>
-  {{ state_line('stills') }}
+<section class="card {{ section_class('stills') }}" id="stills">
+  <h2>Storyboard {{ pill('stills') }}</h2>
   {% if data.stages.script.state != 'approved' %}
-  <p class="hint">Approve the script first.</p>
   {% elif data.stills %}
   <div class="prod-stills">
     {% for s in data.script.scenes %}
@@ -197,47 +154,38 @@
       {% else %}<div class="prod-missing">No picture</div>{% endif %}
       <figcaption><span class="prod-scene-n">{{ loop.index }}</span> {{ s.narration[:140] }}{{ '…' if s.narration|length > 140 }}
         <details><summary class="hint">Redraw</summary>
-          {{ start_form('stills', 'Redraw this one', '', placeholder='What to change, e.g. he should be older',
-                        extra='<input type="hidden" name="scene" value="' ~ loop.index0 ~ '">') }}
+          {{ start_form('stills', 'Redraw', 'What to change', extra='<input type="hidden" name="scene" value="' ~ loop.index0 ~ '">') }}
         </details>
       </figcaption>
     </figure>
     {% endfor %}
   </div>
   <div class="actions">{% if data.stages.stills.state == 'ready' %}{{ approve_form('stills') }}{% endif %}</div>
-  {{ start_form('stills', 'Draw them all again', 'About $' ~ '%.2f'|format(stills_cost) ~ '.', with_note=false) }}
+  {% if 'stills' not in stage_jobs %}{{ start_form('stills', 'Draw all again', with_note=false) }}{% endif %}
   {% elif 'stills' not in stage_jobs %}
-  {{ start_form('stills', 'Draw the storyboard', 'About $' ~ '%.2f'|format(stills_cost) ~ ' for ' ~ data.script.scenes|length ~ ' pictures.', with_note=false) }}
+  {{ start_form('stills', 'Draw ' ~ data.script.scenes|length ~ ' pictures', with_note=false) }}
   {% endif %}
 </section>
 
 {# --- 4. Video -------------------------------------------------------------- #}
-<section class="card prod-section" id="video">
-  <h2>4. Video</h2>
-  <p class="meta">Voiced and cut to the storyboard, the camera moving across each picture, with chapter titles and
-    music. It goes to Review like any video, and out in the long-video slots.</p>
-  {{ state_line('video') }}
-  {% if data.stages.stills.state != 'approved' %}
-  <p class="hint">Approve the storyboard first.</p>
-  {% else %}
-  {% if video %}<p><a class="btn btn-ghost" href="{{ url_for('gallery.video_detail', key=key, relpath=video) }}">Watch it</a></p>{% endif %}
+<section class="card {{ section_class('video') }}" id="video">
+  <h2>Video {{ pill('video') }}
+    {% if old_video and not video %}<a class="prod-pill pill-bad" href="{{ url_for('gallery.video_detail', key=key, relpath=old_video) }}"
+       title="Discarded when an earlier stage was redone; restorable from Videos">Old version discarded</a>{% endif %}</h2>
+  {% if data.stages.stills.state == 'approved' %}
+  {% if video %}<p><a class="btn btn-ghost" href="{{ url_for('gallery.video_detail', key=key, relpath=video) }}">Watch</a></p>{% endif %}
   <div class="actions">{% if data.stages.video.state == 'ready' %}{{ approve_form('video') }}{% endif %}</div>
   {% if 'video' not in stage_jobs %}
-  {{ start_form('video', 'Make the video again' if data.video else 'Make the video',
-                'Voice: about ' ~ (voice_chars * 0.2)|round|int ~ ' ElevenLabs credits. Rendering takes a while.', with_note=false) }}
+  <span title="≈{{ '{:,}'.format((voice_chars * 0.2)|round|int) }} voice credits">{{ start_form('video', 'Make again' if data.video else 'Make the video', with_note=false) }}</span>
   {% endif %}
   {% endif %}
 </section>
 
 {# --- 5. Teasers ------------------------------------------------------------ #}
-<section class="card prod-section" id="teasers">
-  <h2>5. Teasers</h2>
-  <p class="meta">{{ channel.documentary.teasers }} vertical shorts from the story, in the same look, each leaving the
-    question open so a viewer wants the full video. Never &ldquo;watch the full video&rdquo;: the story does the asking.</p>
-  {{ state_line('teasers') }}
-  {% if data.stages.video.state != 'approved' %}
-  <p class="hint">Approve the video first.</p>
-  {% elif data.teasers and data.teasers.scripts %}
+<section class="card {{ section_class('teasers') }}" id="teasers">
+  <h2>Teasers {{ pill('teasers') }} <span class="prod-count">{{ channel.documentary.teasers }}</span></h2>
+  {% if data.stages.video.state == 'approved' %}
+  {% if data.teasers and data.teasers.scripts %}
   {% for t in data.teasers.scripts %}
   <div class="prod-teaser">
     <h3>{{ loop.index }}. {{ t.title }}</h3>
@@ -245,19 +193,50 @@
   </div>
   {% endfor %}
   {% if teaser_videos %}
-  <p>Made, and in Review:
-    {% for v in teaser_videos %}<a href="{{ url_for('gallery.video_detail', key=key, relpath=v) }}">teaser {{ loop.index }}</a>{{ ', ' if not loop.last }}{% endfor %}</p>
+  <p>{% for v in teaser_videos %}<a href="{{ url_for('gallery.video_detail', key=key, relpath=v) }}">Teaser {{ loop.index }}</a>{{ ' · ' if not loop.last }}{% endfor %}</p>
   {% elif 'teasers' not in stage_jobs and data.stages.teasers.state == 'ready' %}
-  <div class="actions">{{ approve_form('teasers', 'Approve, and make them') }}</div>
+  <form method="post" action="{{ url_for('productions.approve', key=key, subtopic_id=row.id, stage='teasers') }}" class="prod-inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-primary">Approve and make</button>
+    {{ speed_choice(speed.teasers) }}
+  </form>
   {% endif %}
-  {{ start_form('teasers', 'Write them again', 'About three cents.', placeholder='What to change') }}
+  {% if 'teasers' not in stage_jobs %}{{ start_form('teasers', 'Write again', 'What to change') }}{% endif %}
   {% elif 'teasers' not in stage_jobs %}
-  {{ start_form('teasers', 'Write the teasers', 'About three cents.', placeholder='Anything they should focus on (optional)') }}
+  {{ start_form('teasers', 'Write the teasers', 'Anything to focus on (optional)') }}
+  {% endif %}
   {% endif %}
 </section>
 
+{% if stage_jobs %}
+<script>
+  // While a stage is being made, the page fills in by itself when it's done.
+  (function () {
+    const busy = {{ stage_jobs|list|tojson }}.sort().join();
+    setInterval(async () => {
+      try {
+        const res = await fetch("{{ url_for('productions.state', key=key, subtopic_id=row.id) }}");
+        const data = await res.json();
+        if (data.busy.sort().join() !== busy) location.reload();
+      } catch (err) { /* the next check is a few seconds away */ }
+    }, 10000);
+  })();
+</script>
+{% endif %}
+
 <style>
-  .prod-now { border-color: var(--accent); }
+  .prod-pill { display: inline-block; vertical-align: middle; margin-left: var(--sp-2); font-size: .72rem; font-weight: 600;
+               padding: .15em .65em; border-radius: 999px; border: 1px solid var(--border); color: var(--text-dim);
+               text-decoration: none; letter-spacing: .02em; }
+  .pill-approved { color: var(--success); border-color: var(--success); }
+  .pill-ready { color: var(--accent); border-color: var(--accent); }
+  .pill-working { color: var(--text); border-style: dashed; animation: prod-pulse 1.6s ease-in-out infinite; }
+  .pill-redo { color: var(--accent); border-color: var(--accent); border-style: dashed; }
+  .pill-stale, .pill-bad { color: var(--danger); border-color: var(--danger); }
+  @keyframes prod-pulse { 50% { opacity: .45; } }
+  .prod-dim > :not(h2) { opacity: .45; }
+  .prod-count { font-size: .8rem; font-weight: 400; color: var(--text-faint); margin-left: var(--sp-2); }
+  .prod-stage.redo { border-style: dashed; color: var(--accent); }
   .prod-title { margin-bottom: var(--sp-1); }
   .prod-stages { list-style: none; padding: 0; margin: var(--sp-3) 0; display: flex; gap: var(--sp-2); flex-wrap: wrap; }
   .prod-stages-big .prod-stage { display: inline-flex; flex-direction: column; text-decoration: none; padding: .45em .9em;

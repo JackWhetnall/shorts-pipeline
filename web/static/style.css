@@ -3076,3 +3076,25 @@ main > .card + form, main > form + .card { margin-top: var(--sp-4); }
 .focus-switch select { min-height: 2rem; padding: 0 1.8rem 0 0.6rem; font-size: 0.85rem; max-width: 12rem;
   background-color: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); }
 .nav-count[hidden], .site-nav a[hidden] { display: none; }
+
+
+/* A paid action's price and finish (web/templates/_speed.html). */
+.speed-choice { display: inline-flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; font-size: 0.85rem; }
+.speed-batch { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.speed-now { color: var(--text-dim); font-size: 0.85rem; }
+
+.longform-picks { list-style: none; padding: 0; margin: var(--sp-2) 0; display: grid; gap: var(--sp-1); }
+.longform-picks li { display: flex; align-items: center; gap: var(--sp-2); }
+.longform-picks li .checkbox-label { flex: 1; margin: 0; }
+
+/* The channel switcher made the header too full for a laptop width: the
+   menu ran under it. The menu scrolls when it must, the tools keep their
+   size, and the brand's name goes first. */
+.site-nav { overflow-x: auto; scrollbar-width: none; }
+.site-nav::-webkit-scrollbar { display: none; }
+.header-tools { flex-shrink: 0; }
+@media (max-width: 1150px) {
+  .site-header .brand-name { display: none; }
+  .global-activity .global-activity-label { display: none; }
+  .focus-switch select { max-width: 9rem; }
+}

@@ -456,7 +456,7 @@ def create_video(key):
     longform = None
     if channel.format == "quiz":
         from pipeline import longform as long_quiz, quiz
-        ready = long_quiz.availability(channel)
+        ready = long_quiz.availability(channel, clash_free=True)
         labels = quiz.labels(channel)
         singles = [(k, v) for k, v in ready.items() if k.startswith(long_quiz.CATEGORY_PREFIX)]
         rounds = channel.quiz.longform_rounds
@@ -464,15 +464,44 @@ def create_video(key):
         # rounds at a difficulty (or rising), or a category's full ladder.
         if (any(ready.get(label, 0) >= rounds for label in labels) or ready[long_quiz.RISING] >= rounds
                 or any(v >= len(labels) for _, v in singles)):
-            longform = {"ready": ready, "labels": labels, "singles": singles}
+            longform = {"ready": ready, "labels": labels, "singles": singles, **_long_auto(channel, ready)}
     # ?subtopic_id= arrives from the plan page's "Make now".
     number = 0
     if channel.format == "quiz":
         from pipeline import quiz as quiz_format
         number = quiz_format.next_number(channel)
+    from core import estimates
     return render_template("create_video.html", key=key, channel=channel, plan=plan,
                            up_next=up_next, initial_subtopic=request.args.get("subtopic_id", ""),
-                           cost=estimate_cost(), longform=longform, next_number=number)
+                           cost=estimate_cost(), longform=longform, next_number=number,
+                           speed_short=estimates.describe({}, key),
+                           speed_long=estimates.describe({"type": "longform"}, key) if longform else None)
+
+
+def _long_auto(channel, ready: dict) -> dict:
+    """When a long quiz is made by itself (core.scheduler), in a few words,
+    the rule itself in a tooltip (decision 081). Rising never is."""
+    from pipeline import longform as long_quiz
+    q = channel.quiz
+    rule = (f"A quiz night once {q.longform_rounds} clash-free rounds are ready at one level; a category quiz "
+            f"once a category has every level. One of each waits at a time; checked every few minutes.")
+    if not channel.publishing.enabled:
+        return {"auto": "off (publishing plan off)", "auto_rule": rule}
+    parts = []
+    if q.longform_mixed_when_ready:
+        if long_quiz.waiting(channel, long_quiz.MIXED):
+            parts.append("quiz night waiting")
+        else:
+            level = long_quiz.ready_difficulty(channel)
+            parts.append(f"quiz night at {level} next" if level else
+                         f"quiz night at {q.longform_rounds} ready")
+    if q.longform_category_when_ready:
+        if long_quiz.waiting(channel, long_quiz.CATEGORY):
+            parts.append("category quiz waiting")
+        else:
+            full = long_quiz.full_ladders(channel)
+            parts.append(f"{full[0]} quiz next" if full else "category quiz when one has every level")
+    return {"auto": "; ".join(parts) or "off", "auto_rule": rule}
 
 
 @bp.route("/api/channels/<key>/ordering-preview", methods=["POST"])
@@ -781,19 +810,42 @@ def api_longform(key):
     data = request.get_json(force=True, silent=True) or {}
     seed = {"type": "longform", "difficulty": data.get("difficulty") or "best",
             "rounds": data.get("rounds") or ""}
+    pick = [str(s) for s in data.get("pick") or [] if s]
     try:
         request_ = longform.plan_request(channel, seed)
     except (TypeError, ValueError):
         return jsonify({"error": "That number of rounds isn't a number."}), 400
-    chosen = longform.choose_rounds(channel, request_["difficulty"], request_["rounds"])
-    if len(chosen) < request_["rounds"]:
-        return jsonify({"error": f"{len(chosen)} of {request_['rounds']} rounds are ready at "
-                                 f"{request_['difficulty']}. Choose fewer rounds, another "
-                                 f"difficulty, or rising."}), 400
+    if pick:
+        # Picked and ordered by hand (decision 081).
+        try:
+            longform.picked_rounds(channel, request_["difficulty"], pick)
+        except PipelineError as exc:
+            return jsonify({"error": exc.user_message}), 400
+        if len(pick) < 2:
+            return jsonify({"error": "Pick at least two rounds."}), 400
+        request_["rounds"] = len(pick)
+        seed["pick"] = pick
+    else:
+        chosen = longform.choose_rounds(channel, request_["difficulty"], request_["rounds"])
+        if len(chosen) < request_["rounds"]:
+            return jsonify({"error": f"{len(chosen)} of {request_['rounds']} rounds can go together at "
+                                     f"{request_['difficulty']}. Choose fewer, or another."}), 400
     label = request_["difficulty"].replace(longform.CATEGORY_PREFIX, "") + (
         ", easiest to hardest" if request_["difficulty"].startswith(longform.CATEGORY_PREFIX) else "")
     seed.update(request_, topic=f"Long quiz: {request_['rounds']} rounds, {label}")
     return jsonify({"job_id": jobs.start_job(key, seed, ahead=not data.get("now"))})
+
+
+@bp.route("/api/channels/<key>/longform/rounds")
+def api_longform_rounds(key):
+    """The rounds a long quiz could use, for picking and ordering by hand:
+    the ones that would be chosen first, in order."""
+    channel = channel_or_404(key)
+    from pipeline import longform
+    difficulty = request.args.get("difficulty", "")
+    if not difficulty:
+        return jsonify({"rounds": []})
+    return jsonify({"rounds": longform.rounds_for(channel, difficulty)})
 
 
 @bp.route("/channels/<key>/generate-now", methods=["POST"])
