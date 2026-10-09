@@ -503,6 +503,9 @@ class Publishing(_MappingLike):
     # Long videos (pipeline.longform) go out in their own slots, YouTube only.
     long_slots: list = field(default_factory=lambda: ["19:00"])
     long_weekdays: list = field(default_factory=lambda: [5])
+    # Thumbnail tests (core.thumbnail_tests, decision 083): shorts that go
+    # out rotate three thumbnails; long videos get three for Studio's test.
+    thumbnail_tests: bool = False
 
 
 @dataclass

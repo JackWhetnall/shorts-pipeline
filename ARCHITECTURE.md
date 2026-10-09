@@ -759,6 +759,18 @@ each person's name, description and sheet across videos. The scheduler
 writes outlines ahead for the next videos (`storyboard.outline_ahead`)
 and never makes a documentary itself.
 
+## Thumbnails
+
+A quiz short's thumbnail is its opening screen once the stamp has
+settled (`pipeline/thumbnails.py`, `<stem>_cover.jpg`), set on YouTube as
+it goes out (decision [082](docs/decisions/082-quiz-thumbnails-and-testing.md)).
+With "Test thumbnails" on, a channel learns a thumbnail recipe
+(`pipeline/thumbnail_variants.py`, `core/thumbnail_tests.py`): shorts rotate
+three variants and are judged on click-through from the Reporting API
+(`core/reach.py`); long quizzes use Studio's Test & Compare with the
+winner ticked on the video's page
+([083](docs/decisions/083-thumbnail-tests.md)).
+
 ## How long a video runs
 
 `pacing.target_seconds` is the setting; the script's word budget is

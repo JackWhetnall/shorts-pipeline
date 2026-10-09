@@ -58,6 +58,7 @@ def needs_you(channels: dict, url_for, now: float = None, forecast: dict = None)
     items = []
     for name, source in (("YouTube connections", _connections), ("money", _money),
                          ("review", _review), ("failed videos", _failed), ("topic plans", _topics),
+                         ("thumbnail tests", _reach),
                          ("setup", _setup), ("drafts", _drafts), ("quiz categories", _categories)):
         try:
             items += source(channels, url_for, now, forecast)
@@ -219,6 +220,21 @@ def _failed(channels, url_for, now, forecast) -> list:
         out.append(Item(WARN, f"A {channel.channel_display_name or key} video didn't finish",
                         failure_detail(job, now), "Retry", url_for("today.retry", job_id=job["id"]),
                         post=True, extra=[("Discard", url_for("today.dismiss", job_id=job["id"]), True)]))
+    return out
+
+
+def _reach(channels, url_for, now, forecast) -> list:
+    """Thumbnail tests that can't read click-through (core.reach)."""
+    from core import reach
+    out = []
+    for key, channel in channels.items():
+        if channel.archived or not channel.publishing.thumbnail_tests:
+            continue
+        error = reach.load(key).get("error")
+        if error:
+            out.append(Item(WARN, f"{channel.channel_display_name or key}: thumbnail tests can't read click-through",
+                            error, "Google Cloud", "https://console.cloud.google.com/apis/library/youtubereporting.googleapis.com",
+                            outside=True))
     return out
 
 

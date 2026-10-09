@@ -108,6 +108,33 @@
   {% endif %}
 </div>
 
+{% if thumb_tests %}
+<div class="card">
+  <h2>Thumbnails</h2>
+  {% for t in thumb_tests %}
+  <h3>{{ t.name }} <span class="hint">best so far: {{ t.recipe }}</span></h3>
+  {% if t.rounds %}
+  <table>
+    <thead><tr><th>Test</th><th>A</th><th>B</th><th>C</th><th>Result</th></tr></thead>
+    <tbody>
+    {% for r in t.rounds %}
+    <tr>
+      <td>{{ 'Shorts, rotated' if r.kind == 'rotation' else 'Long, Studio' }} <span class="hint">{{ r.videos|length }}</span></td>
+      {% for v in r.variants %}
+      {% set c = r.counts.get(v.label) if r.counts else None %}
+      <td class="{{ 'good-text' if r.result.winner == v.label }}">{{ v.change_text }}{% if c and c.ctr is not none %}<br><span class="hint">{{ '%.1f'|format(100 * c.ctr) }}% of {{ '{:,}'.format(c.impressions) }}</span>{% endif %}</td>
+      {% endfor %}
+      {% for _ in range(3 - r.variants|length) %}<td></td>{% endfor %}
+      <td>{% if r.result.winner %}{{ r.result.winner }}{% elif r.result.verdict %}<span class="hint">{{ r.result.verdict }}</span>{% else %}<span class="hint">running</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="hint">No tests yet.</p>{% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if long_styles %}
 <div class="card">
   <h2>Long quiz styles</h2>

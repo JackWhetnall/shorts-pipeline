@@ -350,6 +350,12 @@ def put_out(channel, video_path: Path, privacy: str = "public", platforms: list 
                 youtube.set_thumbnail(channel.key, result["id"], thumb)
                 if thumb == cover:
                     mark_cover_set(video_path)
+                    if channel.publishing.thumbnail_tests and not long:
+                        from core import thumbnail_tests
+                        try:
+                            thumbnail_tests.join_rotation(channel, video_path, result["id"])
+                        except Exception as exc:  # noqa: BLE001 - the video is out; it's only left out of the test
+                            log.warning(f"{channel.key}: couldn't add {video_path.stem} to a thumbnail test: {exc}")
             except PipelineError as exc:
                 # The video is out; only its thumbnail is YouTube's own pick.
                 log.warning(f"{channel.key}: thumbnail not set: {exc}")

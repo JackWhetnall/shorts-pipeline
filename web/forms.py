@@ -129,6 +129,8 @@ def _apply_publishing_plan(plan, form) -> None:
         plan.long_slots = sorted({s for s in long_slots if SLOT_RE.match(s)})
         plan.long_weekdays = sorted({int(d) for d in form.getlist("long_weekdays")
                                      if d.strip().isdigit() and int(d) in range(7)})
+    if "thumbnail_tests_present" in form:
+        plan.thumbnail_tests = form.get("thumbnail_tests") == "on"
     plan.post_tiktok = form.get("post_tiktok") == "on"
     plan.post_instagram = form.get("post_instagram") == "on"
     # "browser|profile folder", or "" for the default browser. Only values

@@ -209,6 +209,33 @@ def _keep_facts(channels: dict) -> None:
     keep.keep_up(channels)
 
 
+_last_reach = {}
+REACH_EVERY = 6 * 3600      # reach reports come daily; looked for a few times a day
+
+
+def _thumbnail_tests(channels: dict) -> None:
+    """Thumbnail tests (core.thumbnail_tests, decision 083): new reach
+    figures fetched, shorts in rotation put on the variant they're due,
+    finished rounds judged."""
+    from core import reach, thumbnail_tests, youtube
+    for key, channel in channels.items():
+        if channel.archived or not channel.publishing.thumbnail_tests:
+            continue
+        if not youtube.connection(key)["connected"]:
+            continue
+        if time.time() - _last_reach.get(key, 0) >= REACH_EVERY:
+            _last_reach[key] = time.time()
+            try:
+                reach.fetch(key)
+                reach.clear_error(key)
+            except PipelineError as exc:
+                reach.note_error(key, exc.user_message)
+                log.warning(f"{key}: thumbnail reach not read: {exc}")
+        thumbnail_tests.rotate(channel)
+        for round_id in thumbnail_tests.finish_rotations(channel):
+            log.info(f"{key}: thumbnail test {round_id} finished")
+
+
 def _storyboards(channels: dict) -> None:
     """The next few videos' storyboards written ahead, to look at before
     they're made (core.storyboard; at most hourly, at batch prices)."""
@@ -228,6 +255,7 @@ def tick() -> None:
                        ("spare voice", lambda: _spare_voice(channels)),
                        ("fact store", lambda: _keep_facts(channels)),
                        ("storyboards", lambda: _storyboards(channels)),
+                       ("thumbnail tests", lambda: _thumbnail_tests(channels)),
                        ("statistics", lambda: _refresh_audience(channels)),
                        ("remake kits", lambda: _sweep_kits(channels))):
         try:

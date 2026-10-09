@@ -34,6 +34,31 @@ of them from Channels).
    Private, tell me: the fix is either Google's audit or switching each
    to Public in Studio until it's granted.
 
+## Pub Quiz Buzz thumbnails (9 Oct)
+
+### L. Put the new thumbnails on YouTube, and see if Shorts take them (2 minutes)
+Every quiz short now has its stamped opening screen as its thumbnail;
+new ones get it as they go out.
+1. **Channels → Pub Quiz Buzz → Videos → Set 7 thumbnails on YouTube.**
+2. Open one of those shorts in YouTube Studio (desktop). If its thumbnail
+   is the stamped screen, Shorts take them through the app. If not, tell
+   me: shorts then keep YouTube's own frame and only long videos get
+   tested.
+
+### M. Switch on thumbnail tests (5 minutes, once)
+1. **Google Cloud console → APIs and services → Library → YouTube
+   Reporting API → Enable**, in the same project as the YouTube
+   connection. This is where click-through comes from; free.
+2. **Pub Quiz Buzz → Settings → Publishing → Test thumbnails.** New
+   shorts then rotate three thumbnails over about 20 days; results show
+   on **Insights → Thumbnails**.
+3. **Long quizzes:** on a long video's page, **Make 3 thumbnails**,
+   download them, add all three in YouTube Studio → the video → Test &
+   compare. When Studio names a winner (about two weeks), tick it on the
+   video's page.
+
+---
+
 ## The first documentary's fixes (8 Oct)
 
 ### K. Remake the Lincoln film, or make the next one (2 to 20 minutes)

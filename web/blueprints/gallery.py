@@ -147,7 +147,53 @@ def video_detail(key, relpath):
         out=gallery_core.is_out(links),
         post=_post_plan(channel, target, links),
         production=_production_of(target),
+        thumb_test=_studio_test(channel, target),
     )
+
+
+def _studio_test(channel, target):
+    """A long quiz's thumbnail test for Studio (decision 083): None when the
+    channel doesn't test, {"round": None} before the three are made."""
+    from pipeline import quiz
+    if not (channel.publishing.thumbnail_tests and gallery_core.is_long(target)
+            and channel.format == "quiz" and quiz.round_sidecar(target).exists()):
+        return None
+    from core import thumbnail_tests
+    data = thumbnail_tests.load(channel.key)
+    round_ = next((r for r in data["rounds"] if r["kind"] == "studio"
+                   and any(v["stem"] == target.stem for v in r["videos"])), None)
+    return {"round": thumbnail_tests.for_page(round_) if round_ else None}
+
+
+@bp.route("/channels/<key>/videos/<path:relpath>/thumbnail-test", methods=["POST"])
+def thumbnail_test(key, relpath):
+    """Make the three, or record Studio's winner."""
+    from core import thumbnail_tests
+    from core.errors import PipelineError
+    channel = channel_or_404(key)
+    target = video_or_404(relpath)
+    try:
+        if request.form.get("winner"):
+            thumbnail_tests.studio_result(key, request.form["round"], request.form["winner"])
+        else:
+            thumbnail_tests.studio_round(channel, target)
+    except PipelineError as exc:
+        log.warning(f"{key}: thumbnail test: {exc}")
+    return redirect(url_for("gallery.video_detail", key=key, relpath=relpath, _anchor="thumb-test"))
+
+
+@bp.route("/channels/<key>/videos/<path:relpath>/thumbnail/<label>")
+def thumbnail_variant(key, relpath, label):
+    from pipeline import thumbnail_variants
+    channel_or_404(key)
+    target = video_or_404(relpath)
+    if label not in ("A", "B", "C"):
+        abort(404)
+    path = thumbnail_variants.variant_path(target, label)
+    if not path.exists():
+        abort(404)
+    return send_from_directory(path.parent, path.name, as_attachment=request.args.get("download") == "1",
+                               download_name=f"{target.stem}_{label}.jpg")
 
 
 def _production_of(target):

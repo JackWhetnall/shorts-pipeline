@@ -1006,6 +1006,13 @@
     </fieldset>
     {% endif %}
 
+    <input type="hidden" name="thumbnail_tests_present" value="1">
+    <label class="checkbox-label">
+      <input type="checkbox" name="thumbnail_tests" {% if channel.publishing.thumbnail_tests %}checked{% endif %}>
+      Test thumbnails
+      <button type="button" class="info-dot" data-tooltip="Shorts rotate 3 thumbnails over 20 days, compared on click-through; long videos get 3 for Studio's Test &amp; Compare. Free.">?</button>
+    </label>
+
     <fieldset>
       <legend>TikTok and Instagram
         <button type="button" class="info-dot" data-tooltip="As each video goes out it's listed under To post: one click opens this channel's browser profile at the upload page, with the video ready to drag in and the caption on your clipboard. They only let reviewed apps post for you.">?</button>

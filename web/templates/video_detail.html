@@ -1,5 +1,13 @@
 {% extends "base.html" %}
-{% block title %}{{ title }} &mdash; {{ channel.channel_display_name }}{% endblock %}
+{% block title %}{{ title }} &mdash; {{ channel.channel_display_name }}<style>
+  .thumb-variants { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); margin: var(--sp-2) 0; }
+  .thumb-variants figure { margin: 0; }
+  .thumb-variants img { width: 100%; border-radius: var(--radius-sm); border: 2px solid var(--border); }
+  .thumb-variants figure.won img { border-color: var(--success); }
+  .thumb-variants figcaption { font-size: .8rem; color: var(--text-dim); }
+  .thumb-winner { display: flex; gap: var(--sp-2); align-items: center; }
+</style>
+{% endblock %}
 {% block content %}
 <a class="back-link" href="{{ url_for('gallery.channel_gallery', key=key) }}">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
@@ -9,6 +17,35 @@
 <div class="video-detail-layout">
   <div class="video-detail-info">
     <h1 class="video-title">{{ title }}</h1>
+    {% if thumb_test %}
+    <div class="card thumb-test" id="thumb-test">
+      <h3>Thumbnail test</h3>
+      {% if not thumb_test.round %}
+      <form method="post" action="{{ url_for('gallery.thumbnail_test', key=key, relpath=relpath) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost btn-small" title="Then add all three to Test &amp; Compare in YouTube Studio">Make 3 thumbnails &middot; free</button>
+      </form>
+      {% else %}{% set r = thumb_test.round %}
+      <div class="thumb-variants">
+        {% for v in r.variants %}
+        <figure class="{{ 'won' if r.result.winner == v.label }}">
+          <a href="{{ url_for('gallery.thumbnail_variant', key=key, relpath=relpath, label=v.label, download=1) }}" title="Download for Studio">
+            <img src="{{ url_for('gallery.thumbnail_variant', key=key, relpath=relpath, label=v.label) }}" alt="Variant {{ v.label }}"></a>
+          <figcaption>{{ v.label }} &middot; {{ v.change_text }}</figcaption>
+        </figure>
+        {% endfor %}
+      </div>
+      {% if r.status == 'running' %}
+      <form method="post" action="{{ url_for('gallery.thumbnail_test', key=key, relpath=relpath) }}" class="thumb-winner">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="round" value="{{ r.id }}">
+        <span class="hint">Studio's winner</span>
+        {% for v in r.variants %}<button type="submit" name="winner" value="{{ v.label }}" class="btn-ghost btn-small">{{ v.label }}</button>{% endfor %}
+      </form>
+      {% else %}<p class="hint">Winner: {{ r.result.winner }}</p>{% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
     {% if production %}<p class="hint"><a href="{{ url_for('productions.page', key=production[0], subtopic_id=production[1]) }}">Its
       production: outline, script and storyboard &rarr;</a></p>{% endif %}
     <div class="video-sub">

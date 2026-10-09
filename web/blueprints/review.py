@@ -185,7 +185,30 @@ def insights_page():
                          for k, v in audience.status().items() if k in channels},
         spend_kinds=costs.by_kind(((data.get("spend") or {}).get("all_time") or {}).get("by_operation") or {}),
         long_styles=_long_quiz_styles(channels),
+        thumb_tests=_thumbnail_tests(channels),
     )
+
+
+def _thumbnail_tests(channels: dict) -> list:
+    """Each testing channel's recipe and rounds, newest first (decision 083)."""
+    from core import thumbnail_tests
+    from pipeline import thumbnail_variants as tv
+    out = []
+    for key, channel in channels.items():
+        if not channel.publishing.thumbnail_tests:
+            continue
+        data = thumbnail_tests.load(key)
+        rounds = []
+        for r in reversed(data["rounds"][-8:]):
+            r = thumbnail_tests.for_page(r)
+            counts = r.get("result", {}).get("tally") or (
+                thumbnail_tests.tally(key, r) if r["kind"] == "rotation" else {})
+            r["counts"] = counts
+            rounds.append(r)
+        changed = [f"{tv.describe_change([n, tv.DEFAULT[n], v])}" for n, v in data["recipe"].items() if v != tv.DEFAULT[n]]
+        out.append({"name": channel.channel_display_name or key, "recipe": ", ".join(changed) or "as made",
+                    "rounds": rounds})
+    return out
 
 
 def _long_quiz_styles(channels: dict) -> list:
