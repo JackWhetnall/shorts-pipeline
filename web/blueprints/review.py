@@ -368,6 +368,22 @@ def start_post(relpath):
     return jsonify({"ok": True, **result})
 
 
+@bp.route("/api/videos/<path:relpath>/write-captions", methods=["POST"])
+def write_captions(relpath):
+    """Write this video's TikTok and Instagram captions for search again
+    (core.posting.write_social, decision 085)."""
+    target = video_or_404(relpath)
+    key = gallery._channel_key_for(target)
+    channel = load_channels(validate=False).get(key) if key else None
+    if channel is None:
+        return jsonify({"error": "Couldn't tell which channel this video belongs to."}), 400
+    try:
+        posting.write_social(channel, target)
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 502
+    return jsonify({"ok": True})
+
+
 @bp.route("/api/videos/<path:relpath>/posted", methods=["POST"])
 def mark_posted(relpath):
     target = video_or_404(relpath)

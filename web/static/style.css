@@ -2575,6 +2575,7 @@ td.actions { display: table-cell; margin: 0; vertical-align: middle; white-space
 td.actions > * + * { margin-left: var(--sp-2); }
 
 .service-ok { color: var(--success); font-weight: 600; font-size: 0.88rem; }
+.tag-plain { font-size: 0.78rem; font-weight: 500; color: var(--warning); border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; vertical-align: middle; }
 .service-missing { color: var(--danger); font-weight: 600; font-size: 0.88rem; }
 
 .segmented {

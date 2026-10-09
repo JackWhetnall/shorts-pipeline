@@ -24,7 +24,8 @@ everything around the one step that has to be yours:
   channel and title, with nothing else in it but videos waiting to be
   posted; each goes once it's posted everywhere (`stage`, `unstage`).
 - **A caption for each platform** with its hashtags (`caption`), to copy
-  in one click.
+  in one click, written for that platform's search (`write_social`,
+  decision 085).
 
 The To post page and a published video's own page show these as numbered
 steps per platform (`plan`). Decision 059.
@@ -42,6 +43,7 @@ import re
 import shutil
 import subprocess
 import webbrowser
+from datetime import datetime, timezone
 from pathlib import Path
 
 from core import gallery
@@ -161,7 +163,8 @@ def reveal(video_path: Path) -> None:
 
 # --- hashtags and captions --------------------------------------------------
 
-TAG_LIMITS = {"youtube": 3, "tiktok": 5, "instagram": 10}
+# Instagram allows five hashtags a post (since December 2025).
+TAG_LIMITS = {"youtube": 3, "tiktok": 5, "instagram": 5}
 QUIZ_TAGS = ("#quiz", "#trivia", "#pubquiz")
 
 
@@ -206,20 +209,107 @@ def hashtags(channel, video_path: Path, platform: str) -> list:
     return picked
 
 
+_CREDIT = re.compile(r"^(music|artwork|image|picture|footage|some questions)\b.*|.*\b(cc by|cc0|public domain|"
+                     r"licen[cs]ed?|wikimedia|opentdb)\b.*", re.IGNORECASE)
+
+
+def _sidecar_json(video_path: Path, suffix: str) -> dict:
+    path = Path(video_path).with_name(f"{Path(video_path).stem}_{suffix}.json")
+    try:
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def credits(video_path: Path) -> list:
+    """The licence lines a video's music or pictures need (CC BY asks for
+    one wherever the work is shown): from its render report, or failing
+    that its description's credit lines."""
+    found = list(_sidecar_json(video_path, "report").get("artwork") or [])
+    if not found:
+        description = gallery.load_publish_info(video_path)["description"] or ""
+        found = [line.strip() for line in description.splitlines() if _CREDIT.match(line.strip())]
+    return [c for i, c in enumerate(found) if c and c not in found[:i]]
+
+
+def _about(description: str) -> str:
+    """The description's words about the video: without its hashtags,
+    reference, links and credits."""
+    keep = []
+    for line in (description or "").splitlines():
+        line = line.strip()
+        if (not line or line.startswith("#") or line.lower().startswith("reference:")
+                or "http" in line or _CREDIT.match(line)):
+            continue
+        keep.append(re.sub(r"\s#\w+", "", line).strip())
+    return " ".join(keep)
+
+
+def social_path(video_path: Path) -> Path:
+    return Path(video_path).with_name(f"{Path(video_path).stem}_social.json")
+
+
+def social(video_path: Path) -> dict:
+    """The search-written captions for this video, if they were written
+    for its title as it is now ({} otherwise)."""
+    data = _sidecar_json(video_path, "social")
+    title = gallery.load_publish_info(video_path)["title"] or ""
+    return data if data and data.get("title", "") == title else {}
+
+
+def write_social(channel, video_path: Path) -> dict:
+    """Write and keep this video's TikTok and Instagram captions (one cheap
+    call, about $0.003; pipeline.social_caption). Raises PipelineError if
+    the call fails: the caller falls back to the plain caption."""
+    from core import channel_profile
+    from pipeline import social_caption
+    info = gallery.load_publish_info(video_path)
+    title = info["title"] or Path(video_path).stem.replace("_", " ")
+    profile = channel_profile.load(channel.key)
+    script = _sidecar_json(video_path, "script")
+    quiz = _sidecar_json(video_path, "quiz") or (script.get("quiz") or {})
+    answers = [q.get(k) for q in quiz.get("questions") or [] for k in ("answer", "spoken_answer") if q.get(k)]
+    prompt = social_caption.brief(
+        channel_name=channel.channel_display_name or channel.key,
+        about=(profile.get("about") or "").split("\n\n")[0],
+        keywords=profile.get("keywords") or [], title=title,
+        description=_about(info["description"]), reference=script.get("citation") or "",
+        # A quiz's lines say its answers, so a quiz is told only its questions.
+        spoken=[] if quiz else [s.get("text", "") for s in script.get("segments") or [] if s.get("text")],
+        quiz=quiz or None)
+    written = social_caption.write(prompt, answers)
+    data = {"title": info["title"] or "", "made_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            **written}
+    social_path(video_path).write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+    return data
+
+
 def caption(video_path: Path, platform: str = "", channel=None) -> str:
-    """What to paste with the video. TikTok's is short (its title and
-    hashtags: a TikTok caption is read in the time the video starts);
-    Instagram's has the description too. Without a platform, the title
-    and description."""
+    """What to paste with the video: its search-written caption (decision
+    085), then its hashtags, then any licence line its music or pictures
+    need. Without one written, its title and what the description says
+    about it. Without a platform, the title and description."""
     info = gallery.load_publish_info(video_path)
     title = info["title"] or Path(video_path).stem.replace("_", " ")
     description = (info["description"] or "").strip()
     if not platform or channel is None:
         return f"{title}\n\n{description}".strip()
-    tags = " ".join(hashtags(channel, video_path, platform))
-    if platform == "tiktok":
-        return f"{title}\n\n{tags}".strip()
-    return "\n\n".join(p for p in (title, description, tags) if p)
+    written = social(video_path).get(platform)
+    plain = hashtags(channel, video_path, platform)
+    if written:
+        text = written["caption"]
+        brand = _tag(channel.channel_display_name or channel.key)
+        tags = [t for t in written.get("hashtags") or [] if t != brand][:TAG_LIMITS.get(platform, 5) - 1]
+        tags = (tags or plain[:-1]) + ([brand] if brand else [])
+    else:
+        # TikTok's is read in the time the video starts: one sentence.
+        about = _about(description)
+        if platform == "tiktok" and about:
+            about = re.split(r"(?<=[.!?])\s", about)[0]
+        text = "\n\n".join(p for p in (title, about) if p)
+        tags = plain
+    licence = " ".join(credits(video_path))
+    return "\n\n".join(p for p in (text, " ".join(tags), licence) if p)
 
 
 def with_youtube_hashtags(channel, video_path: Path, description: str) -> str:
@@ -321,6 +411,7 @@ def plan(channel, video_path: Path) -> dict:
         "has_profile": bool(channel.publishing.posting_browser and channel.publishing.posting_profile),
         "youtube_url": info["youtube_url"],
         "platforms": [{"key": p, "label": LABELS[p], "caption": caption(video_path, p, channel),
+                       "for_search": bool(social(video_path).get(p)),
                        "steps": STEPS[p], "posted": bool(handoff[p].get("posted_at")),
                        "url": info.get(f"{p}_url") or ""}
                       for p in PLATFORMS if p in handoff],

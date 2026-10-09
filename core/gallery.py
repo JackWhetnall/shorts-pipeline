@@ -554,6 +554,7 @@ SIDECAR_SUFFIXES = (
     "audio.mp3", "meta.txt", "description.txt", "publish.json",
     "thumb.jpg", "cost.json", "report.json", "stats.json", "quiz.json",
     "script.json", "script_draft.json", "cover.jpg", "cover.json",
+    "social.json",
 )
 
 
@@ -644,7 +645,7 @@ def orphaned_files(output_dir: str) -> list:
             continue
         stem = path.stem
         for suffix in ("_audio", "_meta", "_description", "_publish",
-                       "_thumb", "_cover", "_cost", "_report", "_quiz"):
+                       "_thumb", "_cover", "_cost", "_report", "_quiz", "_social"):
             if suffix in stem:
                 stem = stem[:stem.rindex(suffix)]
                 break

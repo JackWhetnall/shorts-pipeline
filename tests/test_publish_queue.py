@@ -220,6 +220,26 @@ class TestPublishNow:
         assert world.state["uploads"] == ["Title a"] and info["youtube_url"] == result["youtube_url"]
         assert result["pending"] == ["tiktok"] and gallery.is_out(info)
 
+    def test_handing_off_writes_its_captions_for_search(self, world, monkeypatch):
+        """Decision 085."""
+        from core import posting
+        written = []
+        monkeypatch.setattr(posting, "write_social", lambda channel, video: written.append(video))
+        world.channel.publishing.post_tiktok = True
+        path = world.video("a", queued=False)
+        publish_queue.publish_now(world.channel, path)
+        assert written == [path]
+
+    def test_captions_that_cant_be_written_dont_fail_the_publish(self, world, monkeypatch):
+        from core import posting
+
+        def broken(channel, video):
+            raise RuntimeError("no")
+        monkeypatch.setattr(posting, "write_social", broken)
+        world.channel.publishing.post_tiktok = True
+        path = world.video("a", queued=False)
+        assert publish_queue.publish_now(world.channel, path)["pending"] == ["tiktok"]
+
     def test_without_a_plan_a_channel_with_a_browser_profile_gets_both(self, world):
         world.channel.publishing.posting_profile = "Profile 3"
         path = world.video("a", queued=False)
@@ -286,6 +306,14 @@ class TestPublishNow:
         assert data["pending"] == ["tiktok", "instagram"] and data["next"]
         # The video is waiting, under its title, in the ready-to-post folder.
         assert [f.name for f in (tmp_path / "ready").iterdir()] == ["Chan - My title.mp4"]
+        # Its search captions couldn't be written here (no Claude in tests), so
+        # To post says it's the plain one, and offers to write them, priced.
+        page = client.get("/to-post").get_data(as_text=True)
+        assert "plain caption" in page and "Write for search &middot; $0.003" in page
+        written = []
+        monkeypatch.setattr(posting, "write_social", lambda channel, video: written.append(video))
+        res = client.post("/api/videos/x/write-captions", headers={"X-CSRF-Token": token})
+        assert res.status_code == 200 and written == [path]
 
 
 class TestNumberOrder:

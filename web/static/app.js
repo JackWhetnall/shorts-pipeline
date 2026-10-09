@@ -2974,6 +2974,16 @@ async function postCopy(button, what) {
   }
 }
 
+async function postRewrite(button) {
+  const p = postParts(button);
+  await withButtonLoading(button, "Writing…", async () => {
+    const res = await apiFetch(`/api/videos/${p.relpath}/write-captions`, {method: "POST"});
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { p.status.textContent = data.error || "Couldn't write them."; return; }
+    location.reload();
+  });
+}
+
 async function postDone(event, form) {
   event.preventDefault();
   const p = postParts(form);

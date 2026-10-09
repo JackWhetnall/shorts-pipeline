@@ -176,6 +176,8 @@ pipeline/     The generation stages. No web dependency at all.
   templates/    Designed motion-graphics templates (HTML/CSS, a seekable
                 engine, per-channel theme), filled by one small model call.
   description   The paste-ready description and the meta sidecar.
+  social_caption TikTok and Instagram captions written for search: one
+                Haiku call for both, never naming a quiz answer (085).
   editor_check  The automatic script and picture checks run on every video.
   similarity    Originality checking against the channel's own history.
   audio         Sample-level audio helpers.
@@ -485,6 +487,16 @@ paste into the file picker, and each platform has its own caption and
 hashtags (`posting.hashtags`). Videos waiting are hard-linked into
 `Videos\Shorts to post` (`posting.stage`) and removed once posted. See
 decision [059](docs/decisions/059-posting-steps.md).
+
+The captions are written for each platform's search when a video is
+handed off (`posting.write_social`, kept in `<stem>_social.json` for the
+title it was written for): the search phrase first, a line of related
+search terms, up to five hashtags with the channel's own last, then any
+licence line its music or pictures need (`posting.credits`). Without
+one (the call failed, or the video was retitled), the plain caption is
+the title and what the description says about the video, and To post
+marks it "plain caption" with a priced button to write it. Decision
+[085](docs/decisions/085-captions-written-for-search.md).
 
 `core/channel_profile.py` writes a channel's tagline, YouTube About text,
 TikTok and Instagram bios and keywords in one model call and keeps them

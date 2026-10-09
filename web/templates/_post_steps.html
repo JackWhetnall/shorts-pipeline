@@ -9,7 +9,8 @@
     Sign in to the channel's own TikTok and Instagram there once, and it stays signed in.</p>
   {% for p in post.platforms %}
   <div class="post-platform {{ 'is-posted' if p.posted }}" data-platform="{{ p.key }}">
-    <h3>{{ p.label }}{% if p.posted %} <span class="service-ok">&#10003; Posted</span>{% endif %}</h3>
+    <h3>{{ p.label }}{% if p.posted %} <span class="service-ok">&#10003; Posted</span>
+      {%- elif not p.for_search %} <span class="tag-plain" data-tooltip="Title and description only: not written for search">plain caption</span>{% endif %}</h3>
     {% if p.posted %}
       {% if p.url %}<p class="meta"><a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.url }}</a></p>{% endif %}
     {% else %}
@@ -24,6 +25,8 @@
     <details class="post-caption">
       <summary class="hint">See or change the caption</summary>
       <textarea rows="6" class="post-caption-text">{{ p.caption }}</textarea>
+      <button type="button" class="btn-ghost" onclick="postRewrite(this)"
+              data-tooltip="Both platforms' captions, written for search">{{ 'Rewrite' if p.for_search else 'Write for search' }} &middot; $0.003</button>
     </details>
     <form class="post-done" onsubmit="postDone(event, this)">
       <button type="submit" class="btn-ghost">I've posted it</button>

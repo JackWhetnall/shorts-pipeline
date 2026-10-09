@@ -381,11 +381,17 @@ def put_out(channel, video_path: Path, privacy: str = "public", platforms: list 
         gallery.save_queue_state(video_path, handoff=handoff)
     pending = [p for p in handoff if not handoff[p].get("posted_at")]
     if pending:
+        from core import posting
         try:
-            from core import posting
             posting.stage(channel, video_path)
         except OSError as exc:  # it's made again when its posting steps are shown
             log.warning(f"{channel.key}: couldn't put the video in the ready-to-post folder: {exc}")
+        if not posting.social(video_path):
+            try:
+                posting.write_social(channel, video_path)
+            except Exception as exc:  # noqa: BLE001 - the video is already out: a failure here
+                # mustn't read as a failed publish. The plain caption is used, and To post says so.
+                log.warning(f"{channel.key}: couldn't write the search captions: {exc}")
     if handoff != info["handoff"]:
         messages.append("waiting in To post for " + " and ".join(PLATFORM_LABELS[p] for p in pending))
     return {"messages": messages, "youtube_url": youtube_url, "locked_private": locked_private,

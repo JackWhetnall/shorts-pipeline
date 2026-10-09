@@ -10,6 +10,14 @@ for a link without saying what for.
   once it's posted everywhere or discarded;
 - the steps say what to do, platform by platform;
 - a profile is named by who's signed in to it.
+
+Decision 085, the owner: the captions "arent really descriptions at all,
+just eg the verse number or licencing. really needs to be better for SEO".
+
+- each is written for search, its search phrase first, kept beside the
+  video, and never names a quiz answer;
+- without one, the description's words about the video, never its
+  reference line, links or YouTube hashtags; a licence line goes last.
 """
 
 from __future__ import annotations
@@ -44,8 +52,9 @@ def test_each_platform_gets_its_own_caption_and_hashtags(world):
     assert posting.hashtags(channel, video, "youtube") == ["#countriesquiz", "#countries", "#pubquizbuzz"]
     tiktok = posting.hashtags(channel, video, "tiktok")
     assert len(tiktok) == 5 and tiktok[0] == "#countriesquiz" and tiktok[-1] == "#pubquizbuzz"
-    assert len(posting.hashtags(channel, video, "instagram")) <= 10
-    assert posting.caption(video, "tiktok", channel).startswith("Country Shapes: Tricky\n\n#countriesquiz")
+    assert len(posting.hashtags(channel, video, "instagram")) == 5      # Instagram's limit
+    assert posting.caption(video, "tiktok", channel).startswith(
+        "Country Shapes: Tricky\n\nTen outlines to name.\n\n#countriesquiz")
     insta = posting.caption(video, "instagram", channel)
     assert "Ten outlines to name." in insta and "#geographyquiz" in insta
 
@@ -177,3 +186,75 @@ def test_setting_up_a_profile_names_it_for_the_channel_and_opens_both_logins(lau
     args = launched["popen"][0]
     assert f"--profile-directory={folder}" in args
     assert posting.LOGIN_URLS["tiktok"] in args and posting.LOGIN_URLS["instagram"] in args
+
+
+# --- written for search (decision 085) ----------------------------------------------
+
+MP_DESCRIPTION = ("A man born blind gets his sight back.\n\n#JohnGospel #Faith\n\nReference: John 9:12\n\n"
+                  "Support the channel: https://patreon.com/x\n\nMusic: Calm by Someone (CC BY 4.0).")
+
+
+def test_the_plain_caption_keeps_only_what_the_description_says_about_the_video(world):
+    channel, video = world
+    gallery.save_title_and_description(video, "The Man Who Couldn't Answer", MP_DESCRIPTION)
+    insta = posting.caption(video, "instagram", channel)
+    assert insta.startswith("The Man Who Couldn't Answer\n\nA man born blind gets his sight back.\n\n#")
+    assert "Reference:" not in insta and "#JohnGospel" not in insta and "patreon" not in insta
+    assert insta.endswith("Music: Calm by Someone (CC BY 4.0).")      # CC BY asks for it wherever it's shown
+    assert posting.caption(video, "tiktok", channel).endswith("Music: Calm by Someone (CC BY 4.0).")
+
+
+def test_a_render_reports_credits_are_the_licence_lines(world):
+    channel, video = world
+    video.with_name("countries_tricky_report.json").write_text(json.dumps({"artwork": ["Map: Someone (CC BY-SA)."]}))
+    assert posting.credits(video) == ["Map: Someone (CC BY-SA)."]
+
+
+@pytest.fixture
+def writer(monkeypatch):
+    calls = []
+
+    def fake(system, prompt, schema, **kw):
+        calls.append({"prompt": prompt, **kw})
+        return {"tiktok": {"caption": "Countries quiz — ten tricky outlines. #geo",
+                           "hashtags": ["#CountriesQuiz", "geography trivia", "#pubquizbuzz", "#a b"]},
+                "instagram": {"caption": "Countries quiz: is the answer France?", "hashtags": ["#quiz"]}}
+    monkeypatch.setattr("pipeline.llm.call_json", fake)
+    return calls
+
+
+def test_captions_are_written_for_search_and_never_give_an_answer_away(world, writer):
+    channel, video = world
+    video.with_name("countries_tricky_quiz.json").write_text(json.dumps({
+        "category": "Countries", "difficulty": "Tricky",
+        "questions": [{"question": "Which country is shaped like a boot?", "answer": "Italy"},
+                      {"question": "Whose capital is Paris?", "answer": "France", "spoken_answer": "France."}]}))
+    gallery.save_queue_state(video, handoff={"tiktok": {"at": "x", "posted_at": None},
+                                             "instagram": {"at": "x", "posted_at": None}})
+    posting.write_social(channel, video)
+    prompt = writer[0]["prompt"]
+    assert prompt.startswith("Search phrase: Countries quiz") and "shaped like a boot" in prompt
+    assert "Italy" not in prompt and "France" not in prompt
+    assert writer[0]["model"] == "claude-haiku-4-5" and writer[0]["operation"] == "social_caption"
+    tiktok = posting.caption(video, "tiktok", channel)
+    assert tiktok == "Countries quiz, ten tricky outlines. geo\n\n#countriesquiz #geographytrivia #pubquizbuzz"
+    plan = posting.plan(channel, video)
+    by_key = {p["key"]: p for p in plan["platforms"]}
+    assert by_key["tiktok"]["for_search"]
+    # Instagram's named an answer, so it's the plain one, and To post says so.
+    assert not by_key["instagram"]["for_search"] and "France" not in by_key["instagram"]["caption"]
+
+
+def test_a_retitled_video_goes_back_to_its_plain_caption(world, writer):
+    channel, video = world
+    posting.write_social(channel, video)
+    assert posting.social(video)
+    gallery.save_title_and_description(video, "Outlines of the World", "Ten outlines to name.")
+    assert posting.social(video) == {}
+    assert posting.caption(video, "tiktok", channel).startswith("Outlines of the World")
+
+
+def test_the_captions_file_belongs_to_the_video(world, writer):
+    channel, video = world
+    posting.write_social(channel, video)
+    assert posting.social_path(video) in gallery.sidecars_of(video)
