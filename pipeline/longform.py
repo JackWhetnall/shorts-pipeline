@@ -138,6 +138,70 @@ def waiting(channel, series: str) -> bool:
     return any(not any(outs) for outs in quizzes.values())
 
 
+def waiting_count(channel, series: str = None) -> int:
+    """Long quizzes made and not yet out: of one series, or both."""
+    quizzes = {}
+    for video, data in _long_videos(channel):
+        if series is None or data["series"] == series:
+            stem = video.stem[:-len(AT_END_SUFFIX)] if video.stem.endswith(AT_END_SUFFIX) else video.stem
+            quizzes.setdefault((video.parent, stem), []).append(gallery.is_out(gallery.load_publish_info(video)))
+    return sum(1 for outs in quizzes.values() if not any(outs))
+
+
+def review_rounds(channel) -> list:
+    """Quiz shorts still waiting for review: not rounds yet, but they will
+    be once approved, so a projection counts them (decision 084)."""
+    root = _out_root(channel)
+    if not root.exists():
+        return []
+    rows = []
+    for video in gallery.videos_in(root, long=False):
+        info = gallery.load_publish_info(video)
+        if info["discarded"] or gallery.is_out(info) or gallery.is_queued(info):
+            continue
+        row = _round_info(channel, video)
+        if row:
+            row["rank"] = (2, video.stat().st_mtime)
+            rows.append(row)
+    return rows
+
+
+def projection(channel) -> dict:
+    """How many long quizzes could be made from the rounds there are, if
+    the shorts in review are approved: quiz nights, taking the level with
+    most to spare each time, and category quizzes, one per complete set
+    of a category's levels. With what's made and waiting, and what that
+    covers of the long-video slots."""
+    count = channel.quiz.longform_rounds
+    labels = quiz.labels(channel)
+    pool = available_rounds(channel, MIXED) + review_rounds(channel)
+    nights = 0
+    while True:
+        best = []
+        for label in labels:
+            picked = choose_rounds(channel, label, count, rows=pool)
+            if len(picked) > len(best):
+                best = picked
+        if len(best) < count:
+            break
+        taken = {r["stem"] for r in best}
+        pool = [r for r in pool if r["stem"] not in taken]
+        nights += 1
+    singles = available_rounds(channel, CATEGORY) + review_rounds(channel)
+    by_category = {}
+    for r in singles:
+        by_category.setdefault(r["category"], {}).setdefault(r["difficulty"].lower(), 0)
+        by_category[r["category"]][r["difficulty"].lower()] += 1
+    wanted = [label.lower() for label in labels]
+    ladders = sum(min(levels.get(w, 0) for w in wanted) for levels in by_category.values()) \
+        if channel.quiz.longform_category_when_ready else 0
+    waiting = waiting_count(channel)
+    per_week = max(1, len(channel.publishing.long_weekdays) * max(1, len(channel.publishing.long_slots)))
+    makeable = (nights if channel.quiz.longform_mixed_when_ready else 0) + ladders
+    return {"waiting": waiting, "nights": nights, "ladders": ladders, "makeable": makeable,
+            "weeks": round((waiting + makeable) / per_week, 1)}
+
+
 def used_rounds(channel, series: str = MIXED) -> set:
     """Rounds already in a long video of this series (a discarded long
     video frees its rounds)."""
@@ -304,12 +368,12 @@ def picked_rounds(channel, difficulty: str, stems: list) -> list:
     return rows
 
 
-def choose_rounds(channel, difficulty: str, count: int) -> list:
+def choose_rounds(channel, difficulty: str, count: int, rows: list = None) -> list:
     """`count` rounds that don't clash: all at one difficulty in different
     categories; "rising", as spread across the levels as possible in
     different categories; or "category:<name>", one category from its
     easiest level up. Easiest first."""
-    rows = available_rounds(channel, series_of(difficulty))
+    rows = available_rounds(channel, series_of(difficulty)) if rows is None else list(rows)
     picked = []
 
     def fits(r) -> bool:

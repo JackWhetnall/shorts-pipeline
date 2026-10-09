@@ -34,6 +34,21 @@ of them from Channels).
    Private, tell me: the fix is either Google's audit or switching each
    to Public in Studio until it's granted.
 
+## Long quizzes and banners (9 Oct)
+
+### N. Keep 3 long quizzes ready (1 minute)
+**Pub Quiz Buzz → Settings → Quiz → Long quizzes → Kept ready: 3.** It
+then makes shorts ahead (in the usual random order) until 3 long quizzes
+can be made, and makes them; the long quiz card on New video says where
+it stands. About 12 weeks of shorts in all makes it keep itself going.
+
+### O. Upload the new banners (5 minutes)
+Minute Pastor's and Pub Quiz Buzz's are redrawn in their own looks:
+**Profile → YouTube banner**, download the one you like, then YouTube
+Studio → Customisation → Branding → Banner image.
+
+---
+
 ## Pub Quiz Buzz thumbnails (9 Oct)
 
 ### L. Put the new thumbnails on YouTube, and see if Shorts take them (2 minutes)

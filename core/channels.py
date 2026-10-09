@@ -446,6 +446,11 @@ class Quiz(_MappingLike):
     # made by itself as soon as all its levels are finished.
     longform_series_name: str = "Quiz Night"
     longform_category_when_ready: bool = True
+    # Long quizzes kept made and waiting to go out, both series together
+    # (decision 084). 0: one of each series at most, as before. N: up to N,
+    # and shorts are made ahead (in the plan's own random order) until N
+    # could be made from the rounds there are.
+    longform_ready: int = 0
 
 
 @dataclass

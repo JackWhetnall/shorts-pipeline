@@ -133,7 +133,7 @@ def test_banners_are_saved_and_found(channel):
     assert not banner.exists("quiz")
     made = banner.make(channel, "Tagline")
     assert set(made) == set(banner.VARIANTS) and banner.exists("quiz")
-    assert Image.open(made["split"]).size == (2560, 1440)
+    assert Image.open(made["brand"]).size == (2560, 1440)
 
 
 def test_the_checklist_step_is_done_once_words_and_banner_exist(channel, monkeypatch):
@@ -162,8 +162,8 @@ def test_the_page_and_routes(channel, monkeypatch, tmp_path):
     head = {"X-CSRF-Token": token}
     made = client.post("/api/channels/quiz/profile/generate", headers=head, json={})
     assert made.status_code == 200 and made.get_json()["words"]["tagline"] == _words()["tagline"]
-    assert client.get("/channels/quiz/profile/banner/split.png").status_code == 200
-    assert "attachment" in client.get("/channels/quiz/profile/banner/split.png?download=1").headers["Content-Disposition"]
+    assert client.get("/channels/quiz/profile/banner/brand.png").status_code == 200
+    assert "attachment" in client.get("/channels/quiz/profile/banner/brand.png?download=1").headers["Content-Disposition"]
     assert client.get("/channels/quiz/profile/banner/nonsense.png").status_code == 404
     saved = client.post("/api/channels/quiz/profile/save", headers=head,
                         json={"tagline": "A new line", "instagram_bio": "New bio"})

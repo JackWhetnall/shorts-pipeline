@@ -487,6 +487,13 @@ def _long_auto(channel, ready: dict) -> dict:
             f"once a category has every level. One of each waits at a time; checked every few minutes.")
     if not channel.publishing.enabled:
         return {"auto": "off (publishing plan off)", "auto_rule": rule}
+    target = q.longform_ready
+    if target > 0:
+        p = long_quiz.projection(channel)
+        status = f"{p['waiting']} made, {p['makeable']} makeable of {target} kept ready · {p['weeks']:g} weeks"
+        if p["waiting"] + p["makeable"] < target:
+            status += " · making shorts ahead"
+        return {"auto": status, "auto_rule": rule + f" Up to {target} wait at once."}
     parts = []
     if q.longform_mixed_when_ready:
         if long_quiz.waiting(channel, long_quiz.MIXED):

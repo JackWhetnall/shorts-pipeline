@@ -166,6 +166,10 @@
         <label class="field-row"><span class="field-label">Rounds</span>
           <input type="number" name="quiz_longform_rounds" min="2" max="12" value="{{ channel.quiz.longform_rounds }}">
         </label>
+        <label class="field-row"><span class="field-label">Kept ready
+          <button type="button" class="info-dot" data-tooltip="Long quizzes made ahead. Above 0, shorts are made beyond the usual buffer (in the plan's random order, up to 10 weeks ahead) until this many could be made. 0: one of each kind.">?</button></span>
+          <input type="number" name="quiz_longform_ready" min="0" max="8" value="{{ channel.quiz.longform_ready }}" class="narrow-number">
+        </label>
         <label class="field-row"><span class="field-label">Mixed series name</span>
           <input type="text" name="quiz_longform_series_name" value="{{ channel.quiz.longform_series_name }}"
                  placeholder="Quiz Night">

@@ -29,8 +29,12 @@ log = get_logger(__name__)
 SIZE = (2560, 1440)
 SAFE_W, SAFE_H = 1546, 423
 SAFE = ((SIZE[0] - SAFE_W) // 2, (SIZE[1] - SAFE_H) // 2, (SIZE[0] + SAFE_W) // 2, (SIZE[1] + SAFE_H) // 2)
-VARIANTS = ("split", "centered")
-LABELS = {"split": "Logo beside the name", "centered": "Name in the middle"}
+# Drawn in each channel's own look (decision 084): the two it used to
+# have came from the end card's colours, near-black on every channel, in
+# one layout, so every channel's banner looked the same.
+VARIANTS = ("brand", "picture")
+LABELS = {"brand": "In its own look", "picture": "With its own picture"}
+OLD_VARIANTS = ("split", "centered")
 MAX_TAGLINE = 60
 
 
@@ -215,12 +219,197 @@ def _font_height(draw, font) -> int:
 
 
 def make(channel, tagline: str = "") -> dict:
-    """Draw both layouts into the channel's folder. {variant: path}."""
+    """Draw both designs into the channel's folder. {variant: path}. A
+    design the page renderer can't draw falls back to the plain drawing."""
     folder = banner_dir(channel.key)
     folder.mkdir(parents=True, exist_ok=True)
     out = {}
-    for variant in VARIANTS:
+    for variant, fallback in zip(VARIANTS, OLD_VARIANTS):
         path = path_for(channel.key, variant)
-        render(channel, tagline, variant).save(path, optimize=True)
+        try:
+            from pipeline.scenes import render as pages
+            jpeg = pages.page_frame(page_html(channel, tagline, variant), 0.0, size=SIZE)
+            import io
+            Image.open(io.BytesIO(jpeg)).convert("RGB").save(path, optimize=True)
+        except Exception as exc:  # noqa: BLE001 - a plainer banner beats none
+            log.warning(f"{channel.key}: banner {variant} drawn plainly ({exc})")
+            render(channel, tagline, fallback).save(path, optimize=True)
         out[variant] = path
+    for old in OLD_VARIANTS:
+        path_for(channel.key, old).unlink(missing_ok=True)
     return out
+
+
+# --- in the channel's own look ---------------------------------------------------------
+
+def _words(channel) -> list:
+    """What the channel covers, for a row of chips: its quiz categories,
+    or its plan's topics, short ones first."""
+    try:
+        from core import curriculum
+        if not curriculum.exists(channel.key):
+            return []
+        topics = [t["title"] for t in curriculum.load(channel.key)["topics"] if not t.get("placeholder")]
+    except Exception:  # noqa: BLE001 - chips are decoration
+        return []
+    short = [t for t in topics if len(t) <= 26]
+    return (short or topics)[:6]
+
+
+def picture(channel) -> Path:
+    """A picture of the channel's own work for a backdrop, or None: a
+    documentary's style frame or latest storyboard still; for a footage
+    channel, a frame of its latest video. A quiz's picture is its board,
+    drawn in its look, so it has none."""
+    if channel.format == "quiz":
+        return None
+    if channel.format == "documentary":
+        stills = sorted((CHANNELS_DIR / channel.key / "productions").glob("*/stills/kf_*.jpg"),
+                        key=lambda p: p.stat().st_mtime, reverse=True)
+        if stills:
+            return stills[0]
+        frames = sorted((CHANNELS_DIR / channel.key / "animation").glob("*/style_*.png"))
+        return frames[0] if frames else None
+    from core import gallery
+    root = gallery.resolve_output_dir(channel.output_dir)
+    if not root.exists():
+        return None
+    videos = [v for v in sorted(gallery.videos_in(root, long=False), key=lambda v: v.stat().st_mtime, reverse=True)
+              if not gallery.load_publish_info(v)["discarded"]][:4]
+    return _best_frame(channel, videos)
+
+
+def _colourfulness(image) -> float:
+    """Hasler and Süsstrunk's colourfulness, plus contrast: a frame of a
+    sunset over hills scores well, a grey door handle doesn't."""
+    import numpy as np
+    a = np.asarray(image.convert("RGB").resize((160, 90)), dtype=np.float32)
+    rg, yb = a[..., 0] - a[..., 1], 0.5 * (a[..., 0] + a[..., 1]) - a[..., 2]
+    colour = np.sqrt(rg.std() ** 2 + yb.std() ** 2) + 0.3 * np.sqrt(rg.mean() ** 2 + yb.mean() ** 2)
+    return float(colour + 0.5 * a.mean(axis=2).std())
+
+
+def _best_frame(channel, videos: list):
+    """The most colourful frame from a few points in each video (wide
+    enough for a banner once cropped), saved beside the banner."""
+    import subprocess
+    import imageio_ffmpeg
+    best, score = None, -1.0
+    folder = banner_dir(channel.key)
+    folder.mkdir(parents=True, exist_ok=True)
+    for i, video in enumerate(videos):
+        for j, at in enumerate((5, 14, 24, 36)):
+            frame = folder / f"candidate_{i}_{j}.jpg"
+            try:
+                subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-y", "-ss", str(at), "-i", str(video),
+                                "-frames:v", "1", "-q:v", "2", str(frame)], check=True,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                with Image.open(frame) as im:
+                    s = _colourfulness(im)
+            except Exception:  # noqa: BLE001 - past the end, or unreadable: the next one
+                continue
+            if s > score:
+                best, score = frame, s
+    if best is None:
+        return None
+    chosen = folder / "frame.jpg"
+    chosen.write_bytes(best.read_bytes())
+    for leftover in folder.glob("candidate_*.jpg"):
+        leftover.unlink(missing_ok=True)
+    return chosen
+
+
+def _data_uri(path: Path) -> str:
+    import base64
+    mime = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
+    return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
+
+
+def page_html(channel, tagline: str, variant: str) -> str:
+    """The banner as a page in the channel's look (pipeline.templates.theme),
+    everything that matters inside the centre a phone shows."""
+    import html
+    from pipeline.scenes import art
+    from pipeline.templates import page, theme
+    esc = html.escape
+    style = art.resolve(channel.scenes.art)
+    name = esc((channel.channel_display_name or channel.key).strip())
+    tag = esc(" ".join((tagline or "").split())[:MAX_TAGLINE])
+    logo_path = channel_logo_dir(channel.key) / "logo.png"
+    logo = f"<img class='logo' src='{_data_uri(logo_path)}'>" if logo_path.exists() else ""
+    chips = "".join(f"<span class='chip filled a{(i % 5) + 1}'>{esc(w)}</span>"
+                    for i, w in enumerate(_words(channel)))
+    x0, y0, x1, y1 = SAFE
+    quiz = channel.format == "quiz"
+    base = f"""
+    html, body {{ width: {SIZE[0]}px; height: {SIZE[1]}px; margin: 0; overflow: hidden; }}
+    .safe {{ position: absolute; left: {x0}px; top: {y0}px; width: {SAFE_W}px; height: {SAFE_H}px;
+      display: flex; align-items: center; gap: 56px; }}
+    .logo {{ width: 300px; height: 300px; object-fit: contain; flex: none; border-radius: 50%; }}
+    .words {{ display: flex; flex-direction: column; gap: 18px; min-width: 0; }}
+    .name {{ font-family: var(--display); font-weight: var(--dw); font-size: 150px; line-height: .95;
+      color: var(--ink); letter-spacing: -.01em; }}
+    .tag {{ font-size: 52px; line-height: 1.15; color: var(--soft); }}
+    .chips {{ display: flex; flex-wrap: wrap; gap: 14px; }}
+    .chips .chip {{ font-size: 30px; padding: 8px 24px; }}
+    .wide {{ position: absolute; inset: 0; }}
+    """
+    if variant == "brand":
+        motif = ""
+        if quiz:
+            # Its stamp, as on every short's opening screen.
+            motif = (f"<div class='stamp'>{tag or name}</div>")
+            css = base + """
+            .stamp { align-self: flex-start; margin-top: 18px; padding: 18px 44px; border-radius: 28px;
+              background: var(--a1); color: var(--on-a1); border: 7px solid var(--ink);
+              font-family: var(--display); font-weight: var(--dw); text-transform: uppercase;
+              font-size: 40px; line-height: 1.15; transform: rotate(-4deg); box-shadow: 0 12px 0 rgba(0,0,0,.2);
+              max-width: 1000px; }
+            .mark { position: absolute; left: 150px; top: 50%; transform: translateY(-52%) rotate(-8deg);
+              font-family: var(--display); font-weight: var(--dw); font-size: 900px; line-height: 1;
+              color: var(--a2); opacity: .16; }
+            """
+            body = (f"<div class='mark'>?</div><div class='safe'>{logo}<div class='words'>"
+                    f"<div class='name'>{name}</div>{motif}</div></div>")
+        else:
+            css = base + """
+            .rule { width: 160px; height: 10px; border-radius: 5px; background: var(--a1); }
+            .band { position: absolute; left: 0; right: 0; top: 0; height: 26px; background: var(--a1); }
+            .band.b { top: auto; bottom: 0; background: var(--a2); }
+            """
+            body = (f"<div class='band'></div><div class='band b'></div><div class='safe'>{logo}<div class='words'>"
+                    f"<div class='name'>{name}</div><div class='rule'></div>"
+                    + (f"<div class='tag'>{tag}</div>" if tag else "") +
+                    f"<div class='chips'>{chips}</div></div></div>")
+    else:
+        pic = picture(channel)
+        title, accent = _rgb(channel.style.highlight_color, (255, 212, 0)), None
+        if pic is not None:
+            css = base + f"""
+            .wide img {{ width: 100%; height: 100%; object-fit: cover; }}
+            .shade {{ position: absolute; inset: 0; background:
+              linear-gradient(90deg, rgba(0,0,0,.82) 0%, rgba(0,0,0,.62) 45%, rgba(0,0,0,.15) 80%); }}
+            .name {{ color: #fff; text-shadow: 0 6px 30px rgba(0,0,0,.5); }}
+            .tag {{ color: rgb{title}; }}
+            """
+            body = (f"<div class='wide'><img src='{_data_uri(pic)}'></div><div class='shade'></div>"
+                    f"<div class='safe'>{logo}<div class='words'><div class='name'>{name}</div>"
+                    + (f"<div class='tag'>{tag}</div>" if tag else "") + "</div></div>")
+        else:
+            # No picture of its own (a quiz): its board's look, dark.
+            css = base + """
+            .bg { background: var(--ink) !important; }
+            .name { color: var(--bg); } .tag { color: var(--a1); }
+            .mark { position: absolute; right: 150px; top: 50%; transform: translateY(-50%) rotate(8deg);
+              font-family: var(--display); font-weight: var(--dw); font-size: 760px; line-height: 1; color: var(--a1); }
+            """
+            body = (f"<div class='mark'>?</div><div class='safe'>{logo}<div class='words'>"
+                    f"<div class='name'>{name}</div>"
+                    + (f"<div class='tag'>{tag}</div>" if tag else "") +
+                    f"<div class='chips'>{chips}</div></div></div>")
+    return ("<!doctype html><html><head><meta charset='utf-8'><style>"
+            f"{theme.css(style)}{css}.bg-grain {{ background-image: url({page.GRAIN}); }}"
+            "</style></head><body><div class='bg'><div class='bg-pattern'></div><div class='bg-grain'></div>"
+            f"<div class='bg-vignette'></div></div>{body}"
+            "<script>window.TEMPLATE_DURATION = 1;</script>"
+            f"<script>{page.RUNTIME.read_text(encoding='utf-8')}</script></body></html>")

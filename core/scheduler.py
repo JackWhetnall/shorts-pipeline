@@ -64,7 +64,7 @@ def generation_block(key: str, channel, state: dict = None, active: dict = None)
         return "A video for this channel is being made."
     # Shorts only: a long quiz waiting for a look mustn't stop the shorts.
     state = state or gallery.video_state_counts(channel.output_dir, long=False)
-    if state["queued"] >= plan.buffer:
+    if state["queued"] >= plan.buffer and not _shorts_for_long_quizzes(channel, state):
         return f"{state['queued']} ready and queued, the {plan.buffer} this channel keeps."
     if state["waiting"] >= plan.buffer:
         return (f"{state['waiting']} video{'s' if state['waiting'] != 1 else ''} waiting for "
@@ -72,6 +72,40 @@ def generation_block(key: str, channel, state: dict = None, active: dict = None)
     if not voice_quota.has_room_for(voice_quota.typical_video_characters(key)):
         return "Not enough ElevenLabs characters left this month."
     return None
+
+
+SHORTS_AHEAD_WEEKS = 10      # never more shorts made ahead than this many weeks of slots
+
+
+def _shorts_for_long_quizzes(channel, state: dict) -> bool:
+    """Whether a quiz channel keeping long quizzes ready (decision 084)
+    should make another short beyond its usual buffer: what's made and
+    waiting plus what the rounds could make falls short of the target.
+    The short is the plan's next, in its own random order: nothing is
+    picked to complete a set, so the shorts go out as naturally as ever."""
+    target = getattr(channel.quiz, "longform_ready", 0) if channel.format == "quiz" else 0
+    if target <= 0:
+        return False
+    per_week = max(1, len(channel.publishing.weekdays) * max(1, len(channel.publishing.slots)))
+    if state["queued"] >= SHORTS_AHEAD_WEEKS * per_week:
+        return False
+    from pipeline import longform
+    try:
+        p = longform.projection(channel)
+    except Exception as exc:  # noqa: BLE001 - unknown: the usual buffer rules
+        log.warning(f"{channel.key}: couldn't project long quizzes: {exc}")
+        return False
+    return p["waiting"] + p["makeable"] < target
+
+
+def _long_room(channel, series: str) -> bool:
+    """Whether another long quiz of `series` may be made now: one of each
+    series waiting at most, or up to `longform_ready` in all."""
+    from pipeline import longform
+    target = getattr(channel.quiz, "longform_ready", 0)
+    if target <= 0:
+        return not longform.waiting(channel, series)
+    return longform.waiting_count(channel) < target
 
 
 def fill_buffers(channels: dict = None) -> list:
@@ -142,7 +176,7 @@ def fill_long_quizzes(channels: dict = None) -> list:
                 or not channel.quiz.longform_mixed_when_ready or key in active):
             continue
         try:
-            if longform.waiting(channel, longform.MIXED):
+            if not _long_room(channel, longform.MIXED):
                 continue
             mixed = [v for v, data in longform._long_videos(channel) if data["series"] == longform.MIXED]
             every = channel.quiz.longform_every_days
@@ -179,7 +213,7 @@ def fill_category_quizzes(channels: dict = None) -> list:
             continue
         try:
             ready = longform.full_ladders(channel)
-            if longform.waiting(channel, longform.CATEGORY) or not ready:
+            if not _long_room(channel, longform.CATEGORY) or not ready:
                 continue
             difficulty = longform.CATEGORY_PREFIX + ready[0]
             request = longform.plan_request(channel, {"difficulty": difficulty})
