@@ -29,7 +29,9 @@
   "context_scope": "all",
   "context_topics": 3,
   "documentary": {
+   "chapter_titles": false,
    "minutes": 10.0,
+   "pictures": "drawn",
    "scene_seconds": 12.0,
    "teasers": 3
   },
@@ -931,6 +933,7 @@
     "input_tokens": 3000,
     "total_usd": 0.1802
    },
+   "_cover.jpg": "file",
    "_description.txt": "Ten hard questions. Pause if you need longer.",
    "_meta.txt": "Title options:\n  - Hard Quiz: Can You Get 7/10?\n\n[segment 0]\nTen questions. Bet you can't get seven.\n\n[segment 1]\nTonight's round is a hard one. Here's question one.\n\n[segment 2]\nWhat is the chemical symbol for tungsten?\n\n[segment 3]\nW. It's W.\n\n[segment 4]\nQuestion two. Which planet has the shortest day in the solar system?\n\n[segment 5]\nJupiter. It's Jupiter.\n\n[segment 6]\nNumber three. What is the hardest natural substance on the Mohs scale?\n\n[segment 7]\nDiamond. It's Diamond.\n\n[segment 8]\nQuestion four. Which gas makes up about 78 percent of Earth's atmosphere?\n\n[segment 9]\nNitrogen. It's Nitrogen.\n\n[segment 10]\nHalfway there, question five. What is the powerhouse of the cell?\n\n[segment 11]\nThe mitochondrion. It's The mitochondrion.\n\n[segment 12]\nQuestion six. How many bones are in the adult human body?\n\n[segment 13]\n206. It's 206.\n\n[segment 14]\nNumber seven. What is the SI unit of electrical resistance?\n\n[segment 15]\nThe ohm. It's The ohm.\n\n[segment 16]\nQuestion eight. Which element has the atomic number 1?\n\n[segment 17]\nHydrogen. It's Hydrogen.\n\n[segment 18]\nNearly there, question nine. What type of rock is formed from cooled lava?\n\n[segment 19]\nIgneous. It's Igneous.\n\n[segment 20]\nLast one, question ten. Who proposed the theory of general relativity?\n\n[segment 21]\nAlbert Einstein. It's Albert Einstein.\n\n[segment 22]\nHow many did you get? Tell me in the comments.\n\n",
    "_publish.json": {
@@ -1095,6 +1098,7 @@
       "spoken_answer": "Albert Einstein. It's Albert Einstein."
      }
     ],
+    "thumbnail_at": 3.235,
     "unverified": [],
     "version": 1
    },
@@ -1438,7 +1442,8 @@
     "title_options": [
      "Hard Quiz: Can You Get 7/10?"
     ]
-   }
+   },
+   "_thumb.jpg": "file"
   },
   "footage": [
    {

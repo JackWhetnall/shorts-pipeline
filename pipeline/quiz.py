@@ -1806,6 +1806,12 @@ def board(plan):
     script = plan.script
     duration = len(plan.voiceover.samples) / plan.voiceover.fps
     times = timeline(script, plan.voiceover.word_timings)
+    if times.get("hook"):
+        # The thumbnail: the opening screen once the stamp has landed and
+        # settled, before the hook screen clears (pipeline.thumbnails).
+        from pipeline import thumbnails
+        plan.thumbnail_at = round(min(times["hook"]["stamp"] + thumbnails.STAMP_SETTLE,
+                                      times["hook"]["leave"] - 0.1), 3)
     style = art.resolve(plan.channel.scenes.art)
     # The number asked for when it was started, or the next one.
     script.quiz["number"] = int(getattr(plan.seed, "number", 0) or 0) or next_number(plan.channel)
@@ -1942,6 +1948,8 @@ def save_round(plan) -> Path:
                        "answer_audio": spoken(segments[q["reveal"]])}
                       for q in quiz.get("questions") or []],
     }
+    if getattr(plan, "thumbnail_at", None):
+        data["thumbnail_at"] = plan.thumbnail_at
     path = round_sidecar(plan.video_path)
     path.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
     return path

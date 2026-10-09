@@ -64,7 +64,9 @@
   "context_scope": "topic",
   "context_topics": 3,
   "documentary": {
+   "chapter_titles": false,
    "minutes": 10.0,
+   "pictures": "drawn",
    "scene_seconds": 12.0,
    "teasers": 3
   },

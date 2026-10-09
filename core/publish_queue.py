@@ -342,9 +342,14 @@ def put_out(channel, video_path: Path, privacy: str = "public", platforms: list 
         result = youtube.upload(channel.key, video_path, title,
                                 posting.with_youtube_hashtags(channel, video_path, description), privacy=privacy)
         thumb = video_path.with_name(f"{video_path.stem}_thumb.jpg")
-        if long and thumb.exists() and result.get("id"):
+        cover = video_path.with_name(f"{video_path.stem}_cover.jpg")   # a quiz short's (decision 082)
+        if cover.exists():
+            thumb = cover
+        if (long or cover.exists()) and thumb.exists() and result.get("id"):
             try:
                 youtube.set_thumbnail(channel.key, result["id"], thumb)
+                if thumb == cover:
+                    mark_cover_set(video_path)
             except PipelineError as exc:
                 # The video is out; only its thumbnail is YouTube's own pick.
                 log.warning(f"{channel.key}: thumbnail not set: {exc}")
@@ -503,3 +508,64 @@ def _load_state() -> dict:
 def _save_state(state: dict) -> None:
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+
+
+def _cover_record(video) -> Path:
+    return Path(video).with_name(f"{Path(video).stem}_cover.json")
+
+
+def cover_set_at(video) -> float:
+    """When the video's own thumbnail was last put on YouTube, or 0."""
+    try:
+        return float(json.loads(_cover_record(video).read_text(encoding="utf-8")).get("set_at") or 0)
+    except (OSError, ValueError):
+        return 0.0
+
+
+def mark_cover_set(video) -> None:
+    import time as _time
+    _cover_record(video).write_text(json.dumps({"set_at": _time.time()}), encoding="utf-8")
+
+
+def covers_to_set(channel) -> list:
+    """Videos out on YouTube with a thumbnail of their own (decision 082)
+    that hasn't been set there yet, or has changed since it was."""
+    root = gallery.resolve_output_dir(channel.output_dir)
+    if not root.exists():
+        return []
+    out = []
+    for video in gallery.videos_in(root):
+        cover = video.with_name(f"{video.stem}_cover.jpg")
+        if not cover.exists():
+            continue
+        info = gallery.load_publish_info(video)
+        if not info.get("youtube_url"):
+            continue
+        if cover_set_at(video) >= cover.stat().st_mtime:
+            continue
+        out.append(video)
+    return out
+
+
+def set_covers(channel, videos: list = None) -> dict:
+    """Put each video's own thumbnail on YouTube. Returns {"set", "failed":
+    [(title, why)]}. A first failure that says the account can't have
+    custom thumbnails stops the rest: they'd all fail the same way."""
+    from core import audience, youtube
+    done, failed = 0, []
+    for video in covers_to_set(channel) if videos is None else videos:
+        info = gallery.load_publish_info(video)
+        video_id = audience.video_id(info.get("youtube_url") or "")
+        if not video_id:
+            continue
+        try:
+            youtube.set_thumbnail(channel.key, video_id, video.with_name(f"{video.stem}_cover.jpg"))
+        except PipelineError as exc:
+            failed.append((info.get("title") or video.stem, exc.user_message))
+            if "verif" in exc.user_message.lower() or "permission" in exc.user_message.lower():
+                break
+            continue
+        mark_cover_set(video)
+        done += 1
+    return {"set": done, "failed": failed}

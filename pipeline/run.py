@@ -234,6 +234,11 @@ def _finish(plan: RenderPlan, started_at: float) -> RenderPlan:
             quiz.save_round(plan)
         except Exception:  # noqa: BLE001 - the short is finished; only its reuse in a long quiz is lost
             log.exception("Could not save this round's timings for long quizzes")
+        try:
+            from pipeline import thumbnails
+            thumbnails.quiz_cover(plan.video_path, plan.channel.pacing.pause_between_segments)
+        except Exception:  # noqa: BLE001 - the short is finished; YouTube picks its own frame instead
+            log.exception("Could not make this short's thumbnail")
 
 
     # The whole script beside the video: a quiz's questions are reviewed

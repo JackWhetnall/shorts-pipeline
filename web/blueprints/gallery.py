@@ -48,7 +48,21 @@ def channel_gallery(key):
         # different decision from "reclaim 416 MB" and the second one is
         # the reason anybody does it.
         discarded_bytes=sum(_disk_size(v) for v in discarded),
+        covers_to_set=len(publish_queue.covers_to_set(channel)) if youtube.connection(key)["connected"] else 0,
+        note=request.args.get("note", ""),
     )
+
+
+@bp.route("/channels/<key>/thumbnails/youtube", methods=["POST"])
+def set_covers(key):
+    """Put each published video's own thumbnail on YouTube (decision 082)."""
+    channel = channel_or_404(key)
+    result = publish_queue.set_covers(channel)
+    note = f"{result['set']} thumbnail{'s' if result['set'] != 1 else ''} set."
+    if result["failed"]:
+        title, why = result["failed"][0]
+        note += f" {len(result['failed'])} not: {why}"
+    return redirect(url_for("gallery.channel_gallery", key=key, note=note))
 
 
 def _label_approved(channel, approved: list) -> None:

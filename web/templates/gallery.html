@@ -70,7 +70,16 @@
 <p class="meta">Nothing approved yet.</p>
 {% endif %}
 
-<h2 class="section-title gallery-section-spaced">Published <span class="section-count">{{ published|length }}</span></h2>
+<div class="gallery-section-header gallery-section-spaced">
+  <h2 class="section-title">Published <span class="section-count">{{ published|length }}</span></h2>
+  {% if covers_to_set %}
+  <form method="post" action="{{ url_for('gallery.set_covers', key=key) }}" class="page-actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-small btn-ghost" title="Each one's opening screen, stamp landed. Free.">Set {{ covers_to_set }} thumbnail{{ 's' if covers_to_set != 1 }} on YouTube</button>
+  </form>
+  {% endif %}
+</div>
+{% if note %}<p class="meta info-banner" role="status">{{ note }}</p>{% endif %}
 {% if published %}
 <div class="gallery-grid">
   {% for v in published %}
