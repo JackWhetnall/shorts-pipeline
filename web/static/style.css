@@ -1962,7 +1962,9 @@ a.tick:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
   left: 50%;
   transform: translateX(-50%);
   width: max-content;
-  max-width: 260px;
+  max-width: min(260px, calc(100vw - 24px));
+  white-space: normal;
+  overflow-wrap: break-word;
   background: var(--surface-2);
   border: 1px solid var(--border-light);
   color: var(--text);
@@ -1979,6 +1981,10 @@ a.tick:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
      width, and one near the right edge gave every page a sideways scroll. */
   display: none;
 }
+/* Near an edge the tooltip opens towards the middle (set by app.js), so
+   it never runs off the screen. */
+.info-dot.tip-end::after, .cost-dot.tip-end::after { left: auto; right: -6px; transform: none; }
+.info-dot.tip-start::after, .cost-dot.tip-start::after { left: -6px; transform: none; }
 .info-dot:hover::after, .info-dot:focus-visible::after,
 .cost-dot:hover::after, .cost-dot:focus-visible::after { display: block; animation: fade-in 0.12s ease-out; }
 
@@ -2979,6 +2985,14 @@ a.today-run:hover .today-run-name { color: var(--accent); }
 .choice strong, .voice-option strong, .style-option strong { color: var(--text); font-weight: 600; }
 .choice, .voice-option { color: var(--text-dim); transition: border-color 0.12s, background-color 0.12s; }
 .voice-option-body .hint { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.voice-figures { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.voice-figures > div { display: flex; flex-direction: column; }
+.voice-num { font-size: 1.35rem; font-weight: 700; font-stretch: 108%; font-variant-numeric: tabular-nums; }
+.voice-label { color: var(--text-dim); font-size: 0.8rem; display: flex; align-items: center; gap: 0.3rem; }
+.voice-facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem var(--sp-3); margin: var(--sp-2) 0 0; font-size: 0.88rem; }
+.voice-facts dt { color: var(--text-dim); }
+.voice-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+.good-text { color: var(--success); }
 .money-of { font-size: 0.95rem; font-weight: 500; color: var(--text-faint); font-stretch: 100%; letter-spacing: 0; }
 .split-even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 main > .split { margin-top: var(--sp-4); }
@@ -3056,3 +3070,9 @@ main > .card + form, main > form + .card { margin-top: var(--sp-4); }
 .draft-risks-box { margin-top: var(--sp-3); }
 .draft-risks-box > summary { font-size: 0.92rem; }
 .draft-risks li { margin-bottom: var(--sp-2); color: var(--text-dim); font-size: 0.9rem; }
+
+
+/* The channel this browser looks at (web.focus, decision 080). */
+.focus-switch select { min-height: 2rem; padding: 0 1.8rem 0 0.6rem; font-size: 0.85rem; max-width: 12rem;
+  background-color: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); }
+.nav-count[hidden], .site-nav a[hidden] { display: none; }

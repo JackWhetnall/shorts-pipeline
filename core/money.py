@@ -49,7 +49,10 @@ DEFAULTS = {
     "long_rpm": 4.0,                   # $ per 1,000 long-form views (trivia and education run $3-6)
     "shorts_rpm": 0.0,                 # nothing below 10M Shorts views in 90 days, from Feb 2027
     "in_ypp": [],                      # channel keys in the Partner Programme
-    "spare_voice": True,               # spend the voice left before a reset on videos made ahead
+    # Off: unused ElevenLabs credits roll over for up to two months on a
+    # paid plan (seen on this account: the 7 Oct reset kept the 1,545 left),
+    # so there's nothing to lose at a reset (decision 080).
+    "spare_voice": False,              # spend the voice left before a reset on videos made ahead
 }
 
 # YouTube Partner Programme, for new applicants.
@@ -208,7 +211,7 @@ def record_voice(quota, now: float, path=None) -> dict:
     return history
 
 
-def voice_pace(history: dict, now: float) -> float | None:
+def voice_pace(history: dict, now: float, min_days: int = 1) -> float | None:
     """Characters a day over about the last week of readings, counting only
     since the counter last went down (it resets monthly). None with less
     than a day between readings."""
@@ -224,34 +227,67 @@ def voice_pace(history: dict, now: float) -> float | None:
         return None
     (first_day, first), (last_day, last) = recent[0], recent[-1]
     days = (last_day - first_day).days
-    return (last - first) / days if days >= 1 else None
+    return (last - first) / days if days >= max(1, min_days) else None
 
 
-def voice(quota, now: float, history: dict = None) -> dict:
-    """The ElevenLabs allowance at its own counter's recent pace: does it
-    last until it resets, and would a month at this pace fit?"""
+PACE_MIN_DAYS = 3            # a pace from fewer days of readings isn't shown
+
+
+def voice(quota, now: float, history: dict = None, need: dict = None) -> dict:
+    """The ElevenLabs allowance against what the schedule still needs
+    before it resets (`need`, from `voice_need`): enough, or short by how
+    much. It used to take the counter's pace over the last readings, and
+    one day of a film being voiced (1,166 credits) made it "run out about
+    4 Nov", counting none of the videos already made ahead (decision 080)."""
     if quota is None:
         return None
     resets = float(quota.resets_at or 0)
-    started = resets - MONTH_DAYS * DAY if resets else 0
-    elapsed = (now - started) / DAY if started else 0
-    per_day = voice_pace(history or {}, now)
-    if per_day is None:
-        per_day = quota.used / elapsed if elapsed >= 1 else None
+    per_day = voice_pace(history or {}, now, PACE_MIN_DAYS)
     out = {"used": quota.used, "limit": quota.limit, "remaining": quota.remaining, "per_day": per_day,
-           "resets": date.fromtimestamp(resets) if resets else None, "runs_out": None, "dry_days": 0}
-    if per_day and resets:
-        out_on = now + quota.remaining / per_day * DAY
-        if out_on < resets:
+           "resets": date.fromtimestamp(resets) if resets else None, "runs_out": None, "dry_days": 0,
+           "days_to_reset": max(0, int((resets - now) / DAY)) if resets else None,
+           "needed": None, "videos_needed": 0, "videos_made": 0, "short_by": 0}
+    if need is not None:
+        out.update(needed=need["credits"], videos_needed=need["videos"], videos_made=need["made"])
+        out["short_by"] = max(0, need["credits"] - quota.remaining)
+        if out["short_by"] and resets and need["credits"]:
+            # Spent evenly over the days left, it runs out this far in.
+            share = quota.remaining / need["credits"]
+            out_on = now + share * (resets - now)
             out["runs_out"] = date.fromtimestamp(out_on)
             out["dry_days"] = int((resets - out_on) / DAY)
-        # A full month at this pace against the allowance.
-        out["month_need"] = per_day * MONTH_DAYS
     return out
 
 
-def _voice_now(quota, now: float, rows: list = ()) -> dict:
-    out = voice(quota, now, record_voice(quota, now))
+def voice_need(channels: dict, rows: list, now: float, resets: float) -> dict:
+    """What the schedule still has to voice before the allowance resets:
+    each running channel's slots until then, less the videos already made
+    and waiting to go out (queued, or in review), at its typical credits
+    a video."""
+    from core import voice_quota
+    days = max(0.0, (resets - now) / DAY) if resets else MONTH_DAYS
+    credits = videos = made = 0
+    for r in rows:
+        channel = channels.get(r["key"])
+        if channel is None:
+            continue
+        slots = (r["shorts"] + r["longs"]) * days / MONTH_DAYS
+        try:
+            state = gallery.video_state_counts(channel.output_dir)
+            ready = state.get("queued", 0) + state.get("waiting", 0)
+        except Exception:  # noqa: BLE001 - counted as nothing made ahead, which only errs towards caution
+            ready = 0
+        missing = max(0, round(slots) - ready)
+        made += min(ready, round(slots))
+        videos += missing
+        credits += missing * voice_quota.typical_video_credits(r["key"])
+    return {"credits": int(credits), "videos": videos, "made": made}
+
+
+def _voice_now(quota, now: float, rows: list = (), channels: dict = None) -> dict:
+    need = (voice_need(channels, rows, now, float(quota.resets_at or 0))
+            if quota is not None and channels is not None else None)
+    out = voice(quota, now, record_voice(quota, now), need)
     if out is not None:
         # What the schedule itself needs a month, in credits: the structural
         # question, where the pace above can be a burst week.
@@ -362,7 +398,7 @@ def forecast(channels: dict = None, now: float = None) -> dict:
         "claude": runway(None if claude_left is None else claude_left - bank_left, claude_per_day, now),
         "claude_balance": claude_left,
         "openai_balance": balance("openai", records, saved),
-        "voice": _voice_now(voice_quota.current(), now, rows),
+        "voice": _voice_now(voice_quota.current(), now, rows, channels),
         "views": views,
         "ypp": {key: ypp(row, today) for key, row in views.items()
                 if key in {r["key"] for r in rows}},

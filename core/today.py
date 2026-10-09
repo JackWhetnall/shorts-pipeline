@@ -115,9 +115,12 @@ def _money(channels, url_for, now, forecast) -> list:
     if voice and voice.get("runs_out") and not _spending_spare(voice, now):
         days = (voice["runs_out"] - datetime.fromtimestamp(now).date()).days
         out.append(Item(WARN if days > 2 else BAD,
-                        f"Voice allowance runs out about {voice['runs_out'].strftime('%d %b')}",
-                        f"It resets {voice['resets'].strftime('%d %b')}: about {voice['dry_days']} days "
-                        "with no new videos. Upgrade the plan, or make fewer shorts a week.",
+                        f"Voice allowance short by {voice['short_by']:,} credits before "
+                        f"{voice['resets'].strftime('%d %b')}",
+                        f"The schedule still has {voice['videos_needed']} video"
+                        f"{'s' if voice['videos_needed'] != 1 else ''} to voice before then "
+                        f"({voice['needed']:,} credits) and {voice['remaining']:,} are left. Upgrade the "
+                        "plan, or make fewer a week.",
                         "Money", url_for("money.page")))
     elif voice and voice.get("schedule_need", 0) > voice["limit"]:
         out.append(Item(WARN, "The voice allowance won't cover a month of this schedule",
@@ -151,6 +154,56 @@ def _review(channels, url_for, now, forecast) -> list:
     return out
 
 
+GENERIC_ERROR = "Something went wrong while generating this video."
+
+
+def failure_detail(job: dict, now: float) -> str:
+    """What failed, when, and what it was doing: the owner saw only
+    "A Minute Pastor video didn't finish" and a link to Activity, which no
+    longer listed it."""
+    from datetime import datetime
+    seed = job.get("seed") or {}
+    what = seed.get("reference") or seed.get("topic") or "A video"
+    when = job.get("finished_at") or job.get("queued_at") or now
+    days = _age_days(when, now)
+    stamp = datetime.fromtimestamp(when).strftime("%a %d %b, %H:%M")
+    error = (job.get("error") or "").strip()
+    if not error or error.startswith(GENERIC_ERROR) or job.get("status") == "interrupted":
+        doing = _last_step(job)
+        error = (f"It stopped while {doing}" if doing else "It stopped part-way") + (
+            ", most likely when the app restarted." if job.get("status") == "interrupted" else ".")
+    return f"{what}, {stamp}{f' ({days} days ago)' if days > 1 else ''}. {error[:220]} " \
+           f"Retry carries on from what it had made; Discard drops it."
+
+
+def _last_step(job: dict) -> str:
+    """The last stage it reported, as words ("preparing the background clips")."""
+    from core import jobs
+    for line in reversed(jobs.read_log(job["id"], tail=40)):
+        text = line.strip()
+        if text.startswith("[") and "/5]" in text[:6]:
+            return text.split("]", 1)[1].strip().rstrip(".").rstrip("…").lower()
+    return ""
+
+
+def _made_since(channel, job: dict) -> bool:
+    """A video of the same quote or plan entry has been finished since:
+    the failure is history, not something to do."""
+    from core import gallery
+    seed = job.get("seed") or {}
+    name = seed.get("reference") or seed.get("topic") or ""
+    if not name:
+        return False
+    from core.paths import slugify
+    stem = slugify(name, fallback="")
+    directory = gallery.resolve_output_dir(channel.output_dir)
+    if not stem or not directory.exists():
+        return False
+    since = job.get("finished_at") or 0
+    return any(v.stem.startswith(stem) and v.stat().st_mtime > since
+               for v in gallery.videos_in(directory))
+
+
 def _failed(channels, url_for, now, forecast) -> list:
     from core import jobs
     out = []
@@ -158,9 +211,14 @@ def _failed(channels, url_for, now, forecast) -> list:
         if channel.archived:
             continue
         job = jobs.latest_failed_for_channel(key)
-        if job:
-            out.append(Item(WARN, f"A {channel.channel_display_name or key} video didn't finish",
-                            (job.get("error") or "")[:200], "See it", url_for("jobs.activity")))
+        if not job:
+            continue
+        if _made_since(channel, job):
+            jobs.dismiss_job(job["id"])
+            continue
+        out.append(Item(WARN, f"A {channel.channel_display_name or key} video didn't finish",
+                        failure_detail(job, now), "Retry", url_for("today.retry", job_id=job["id"]),
+                        post=True, extra=[("Discard", url_for("today.dismiss", job_id=job["id"]), True)]))
     return out
 
 

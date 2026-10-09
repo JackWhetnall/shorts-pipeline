@@ -18,6 +18,8 @@
   {% endif %}
 </div>
 
+{% if note %}<p class="meta info-banner" role="status">{{ note }}</p>{% endif %}
+
 {% if not has_channels %}
 <div class="empty-state">
   <p><strong>Start with a channel</strong></p>

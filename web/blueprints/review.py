@@ -113,7 +113,8 @@ def _when_label(when, queued: bool) -> str:
 
 @bp.route("/review")
 def queue():
-    items = _queue()
+    from web import focus
+    items = focus.keep(_queue())
     names = {}
     for item in items:
         names.setdefault(item["channel_key"], item["channel_name"])
@@ -136,8 +137,13 @@ def queue():
 def queued_page():
     """Everything approved, in the order it will go out, with when: a grid
     rather than flicking through Review one video at a time."""
+    from web import focus
     rows = []
-    for key, channel in load_channels(validate=False).items():
+    channels = load_channels(validate=False)
+    only = focus.current(channels)
+    for key, channel in channels.items():
+        if only and key != only:
+            continue
         plan = channel.publishing
         for path, when in publish_queue.schedule_for(channel):
             info = gallery.load_publish_info(path)
@@ -309,8 +315,9 @@ def unqueue(relpath):
 def handoff_page():
     """Videos that have gone out and are waiting to be posted to TikTok or
     Instagram from this PC (core.posting)."""
+    from web import focus
     channels = load_channels(validate=False)
-    rows = publish_queue.awaiting_posts(channels)
+    rows = focus.keep(publish_queue.awaiting_posts(channels), channels=channels)
     for row in rows:
         row["relpath"] = str(row["video_path"].relative_to(gallery.OUTPUT_DIR)).replace("\\", "/")
         row["post"] = posting.plan(channels[row["channel_key"]], row["video_path"])

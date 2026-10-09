@@ -79,18 +79,39 @@ def test_the_voice_pace_is_the_counters_last_week_not_its_monthly_average():
     assert money.voice_pace(history, NOW) == pytest.approx(1336, abs=1)
     # A reset in between: only readings since it count.
     assert money.voice_pace({"2026-09-28": 29000, "2026-10-01": 500, "2026-10-05": 4500}, NOW) == 1000
-    quota = SimpleNamespace(used=11061, limit=30000, remaining=18939,
-                            resets_at=datetime(2026, 10, 7).timestamp())
-    v = money.voice(quota, NOW, history)
-    assert v["runs_out"] is None                         # lasts the two days to its reset
-    assert v["month_need"] > v["limit"]                  # but a month at this pace doesn't fit
+    # Decision 080: a pace from one day of readings isn't shown.
+    assert money.voice_pace({"2026-10-04": 1, "2026-10-05": 1167}, NOW, money.PACE_MIN_DAYS) is None
 
 
-def test_the_voice_runs_out_before_its_reset_and_says_how_long_its_dry():
-    quota = SimpleNamespace(used=25000, limit=30000, remaining=5000,
-                            resets_at=datetime(2026, 10, 20).timestamp())
-    v = money.voice(quota, NOW, {"2026-09-28": 18000, "2026-10-05": 25000})
-    assert v["runs_out"] == date(2026, 10, 10) and v["dry_days"] == 9
+def test_the_voice_is_judged_against_what_the_schedule_still_needs():
+    """Regression (decision 080): one day of a film being voiced (1,166
+    credits) made the allowance "run out about 4 Nov", though the schedule
+    needed a seventh of what was left, 58 videos being made ahead."""
+    quota = SimpleNamespace(used=1167, limit=31545, remaining=30378,
+                            resets_at=datetime(2026, 11, 3).timestamp())
+    v = money.voice(quota, NOW, {"2026-10-04": 1, "2026-10-05": 1167},
+                    {"credits": 4025, "videos": 35, "made": 58})
+    assert v["runs_out"] is None and v["short_by"] == 0 and v["needed"] == 4025
+    short = money.voice(SimpleNamespace(used=25000, limit=30000, remaining=5000,
+                                        resets_at=datetime(2026, 10, 25).timestamp()),
+                        NOW, {}, {"credits": 10000, "videos": 50, "made": 0})
+    assert short["short_by"] == 5000
+    assert short["runs_out"] == date(2026, 10, 15) and short["dry_days"] in (9, 10)
+
+
+def test_videos_made_ahead_are_taken_off_what_the_schedule_needs(monkeypatch):
+    from core import voice_quota
+    channels = {"a": SimpleNamespace(output_dir="a"), "b": SimpleNamespace(output_dir="b")}
+    rows = [{"key": "a", "shorts": 30, "longs": 0}, {"key": "b", "shorts": 30, "longs": 0}]
+    counts = {"a": {"queued": 25, "waiting": 10}, "b": {"queued": 2, "waiting": 0}}
+    monkeypatch.setattr(money.gallery, "video_state_counts", lambda d: counts[d])
+    monkeypatch.setattr(voice_quota, "typical_video_credits", lambda key: 100)
+    need = money.voice_need(channels, rows, NOW, NOW + 30 * money.DAY)
+    assert need == {"credits": 2800, "videos": 28, "made": 32}     # a is covered; b needs 28
+
+
+def test_credits_roll_over_so_spare_voice_is_off_unless_asked_for():
+    assert money.DEFAULTS["spare_voice"] is False
 
 
 def test_the_partner_programme_pace_is_against_the_old_bar_before_february():

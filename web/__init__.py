@@ -126,19 +126,17 @@ def create_app(debug: bool = False) -> Flask:
         for you, and whether anything is running right now.
         """
         try:
-            from core import gallery
             from core.channels import load_channels
-            waiting = 0
-            for channel in load_channels(validate=False).values():
-                state = gallery.video_state_counts(channel.output_dir)
-                waiting += state["waiting"]
-            from core import publish_queue
-            to_post = sum(len(r["platforms"]) for r in
-                          publish_queue.awaiting_posts(load_channels(validate=False)))
-            return {"review_waiting": waiting, "to_post": to_post,
-                    "active_job_count": len(jobs.active_jobs())}
+            from web import focus
+            channels = load_channels(validate=False)
+            key = focus.current(channels)
+            return {**nav_counts(channels, key),
+                    "focus_key": key, "focus_channel": channels.get(key),
+                    "focus_choices": sorted(((k, c.channel_display_name or k) for k, c in channels.items()
+                                             if not c.archived), key=lambda kv: kv[1].lower())}
         except Exception:  # noqa: BLE001 - chrome must never break a page
-            return {"review_waiting": 0, "to_post": 0, "active_job_count": 0}
+            return {"review_waiting": 0, "to_post": 0, "active_job_count": 0, "focus_key": "",
+                    "focus_channel": None, "focus_choices": []}
 
     @app.context_processor
     def inject_channel_head():
@@ -256,3 +254,17 @@ def _local_secret() -> str:
     key = secrets.token_urlsafe(48)
     path.write_text(key, encoding="utf-8")
     return key
+
+
+def nav_counts(channels: dict, key: str = "") -> dict:
+    """The menu's counts, for one channel (`key`) or all: videos waiting
+    for review, posts to make, videos being made. Polled by every page so
+    they don't go stale (decision 080)."""
+    from core import gallery, jobs, publish_queue
+    waiting = 0
+    for k, channel in channels.items():
+        if not key or k == key:
+            waiting += gallery.video_state_counts(channel.output_dir)["waiting"]
+    to_post = sum(len(r["platforms"]) for r in publish_queue.awaiting_posts(channels)
+                  if not key or r["channel_key"] == key)
+    return {"review_waiting": waiting, "to_post": to_post, "active_job_count": len(jobs.active_jobs())}

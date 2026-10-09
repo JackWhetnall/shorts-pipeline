@@ -3978,3 +3978,42 @@ function initAnimationSettings() {
   if (root.dataset.styleNew === "1") $("[data-style-panel=starts]").hidden = false;
 }
 document.addEventListener("DOMContentLoaded", initAnimationSettings);
+
+
+// A tooltip near either edge of the window opens towards the middle
+// instead of centring on its dot, which ran it off the screen.
+function placeTooltip(event) {
+  const dot = event.target.closest && event.target.closest(".info-dot, .cost-dot");
+  if (!dot) return;
+  const rect = dot.getBoundingClientRect();
+  const room = 150;
+  dot.classList.toggle("tip-end", rect.right > window.innerWidth - room);
+  dot.classList.toggle("tip-start", rect.left < room && rect.right <= window.innerWidth - room);
+}
+document.addEventListener("mouseover", placeTooltip);
+document.addEventListener("focusin", placeTooltip);
+
+
+// The menu's counts (Review, To post, Making) kept current while a page
+// is open: they used to change only on navigating, so "nothing to post"
+// at a glance could be two to post (decision 080).
+const NAV_COUNTS_MS = 30000;
+async function refreshNavCounts() {
+  try {
+    const res = await fetch("/api/nav-counts", {headers: {"Accept": "application/json"}});
+    if (!res.ok) return;
+    const counts = await res.json();
+    document.querySelectorAll("[data-count]").forEach(el => {
+      const n = counts[el.dataset.count] || 0;
+      el.textContent = n;
+      el.hidden = !n;
+    });
+    document.querySelectorAll("[data-shown-with]").forEach(el => {
+      if (!el.classList.contains("active")) el.hidden = !counts[el.dataset.shownWith];
+    });
+  } catch (err) {
+    // The next poll is half a minute away; the page shows the last counts.
+  }
+}
+setInterval(() => { if (!document.hidden) refreshNavCounts(); }, NAV_COUNTS_MS);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshNavCounts(); });

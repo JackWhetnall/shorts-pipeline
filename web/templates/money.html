@@ -55,17 +55,24 @@
     <div class="money-runway">
       <h3>Voice allowance</h3>
       {% if f.voice %}{% set v = f.voice %}
-      <p class="money-big {{ 'money-bad' if v.runs_out }}">{{ '{:,}'.format(v.remaining) }} <span class="money-of">of {{ '{:,}'.format(v.limit) }}</span></p>
-      <div class="meter {{ 'meter-bad' if v.runs_out }}"><span style="width: {{ (100 * v.remaining / v.limit)|round|int if v.limit else 0 }}%"></span></div>
-      <p class="meta">
-        {% if v.runs_out %}Runs out about {{ v.runs_out.strftime('%d %b').lstrip('0') }}, {{ v.dry_days }} days before it resets on {{ v.resets.strftime('%d %b').lstrip('0') }}.
-        {% elif v.resets %}Lasts until it resets on {{ v.resets.strftime('%d %b').lstrip('0') }}.{% endif %}
-        {% if v.per_day %}About {{ '{:,}'.format(v.per_day|round|int) }} credits a day lately.{% endif %}
-        {% if v.schedule_need %}The schedule needs about {{ '{:,}'.format(v.schedule_need) }} a month.{% endif %}
-      </p>
-      <p class="meta"><strong>Spare voice:</strong> {{ spare.summary() }}
-        {% if spare.active and spare.videos %}{{ spare.why }}{% endif %}
-        <button type="button" class="info-dot" data-tooltip="In the last days before the allowance resets, what's left is spent on videos made ahead for the slots nothing is waiting for yet, in date order, so every slot is filled up to the latest date it reaches. One at a time, at batch prices, never taking the Claude credit below two weeks of the schedule's spending. They go to Review like any other.">?</button></p>
+      {# Figures, not a paragraph (decision 080): as ElevenLabs' own
+         subscription reports them, for this billing month. #}
+      <div class="voice-figures">
+        <div><span class="voice-num">{{ '{:,}'.format(v.used) }}</span><span class="voice-label">used</span></div>
+        <div><span class="voice-num {{ 'money-bad' if v.short_by }}">{{ '{:,}'.format(v.remaining) }}</span><span class="voice-label">left</span></div>
+        <div><span class="voice-num">{{ '{:,}'.format(v.limit) }}</span><span class="voice-label">this month
+          <button type="button" class="info-dot" data-tooltip="The plan's monthly credits plus any rolled over: ElevenLabs keeps unused credits for up to two months on a paid plan.">?</button></span></div>
+      </div>
+      <div class="meter {{ 'meter-bad' if v.short_by }}" title="{{ '{:,}'.format(v.used) }} used of {{ '{:,}'.format(v.limit) }}"><span style="width: {{ (100 * v.used / v.limit)|round|int if v.limit else 0 }}%"></span></div>
+      <dl class="voice-facts">
+        {% if v.resets %}<dt>Resets</dt><dd>{{ v.resets.strftime('%a %d %b').replace(' 0', ' ') }}{% if v.days_to_reset is not none %} <span class="hint">in {{ v.days_to_reset }} day{{ 's' if v.days_to_reset != 1 }}</span>{% endif %}</dd>{% endif %}
+        {% if v.needed is not none %}
+        <dt>Still to voice before then</dt><dd>{{ '{:,}'.format(v.needed) }} <span class="hint">{{ v.videos_needed }} video{{ 's' if v.videos_needed != 1 }}{% if v.videos_made %}; {{ v.videos_made }} made ahead{% endif %}</span></dd>
+        <dt>Verdict</dt><dd>{% if v.short_by %}<span class="danger-text">Short by {{ '{:,}'.format(v.short_by) }}</span>{% else %}<span class="good-text">Enough</span> <span class="hint">{{ '{:,}'.format(v.remaining - v.needed) }} to spare, kept next month</span>{% endif %}</dd>
+        {% endif %}
+        {% if v.per_day %}<dt>Pace lately</dt><dd>{{ '{:,}'.format(v.per_day|round|int) }} a day</dd>{% endif %}
+      </dl>
+      {% if f.settings.spare_voice %}<p class="hint">Spare voice: {{ spare.summary() }}</p>{% endif %}
       {% else %}<p class="meta">ElevenLabs isn't saying: the key needs the user_read permission.</p>{% endif %}
     </div>
   </div>
