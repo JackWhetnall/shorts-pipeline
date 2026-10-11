@@ -3,7 +3,7 @@
 {% block content %}
 {% set tab = 'productions' %}
 {% include "_channel_head.html" %}
-<p class="prod-mode">{% if channel.documentary.auto_make %}<span class="prod-pill pill-approved"
+<div class="prod-mode">{% if channel.documentary.auto_make %}<span class="prod-pill pill-approved"
   data-tooltip="Each stage started and approved by itself; finished films wait for your look.">Makes its own films</span>
   {% else %}<span class="prod-pill" data-tooltip="Each stage waits for your approval. Settings, Channel: Makes its own films.">Each stage waits for you</span>{% endif %}
   <details class="prod-lessons"><summary class="prod-pill">Lessons from viewers &middot; {{ lessons|length }}</summary>
@@ -13,7 +13,7 @@
 {% endfor %}</textarea>
       <button type="submit" class="btn-ghost">Save</button>
     </form>
-  </details></p>
+  </details></div>
 
 {% if note %}<p class="meta info-banner" role="status">{{ note }}</p>{% endif %}
 

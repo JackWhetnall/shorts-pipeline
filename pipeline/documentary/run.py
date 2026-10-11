@@ -117,7 +117,8 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
         wanted = list(range(len(scenes))) if only is None else list(only)
         # Paintings and cards first (decision 086); any that can't be made
         # are drawn instead, so no scene is left without a picture.
-        others, credits, draw_instead = media.make(channel, scenes, target, only=wanted)
+        setting = row["title"] + (f" ({row['angle']})" if row.get("angle") else "")
+        others, credits, draw_instead = media.make(channel, scenes, target, only=wanted, setting=setting)
         to_draw = [i for i in wanted if scenes[i].get("medium", "picture") == "picture"] + draw_instead
         drawn = stills.draw(channel, data["outline"], scenes, target, frame="wide", only=to_draw,
                             notes=notes) if to_draw else {}

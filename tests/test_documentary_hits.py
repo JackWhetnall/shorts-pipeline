@@ -240,6 +240,9 @@ def test_a_long_scene_is_cut_into_shots_from_its_still(tmp_path):
     assert shots.box(0.95, 0.05, 5.0) == [0.5455, 0.0, 0.4545, 0.4545]            # kept inside, zoom capped
     assert shots.count(4.0, 2) == 1 and shots.count(11.0, 2) == 2 and shots.count(17.0, 2) == 3
     assert shots.count(17.0, 0) == 1                                              # nothing worth a closer look
+    held = shots.cut(still, [], 10.8, "push_in", tmp_path, "s001")                # but too long to hold
+    assert len(held) == 2 and held[1][1] == 5.4
+    assert len(shots.cut(still, [], 8.5, "push_in", tmp_path, "s002")) == 1
     cut = shots.cut(still, [[0.1, 0.1, 0.5, 0.5], [0.4, 0.3, 0.5, 0.5]], 16.0, "push_in", tmp_path, "s000")
     assert [round(s, 2) for _, s, _ in cut] == [5.33, 5.33, 5.33]
     assert cut[0][0] == still and Image.open(cut[1][0]).size == (320, 180) and cut[1][2] == "pan_right"
@@ -397,3 +400,18 @@ def test_a_film_waiting_for_a_look_holds_back_the_next_even_if_its_angle_was_pit
     assert auto_films.step(channel) == "" and started == []
     channel.documentary.ahead = 2
     assert "approved the angle" in auto_films.step(channel)
+
+
+def test_a_film_is_planned_at_the_rate_its_narrator_really_speaks(world, tmp_path, monkeypatch):
+    """One Day In History's narrator ran at 2.9 words a second, so its first
+    film, planned at 2.5, came out 10.9 minutes long instead of 14."""
+    channel, row = world
+    channel.output_dir = str(tmp_path / "out")
+    assert scripts.words_per_second(channel) == scripts.WORDS_PER_SECOND          # nothing made yet
+    film = tmp_path / "out" / "longform" / "2026-10-11"
+    film.mkdir(parents=True)
+    (film / "a_report.json").write_text(json.dumps({"documentary": True, "numbers": {
+        "words": 1897, "video_seconds": 654, "speed": 1.0}}))
+    assert scripts.words_per_second(channel) == 2.901
+    channel.speed = 0.95                                                          # slowed down since
+    assert scripts.words_per_second(channel) == round(1897 / 654 * 0.95, 3)

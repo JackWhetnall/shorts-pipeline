@@ -34,6 +34,9 @@ MIN_SHOT = 2.6                  # but never into shots shorter than this
 MAX_SHOTS = 3
 MIN_ZOOM, MAX_ZOOM = 1.35, 2.2  # a crop between ~74% and ~45% of the picture's width
 CHECK_SIZE = (512, 288)
+DEFAULT_FRAMING = [0.15, 0.12, 0.7, 0.7]   # the middle, a little above centre, ~1.4x closer
+RETRY_AFTER = 20                # seconds before a failed batch is asked again, once
+HOLD_MAX = 9.0                  # no picture held longer than this (core.scorecard's limit)
 
 SYSTEM = """
 You are a documentary editor cutting a film from still pictures. For each
@@ -100,8 +103,16 @@ def plan(stills: dict, cache_path: Path) -> tuple:
                         {"type": "image", "source": {"type": "base64", "media_type": media, "data": data}}]
         content.append({"type": "text", "text": "Give the framings for each picture, by its number."})
         try:
-            answer = call_json(SYSTEM, content, schema(), operation="documentary_shots", model=MODEL,
-                               max_tokens=2500, effort=None)
+            try:
+                answer = call_json(SYSTEM, content, schema(), operation="documentary_shots", model=MODEL,
+                                   max_tokens=2500, effort=None)
+            except PipelineError:
+                # Busy for a moment (the first real film lost 4 of 8 batches
+                # this way, and the same calls went through a minute later).
+                import time
+                time.sleep(RETRY_AFTER)
+                answer = call_json(SYSTEM, content, schema(), operation="documentary_shots", model=MODEL,
+                                   max_tokens=2500, effort=None)
         except PipelineError as exc:
             problem = f"Shots couldn't be planned for some scenes ({exc.user_message}); they hold one shot."
             log.warning(f"  [documentary] {problem}")
@@ -121,6 +132,10 @@ def cut(still: Path, boxes: list, seconds: float, move: str, folder: Path, stem:
     """[(picture, seconds, move)] for one scene: the whole still first with
     the script's move, then each framing, cropped and moved differently."""
     from PIL import Image
+    if not boxes and seconds > HOLD_MAX:
+        # Nothing named worth a closer look, but too long to hold: the
+        # middle of the picture, a little closer, as an editor would.
+        boxes = [DEFAULT_FRAMING]
     n = count(seconds, len(boxes))
     if n == 1:
         return [(Path(still), seconds, move)]

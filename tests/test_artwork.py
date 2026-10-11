@@ -158,3 +158,21 @@ def test_the_description_carries_the_credit():
     assert run._with_credits("About this.", ["Art: X, Y. Z, public domain."]) == \
         "About this.\n\nArt: X, Y. Z, public domain."
     assert run._with_credits("About this.", []) == "About this."
+
+
+def test_the_met_is_searched_through_its_current_api(monkeypatch):
+    """The Met retired /v1/search on 1 Oct 2026 (it answers 410); every
+    painting search came back empty until it moved to the paginated v1.1."""
+    asked = []
+
+    def fake_get(url, params=None, timeout=None, headers=None):
+        asked.append((url, params))
+        if url.endswith("/search"):
+            return Response(data={"total": 1, "objectIDs": [7]})
+        return Response(data={"isPublicDomain": True, "primaryImage": "https://images/7.jpg", "title": "A Bakery",
+                              "artistDisplayName": "Job Berckheyde", "objectDate": "1681", "classification": "Paintings"})
+
+    monkeypatch.setattr(artwork.requests, "get", fake_get)
+    found = artwork._met("bakery")
+    assert "/v1.1/search" in asked[0][0] and asked[0][1]["limit"] == 10 and asked[0][1]["offset"] == 0
+    assert [w["title"] for w in found] == ["A Bakery"]

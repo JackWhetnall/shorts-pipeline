@@ -39,7 +39,9 @@ MAX_CANDIDATES = 6
 PICK_MODEL = "claude-haiku-4-5"
 AIC_SEARCH = "https://api.artic.edu/api/v1/artworks/search"
 AIC_IMAGE = "https://www.artic.edu/iiif/2/{id}/full/{w},/0/default.jpg"
-MET_SEARCH = "https://collectionapi.metmuseum.org/public/collection/v1/search"
+# v1 search was retired on 1 Oct 2026 (it now answers 410); v1.1 is paginated
+# with offset and limit and returns the same {"total", "objectIDs"}.
+MET_SEARCH = "https://collectionapi.metmuseum.org/public/collection/v1.1/search"
 MET_OBJECT = "https://collectionapi.metmuseum.org/public/collection/v1/objects/{id}"
 # Paintings first; engravings and drawings are often excellent too.
 KIND_RANK = {"painting": 0, "print": 1, "drawing": 1, "drawing and watercolor": 1}
@@ -73,7 +75,8 @@ def _aic(query: str) -> list:
 
 
 def _met(query: str) -> list:
-    response = requests.get(MET_SEARCH, timeout=TIMEOUT, headers=HEADERS, params={"q": query, "hasImages": "true"})
+    response = requests.get(MET_SEARCH, timeout=TIMEOUT, headers=HEADERS,
+                            params={"q": query, "hasImages": "true", "limit": 10, "offset": 0})
     ids = (response.json().get("objectIDs") or [])[:10] if response.status_code == 200 else []
     out = []
     for object_id in ids:
@@ -122,15 +125,24 @@ none fits well; a wrong picture is worse than none.
 
 
 WIDE_PICK = PICK_SYSTEM.replace("a short vertical video\nsays a line", "a widescreen documentary\nsays a line").replace(
-    "would look good filling a phone\nscreen", "would look good on a television")
+    "would look good filling a phone\nscreen", "would look good on a television") + """
+
+The film is set in a particular time and place (given with the line).
+Choose only a work that shows the line's own subject (its people, its
+place, its moment, or the everyday life of that time and place), made in
+or depicting that period. A portrait of someone unrelated, or a work from
+another century or style that would look out of place, is wrong even if
+its mood fits. Most of the time the answer is 0."""
 
 
-def pick(candidates: list, passage: str, wide: bool = False) -> dict:
+def pick(candidates: list, passage: str, wide: bool = False, setting: str = "") -> dict:
     """The candidate a vision model says shows the passage, or None.
-    `wide`: for a widescreen film rather than a phone."""
+    `wide`: for a widescreen documentary rather than a phone. `setting`:
+    the film's time and place, which a painting must belong to."""
     from pipeline import llm
 
-    content = [{"type": "text", "text": f"The line: {passage}"}]
+    line = f"The line: {passage}" + (f"\nThe film is set in: {setting}" if setting else "")
+    content = [{"type": "text", "text": line}]
     shown = []
     for work in candidates:
         try:
@@ -143,8 +155,9 @@ def pick(candidates: list, passage: str, wide: bool = False) -> dict:
             continue
         data = response.content
         shown.append(work)
+        date = f", {work['date']}" if work.get("date") else ""
         content.append({"type": "text", "text": f"Artwork {len(shown)}: {work['title']}, "
-                                                f"{work['artist']} ({work['kind'] or 'artwork'})"})
+                                                f"{work['artist']} ({work['kind'] or 'artwork'}{date})"})
         content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                     "data": base64.b64encode(data).decode("ascii")}})
     if not shown:

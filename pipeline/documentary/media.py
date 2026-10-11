@@ -50,13 +50,15 @@ def compose(image, size: tuple = FRAME):
     return frame.convert("RGB")
 
 
-def painting(scene: dict, out: Path) -> str:
+def painting(scene: dict, out: Path, setting: str = "") -> str:
     """Find, choose and frame a painting for a scene. Returns its credit
-    line; raises PipelineError when nothing fits (the scene is drawn)."""
+    line; raises PipelineError when nothing fits (the scene is drawn).
+    `setting`: the film's time and place, which the painting must belong
+    to (the first try picked Munch, 1893, for a scene in 1665)."""
     from pipeline import artwork
     query = scene.get("art_query") or ""
     candidates = artwork.search(query) if query else []
-    work = artwork.pick(candidates, scene["narration"], wide=True) if candidates else None
+    work = artwork.pick(candidates, scene["narration"], wide=True, setting=setting) if candidates else None
     if work is None:
         raise PipelineError(f"no painting for {query!r}", user_message="No painting fitted this scene.")
     compose(artwork._download(work)).save(out, quality=92)
@@ -68,9 +70,10 @@ def card_still(channel, scene: dict, out: Path) -> Path:
     return cards.preview(scene["card"], cards.style_for(channel), out)
 
 
-def make(channel, scenes: list, folder: Path, only: list = None) -> tuple:
+def make(channel, scenes: list, folder: Path, only: list = None, setting: str = "") -> tuple:
     """({index: picture path}, {index: credit}, [indices to draw instead])
-    for the scenes that aren't drawn: paintings and cards."""
+    for the scenes that aren't drawn: paintings and cards. `setting`: the
+    film's time and place (its plan entry)."""
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     made, credits, draw_instead = {}, {}, []
@@ -81,7 +84,7 @@ def make(channel, scenes: list, folder: Path, only: list = None) -> tuple:
         if medium == "painting":
             out = folder / f"art_{i:02d}.jpg"
             try:
-                credits[i] = painting(scene, out)
+                credits[i] = painting(scene, out, setting)
                 made[i] = out
             except PipelineError as exc:
                 log.info(f"  [documentary] scene {i + 1}: {exc.user_message} Drawn instead.")

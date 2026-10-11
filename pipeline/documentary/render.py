@@ -267,7 +267,7 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
     numbers = {"video_seconds": round(segments[-1].end, 1), "pictures": len(timeline),
                "longest_hold": round(shots.longest_hold(timeline), 1),
                "first_30s_pictures": sum(1 for s, _ in timeline if s < 30),
-               "words": sum(len(s["narration"].split()) for s in scenes),
+               "words": sum(len(s["narration"].split()) for s in scenes), "speed": float(channel.speed or 1.0),
                "media": sorted(set(kinds)), "paintings": kinds.count("painting"), "cards": kinds.count("card")}
     gallery.save_report(video_path, {
         "longform": True, "documentary": True, "video_seconds": round(segments[-1].end, 1),

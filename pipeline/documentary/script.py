@@ -168,6 +168,35 @@ def _system(channel) -> list:
                         + (f"\n\n{taught}" if taught else ""))]
 
 
+RATE_RANGE = (1.8, 3.2)         # words a second a measurement must fall in to be believed
+RATE_FILMS = 5                  # the latest films a channel's rate is measured on
+
+
+def words_per_second(channel) -> float:
+    """How fast this channel's films are really narrated, pauses included:
+    words over running time on its latest films, scaled to its voice's
+    speed now; WORDS_PER_SECOND until it has made one. One Day In History's
+    narrator ran at 2.9 a second, so a film planned at 2.5 came out 10.9
+    minutes long instead of 14 (decision 086)."""
+    import json
+    import statistics
+    from core import gallery
+    root = gallery.resolve_output_dir(channel.output_dir) / gallery.LONGFORM_DIR
+    found = []
+    for path in root.glob("*/*_report.json") if root.exists() else ():
+        try:
+            report = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        numbers = report.get("numbers") or {}
+        if report.get("documentary") and numbers.get("words") and numbers.get("video_seconds"):
+            rate = numbers["words"] / numbers["video_seconds"]
+            rate *= float(channel.speed or 1.0) / float(numbers.get("speed") or 1.0)
+            found.append((path.stat().st_mtime, rate))
+    rates = [r for _, r in sorted(found)[-RATE_FILMS:] if RATE_RANGE[0] <= r <= RATE_RANGE[1]]
+    return round(statistics.median(rates), 3) if rates else WORDS_PER_SECOND
+
+
 def _chapter(channel, title: str, outline: dict, number: int, before: list, note: str = "",
              angle: dict = None) -> dict:
     """One chapter's scenes, written knowing the narration before it."""
@@ -176,7 +205,7 @@ def _chapter(channel, title: str, outline: dict, number: int, before: list, note
     seconds = float(chapter["minutes"]) * 60
     scenes = max(2, round(seconds / float(doc.scene_seconds)))
     so_far = "\n".join(f"[{s['chapter']}] {s['narration']}" for s in before)
-    target = round(seconds * WORDS_PER_SECOND)
+    target = round(seconds * words_per_second(channel))
     each = max(12, round(target / scenes))
     user = (f"The video: {title}\n\n{outline_text(outline, angle)}\n\n"
             + (f"The narration so far, chapter by chapter:\n{so_far}\n\n" if so_far else "")

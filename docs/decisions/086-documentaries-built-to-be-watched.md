@@ -174,7 +174,40 @@ A new channel, **One Day In History** (`one_day_in_history`):
   slots, thumbnail tests on.
 
 Its first film, *A Day in Plague London, 1665*, was made through every
-stage. With the angle, outline, script and storyboard approved the way
+stage.
+
+Making it found five things, now fixed:
+- **The angle's top score named nothing.** The best-scored angle, *The
+  Morning Your Master Doesn't Come Down to the Ovens*, never said
+  "plague", "London" or "1665". A title (or its thumbnail words) that
+  names none of the plan entry's subject words now loses a point
+  (`pitch.subject_words`). The film became *The Baker Who Wasn't Allowed
+  to Flee the Plague*, with "EVERYONE ELSE RAN" on the thumbnail.
+- **A chapter titled "Cold Open: ..."** would have shown in YouTube's
+  chapter list. `outline.chapter_title` strips "cold open", "chapter N"
+  and dashes.
+- **The Met retired its search API on 1 October 2026.** It now answers
+  410, so every painting search had come back empty, for shorts too. It
+  moved to the paginated v1.1.
+- **The painting picker took mood over period.** It picked Munch (1893)
+  and an American portrait (1721) for 1665. It's now told the film's
+  time and place and shown each work's date, and refuses another century.
+  It then chose a drawn street scene of about 1600 and declined the
+  other scene, which was drawn instead.
+- **One still held 12.7 seconds** in the Lincoln re-cut, because the
+  vision model named no framing. A scene too long to hold now gets the
+  middle of the picture, a little closer.
+- **The narrator was faster than planned.** At speed 1.0 he ran at 174
+  words a minute (2.9 a second, pauses included), so a film planned at
+  14 minutes came out at 10.9. The script now plans at each channel's
+  measured rate (`script.words_per_second`, from its latest films'
+  reports, scaled to its voice's speed now), and this channel's voice is
+  at 0.95.
+
+The renderer was first tried on the Lincoln film without new voice (its
+lines were cached). It cut 121 shots from 50 stills, 9.9 pictures a
+minute against about 4. The scorecard named what's left: 119 words a
+minute (its voice is at 0.9) and one kind of picture. With the angle, outline, script and storyboard approved the way
 `auto_films` approves them, it waits in review. "Makes its own films" is
 then on, so the next film starts once this one has had its look
 (`ahead` 1).
