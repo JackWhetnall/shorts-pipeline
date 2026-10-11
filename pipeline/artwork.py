@@ -121,8 +121,13 @@ none fits well; a wrong picture is worse than none.
 """.strip()
 
 
-def pick(candidates: list, passage: str) -> dict:
-    """The candidate a vision model says shows the passage, or None."""
+WIDE_PICK = PICK_SYSTEM.replace("a short vertical video\nsays a line", "a widescreen documentary\nsays a line").replace(
+    "would look good filling a phone\nscreen", "would look good on a television")
+
+
+def pick(candidates: list, passage: str, wide: bool = False) -> dict:
+    """The candidate a vision model says shows the passage, or None.
+    `wide`: for a widescreen film rather than a phone."""
     from pipeline import llm
 
     content = [{"type": "text", "text": f"The line: {passage}"}]
@@ -147,7 +152,7 @@ def pick(candidates: list, passage: str) -> dict:
     schema = {"type": "object", "properties": {"choice": {"type": "integer"}},
               "required": ["choice"], "additionalProperties": False}
     try:
-        choice = llm.call_json(PICK_SYSTEM, content, schema, operation="art_pick",
+        choice = llm.call_json(WIDE_PICK if wide else PICK_SYSTEM, content, schema, operation="art_pick",
                                model=PICK_MODEL, max_tokens=800, effort=None).get("choice")
     except PipelineError as exc:
         log.info(f"  [art] couldn't choose ({exc})")

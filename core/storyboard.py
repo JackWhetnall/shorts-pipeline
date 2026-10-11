@@ -256,10 +256,10 @@ def keep_up(channels: dict) -> bool:
 
 
 def outline_ahead(channel) -> int:
-    """A documentary channel's next videos with no production yet get an
-    outline written, at batch prices, to approve when the owner's ready
-    (decision 074): the first stage only, since each later one waits for
-    the one before to be approved. Returns how many were started."""
+    """A documentary channel's next videos with no production yet get
+    their angles pitched, at batch prices, to choose when the owner's
+    ready (decisions 074, 086): the first stage only, since each later one
+    waits for the one before to be approved. Returns how many were started."""
     from core import jobs, production
     queued = {(j.get("seed") or {}).get("subtopic_id") for j in jobs.active_in_order()
               if j.get("channel_key") == channel.key}
@@ -268,9 +268,9 @@ def outline_ahead(channel) -> int:
         if production.exists(channel.key, row["id"]) or row["id"] in queued:
             continue
         try:
-            jobs.start_job(channel.key, {"type": "production", "subtopic_id": row["id"], "stage": "outline",
-                                         "topic": f"{row['title']}: outline"}, behind=True)
+            jobs.start_job(channel.key, {"type": "production", "subtopic_id": row["id"], "stage": "pitch",
+                                         "topic": f"{row['title']}: angle"}, behind=True)
             started += 1
         except Exception as exc:  # noqa: BLE001 - one entry mustn't stop the rest
-            log.warning(f"  [productions] couldn't start an outline for {row['title']}: {exc}")
+            log.warning(f"  [productions] couldn't pitch {row['title']}: {exc}")
     return started

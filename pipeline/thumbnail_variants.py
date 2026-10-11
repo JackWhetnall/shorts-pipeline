@@ -136,7 +136,10 @@ def long_inputs(channel, video_path) -> dict:
 
 def render_long(channel, video_path, recipe: dict, out: Path) -> Path:
     from pipeline import longform
+    from pipeline.documentary import thumbs
     from pipeline.scenes import art, render
+    if thumbs.is_documentary(video_path):       # decision 086: its own designed thumbnail
+        return thumbs.render_variant(channel, video_path, recipe, out)
     i = long_inputs(channel, video_path)
     page = longform.thumbnail_html(art.resolve(channel.scenes.art), i["headline"], i["subtitle"], i["line"],
                                    i["chips"], i["badge"])

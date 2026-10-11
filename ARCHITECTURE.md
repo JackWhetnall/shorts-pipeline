@@ -733,23 +733,43 @@ whatever order the ordering picks. See decisions
 
 `format` `documentary` (decision
 [074](docs/decisions/074-documentaries-in-stages.md)) makes long
-widescreen videos, each from one plan entry, in five stages the owner
-approves one at a time (`core.production`, kept under
-`channels/<key>/productions/<entry>/`; pages under the channel's
-Productions tab, `web/blueprints/productions.py`). Each stage is a job of
-seed type `production` (`pipeline.documentary.run.run_stage`), at batch
-prices unless asked for now:
+widescreen videos, each from one plan entry, in six stages the owner
+approves one at a time, or the channel's own autopilot does
+(`core.production`, kept under `channels/<key>/productions/<entry>/`;
+pages under the channel's Productions tab,
+`web/blueprints/productions.py`). Each stage is a job of seed type
+`production` (`pipeline.documentary.run.run_stage`), at batch prices
+unless asked for now:
 
-- `outline`: through-line, visual concept, chapters (says, shows,
-  minutes), cast;
+- `pitch` ("Angle", `pitch.py`, decision
+  [086](docs/decisions/086-documentaries-built-to-be-watched.md)): six
+  angles, each a title, thumbnail idea, promise, first line and open
+  question, scored; the best chosen unless the owner picks another;
+- `outline`: promise, open loops, through-line, visual concept, chapters
+  (says, turn, shows, minutes), cast; checked for a short cold open and
+  a turn in every chapter (`outline.problems`), written again once if not;
 - `script`: scenes with a stage direction, framing, camera move, cast,
-  caption and narration, written a chapter at a time;
-- `stills`: a keyframe per scene (`pipeline.animation.keyframes`) with
+  caption, narration and a medium (drawn, a museum painting, or an
+  animated card), written a chapter at a time, then read by the editor
+  (`editor.py`), which rewrites the weakest chapters;
+- `stills`: paintings and card previews (`media.py`, `cards.py`), and a
+  keyframe for every other scene (`pipeline.animation.keyframes`) with
   the style sheet and the cast's sheets, vision-checked;
-- `video`: voiced, each still held for its words with a camera move
-  (`finish.camera_shot`), chapter titles and captions overlaid, music,
-  into the long-video folder for review;
+- `video`: voiced; each still cut into shots (`shots.py`: framings named
+  by a vision model, cached) with camera moves (`finish.camera_shot`),
+  each card filmed in the channel's theme; captions, music; a designed
+  thumbnail (`thumbs.py`) and a scorecard (`core.scorecard`); into the
+  long-video folder for review;
 - `teasers`: vertical shorts written, then drawn and made, into review.
+
+The video's production sidecar records each scene's start and end, so the
+retention curve `core.audience` fetches for a documentary is put on the
+scene that was playing (`core.retention`), and a week-old film adds up to
+two lessons to the channel's list (`core.lessons`,
+`channels/<key>/lessons.json`), which every writer reads. With
+`documentary.auto_make` on, `core.auto_films` moves the next film on a
+stage each scheduler tick, approving up to the storyboard; the finished
+video always waits for a look.
 
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
@@ -768,8 +788,9 @@ to do now.
 Changing a stage makes later ones `stale`. A channel-wide cast library
 (`channels/<key>/cast_library.json`, `pipeline.documentary.cast`) keeps
 each person's name, description and sheet across videos. The scheduler
-writes outlines ahead for the next videos (`storyboard.outline_ahead`)
-and never makes a documentary itself.
+pitches angles ahead for the next videos (`storyboard.outline_ahead`),
+and makes a documentary itself only on a channel set to make its own
+films.
 
 ## Thumbnails
 

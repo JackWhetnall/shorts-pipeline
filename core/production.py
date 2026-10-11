@@ -1,10 +1,14 @@
 """
-A long-form video's production, stage by stage (decision 074).
+A long-form video's production, stage by stage (decisions 074, 086).
 
 A documentary channel's video isn't made in one go. It's planned in
-stages, and each stage waits for the owner's approval before the next is
-started:
+stages, and each stage waits for the owner's approval (or the channel's
+autopilot, decision 086) before the next is started:
 
+0. **pitch** (shown as "Angle"): how the film wins the click and the
+   first minute, decided before a word is written: several angles, each
+   a title, a thumbnail idea, the promise and the first line, scored, one
+   chosen. Everything after keeps that promise.
 1. **outline**: what the video says, chapter by chapter, and how each
    part is shown; who and what recurs in it.
 2. **script**: the narration as a play, scene by scene, each with its
@@ -41,8 +45,8 @@ from pathlib import Path
 from core.errors import PipelineError
 from core.paths import CHANNELS_DIR, safe_join, write_atomically
 
-STAGES = ("outline", "script", "stills", "video", "teasers")
-LABELS = {"outline": "Outline", "script": "Script", "stills": "Storyboard", "video": "Video",
+STAGES = ("pitch", "outline", "script", "stills", "video", "teasers")
+LABELS = {"pitch": "Angle", "outline": "Outline", "script": "Script", "stills": "Storyboard", "video": "Video",
           "teasers": "Teasers"}
 STATES = ("todo", "working", "ready", "approved", "failed", "stale")
 
@@ -68,7 +72,7 @@ def _path(channel_key: str, subtopic_id: str) -> Path:
 def blank(subtopic_id: str, title: str = "") -> dict:
     return {"subtopic_id": subtopic_id, "title": title, "created_at": _now(),
             "stages": {s: {"state": "todo"} for s in STAGES},
-            "outline": None, "script": None, "stills": {}, "video": None, "teasers": None,
+            "pitch": None, "outline": None, "script": None, "stills": {}, "video": None, "teasers": None,
             "history": []}
 
 
@@ -85,6 +89,11 @@ def load(channel_key: str, subtopic_id: str, title: str = "") -> dict:
         return blank(subtopic_id, title)
     for stage in STAGES:
         data["stages"].setdefault(stage, {"state": "todo"})
+    data.setdefault("pitch", None)
+    # A film started before the angle stage existed (decision 086) carries
+    # on as it was: its outline stood in for the angle.
+    if data["stages"]["pitch"]["state"] == "todo" and data.get("outline"):
+        data["stages"]["pitch"] = {"state": "approved", "legacy": True}
     return data
 
 
@@ -152,7 +161,9 @@ def _stale_after(data: dict, stage: str) -> None:
             mark(data, later, "stale")
 
 
-def approve(channel_key: str, subtopic_id: str, stage: str) -> dict:
+def approve(channel_key: str, subtopic_id: str, stage: str, choice: int = None, by: str = "you") -> dict:
+    """Approve a ready stage. `choice`: for the angle, which one (else the
+    one the pitch chose). `by`: "you", or "autopilot" (decision 086)."""
     def change(data):
         if state(data, stage) not in ("ready", "approved"):
             raise ProductionError(f"{stage} is {state(data, stage)}",
@@ -160,9 +171,24 @@ def approve(channel_key: str, subtopic_id: str, stage: str) -> dict:
         if not can_start(data, stage):
             raise ProductionError("earlier stage unapproved", user_message=(
                 "Approve the stages before it first."))
+        if stage == "pitch" and choice is not None and data.get("pitch"):
+            angles = data["pitch"].get("angles") or []
+            if 0 <= choice < len(angles) and choice != data["pitch"].get("chosen"):
+                data["pitch"]["chosen"] = choice
+                _stale_after(data, stage)
         mark(data, stage, "approved")
-        data["history"].append({"at": _now(), "stage": stage, "did": "approved"})
+        data["history"].append({"at": _now(), "stage": stage, "did": "approved",
+                                **({"by": by} if by != "you" else {})})
     return update(channel_key, subtopic_id, change)
+
+
+def chosen_angle(data: dict) -> dict:
+    """The angle the film keeps (its title, thumbnail idea, promise and
+    first line), or {} for a film made before angles existed."""
+    pitch = data.get("pitch") or {}
+    angles = pitch.get("angles") or []
+    index = pitch.get("chosen") or 0
+    return angles[index] if 0 <= index < len(angles) else {}
 
 
 def edited(channel_key: str, subtopic_id: str, stage: str, content) -> dict:

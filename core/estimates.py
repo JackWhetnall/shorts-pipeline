@@ -26,6 +26,7 @@ from core import costs
 DEFAULTS = {
     "short": (0.25, 0.12, 6, 30),
     "longform": (0.20, 0.06, 12, 25),
+    "production:pitch": (0.03, 0.03, 1, 8),
     "production:outline": (0.03, 0.03, 1, 8),
     "production:script": (0.15, 0.15, 3, 45),
     "production:stills": (2.00, 0.10, 15, 20),

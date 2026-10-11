@@ -71,7 +71,7 @@ def index(key):
         if not row or row["id"] in shown:
             continue
         (made if data.get("video") else others).append(row)
-    from core import long_form
+    from core import lessons, long_form
     setup_steps = long_form.steps(channel)
     # Shown until the first film is started, and whenever a needed step
     # comes undone (decision 076).
@@ -82,7 +82,17 @@ def index(key):
                            made=[summary(channel, r, working) for r in reversed(made)],
                            setup_steps=setup_steps, show_setup=show_setup,
                            first_film=upcoming[0] if upcoming else None,
+                           lessons=lessons.load(key),
                            note=request.args.get("note", ""))
+
+
+@bp.route("/channels/<key>/lessons", methods=["POST"])
+def save_lessons(key):
+    """The owner's edit of what the channel's viewers have taught it."""
+    from core import lessons
+    _channel(key)
+    lessons.replace(key, request.form.get("lessons", "").splitlines())
+    return redirect(url_for("productions.index", key=key, note="Saved."))
 
 
 @bp.route("/channels/<key>/productions/<subtopic_id>")
@@ -98,6 +108,14 @@ def page(key, subtopic_id):
     from pipeline.documentary import stills as storyboard_stills
     scene_count = len((data.get("script") or {}).get("scenes") or [])
     minutes = float(channel.documentary.minutes)
+    video_rel = _made(channel, (data.get("video") or {}).get("path"))
+    report, viewers = {}, {}
+    if video_rel:
+        from core import gallery, retention
+        from core.paths import OUTPUT_DIR
+        made_path = OUTPUT_DIR / video_rel
+        report = gallery.load_report(made_path) or {}
+        viewers = retention.for_video(made_path)
     return render_template(
         "production.html", key=key, channel=channel, row=row, info=info, data=data,
         look_chosen=look_chosen(channel),
@@ -107,7 +125,8 @@ def page(key, subtopic_id):
         stills_cost=storyboard_stills.cost_estimate(channel, scene_count or round(
             minutes * 60 / channel.documentary.scene_seconds)),
         voice_chars=sum(len(s["narration"]) + 1 for s in (data.get("script") or {}).get("scenes") or []),
-        video=_made(channel, (data.get("video") or {}).get("path")),
+        video=video_rel, report=report, viewers=viewers,
+        angle=production.chosen_angle(data),
         old_video=_made(channel, (data.get("video") or {}).get("retired")),
         teaser_videos=[v for v in (_made(channel, p) for p in (data.get("teasers") or {}).get("videos") or []) if v],
         speed={stage: _speed(key, stage) for stage in production.STAGES},
@@ -210,7 +229,9 @@ def approve(key, subtopic_id, stage):
             # Approving the teasers' scripts is what makes them.
             start(channel, row, "teasers", now=request.form.get("now") == "on")
             return _back(key, subtopic_id, "Making the teasers; they go to Review when they're done.", stage)
-        production.approve(key, subtopic_id, stage)
+        choice = request.form.get("angle")
+        production.approve(key, subtopic_id, stage,
+                           choice=int(choice) if stage == "pitch" and choice not in (None, "") else None)
         if stage == "outline":
             from pipeline.documentary import cast
             cast.merge(key, subtopic_id, production.load(key, subtopic_id)["outline"].get("cast") or [])
@@ -225,9 +246,11 @@ def approve(key, subtopic_id, stage):
 def save_outline(key, subtopic_id):
     _channel(key)
     form = request.form
-    chapters = [{"title": t.strip(), "says": s.strip(), "shows": w.strip(), "minutes": _float(m, 1.0)}
-                for t, s, w, m in zip(form.getlist("chapter_title"), form.getlist("chapter_says"),
-                                      form.getlist("chapter_shows"), form.getlist("chapter_minutes"))
+    turns = form.getlist("chapter_turn") or [""] * len(form.getlist("chapter_title"))
+    chapters = [{"title": t.strip(), "says": s.strip(), "turn": u.strip(), "shows": w.strip(),
+                 "minutes": _float(m, 1.0)}
+                for t, s, u, w, m in zip(form.getlist("chapter_title"), form.getlist("chapter_says"), turns,
+                                         form.getlist("chapter_shows"), form.getlist("chapter_minutes"))
                 if s.strip()]
     cast = [{"name": " ".join(n.split()), "kind": k if k in ("character", "place", "object") else "character",
              "description": " ".join(d.split())}
@@ -256,16 +279,37 @@ def save_script(key, subtopic_id):
     form = request.form
     old = production.load(key, subtopic_id).get("script") or {}
     scenes = []
+    import json
+    from pipeline.documentary import script as scripts
+    n = len(form.getlist("narration"))
+    media = form.getlist("medium") or ["picture"] * n
+    queries = form.getlist("art_query") or [""] * n
+    card_json = form.getlist("card") or [""] * n
     fields = zip(form.getlist("chapter"), form.getlist("narration"), form.getlist("direction"),
                  form.getlist("framing"), form.getlist("camera"), form.getlist("caption"),
-                 form.getlist("cast"))
-    for chapter, narration, direction, framing, camera, caption, cast in fields:
+                 form.getlist("cast"), media, queries, card_json)
+    for chapter, narration, direction, framing, camera, caption, cast, medium, query, card in fields:
         narration, direction = " ".join(narration.split()), " ".join(direction.split())
         if not narration:
             continue
-        scenes.append({"chapter": int(chapter or 1), "narration": narration, "direction": direction,
-                       "framing": framing, "camera": camera, "caption": " ".join(caption.split()),
-                       "cast": [c.strip() for c in cast.split(";") if c.strip()]})
+        scene = {"chapter": int(chapter or 1), "narration": narration, "direction": direction,
+                 "framing": framing, "camera": camera, "caption": " ".join(caption.split()),
+                 "cast": [c.strip() for c in cast.split(";") if c.strip()],
+                 "medium": medium if medium in scripts.MEDIA else "picture"}
+        # A card or painting kept as it was written (decision 086).
+        if scene["medium"] == "card":
+            try:
+                scene["card"] = scripts.clean_card(json.loads(card or "{}"))
+            except ValueError:
+                scene["card"] = {}
+            if not scene["card"]:
+                scene["medium"] = "picture"
+                scene.pop("card")
+        if scene["medium"] == "painting":
+            scene["art_query"] = " ".join(query.split())
+            if not scene["art_query"]:
+                scene["medium"] = "picture"
+        scenes.append(scene)
     if not scenes:
         return _back(key, subtopic_id, "The script needs at least one scene.", "script")
     try:

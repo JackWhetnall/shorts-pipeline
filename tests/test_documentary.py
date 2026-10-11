@@ -57,6 +57,13 @@ OUTLINE = {"title_options": ["The Man Who Gave Up Power"], "through_line": "Why 
                         {"title": "The farewell", "says": "He leaves.", "shows": "A hall.", "minutes": 1.0}]}
 
 
+PITCH = {"angles": [{"title": "Why Washington Walked Away", "thumbnail": {"subject": "his face", "words": "HE QUIT"},
+                     "promise": "Why the most powerful man in America gave it up.",
+                     "hook": "In 1783 George Washington could have been king. He went home instead.",
+                     "open_loop": "Why would anyone give that up?", "scores": {}, "why": "", "score": 8.0}],
+         "chosen": 0}
+
+
 def _scene(chapter, text, cast=()):
     return {"chapter": chapter, "direction": f"A picture of {text}", "cast": list(cast), "framing": "wide",
             "camera": "push_in", "caption": "", "narration": text}
@@ -67,6 +74,9 @@ def _scene(chapter, text, cast=()):
 def test_each_stage_waits_for_the_one_before(world):
     channel, row = world
     data = production.load("hist", row["id"], row["title"])
+    assert production.current(data) == "pitch" and not production.can_start(data, "outline")
+    production.update("hist", row["id"], lambda d: production.made(d, "pitch", PITCH))
+    data = production.approve("hist", row["id"], "pitch")
     assert production.current(data) == "outline" and not production.can_start(data, "script")
     production.update("hist", row["id"], lambda d: production.made(d, "outline", OUTLINE))
     with pytest.raises(PipelineError):
@@ -184,8 +194,17 @@ def test_stills_are_drawn_with_the_style_sheet_and_the_casts_sheets(world, monke
 
 def test_a_stage_runs_marks_itself_ready_and_a_failure_says_why(world, monkeypatch):
     channel, row = world
-    monkeypatch.setattr(outlines, "write", lambda channel, row, note="": OUTLINE)
+    from pipeline.documentary import pitch
+    monkeypatch.setattr(pitch, "write", lambda channel, row, note="": PITCH)
+    seen = {}
+    monkeypatch.setattr(outlines, "write",
+                        lambda channel, row, note="", angle=None: seen.update(angle=angle) or OUTLINE)
+    with pytest.raises(PipelineError):
+        run.run_stage(channel, row["id"], "outline")                  # the angle comes first
+    run.run_stage(channel, row["id"], "pitch")
+    production.approve("hist", row["id"], "pitch")
     run.run_stage(channel, row["id"], "outline")
+    assert seen["angle"]["title"] == "Why Washington Walked Away"     # the outline keeps the angle's promise
     assert production.state(production.load("hist", row["id"]), "outline") == "ready"
     with pytest.raises(PipelineError):
         run.run_stage(channel, row["id"], "script")                   # outline not approved
@@ -273,12 +292,12 @@ class TestPages:
         monkeypatch.setattr("core.jobs.start_job", lambda key, seed, ahead=True, behind=False:
                             started.append((seed, ahead, behind)) or "j")
         page = client.get(f"/channels/hist/productions/{row['id']}")
-        assert page.status_code == 200 and "Write the outline" in page.get_data(as_text=True)
-        client.post(f"/channels/hist/productions/{row['id']}/start/outline", data={"note": "Valley Forge"},
+        assert page.status_code == 200 and "Pitch angles" in page.get_data(as_text=True)
+        client.post(f"/channels/hist/productions/{row['id']}/start/pitch", data={"note": "Valley Forge"},
                     headers={"X-CSRF-Token": self._token(page.get_data(as_text=True))})
         seed, ahead, behind = started[0]
         assert (seed["type"], seed["stage"], seed["note"], ahead, behind) == \
-            ("production", "outline", "Valley Forge", True, True)
+            ("production", "pitch", "Valley Forge", True, True)
 
     def test_an_edited_outline_is_saved_approved_and_its_cast_filed(self, client, world):
         channel, row = world

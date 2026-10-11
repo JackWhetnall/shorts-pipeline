@@ -8,7 +8,7 @@
 {% if row.angle %}<p class="page-sub">{{ row.angle }}</p>{% endif %}
 
 {% from "_speed.html" import speed_choice %}
-{% set order = ['outline', 'script', 'stills', 'video', 'teasers'] %}
+{% set order = ['pitch', 'outline', 'script', 'stills', 'video', 'teasers'] %}
 {% set busy_at = (order|select('in', stage_jobs)|list or order|select('equalto', 'x')|list) %}
 {% set first_busy = order.index(busy_at[0]) if busy_at else 99 %}
 {% set labels = {'todo': '', 'working': 'Being made', 'ready': 'To approve', 'approved': 'Approved',
@@ -54,15 +54,48 @@
 prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first_busy and data.stages[stage].state != 'todo') }}
 {%- endmacro %}
 
+{# --- 0. Angle (decision 086) ------------------------------------------------ #}
+<section class="card {{ section_class('pitch') }}" id="pitch">
+  <h2>Angle {{ pill('pitch') }}</h2>
+  {% if data.pitch and data.pitch.angles %}
+  <form method="post" action="{{ url_for('productions.approve', key=key, subtopic_id=row.id, stage='pitch') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="prod-angles">
+      {% for a in data.pitch.angles %}
+      <label class="prod-angle {{ 'is-chosen' if loop.index0 == data.pitch.chosen }}">
+        <input type="radio" name="angle" value="{{ loop.index0 }}" {{ 'checked' if loop.index0 == data.pitch.chosen }}>
+        <span class="prod-angle-score" data-tooltip="Curiosity ×2, familiarity, clarity, payoff, out of 10{% if a.problems %}; {{ a.problems|join('; ') }}{% endif %}">{{ '%.1f'|format(a.score) }}</span>
+        <strong>{{ a.title }}</strong> <span class="hint">{{ a.title|length }}</span>
+        {% if a.thumbnail.words %}<span class="prod-thumb-words">{{ a.thumbnail.words }}</span>{% endif %}
+        <span class="hint prod-angle-thumb">{{ a.thumbnail.subject }}</span>
+        <em class="prod-angle-hook">“{{ a.hook }}”</em>
+      </label>
+      {% endfor %}
+    </div>
+    {% if data.stages.pitch.state in ('ready', 'approved') and 'pitch' not in stage_jobs %}
+    <div class="actions"><button type="submit" class="btn-primary">{{ 'Use this angle' if data.stages.pitch.state == 'approved' else 'Approve' }}</button></div>
+    {% endif %}
+  </form>
+  {% if 'pitch' not in stage_jobs %}{{ start_form('pitch', 'Pitch again', 'What to try') }}{% endif %}
+  {% elif data.stages.pitch.legacy %}
+  <p class="hint">Made before angles.</p>
+  {% elif 'pitch' not in stage_jobs %}
+  {{ start_form('pitch', 'Pitch angles', 'Anything to try (optional)') }}
+  {% endif %}
+</section>
+
 {# --- 1. Outline ------------------------------------------------------------ #}
 <section class="card {{ section_class('outline') }}" id="outline">
   <h2>Outline {{ pill('outline') }}</h2>
-  {% if data.outline %}
+  {% if data.stages.pitch.state != 'approved' %}
+  {% elif data.outline %}
   <form method="post" action="{{ url_for('productions.save_outline', key=key, subtopic_id=row.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Through-line <textarea name="through_line" rows="2">{{ data.outline.through_line }}</textarea></label>
     <label>Visual concept <textarea name="visual_concept" rows="2">{{ data.outline.visual_concept }}</textarea></label>
     <label>Titles <textarea name="title_options" rows="3">{{ data.outline.title_options|join('\n') }}</textarea></label>
+    {% if data.outline.promise %}<p class="hint"><strong>Promise</strong> {{ data.outline.promise }}</p>{% endif %}
+    {% if data.outline.open_loops %}<p class="hint"><strong>Open loops</strong> {{ data.outline.open_loops|join(' · ') }}</p>{% endif %}
     <h3>Chapters</h3>
     <ol class="prod-chapters">
       {% for c in data.outline.chapters %}
@@ -72,6 +105,7 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
           <label class="hint">min <input type="number" name="chapter_minutes" value="{{ c.minutes }}" step="0.1" min="0.1" class="narrow-number"></label>
         </div>
         <label class="hint">Says<textarea name="chapter_says" rows="3">{{ c.says }}</textarea></label>
+        <label class="hint">Turns on<input type="text" name="chapter_turn" value="{{ c.turn or '' }}"></label>
         <label class="hint">Shows<textarea name="chapter_shows" rows="3">{{ c.shows }}</textarea></label>
       </li>
       {% endfor %}
@@ -104,8 +138,9 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
 {# --- 2. Script ------------------------------------------------------------- #}
 <section class="card {{ section_class('script') }}" id="script">
   <h2>Script {{ pill('script') }}
-    {% if data.script %}<span class="prod-count">{{ data.script.scenes|length }} scenes &middot; {{ (words / 2.4 / 60)|round(1) }} min
-      {% if words < 0.85 * channel.documentary.minutes * 60 * 2.4 %}<span class="danger-text" title="Planned {{ channel.documentary.minutes|round(1) }} min">short</span>{% endif %}</span>{% endif %}</h2>
+    {% if data.script %}<span class="prod-count">{{ data.script.scenes|length }} scenes &middot; {{ (words / 2.5 / 60)|round(1) }} min
+      {% if words < 0.85 * channel.documentary.minutes * 60 * 2.5 %}<span class="danger-text" title="Planned {{ channel.documentary.minutes|round(1) }} min">short</span>{% endif %}</span>
+    {% if data.script.edits %}<span class="prod-pill" data-tooltip="{% for e in data.script.edits %}Chapter {{ e.chapter }}: {{ e.why|join(' ') }} {% endfor %}">Editor rewrote {{ data.script.edits|length }}</span>{% endif %}{% endif %}</h2>
   {% if data.stages.outline.state != 'approved' %}
   {% elif data.script %}
   <form method="post" action="{{ url_for('productions.save_script', key=key, subtopic_id=row.id) }}">
@@ -117,7 +152,10 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
     {% endif %}
     <div class="prod-scene">
       <input type="hidden" name="chapter" value="{{ s.chapter }}">
-      <span class="prod-scene-n">{{ loop.index }}</span>
+      <input type="hidden" name="medium" value="{{ s.medium or 'picture' }}">
+      <input type="hidden" name="art_query" value="{{ s.art_query or '' }}">
+      <input type="hidden" name="card" value="{{ (s.card or {})|tojson|forceescape }}">
+      <span class="prod-scene-n">{{ loop.index }}{% if s.medium == 'card' %}<span class="prod-media" data-tooltip="{{ s.card.kind }}: {{ s.card.heading }} {{ s.card.value }} {{ s.card.caption }} {{ s.card['items']|join(' · ') }}">card</span>{% elif s.medium == 'painting' %}<span class="prod-media" data-tooltip="Museum search: {{ s.art_query }}">painting</span>{% endif %}</span>
       <label class="hint">Direction<textarea name="direction" rows="3">{{ s.direction }}</textarea></label>
       <label class="hint">Said<textarea name="narration" rows="3">{{ s.narration }}</textarea></label>
       <div class="prod-row2 prod-scene-meta">
@@ -152,7 +190,10 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
       {% if name %}<a href="{{ url_for('productions.asset', key=key, subtopic_id=row.id, name=name) }}" target="_blank">
         <img src="{{ url_for('productions.asset', key=key, subtopic_id=row.id, name=name) }}?v={{ data.stages.stills.at }}" alt="Scene {{ loop.index }}" loading="lazy"></a>
       {% else %}<div class="prod-missing">No picture</div>{% endif %}
-      <figcaption><span class="prod-scene-n">{{ loop.index }}</span> {{ s.narration[:140] }}{{ '…' if s.narration|length > 140 }}
+      {% set kind = (data.shown or {}).get(loop.index0|string) %}
+      <figcaption><span class="prod-scene-n">{{ loop.index }}</span>{% if kind in ('card', 'painting') %} <span class="prod-media"
+        {% if (data.credits or {}).get(loop.index0|string) %}data-tooltip="{{ data.credits[loop.index0|string] }}"{% endif %}>{{ kind }}</span>{% endif %}
+        {{ s.narration[:140] }}{{ '…' if s.narration|length > 140 }}
         <details><summary class="hint">Redraw</summary>
           {{ start_form('stills', 'Redraw', 'What to change', extra='<input type="hidden" name="scene" value="' ~ loop.index0 ~ '">') }}
         </details>
@@ -173,7 +214,22 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
     {% if old_video and not video %}<a class="prod-pill pill-bad" href="{{ url_for('gallery.video_detail', key=key, relpath=old_video) }}"
        title="Discarded when an earlier stage was redone; restorable from Videos">Old version discarded</a>{% endif %}</h2>
   {% if data.stages.stills.state == 'approved' %}
-  {% if video %}<p><a class="btn btn-ghost" href="{{ url_for('gallery.video_detail', key=key, relpath=video) }}">Watch</a></p>{% endif %}
+  {% if video %}<p><a class="btn btn-ghost" href="{{ url_for('gallery.video_detail', key=key, relpath=video) }}">Watch</a></p>
+  {% if report.scorecard %}
+  <ul class="prod-score" aria-label="Scorecard">
+    {% for c in report.scorecard %}
+    <li class="{{ 'ok' if c.ok else ('bad' if c.ok == false else '') }}" data-tooltip="Target {{ c.target }}">{{ c.label }} <b>{{ c.value }}</b></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if viewers %}
+  <ul class="prod-score" aria-label="Viewers">
+    <li data-tooltip="Still watching 30 seconds in">30 s <b>{{ viewers.kept_30s }}%</b></li>
+    <li data-tooltip="Still watching at the end">End <b>{{ viewers.end }}%</b></li>
+    {% for d in viewers.drops %}<li class="bad" data-tooltip="{{ data.script.scenes[d.scene].narration[:120] if d.scene < data.script.scenes|length else '' }}">Scene {{ d.scene + 1 }} <b>&minus;{{ d.lost }}%</b></li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% endif %}
   <div class="actions">{% if data.stages.video.state == 'ready' %}{{ approve_form('video') }}{% endif %}</div>
   {% if 'video' not in stage_jobs %}
   <span title="≈{{ '{:,}'.format((voice_chars * 0.2)|round|int) }} voice credits">{{ start_form('video', 'Make again' if data.video else 'Make the video', with_note=false) }}</span>
@@ -269,6 +325,23 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
   .prod-missing { aspect-ratio: 16 / 9; display: grid; place-items: center; background: var(--surface-2);
                   border-radius: var(--radius-sm); color: var(--text-faint); }
   .prod-teaser ol { padding-left: 1.3rem; }
+  .prod-angles { display: grid; gap: var(--sp-2); margin: var(--sp-3) 0; }
+  .prod-angle { display: grid; grid-template-columns: auto auto 1fr; gap: 2px var(--sp-2); align-items: baseline;
+                padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+  .prod-angle.is-chosen, .prod-angle:has(input:checked) { border-color: var(--accent); }
+  .prod-angle > input { grid-row: span 3; }
+  .prod-angle-score { font-weight: 700; color: var(--accent); grid-row: span 3; }
+  .prod-angle .hint, .prod-angle em, .prod-thumb-words { grid-column: 3; }
+  .prod-thumb-words { justify-self: start; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+                      background: var(--accent); color: var(--accent-contrast); padding: .1em .55em; border-radius: 4px; }
+  .prod-angle-hook { color: var(--text-dim); }
+  .prod-media { margin-left: .35em; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+                padding: .05em .45em; border-radius: 4px; border: 1px solid var(--accent); color: var(--accent); }
+  .prod-score { list-style: none; padding: 0; margin: var(--sp-2) 0; display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+  .prod-score li { font-size: .8rem; padding: .2em .7em; border-radius: 999px; border: 1px solid var(--border); color: var(--text-dim); }
+  .prod-score li b { color: var(--text); margin-left: .25em; }
+  .prod-score li.ok { border-color: var(--success); } .prod-score li.ok b { color: var(--success); }
+  .prod-score li.bad { border-color: var(--danger); } .prod-score li.bad b { color: var(--danger); }
   @media (max-width: 700px) { .prod-scene { grid-template-columns: 1.6rem 1fr; } .prod-scene-meta { grid-column: 2; } }
 </style>
 {% endblock %}

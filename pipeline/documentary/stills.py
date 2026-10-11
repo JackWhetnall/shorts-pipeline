@@ -117,6 +117,26 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
     return drawn
 
 
+def draw_one(channel, outline: dict, direction: str, cast: list, folder: Path, framing: str = "close-up",
+             frame: str = "wide") -> Path:
+    """One picture outside the storyboard (a thumbnail's), in the film's
+    look with its cast's model sheets. Raises PipelineError if it can't."""
+    from pipeline.animation import bible
+    look = look_for(channel, frame)
+    style_ref = bible.reference(channel, look)
+    the_board = board(outline, channel.key)
+    the_board["never"] = list(channel.avoid_imagery or [])
+    shot = {"index": 99, "framing": framing, "image": direction,
+            "elements": [library.key_of(n) for n in cast]}
+    sheets = _sheets(channel, look, the_board, [shot], style_ref)
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    stale = keyframes.path_for(folder, shot)
+    stale.unlink(missing_ok=True)
+    return keyframes.draw(shot, the_board, look, style_ref, sheets, folder,
+                          models.image_model(channel.animation.image_model))
+
+
 def _try(one, shot, fix=None):
     try:
         return one(shot, fix) if fix else one(shot)

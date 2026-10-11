@@ -59,12 +59,13 @@ def _channel(key="films"):
 
 def test_a_long_form_channel_has_its_own_short_settings_page(world):
     page = world.get("/channels/films/settings").get_data(as_text=True)
-    for wanted in ("Writing brief", "Each picture stays on screen", "Teaser shorts", "Films go out at",
-                   "nothing here needs a FAL key"):
+    for wanted in ("Writing brief", "Seconds a picture serves", "Teaser shorts", "Films go out at",
+                   # Decision 086: a film's paintings, and a channel that makes its own films.
+                   "Real paintings of the period", "Makes its own films"):
         assert wanted in page
     # The shorts page's leftovers: timings after a quoted passage, captions,
-    # paintings, the money/end-screen panel, the cadence presets.
-    for gone in ("pacing_pause_after_first_segment", "Every timing number", "artwork_allowed",
+    # the money/end-screen panel, the cadence presets.
+    for gone in ("pacing_pause_after_first_segment", "Every timing number",
                  "style_captions_enabled", "end_screen_present", "Cadence preset", "scene_share"):
         assert gone not in page
     shorts = world.get("/channels/shorts/settings").get_data(as_text=True)
@@ -119,10 +120,10 @@ def test_the_setup_says_the_next_thing_is_to_start_the_first_film(world):
     channel = _channel()
     assert long_form.next_step(channel).id == "first"
     page = world.get("/channels/films/productions").get_data(as_text=True)
-    assert "Next: open" in page and "Elizabeth I" in page and "Write the outline" in page
+    assert "Next: open" in page and "Elizabeth I" in page and "Pitch angles" in page
     film = world.get("/channels/films/productions/t0001").get_data(as_text=True)
     # Decision 081: no paragraph of instructions, the first stage's button and its price.
-    assert "Write the outline" in film and "speed-batch" in film and "Now: press" not in film
+    assert "Pitch angles" in film and "speed-batch" in film and "Now: press" not in film
 
     # Started: the list steps back on Productions, and the film says what's next.
     data = production.load("films", "t0001", "Elizabeth I")

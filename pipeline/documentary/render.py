@@ -12,8 +12,15 @@ quiz (pipeline.longform.music_bed).
 
 It lands in the channel's long-video folder, so it goes out in the long
 slots, YouTube only, and always waits for review. Its title, a
-description with chapter marks, and a thumbnail (the opening still with
-the title) go beside it.
+description with chapter marks, and a thumbnail go beside it.
+
+Decision 086: a scene longer than about five seconds is cut into shots
+from its still (pipeline.documentary.shots), a card scene is the card
+itself, filmed (pipeline.documentary.cards), and a painting is credited.
+Where every picture starts and ends is kept in the production sidecar,
+so where viewers stop watching can be traced to the scene on screen
+(core.retention), and the film's numbers (pictures a minute, the
+longest hold, words a minute) go in its report (core.scorecard).
 """
 
 from __future__ import annotations
@@ -41,10 +48,12 @@ log = get_logger(__name__)
 # scene often ends mid-thought ("...and so he wrote,") with the next
 # picture carrying it on, and the same pause after every scene sounded
 # like the narrator stopping for breath at random (decision 079).
-SENTENCE_GAP = 0.45         # after a full stop, question or exclamation
-CLAUSE_GAP = 0.2            # after a comma, semicolon or colon
+# Tightened in decision 086: with 0.45 s after every sentence and the
+# voice at 0.9 speed, the first film ran at 118 words a minute.
+SENTENCE_GAP = 0.32         # after a full stop, question or exclamation
+CLAUSE_GAP = 0.16           # after a comma, semicolon or colon
 RUN_ON_GAP = 0.06           # mid-sentence: the line carries straight on
-CHAPTER_GAP = 1.6           # and a longer one, now and then, between chapters
+CHAPTER_GAP = 1.1           # and a longer one, now and then, between chapters
 END_HOLD = 2.0
 THUMB = (1280, 720)
 
@@ -140,16 +149,24 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
     from pipeline import tts
     from pipeline.longform import _mux, music_bed
 
+    from pipeline.documentary import cards, shots
+
     outline, script = data["outline"], data["script"]
     scenes = script["scenes"]
     pictures = {int(k): production_folder / v for k, v in (data.get("stills") or {}).items()}
-    missing = [i + 1 for i in range(len(scenes)) if not (pictures.get(i) and pictures[i].exists())]
+    shown = {int(k): v for k, v in (data.get("shown") or {}).items()}
+    kinds = [shown.get(i) or ("card" if s.get("medium") == "card" and s.get("card") else "drawn")
+             for i, s in enumerate(scenes)]
+    missing = [i + 1 for i in range(len(scenes))
+               if kinds[i] != "card" and not (pictures.get(i) and pictures[i].exists())]
     if missing:
         raise PipelineError(f"no still for scenes {missing}", user_message=(
             f"Scene{'s' if len(missing) > 1 else ''} {', '.join(map(str, missing[:8]))} "
             f"{'have' if len(missing) > 1 else 'has'} no picture. Draw the storyboard again."))
     look = storyboard.look_for(channel, "wide")
-    title = (outline.get("title_options") or [data.get("title") or "Untitled"])[0]
+    from core import production as productions
+    angle = productions.chosen_angle(data)
+    title = angle.get("title") or (outline.get("title_options") or [data.get("title") or "Untitled"])[0]
 
     out_dir = gallery.resolve_output_dir(channel.output_dir) / gallery.LONGFORM_DIR / date.today().isoformat()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -175,16 +192,27 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
                                    reuse=True)
 
     job_context.report_stage(4)
-    log.info(f"[4/5] Putting {len(scenes)} stills on screen ({segments[-1].end / 60:.1f} minutes)...")
+    log.info(f"[4/5] Putting {len(scenes)} scenes on screen ({segments[-1].end / 60:.1f} minutes)...")
     art = dict(getattr(channel.scenes, "art", None) or {})
     size = finish._size(look)
+    framings, shot_problem = shots.plan({i: p for i, p in pictures.items() if kinds[i] != "card"},
+                                        production_folder / "shots.json")
+    card_style = cards.style_for(channel) if "card" in kinds else None
     started = set()
-    parts = []
+    parts, timeline, scene_times = [], [], []
     for i, (scene, seg) in enumerate(zip(scenes, segments)):
         job_context.report_progress(round(100 * i / len(scenes)))
+        # A segment runs to the next one's start, its pause included.
+        start = seg.start
         seconds = max(0.5, seg.end - seg.start)
+        scene_times.append([round(start, 2), round(start + seconds, 2)])
         first = scene["chapter"] not in started
         started.add(scene["chapter"])
+        if kinds[i] == "card":
+            raw = cards.clip(scene["card"], card_style, seconds, work / f"card_{i:03d}.mp4")
+            parts.append(finish.grade(raw, work / f"scene_{i:03d}.mp4", look))
+            timeline.append([round(start, 2), round(start + seconds, 2)])
+            continue
         overlay = None
         chapter_title = (outline["chapters"][scene["chapter"] - 1]["title"]
                          if first and i > 0 and channel.documentary.chapter_titles else "")
@@ -192,9 +220,15 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
             overlay = work / f"label_{i:03d}.png"
             label_overlay(size, chapter_title, 0,
                           scene.get("caption", ""), art).save(overlay)
-        parts.append(finish.camera_shot(pictures[i], work / f"scene_{i:03d}.mp4", seconds, look,
-                                        scene.get("camera", "push_in"), overlay,
-                                        overlay_until=min(5.0, seconds - 0.4)))
+        at = start
+        for k, (picture, length, move) in enumerate(shots.cut(pictures[i], framings.get(i, []), seconds,
+                                                              scene.get("camera", "push_in"), work,
+                                                              f"s{i:03d}")):
+            label = overlay if k == 0 else None
+            parts.append(finish.camera_shot(picture, work / f"scene_{i:03d}_{k}.mp4", length, look, move, label,
+                                            overlay_until=min(5.0, length - 0.4)))
+            timeline.append([round(at, 2), round(at + length, 2)])
+            at += length
     job_context.report_progress(None)
     board = finish.join(parts, work / "board.mp4")
 
@@ -217,26 +251,37 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
     marks = chapter_marks(scenes, segments, outline)
     description = script.get("description") or ""
     description += "\n\nChapters\n" + "\n".join(f"{stamp(t)} {name}" for t, name in marks)
+    art_credits = [c for _, c in sorted((int(k), v) for k, v in (data.get("credits") or {}).items())]
+    credits = list(dict.fromkeys(art_credits + credits))
     if credits:
         description += "\n\n" + "\n".join(credits)
     gallery.save_title_and_description(video_path, title, description)
-    thumbnail(pictures[0], title, art).save(video_path.with_name(f"{stem}_thumb.jpg"), quality=90)
+    from pipeline.documentary import thumbs
+    thumb_note = thumbs.make(channel, data, pictures, title, video_path, art)
 
     similar = _originality(channel, scenes, title, video_path)
     reasons = ["A long video always waits for a look before it goes out."]
     if similar is not None and similar.flagged:
         reasons.append(f"Originality check: {similar.summary}")
+    from core import scorecard
+    numbers = {"video_seconds": round(segments[-1].end, 1), "pictures": len(timeline),
+               "longest_hold": round(shots.longest_hold(timeline), 1),
+               "first_30s_pictures": sum(1 for s, _ in timeline if s < 30),
+               "words": sum(len(s["narration"].split()) for s in scenes),
+               "media": sorted(set(kinds)), "paintings": kinds.count("painting"), "cards": kinds.count("card")}
     gallery.save_report(video_path, {
         "longform": True, "documentary": True, "video_seconds": round(segments[-1].end, 1),
         "scenes": len(scenes), "title_options": outline.get("title_options") or [title],
         "similarity": None if similar is None else {"flagged": similar.flagged, "summary": similar.summary},
+        "numbers": numbers, "scorecard": scorecard.score(title, angle, scenes, numbers),
+        "notes": [n for n in (shot_problem, thumb_note) if n],
         "gate": {"passed": False, "reasons": reasons}})
     video_path.with_name(f"{stem}_production.json").write_text(json.dumps({
         "documentary": True, "channel": channel.key, "subtopic_id": data["subtopic_id"],
-        "chapters": marks}, indent=1), encoding="utf-8")
+        "chapters": marks, "scenes": scene_times}, indent=1), encoding="utf-8")
     shutil.rmtree(work, ignore_errors=True)
-    return SimpleNamespace(video_path=video_path, warnings=reasons[1:], similarity=similar,
-                           script=Script(segments=segments))
+    return SimpleNamespace(video_path=video_path, warnings=reasons[1:] + [n for n in (shot_problem, thumb_note) if n],
+                           similarity=similar, script=Script(segments=segments))
 
 
 def thumbnail(still: Path, title: str, art: dict) -> Image.Image:

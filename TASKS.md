@@ -4,13 +4,54 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 6 Oct 2026. The project is pivoting to long-form: Phase 0 is built and step 0 has your part. History Unmystified has its own, shorter settings page and is ready for its first film: see F to H. Pub Quiz Buzz and Minute Pastor both publish
+*Last updated: 11 Oct 2026. Start with P to S: a new channel, One Day In History, has its first film waiting for you. The project is pivoting to long-form: Phase 0 is built and step 0 has your part. History Unmystified has its own, shorter settings page and is ready for its first film: see F to H. Pub Quiz Buzz and Minute Pastor both publish
 by themselves. Do the "Now" section first. The app's new home page,
 **Today**, now lists what needs you as it happens, and **Money** shows
 costs, runway and payback; this file is for steps outside the app. The
 app has a new look (decision 068): restart it (step E) to see it.*
 
 ---
+
+## Films built to be watched, and One Day In History (11 Oct)
+
+Documentaries now start with an **Angle** (title, thumbnail words, the
+first line), keep its promise, cut several shots from every picture, mix
+in museum paintings and animated cards and maps, and get a designed
+thumbnail and a scorecard (decision 086). A new channel, **One Day In
+History**, made its first film this way.
+
+### P. Restart the app (1 minute)
+The code changed: close the app's window and start it again, or it
+restarts itself once idle.
+
+### Q. Watch the first One Day In History film and approve it (15 minutes)
+**One Day In History → Productions → "A Day in Plague London, 1665"**:
+the Angle, outline, script and storyboard were approved as the channel's
+autopilot would; the **Video** stage waits for you, with its scorecard
+pills. Watch it from there. Approve it if it's good; if not, say what's
+wrong in the box above the stage you'd change and press **Write again**
+or **Redraw**.
+
+### R. Give One Day In History its YouTube channel (10 minutes)
+It needs its own YouTube channel (a new Brand Account on your Google
+account: YouTube → your picture → Settings → Add or manage your
+channels → Create a channel, named **One Day In History**). Then **One
+Day In History → Settings → Publishing → Connect**. Until then an
+approved film waits; nothing is lost. Its films go out on **Saturdays at
+19:00**.
+
+### S. Let it make its own films (nothing to press, or 1 click to stop)
+**Makes its own films** is on (**Settings → Films → Making**). It starts
+the next film only when the last one has had your look, about $3–6 a
+film. Untick it to make every stage wait for you again.
+
+### T. History Unmystified: try the new pieces (2 minutes, optional)
+On **History Unmystified → Settings → Films**, tick **Real paintings of
+the period**, and under **Voice** set the speed to **1.0** (at 0.9 the
+first film ran at 118 words a minute). Its next film starts with an
+Angle. Its look still draws
+cartoon people; for adult history, **Settings → Look → People: True to
+life** reads better (it changes how every future picture is drawn).
 
 ## The long-form pivot (6 Oct)
 

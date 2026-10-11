@@ -192,6 +192,9 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
                                                             doc.scene_seconds)))
         if "documentary_chapter_titles_present" in form:
             doc.chapter_titles = bool(form.get("documentary_chapter_titles"))
+        if "documentary_auto_present" in form:
+            doc.auto_make = bool(form.get("documentary_auto_make"))
+            doc.ahead = min(5, max(1, _maybe_int(form, "documentary_ahead", doc.ahead)))
         from core.channels import LONG_FORM_PICTURES
         if form.get("documentary_pictures") in LONG_FORM_PICTURES:
             doc.pictures = form.get("documentary_pictures")

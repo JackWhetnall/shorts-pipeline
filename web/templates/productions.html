@@ -3,8 +3,17 @@
 {% block content %}
 {% set tab = 'productions' %}
 {% include "_channel_head.html" %}
-<p class="page-sub tab-intro">Each video is made in stages, and each waits for you: the outline of what it says and
-  shows, the script with its stage directions, a drawn storyboard, the video, then its teaser shorts.</p>
+<p class="prod-mode">{% if channel.documentary.auto_make %}<span class="prod-pill pill-approved"
+  data-tooltip="Each stage started and approved by itself; finished films wait for your look.">Makes its own films</span>
+  {% else %}<span class="prod-pill" data-tooltip="Each stage waits for your approval. Settings, Channel: Makes its own films.">Each stage waits for you</span>{% endif %}
+  <details class="prod-lessons"><summary class="prod-pill">Lessons from viewers &middot; {{ lessons|length }}</summary>
+    <form method="post" action="{{ url_for('productions.save_lessons', key=key) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <textarea name="lessons" rows="5" aria-label="One lesson a line" placeholder="Learnt from each film a week after it goes out. One a line.">{% for l in lessons %}{{ l.text }}
+{% endfor %}</textarea>
+      <button type="submit" class="btn-ghost">Save</button>
+    </form>
+  </details></p>
 
 {% if note %}<p class="meta info-banner" role="status">{{ note }}</p>{% endif %}
 
@@ -18,8 +27,8 @@
       <h2>{{ p.row.title }}</h2>
       {% if p.row.angle %}<p class="hint">{{ p.row.angle }}</p>{% endif %}
     </div>
-    <span class="prod-next">{% if p.current %}{{ {'outline': 'Outline', 'script': 'Script', 'stills': 'Storyboard',
-      'video': 'Video', 'teasers': 'Teasers'}[p.current] }}{% else %}Done{% endif %} &rarr;</span>
+    <span class="prod-next">{% if p.current %}{{ {'pitch': 'Angle', 'outline': 'Outline', 'script': 'Script',
+      'stills': 'Storyboard', 'video': 'Video', 'teasers': 'Teasers'}[p.current] }}{% else %}Done{% endif %} &rarr;</span>
   </div>
   <ol class="prod-stages" aria-label="Stages">
     {% for s in p.stages %}
@@ -47,6 +56,13 @@
 {% endif %}
 
 <style>
+  .prod-mode { display: flex; gap: var(--sp-2); align-items: flex-start; flex-wrap: wrap; margin: var(--sp-2) 0 var(--sp-3); }
+  .prod-pill { display: inline-block; font-size: .78rem; font-weight: 600; padding: .2em .75em; border-radius: 999px;
+               border: 1px solid var(--border); color: var(--text-dim); cursor: default; }
+  .prod-pill.pill-approved { color: var(--success); border-color: var(--success); }
+  .prod-lessons summary { cursor: pointer; list-style: none; }
+  .prod-lessons[open] { flex-basis: 100%; }
+  .prod-lessons form { display: grid; gap: var(--sp-2); margin-top: var(--sp-2); max-width: 48rem; }
   .prod-row { display: block; text-decoration: none; color: inherit; }
   .prod-row:hover { border-color: var(--border-light); }
   .prod-row-head { display: flex; justify-content: space-between; gap: var(--sp-3); align-items: flex-start; }

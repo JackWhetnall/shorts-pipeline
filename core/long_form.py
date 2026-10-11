@@ -63,7 +63,7 @@ def steps(channel) -> list:
 
     started = [d for d in production.all_for(channel.key) if _started(d)]
     out.append(Step("first", "Start the first film", bool(started),
-                    "Productions: open the first film and press Write the outline. Nothing is made, "
+                    "Productions: open the first film and press Pitch angles. Nothing is made, "
                     "or spent, until you do; each stage then waits for you to approve it."))
 
     from core import youtube

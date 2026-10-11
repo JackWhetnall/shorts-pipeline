@@ -80,8 +80,26 @@
         </span>
       </label>
       {% endfor %}
-      <p class="hint">No video model is used: the pictures are stills that the camera moves across, so
-        nothing here needs a FAL key.</p>
+      <input type="hidden" name="artwork_present" value="1">
+      <label class="checkbox-label">
+        <input type="checkbox" name="artwork_allowed" {% if channel.artwork.mode in ('allowed', 'passage') %}checked{% endif %}>
+        Real paintings of the period, where one fits
+        <button type="button" class="info-dot" data-tooltip="Public domain, from the Art Institute of Chicago and the Met; credited in the description. Free.">?</button>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Making</legend>
+      <input type="hidden" name="documentary_auto_present" value="1">
+      <label class="checkbox-label">
+        <input type="checkbox" name="documentary_auto_make" {% if channel.documentary.auto_make %}checked{% endif %}>
+        Makes its own films
+        <button type="button" class="info-dot" data-tooltip="Each stage started and approved for you; the finished film waits for your look. ≈ $3–6 a film.">?</button>
+      </label>
+      <label class="field-row"><span class="field-label">Films waiting for a look, at most</span>
+        <input type="number" name="documentary_ahead" min="1" max="5" class="narrow-number"
+               value="{{ channel.documentary.ahead }}">
+      </label>
     </fieldset>
 
     <fieldset>
@@ -90,11 +108,10 @@
         <input type="number" name="documentary_minutes" min="2" max="30" step="0.5" class="narrow-number"
                value="{{ channel.documentary.minutes }}">
       </label>
-      <label class="field-row"><span class="field-label">Each picture stays on screen (seconds)</span>
+      <label class="field-row"><span class="field-label">Seconds a picture serves (about)
+        <button type="button" class="info-dot" data-tooltip="Shots are cut from each picture, so the screen changes about every 5 s either way. Fewer pictures cost less.">?</button></span>
         <input type="number" name="documentary_scene_seconds" min="5" max="40" class="narrow-number"
                value="{{ channel.documentary.scene_seconds|int }}">
-        <span class="hint">About. Calm, slow films: 15 to 20. Livelier ones: 8 to 10. Fewer, longer
-          pictures also cost less.</span>
       </label>
       <input type="hidden" name="documentary_chapter_titles_present" value="1">
       <label class="checkbox-label">

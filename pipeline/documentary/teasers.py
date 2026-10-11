@@ -49,8 +49,9 @@ Each teaser:
 - tells one piece of the story well: a choice, a reversal, a strange
   true detail. Different teasers take different parts of the story;
 - ends on an open question the full documentary answers, so a viewer
-  wants the whole story. Never reveal the documentary's payoff (its
-  through-line's answer);
+  wants the whole story. One teaser carries the film's own promise and
+  the question only its ending answers (given below). Never reveal the
+  documentary's payoff (its through-line's answer);
 - never mentions the documentary, a full video, a channel, a link,
   subscribing or watching more. The story does the asking;
 - is written in new words: never copy a sentence from the documentary's
@@ -82,13 +83,13 @@ def schema() -> dict:
             "required": ["teasers"], "additionalProperties": False}
 
 
-def write(channel, title: str, outline: dict, script: dict, note: str = "") -> list:
+def write(channel, title: str, outline: dict, script: dict, note: str = "", angle: dict = None) -> list:
     """The teasers' scripts. About three cents."""
     count = int(channel.documentary.teasers)
     if count < 1:
         return []
     narration = "\n".join(f"[{s['chapter']}] {s['narration']}" for s in script["scenes"])
-    user = (f"The documentary: {title}\n\n{scripts.outline_text(outline)}\n\n"
+    user = (f"The documentary: {title}\n\n{scripts.outline_text(outline, angle)}\n\n"
             f"Its narration, chapter by chapter:\n{narration}\n\n"
             f"Write {count} teasers, each {WORDS[0]}-{WORDS[1]} words of narration.")
     if note:

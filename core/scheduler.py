@@ -54,6 +54,8 @@ def generation_block(key: str, channel, state: dict = None, active: dict = None)
     if not plan.enabled:
         return "The publishing plan is off."
     if channel.format == "documentary":
+        if getattr(channel.documentary, "auto_make", False):
+            return "It makes its own films, stage by stage (Productions)."
         return "Its videos are made stage by stage on Productions, each approved."
     try:
         channel.validate()
@@ -277,6 +279,13 @@ def _storyboards(channels: dict) -> None:
     storyboard.keep_up(channels)
 
 
+def _auto_films(channels: dict) -> None:
+    """Documentary channels that make their own films: the next film moved
+    on a stage (core.auto_films, decision 086)."""
+    from core import auto_films
+    auto_films.tick(channels)
+
+
 def tick() -> None:
     """One pass of all three duties. Each is isolated from the others: a
     failed upload must not stop generation, nor either stop the stats."""
@@ -289,6 +298,7 @@ def tick() -> None:
                        ("spare voice", lambda: _spare_voice(channels)),
                        ("fact store", lambda: _keep_facts(channels)),
                        ("storyboards", lambda: _storyboards(channels)),
+                       ("films", lambda: _auto_films(channels)),
                        ("thumbnail tests", lambda: _thumbnail_tests(channels)),
                        ("statistics", lambda: _refresh_audience(channels)),
                        ("remake kits", lambda: _sweep_kits(channels))):

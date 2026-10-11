@@ -16,6 +16,11 @@ Two sources, because neither has everything:
   the number that matters most for short-form. It lags by a day or two,
   so a new video shows views before it shows retention.
 
+A documentary also gets its retention curve (decision 086): the share
+still watching at each hundredth of the film, which core.retention puts
+against the scene that was playing, and from which a week-old film
+teaches the channel a lesson or two (core.lessons).
+
 Only the latest snapshot per video is kept, in a `_stats.json` sidecar,
 overwritten on each refresh. That is all the insights page needs, and
 YouTube's developer policies ask that stored statistics be refreshed or
@@ -85,6 +90,9 @@ def refresh(channels: dict, force: bool = False) -> dict:
         except PipelineError as exc:
             log.warning(f"{key}: couldn't refresh video statistics: {exc}")
             results[key] = {"updated": 0, "error": exc.user_message}
+            continue
+        if getattr(channel, "format", "") == "documentary":
+            _learn(channel, due)
     if results:
         _save_status(results)
     return results
@@ -147,6 +155,15 @@ def _refresh_channel(key: str, due: dict) -> tuple:
         retention_error = exc.user_message
         log.warning(f"{key}: retention unavailable: {exc}")
 
+    curves = {}
+    if not retention_error:
+        for vid, path in due.items():
+            if vid in counts and _is_documentary(path):
+                try:
+                    curves[vid] = _curve(headers, vid, path)
+                except PipelineError as exc:
+                    log.warning(f"{key}: no retention curve for {path.stem}: {exc}")
+
     now = time.time()
     for vid, path in due.items():
         if vid not in counts:
@@ -158,6 +175,7 @@ def _refresh_channel(key: str, due: dict) -> tuple:
             "fetched_at": now,
             **counts[vid],
             **retention.get(vid, {}),
+            **({"curve": curves[vid]} if curves.get(vid) else {}),
             "retention_error": retention_error,
         })
     subscribers = _subscribers(headers, key)
@@ -208,6 +226,37 @@ def _analytics(headers: dict, ids: list, due: dict) -> dict:
                 "subscribers_gained": record.get("subscribersGained"),
             }
     return out
+
+
+def _is_documentary(path) -> bool:
+    from pipeline.documentary import thumbs
+    return thumbs.is_documentary(path)
+
+
+def _curve(headers: dict, vid: str, path) -> list:
+    """[[elapsed ratio, share still watching, relative to similar videos]]
+    for one video: one Analytics call."""
+    published = (gallery.load_publish_info(path).get("published_at") or "")[:10] or "2020-01-01"
+    response = requests.get(ANALYTICS_URL, headers=headers, timeout=30, params={
+        "ids": "channel==MINE", "startDate": published, "endDate": date.today().isoformat(),
+        "metrics": "audienceWatchRatio,relativeRetentionPerformance",
+        "dimensions": "elapsedVideoTimeRatio", "filters": f"video=={vid}"})
+    payload = youtube._json_or_raise(response, "read a retention curve")
+    return [[float(r[0]), float(r[1]), float(r[2]) if len(r) > 2 and r[2] is not None else None]
+            for r in payload.get("rows") or []]
+
+
+def _learn(channel, due: dict) -> None:
+    """Lessons from documentaries old enough to have taught something.
+    Best-effort: the figures are saved whatever happens here."""
+    from core import retention
+    for path in due.values():
+        try:
+            new = retention.learn(channel, path)
+            if new:
+                log.info(f"{channel.key}: learnt from {path.stem}: {' / '.join(new)}")
+        except Exception as exc:  # noqa: BLE001 - a lesson missed is tried again next refresh
+            log.warning(f"{channel.key}: couldn't learn from {path.stem}: {exc}")
 
 
 def _int(value) -> int:

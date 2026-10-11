@@ -477,6 +477,12 @@ class Documentary(_MappingLike):
     chapter_titles: bool = False
     # What fills the pictures: a key of LONG_FORM_PICTURES.
     pictures: str = "drawn"
+    # The channel makes its own films (core.auto_films, decision 086): each
+    # stage started and approved by the scheduler, the finished video
+    # still waiting for a look. Off: every stage waits for the owner.
+    auto_make: bool = False
+    # Films made and waiting for a look before it starts another.
+    ahead: int = 1
 
 
 @dataclass

@@ -80,37 +80,62 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
     key, sid, title = channel.key, row["id"], row["title"]
     folder = production.folder(key, sid)
     done = SimpleNamespace(video_path=None, warnings=[], similarity=None)
+    angle = production.chosen_angle(data)
+    title = angle.get("title") or title
+
+    if stage == "pitch":
+        from pipeline.documentary import pitch
+        made = pitch.write(channel, row, note)
+        production.update(key, sid, lambda d: production.made(d, "pitch", made))
+        return done
 
     if stage == "outline":
         from pipeline.documentary import outline
-        made = outline.write(channel, row, note)
+        made = outline.write(channel, row, note, angle=angle)
         production.update(key, sid, lambda d: production.made(d, "outline", made))
         return done
 
     if stage == "script":
-        from pipeline.documentary import script
+        from pipeline.documentary import editor, script
         if chapter and data.get("script"):
-            made = script.rewrite_chapter(channel, title, data["outline"], data["script"], chapter, note)
+            made = script.rewrite_chapter(channel, title, data["outline"], data["script"], chapter, note, angle)
         else:
-            made = script.write(channel, title, data["outline"], note)
+            made = script.write(channel, title, data["outline"], note, angle)
+            # The editor's read, and the weakest chapters written again (decision 086).
+            made = editor.edit(channel, title, data["outline"], made, angle)
         production.update(key, sid, lambda d: production.made(d, "script", made))
         return done
 
     if stage == "stills":
-        from pipeline.documentary import cast, stills
+        from pipeline.documentary import cast, media, stills
         cast.merge(key, sid, data["outline"].get("cast") or [])
         scenes = data["script"]["scenes"]
         target = folder / "stills"
         if only is None:
             # Drawn afresh: the old ones belong to an older script.
             shutil.rmtree(target, ignore_errors=True)
-        drawn = stills.draw(channel, data["outline"], scenes, target, frame="wide", only=only,
-                            notes=notes)
-        names = {str(i): str(p.relative_to(folder)).replace("\\", "/") for i, p in drawn.items()}
+        wanted = list(range(len(scenes))) if only is None else list(only)
+        # Paintings and cards first (decision 086); any that can't be made
+        # are drawn instead, so no scene is left without a picture.
+        others, credits, draw_instead = media.make(channel, scenes, target, only=wanted)
+        to_draw = [i for i in wanted if scenes[i].get("medium", "picture") == "picture"] + draw_instead
+        drawn = stills.draw(channel, data["outline"], scenes, target, frame="wide", only=to_draw,
+                            notes=notes) if to_draw else {}
+        made_now = {**drawn, **others}
+        names = {str(i): str(p.relative_to(folder)).replace("\\", "/") for i, p in made_now.items()}
+        shown = {str(i): "drawn" for i in drawn}
+        shown.update({str(i): ("card" if scenes[i].get("medium") == "card" else "painting") for i in others})
 
         def store(d):
             kept = {} if only is None else dict(d.get("stills") or {})
             kept.update(names)
+            kinds = {} if only is None else dict(d.get("shown") or {})
+            kinds.update(shown)
+            credit = {} if only is None else dict(d.get("credits") or {})
+            for i in wanted:
+                credit.pop(str(i), None)
+            credit.update({str(i): c for i, c in credits.items()})
+            d["shown"], d["credits"] = kinds, credit
             production.made(d, "stills", kept)
         production.update(key, sid, store)
         missing = len(scenes) - len(production.load(key, sid)["stills"])
@@ -133,9 +158,7 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
     if stage == "teasers":
         from pipeline.documentary import teasers
         if note or not _making_teasers(data) or production.state(data, "teasers") in ("stale", "todo"):
-            scripts = teasers.write(channel, data["outline"].get("title_options", [title])[0]
-                                    if data["outline"].get("title_options") else title,
-                                    data["outline"], data["script"], note)
+            scripts = teasers.write(channel, title, data["outline"], data["script"], note, angle)
             production.update(key, sid, lambda d: production.made(d, "teasers", {"scripts": scripts, "videos": []}))
             return done
         paths = teasers.make(channel, data, folder)

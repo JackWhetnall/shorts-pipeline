@@ -164,3 +164,19 @@ def test_renaming_a_channel_does_it_all(world, monkeypatch):
     result = channel_admin.rename_channel(OLD, "Pub Quiz Buzz")
     assert result["new_key"] == NEW and result["problems"] == []
     assert curriculum.exists(NEW) and not curriculum.exists(OLD)
+
+
+def test_a_documentarys_lessons_move_with_the_channel(world, monkeypatch):
+    """Decision 086: what viewers taught a channel is filed in its own
+    folder (core.lessons), which the rename moves."""
+    from core import channel_admin, lessons
+    tmp, cfg = world
+    _fill(tmp, cfg)
+    monkeypatch.setattr(channel_admin, "read_raw", lambda: {OLD: {"channel_display_name": "x"}})
+    monkeypatch.setattr(channel_admin, "write_raw", lambda entries: None)
+    monkeypatch.setattr(channel_admin, "CHANNELS_DIR", tmp / "channels")
+    monkeypatch.setattr(channel_admin, "PROJECT_ROOT", tmp)
+    monkeypatch.setattr(lessons, "CHANNELS_DIR", tmp / "channels")
+    lessons.add(OLD, ["Open on the surprise, not the setting."], source="film_one")
+    channel_admin.rename_channel(OLD, "Pub Quiz Buzz")
+    assert lessons.texts(NEW) == ["Open on the surprise, not the setting."] and lessons.texts(OLD) == []
