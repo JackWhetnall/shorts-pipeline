@@ -175,6 +175,7 @@ def approve(channel_key: str, subtopic_id: str, stage: str, choice: int = None, 
             angles = data["pitch"].get("angles") or []
             if 0 <= choice < len(angles) and choice != data["pitch"].get("chosen"):
                 data["pitch"]["chosen"] = choice
+                data["pitch"].pop("title_from", None)
                 _stale_after(data, stage)
         mark(data, stage, "approved")
         data["history"].append({"at": _now(), "stage": stage, "did": "approved",
@@ -189,6 +190,29 @@ def chosen_angle(data: dict) -> dict:
     angles = pitch.get("angles") or []
     index = pitch.get("chosen") or 0
     return angles[index] if 0 <= index < len(angles) else {}
+
+
+def packaging(data: dict) -> dict:
+    """The angle whose title and thumbnail words the film goes out with:
+    the chosen one, or another picked for its title alone (decision 090),
+    which changes nothing the film says."""
+    pitch = data.get("pitch") or {}
+    angles = pitch.get("angles") or []
+    index = pitch.get("title_from")
+    if isinstance(index, int) and 0 <= index < len(angles):
+        return angles[index]
+    return chosen_angle(data)
+
+
+def retitle(channel_key: str, subtopic_id: str, index: int) -> dict:
+    """Use angle `index`'s title and thumbnail words, keeping the film."""
+    def change(data):
+        angles = (data.get("pitch") or {}).get("angles") or []
+        if not 0 <= index < len(angles):
+            raise ProductionError("no such angle", user_message="That title isn't there any more.")
+        data["pitch"]["title_from"] = index
+        data["history"].append({"at": _now(), "stage": "pitch", "did": f"title from angle {index + 1}"})
+    return update(channel_key, subtopic_id, change)
 
 
 def edited(channel_key: str, subtopic_id: str, stage: str, content) -> dict:

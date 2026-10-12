@@ -493,7 +493,14 @@ class Documentary(_MappingLike):
     atmosphere: bool = True
     # Real depth when the camera moves: near things move more than far
     # ones (pipeline.documentary.depth, decision 088). Needs the depth model.
-    depth: bool = True
+    # Off by default since decision 090: even limited to zooms and wide
+    # pans, the owner found it warped shapes "in a slightly sickening way".
+    depth: bool = False
+    # The on-screen label a scene can carry (a place and year, a name):
+    # "corner", lower left on a dark band; "tag", a small pill in the
+    # channel's accent colour, top left; or "none" (decision 090). Each
+    # channel picks its own, so the same label isn't on every channel.
+    captions: str = "corner"
     # "story" (someone wants something; things in the way) or "explainer"
     # (a viewer's question answered, one next question at a time):
     # pipeline.documentary.kinds, decision 089.
@@ -658,6 +665,9 @@ class ChannelConfig:
             if self.documentary.pictures not in LONG_FORM_PICTURES:
                 raise ConfigError(f"{where} has an unknown kind of pictures "
                                   f"({self.documentary.pictures!r}).")
+            if self.documentary.captions not in ("corner", "tag", "none"):
+                raise ConfigError(f"{where} has an unknown kind of label ({self.documentary.captions!r}). "
+                                  f"Pick corner, tag or none.")
             if self.documentary.kind not in ("story", "explainer"):
                 raise ConfigError(f"{where} makes an unknown kind of film ({self.documentary.kind!r}). "
                                   f"Pick story or explainer.")

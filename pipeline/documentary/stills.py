@@ -29,6 +29,25 @@ log = get_logger(__name__)
 
 CHECK_GROUP = 10                # stills per vision check
 
+# Decision 090. The check above looks at ten small pictures at once and
+# missed a character with three arms and a drill with a face. A second,
+# cheap look, at a larger size, for only those faults.
+# Haiku was tried first: nine false alarms in ten (a drill's round teeth
+# read as eyes) and the three arms missed. The usual model, at about 15
+# cents a film, found the real ones.
+FLAW_MODEL = ""                 # "": pipeline.llm's default model
+FLAW_GROUP = 6
+FLAW_SIZE = (1024, 1024)
+FLAWS = """
+Each picture below is a frame from a cartoon. Look closely at each one for these faults only:
+- a person or animal with extra or missing arms, legs, hands or fingers, or two bodies merged;
+- a face on something that isn't a character: look at every tool, machine, rock and planet in
+  the picture; cartoon eyes or a smiling mouth drawn on one is a fault (round studs or bolts aren't);
+- the same character drawn twice in one picture when the description names them once.
+Anything else is fine: don't judge style, colour or composition. Most pictures have no fault;
+`ok` is false only for a fault you can actually see, said in one short sentence.
+""".strip()
+
 
 def look_for(channel, frame: str = "wide") -> dict:
     return style.compile(channel.animation, frame=frame)[1]
@@ -114,7 +133,93 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
                 again = _try(one, the_shots[index], found)
                 if again is not None:
                     drawn[index] = again
+        for index, found in flaws([s for s in wanted if s["index"] in drawn], drawn).items():
+            log.info(f"  [documentary] redrawing still {index + 1}: {'; '.join(found)[:200]}")
+            again = _try(one, the_shots[index], found)
+            if again is not None:
+                drawn[index] = again
     return drawn
+
+
+def flaws(the_shots: list, drawn: dict) -> dict:
+    """{shot index: [fault]} from the cheap close look (decision 090):
+    about a cent for ten pictures. A look that fails finds nothing."""
+    from pipeline.llm import DEFAULT_MODEL, call_json
+    out = {}
+    for start in range(0, len(the_shots), FLAW_GROUP):
+        group = the_shots[start:start + FLAW_GROUP]
+        try:
+            pictures = []
+            for s in group:
+                pictures += [("text", f"Picture {s['index']}: {s['image'][:300]}"),
+                             keyframes.thumbnail(drawn[s["index"]], FLAW_SIZE)]
+            data = call_json(FLAWS, "Check every picture above.", keyframes._check_schema(), images=pictures,
+                             operation="documentary_flaw_check", model=FLAW_MODEL or DEFAULT_MODEL,
+                             max_tokens=4000)
+        except (PipelineError, OSError) as exc:
+            log.warning(f"  [documentary] couldn't look for flaws ({exc}); kept as drawn")
+            continue
+        wanted = {s["index"] for s in group}
+        for row in data.get("shots") or []:
+            if row.get("index") in wanted and not row.get("ok") and row.get("problems"):
+                out[row["index"]] = [p for p in row["problems"] if p]
+    return out
+
+
+# --- the same picture, drawn once (decision 090) ----------------------------------------
+
+REPEATS = """
+You are a film's picture editor, deciding which storyboard pictures can be used more than once.
+Below are a film's scenes, each with what its picture must show. A scene can reuse an EARLIER
+scene's picture only if that same picture, unchanged, would serve it fully: the same subject,
+the same people in the same pose doing the same thing, the same place and framing, the same time
+of day, light and weather (dawn is not dusk; an empty scene is not one with a crowd). The camera
+will move differently over it, so a reuse never looks frozen.
+
+When a scene needs something the earlier picture doesn't show (someone else, a new action or
+expression, a change in the thing itself, a closer or wider view), it is a new picture: keep it.
+Reuse is for the picture a film keeps coming back to (the same diagram-like cutaway, the same
+establishing view of a place), not for every scene in the same location.
+
+For each scene that can reuse an earlier one, give `scene` and `same_as`, the earlier scene's
+number. Leave every other scene out.
+""".strip()
+
+
+REPEAT_MODEL = "claude-haiku-4-5"     # a text judgement; a cent a film
+
+
+def _repeats_schema() -> dict:
+    return {"type": "object", "properties": {"reuse": {"type": "array", "items": {
+        "type": "object", "properties": {"scene": {"type": "integer"}, "same_as": {"type": "integer"}},
+        "required": ["scene", "same_as"], "additionalProperties": False}}},
+        "required": ["reuse"], "additionalProperties": False}
+
+
+def repeats(scenes: list, pool: list) -> dict:
+    """{scene: earlier scene whose picture it can use}, among `pool`
+    (the scenes about to be drawn): one cheap text call. A scene reuses an
+    original, never another reuse, and never the scene just before it."""
+    from pipeline.llm import call_json
+    pool = sorted(i for i in pool if scenes[i].get("medium", "picture") == "picture")
+    if len(pool) < 2:
+        return {}
+    lines = [f"{i}. ({scenes[i].get('framing', 'medium')}; cast: {', '.join(scenes[i].get('cast') or []) or 'none'})"
+             f" {scenes[i]['direction']}" for i in pool]
+    try:
+        data = call_json(REPEATS, "The scenes:\n" + "\n".join(lines), _repeats_schema(),
+                         operation="documentary_repeats", model=REPEAT_MODEL, max_tokens=3000, effort=None)
+    except PipelineError as exc:
+        log.warning(f"  [documentary] couldn't look for repeated pictures ({exc}); drawing them all")
+        return {}
+    allowed, out = set(pool), {}
+    for row in data.get("reuse") or []:
+        i, j = row.get("scene"), row.get("same_as")
+        if (i in allowed and j in allowed and j < i - 1 and j not in out and i not in out.values()
+                and scenes[i].get("framing") == scenes[j].get("framing")
+                and sorted(scenes[i].get("cast") or []) == sorted(scenes[j].get("cast") or [])):
+            out[i] = j
+    return out
 
 
 def draw_one(channel, outline: dict, direction: str, cast: list, folder: Path, framing: str = "close-up",

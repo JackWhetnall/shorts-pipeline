@@ -145,7 +145,7 @@ def make(channel, data: dict, pictures: dict, title: str, video_path: Path, art:
     out = Path(video_path).with_name(f"{Path(video_path).stem}_thumb.jpg")
     try:
         art_path, note = picture(channel, data, folder, pictures)
-        words = (production.chosen_angle(data).get("thumbnail") or {}).get("words", "")
+        words = (production.packaging(data).get("thumbnail") or {}).get("words", "")
         compose(art_path, words, art).save(out, quality=90)
         return note
     except Exception as exc:  # noqa: BLE001 - a plainer thumbnail beats none
@@ -153,6 +153,21 @@ def make(channel, data: dict, pictures: dict, title: str, video_path: Path, art:
         from pipeline.documentary.render import thumbnail
         thumbnail(pictures[min(pictures)], title, art).save(out, quality=90)
         return "The designed thumbnail failed; the opening still was used."
+
+
+def retitled(channel, data: dict, video_path: Path) -> None:
+    """A made film given another angle's title (decision 090): its stored
+    title and its thumbnail's words changed, the picture kept. Free."""
+    from core import gallery, production
+    angle = production.packaging(data)
+    info = gallery.load_publish_info(video_path)
+    gallery.save_title_and_description(video_path, angle["title"], info.get("description") or "")
+    folder = production.folder(channel.key, data["subtopic_id"])
+    stills = {int(k): folder / v for k, v in (data.get("stills") or {}).items()}
+    art_path = folder / ART_NAME if (folder / ART_NAME).exists() else stills[min(stills)]
+    out = Path(video_path).with_name(f"{Path(video_path).stem}_thumb.jpg")
+    compose(art_path, (angle.get("thumbnail") or {}).get("words", ""), dict(channel.scenes.art or {})).save(
+        out, quality=90)
 
 
 def render_variant(channel, video_path: Path, recipe: dict, out: Path) -> Path:
@@ -164,7 +179,7 @@ def render_variant(channel, video_path: Path, recipe: dict, out: Path) -> Path:
     folder = production.folder(info["channel"], info["subtopic_id"])
     stills = {int(k): folder / v for k, v in (data.get("stills") or {}).items()}
     art_path = folder / ART_NAME if (folder / ART_NAME).exists() else stills[min(stills)]
-    words = (production.chosen_angle(data).get("thumbnail") or {}).get("words", "")
+    words = (production.packaging(data).get("thumbnail") or {}).get("words", "")
     compose(art_path, words, dict(channel.scenes.art or {}), recipe).save(out, quality=90)
     return Path(out)
 

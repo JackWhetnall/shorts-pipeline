@@ -19,10 +19,14 @@ answered one next question at a time, in a cartoon look (decision 089).
 Depth no longer warps close pans, and background sound only plays under
 scenes that show its place, much quieter.
 
-### U. Watch the first Why, Though? film (10 minutes)
+### U. Watch the first Why, Though? film again (10 minutes)
 **Why, Though? → Productions → "Why Can't We Dig to the Centre of the
 Earth?"**, Video stage. Compare it with the plague film: is this the
 kind of video you'd watch? Approve it, or say what's wrong.
+
+### U2. Pick a better title if you like (1 minute, free)
+**Angle** section: choose a title from the list, **Use title only · $0**.
+The film stays; its title and thumbnail words change.
 
 ### V. Decide which channels to keep (2 minutes)
 Delete, keep or pause One Day In History and Why, Though? in Settings.

@@ -160,7 +160,7 @@ def _font(size: int, face: str):
 
 
 def label_overlay(size: tuple, chapter: str = "", number: int = 0, caption: str = "",
-                  art: dict = None, vertical: bool = False) -> Image.Image:
+                  art: dict = None, vertical: bool = False, style: str = "corner") -> Image.Image:
     """A transparent picture the frame's size with a chapter's title (top
     left) and a caption (lower left), each on a soft dark band so it reads
     over any picture."""
@@ -189,7 +189,16 @@ def label_overlay(size: tuple, chapter: str = "", number: int = 0, caption: str 
               top + int(h * (0.075 if vertical else 0.11))))
         draw.text((margin, top), kicker, font=small, fill=accent)
         draw.text((margin, top + int(h * (0.028 if vertical else 0.04))), chapter, font=big, fill="white")
-    if caption:
+    if caption and style == "tag":
+        # A small pill in the channel's own accent colour (decision 090).
+        font = _font(int(h * (0.02 if vertical else 0.03)), display)
+        y = int(h * (0.12 if vertical else 0.07))
+        width = min(draw.textlength(caption, font=font), w - 2 * margin)
+        pad = int(h * 0.012)
+        draw.rounded_rectangle((margin - 2 * pad, y - pad, margin + width + 2 * pad, y + int(h * 0.04) + pad),
+                               radius=int(h * 0.03), fill=accent)
+        draw.text((margin, y), caption, font=font, fill=art.get("ink") or "#1F2A44")
+    elif caption:
         font = _font(int(h * (0.022 if vertical else 0.034)), text_face)
         y = int(h * (0.62 if vertical else 0.82))
         width = min(draw.textlength(caption, font=font), w - 2 * margin)
@@ -224,7 +233,7 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
     look = storyboard.look_for(channel, "wide")
     from core import production as productions
     angle = productions.chosen_angle(data)
-    title = angle.get("title") or (outline.get("title_options") or [data.get("title") or "Untitled"])[0]
+    title = productions.packaging(data).get("title") or (outline.get("title_options") or [data.get("title") or "Untitled"])[0]
 
     out_dir = gallery.resolve_output_dir(channel.output_dir) / gallery.LONGFORM_DIR / date.today().isoformat()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -280,10 +289,11 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
         overlay = None
         chapter_title = (outline["chapters"][scene["chapter"] - 1]["title"]
                          if first and i > 0 and channel.documentary.chapter_titles else "")
-        if chapter_title or scene.get("caption"):
+        labels = getattr(channel.documentary, "captions", "corner")
+        caption = scene.get("caption", "") if labels != "none" else ""
+        if chapter_title or caption:
             overlay = work / f"label_{i:03d}.png"
-            label_overlay(size, chapter_title, 0,
-                          scene.get("caption", ""), art).save(overlay)
+            label_overlay(size, chapter_title, 0, caption, art, style=labels).save(overlay)
         at = start
         # Decision 087: a dark still lifted to a natural level, air where
         # the scene has it, and cuts on the starts of its sentences.
@@ -321,7 +331,13 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
         return finish.camera_shot(part["picture"], part["out"], part["seconds"], look, part["move"], part["label"],
                                   overlay_until=min(5.0, part["seconds"] - 0.4), adjust=part["adjust"],
                                   atmosphere=part["air"], atmosphere_strength=part["strength"], moving=moving)
-    parts = job_context.parallel_map(make_shot, parts, max_workers=4)
+    # Cards first, one at a time: each is a Chrome page screenshotted frame
+    # by frame, and beside four encoders using every core it timed out
+    # (decision 090). Then the pictures, four at a time.
+    made = {i: make_shot(p) for i, p in enumerate(parts) if "card" in p}
+    rest = [i for i, p in enumerate(parts) if "card" not in p]
+    made.update(zip(rest, job_context.parallel_map(make_shot, [parts[i] for i in rest], max_workers=4)))
+    parts = [made[i] for i in range(len(parts))]
     job_context.report_progress(None)
     board = finish.join(parts, work / "board.mp4")
 

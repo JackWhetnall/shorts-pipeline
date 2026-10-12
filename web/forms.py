@@ -195,6 +195,12 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
         if "documentary_auto_present" in form:
             doc.auto_make = bool(form.get("documentary_auto_make"))
             doc.ahead = min(5, max(1, _maybe_int(form, "documentary_ahead", doc.ahead)))
+        if form.get("documentary_kind") in ("story", "explainer"):
+            doc.kind = form.get("documentary_kind")
+        if form.get("documentary_captions") in ("corner", "tag", "none"):
+            doc.captions = form.get("documentary_captions")
+        if "documentary_depth_present" in form:
+            doc.depth = bool(form.get("documentary_depth"))
         from core.channels import LONG_FORM_PICTURES
         if form.get("documentary_pictures") in LONG_FORM_PICTURES:
             doc.pictures = form.get("documentary_pictures")

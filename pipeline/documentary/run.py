@@ -147,9 +147,18 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
         others, credits, draw_instead = media.make(channel, scenes, target, only=wanted, setting=setting,
                                                    kinds=("painting",))
         to_draw = [i for i in wanted if scenes[i].get("medium", "picture") == "picture"] + draw_instead
+        # A picture the film comes back to is drawn once (decision 090).
+        same = stills.repeats(scenes, to_draw) if only is None else {}
+        if same:
+            log.info(f"  [documentary] {len(same)} scene(s) reuse an earlier picture")
+            to_draw = [i for i in to_draw if i not in same]
         drawn = stills.draw(channel, data["outline"], scenes, target, frame="wide", only=to_draw,
                             notes=notes) if to_draw else {}
-        failed = [i for i in to_draw if i not in drawn]
+        for i, j in same.items():
+            if j in drawn:
+                drawn[i] = target / f"kf_{i:02d}.jpg"
+                shutil.copyfile(drawn[j], drawn[i])
+        failed = [i for i in to_draw + list(same) if i not in drawn]
         if failed:
             # One more try for any that failed, before anyone has to ask.
             log.info(f"  [documentary] {len(failed)} picture(s) failed; trying them once more")
@@ -191,6 +200,8 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
             keys.update(descs)
             d["shown"], d["credits"], d["still_keys"] = kinds, credit, keys
             d["stills_kept"] = len(kept_paths)
+            d["stills_reused"] = {str(i): j for i, j in same.items() if i in drawn} if only is None \
+                else {k: v for k, v in (d.get("stills_reused") or {}).items() if int(k) not in only}
             production.made(d, "stills", kept)
         production.update(key, sid, store)
         shutil.rmtree(folder / "stills_previous", ignore_errors=True)

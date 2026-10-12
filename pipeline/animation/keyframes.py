@@ -119,6 +119,7 @@ For each shot, list only real problems that would spoil it:
 - a recurring character is off-model: a different face, hair, clothes or colours from their sheet;
 - it has text, letters, numbers, signs or gibberish writing anywhere;
 - broken anatomy: extra or missing fingers or limbs, a melted or doubled face;
+- a face or eyes on an object, machine or tool the shot doesn't ask to have one;
 - the main subject sits in the bottom third or is cropped awkwardly.
 Small imperfections are fine. ok is false only for the problems above; say each one in a short
 sentence the artist can act on.

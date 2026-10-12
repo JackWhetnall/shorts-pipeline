@@ -64,8 +64,11 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
       {% for a in data.pitch.angles %}
       <label class="prod-angle {{ 'is-chosen' if loop.index0 == data.pitch.chosen }}">
         <input type="radio" name="angle" value="{{ loop.index0 }}" {{ 'checked' if loop.index0 == data.pitch.chosen }}>
-        <span class="prod-angle-score" data-tooltip="Curiosity ×2, familiarity, clarity, payoff, out of 10{% if a.problems %}; {{ a.problems|join('; ') }}{% endif %}">{{ '%.1f'|format(a.score) }}</span>
-        <strong>{{ a.title }}</strong> <span class="hint">{{ a.title|length }}</span>
+        <span class="prod-angle-score" data-tooltip="Score out of 10: curiosity counted twice, familiarity, clarity, payoff; minus 1 a problem{% if a.problems %} ({{ a.problems|join('; ') }}){% endif %}">{{ '%.1f'|format(a.score) }}<small>/10</small></span>
+        <strong>{{ a.title }}</strong>
+        <span class="hint {{ 'prod-too-long' if a.title|length > 55 }}" data-tooltip="Title length; a phone shows about 55">{{ a.title|length }} chars</span>
+        {% if a.problems %}<span class="prod-pill pill-bad" data-tooltip="{{ a.problems|join('; ') }}">{{ a.problems|length }} problem{{ 's' if a.problems|length > 1 }}</span>{% endif %}
+        {% if packaging.title == a.title and loop.index0 != data.pitch.chosen %}<span class="prod-pill">Title in use</span>{% endif %}
         {% if a.thumbnail.words %}<span class="prod-thumb-words">{{ a.thumbnail.words }}</span>{% endif %}
         <span class="hint prod-angle-thumb">{{ a.thumbnail.subject }}</span>
         <em class="prod-angle-hook">“{{ a.hook }}”</em>
@@ -73,9 +76,18 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
       {% endfor %}
     </div>
     {% if data.stages.pitch.state in ('ready', 'approved') and 'pitch' not in stage_jobs %}
-    <div class="actions"><button type="submit" class="btn-primary">{{ 'Use this angle' if data.stages.pitch.state == 'approved' else 'Approve' }}</button></div>
+    <div class="actions"><button type="submit" class="btn-primary">{{ ('Use this angle · remakes the film' if data.stages.outline.state != 'todo' else 'Use this angle') if data.stages.pitch.state == 'approved' else 'Approve' }}</button></div>
     {% endif %}
   </form>
+  {% if data.stages.outline.state not in ('todo',) and 'pitch' not in stage_jobs %}
+  <form method="post" class="prod-retitle" action="{{ url_for('productions.retitle', key=key, subtopic_id=row.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <select name="angle" aria-label="Title">
+      {% for a in data.pitch.angles %}<option value="{{ loop.index0 }}" {{ 'selected' if packaging.title == a.title }}>{{ a.title }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="btn-secondary" data-tooltip="Changes the title and thumbnail words; the film stays">Use title only · $0</button>
+  </form>
+  {% endif %}
   {% if 'pitch' not in stage_jobs %}{{ start_form('pitch', 'Pitch again', 'What to try') }}{% endif %}
   {% elif data.stages.pitch.legacy %}
   <p class="hint">Made before angles.</p>
@@ -339,6 +351,9 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
   .prod-angle.is-chosen, .prod-angle:has(input:checked) { border-color: var(--accent); }
   .prod-angle > input { grid-row: span 3; }
   .prod-angle-score { font-weight: 700; color: var(--accent); grid-row: span 3; }
+  .prod-angle-score small { font-weight: 400; color: var(--text-dim); }
+  .prod-too-long { color: var(--danger); }
+  .prod-retitle { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin: var(--sp-2) 0; }
   .prod-angle .hint, .prod-angle em, .prod-thumb-words { grid-column: 3; }
   .prod-thumb-words { justify-self: start; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
                       background: var(--accent); color: var(--accent-contrast); padding: .1em .55em; border-radius: 4px; }

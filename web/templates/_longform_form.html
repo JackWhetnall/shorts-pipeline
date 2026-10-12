@@ -113,6 +113,24 @@
         <input type="number" name="documentary_scene_seconds" min="5" max="40" class="narrow-number"
                value="{{ channel.documentary.scene_seconds|int }}">
       </label>
+      <label class="field-row"><span class="field-label">Kind of film</span>
+        <select name="documentary_kind">
+          <option value="story" {% if channel.documentary.kind == 'story' %}selected{% endif %}>Story</option>
+          <option value="explainer" {% if channel.documentary.kind == 'explainer' %}selected{% endif %}>Explainer</option>
+        </select>
+      </label>
+      <label class="field-row"><span class="field-label">Place and name labels</span>
+        <select name="documentary_captions">
+          <option value="corner" {% if channel.documentary.captions == 'corner' %}selected{% endif %}>Lower left</option>
+          <option value="tag" {% if channel.documentary.captions == 'tag' %}selected{% endif %}>Coloured tag</option>
+          <option value="none" {% if channel.documentary.captions == 'none' %}selected{% endif %}>None</option>
+        </select>
+      </label>
+      <input type="hidden" name="documentary_depth_present" value="1">
+      <label class="checkbox-label">
+        <input type="checkbox" name="documentary_depth" {% if channel.documentary.depth %}checked{% endif %}>
+        Depth on camera moves
+      </label>
       <input type="hidden" name="documentary_chapter_titles_present" value="1">
       <label class="checkbox-label">
         <input type="checkbox" name="documentary_chapter_titles" {% if channel.documentary.chapter_titles %}checked{% endif %}>

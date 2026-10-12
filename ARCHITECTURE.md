@@ -793,6 +793,13 @@ parts of the pitch, outline, script and critic prompts that differ.
 Depth is used only where `depth.suits` (zooms; pans across a whole wide
 picture); a chapter's bed plays only under scenes `ambience.fits`.
 
+Decision [090](docs/decisions/090-pictures-drawn-once-checked-closely-labels-per-channel.md):
+`stills.repeats` draws a repeated picture once (`stills_reused`);
+`stills.flaws` is a close second look for limbs and faces;
+`documentary.captions` picks a channel's label (corner, tag, none);
+`production.packaging` is the angle a film's title and thumbnail words
+come from, changed alone by `production.retitle`. Depth is off by default.
+
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
 channel (`ChannelConfig.long_form`) has its own settings page,

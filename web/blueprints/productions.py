@@ -138,7 +138,7 @@ def page(key, subtopic_id):
         missing_cost=storyboard_stills.cost_estimate(channel, len(missing)),
         voice_chars=sum(len(s["narration"]) + 1 for s in (data.get("script") or {}).get("scenes") or []),
         video=video_rel, report=report, viewers=viewers,
-        angle=production.chosen_angle(data),
+        angle=production.chosen_angle(data), packaging=production.packaging(data),
         old_video=_made(channel, (data.get("video") or {}).get("retired")),
         teaser_videos=[v for v in (_made(channel, p) for p in (data.get("teasers") or {}).get("videos") or []) if v],
         speed={stage: _speed(key, stage) for stage in production.STAGES},
@@ -256,6 +256,27 @@ def approve(key, subtopic_id, stage):
     nxt = production.STAGES[production.STAGES.index(stage) + 1] if stage != production.STAGES[-1] else None
     return _back(key, subtopic_id, "Approved." + (f" Next: the {production.LABELS[nxt].lower()}."
                                                   if nxt else ""), nxt or stage)
+
+
+@bp.route("/channels/<key>/productions/<subtopic_id>/title", methods=["POST"])
+def retitle(key, subtopic_id):
+    """Another angle's title and thumbnail words, the film kept (decision 090)."""
+    channel = _channel(key)
+    if curriculum.find(key, subtopic_id) is None:
+        abort(404)
+    try:
+        index = int(request.form.get("angle", ""))
+    except ValueError:
+        abort(400)
+    try:
+        data = production.retitle(key, subtopic_id, index)
+        video = (data.get("video") or {}).get("path")
+        if video:
+            from pipeline.documentary import run, thumbs
+            thumbs.retitled(channel, data, run._root(channel) / video)
+    except PipelineError as exc:
+        return _back(key, subtopic_id, exc.user_message, "pitch")
+    return _back(key, subtopic_id, "Title changed.", "pitch")
 
 
 @bp.route("/channels/<key>/productions/<subtopic_id>/outline", methods=["POST"])
