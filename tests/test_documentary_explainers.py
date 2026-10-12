@@ -74,8 +74,8 @@ def test_explainers_are_asked_for_questions_and_stories_are_unchanged():
     assert "Make it a story, not a tour" in script.system_text(story)
     assert "{shape}" not in script.system_text(story) and "{cards}" not in script.system_text(story)
     text = script.system_text(explainer)
-    assert "Make it a story" not in text and "next question" in text
-    assert "the viewer's question" in outline.system_text(explainer)
+    assert "Make it a story" not in text and "prove the title" in text
+    assert "the mystery" in outline.system_text(explainer) and "re-hook" in outline.system_text(explainer)
     assert "what the person at the centre wants today" in outline.system_text(story)
     assert "{" + "momentum}" not in editor.critic_text("explainer")
     assert kinds.of(N()) == "story"
@@ -91,3 +91,33 @@ def test_a_channel_names_a_kind_it_can_make():
 def test_a_contraction_is_not_a_word_the_title_must_name():
     from pipeline.documentary import pitch
     assert pitch.subject_words("Why Can't We Dig to the Centre of the Earth?") == {"centre", "earth"}
+
+
+def test_an_explainer_opens_on_proof_and_varies_its_chapter_endings():
+    """Decision 091: the drill film opened "You'd think..." and ended three
+    chapters on "So what...?"."""
+    weak = [{"chapter": 1, "narration": "You'd think digging is easy."},
+            {"chapter": 1, "narration": "So what were they expecting?"},
+            {"chapter": 2, "narration": "So what did it mean?"}]
+    found = editor.explainer_checks(weak)
+    assert "Open on proof" in found[1][0] and "already ended" in found[2][0]
+    assert editor.explainer_checks([{"chapter": 1, "narration": "In 1984 a drill pulled up rock that bent."}]) == {}
+    assert editor.checks({"scenes": weak}, {"chapters": [{}, {}]}, kind="story").get(2) is None
+
+
+def test_an_explainer_is_fact_checked_line_by_line(monkeypatch):
+    """Decision 091: "six and a half times closer" (it's sixty), a bit
+    "glowing red" at 180 degrees, "It was a reframe" left in."""
+    scenes = [{"chapter": 1, "narration": "The centre is six and a half times closer."},
+              {"chapter": 1, "narration": "Pressure is high.", "medium": "card",
+               "card": {"kind": "number", "heading": "Pressure", "value": "1,800x", "caption": "", "items": []}}]
+    monkeypatch.setattr(editor, "call_json", lambda *a, **k: {"fixes": [
+        {"scene": 0, "problem": "384,000 / 6,371 is about 60", "narration": "The centre is sixty times closer.",
+         "card": ""},
+        {"scene": 1, "problem": "about 3,000x", "narration": "Pressure is about three thousand times higher.",
+         "card": "3,000x"},
+        {"scene": 9, "problem": "no such scene", "narration": "x", "card": ""}]})
+    out, notes = editor.fact_check({"scenes": scenes})
+    assert out["scenes"][0]["narration"] == "The centre is sixty times closer."
+    assert out["scenes"][1]["card"]["value"] == "3,000x" and len(notes) == 2
+    assert scenes[0]["narration"].startswith("The centre is six")          # the original is left alone

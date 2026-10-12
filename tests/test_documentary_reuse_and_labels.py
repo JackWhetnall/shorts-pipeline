@@ -107,3 +107,11 @@ def test_another_angles_title_keeps_the_film(world):  # noqa: F811
     assert production.packaging(data)["title"] == "Second"
     assert production.chosen_angle(data)["title"] == "First"              # the film's promise is kept
     assert production.state(data, "stills") == "ready"                   # nothing to make again
+
+
+def test_a_picture_the_look_calls_fine_isnt_redrawn(tmp_path, monkeypatch):
+    path = tmp_path / "kf.jpg"
+    Image.new("RGB", (64, 36)).save(path)
+    monkeypatch.setattr("pipeline.llm.call_json", lambda *a, **k: {"shots": [{"index": 0, "ok": False, "problems": [
+        "The drill bit has bolt-like studs but no actual facial features, so it's fine; no clear fault."]}]})
+    assert stills.flaws([{"index": 0, "image": "a drill"}], {0: path}) == {}

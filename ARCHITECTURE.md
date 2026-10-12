@@ -800,6 +800,11 @@ Decision [090](docs/decisions/090-pictures-drawn-once-checked-closely-labels-per
 `production.packaging` is the angle a film's title and thumbnail words
 come from, changed alone by `production.retitle`. Depth is off by default.
 
+Decision [091](docs/decisions/091-one-channel-a-creator-look-hook-hold-payoff.md):
+explainers are structured by `kinds.py` (proof, stakes, mystery, clues,
+twist, payoff); `editor.explainer_checks` and `editor.fact_check` run on
+explainer scripts only (corrections kept as `script.facts`).
+
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
 channel (`ChannelConfig.long_form`) has its own settings page,

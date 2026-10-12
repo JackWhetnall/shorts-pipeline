@@ -17,6 +17,7 @@ independent of its frame).
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from core import job_context
@@ -161,9 +162,15 @@ def flaws(the_shots: list, drawn: dict) -> dict:
             continue
         wanted = {s["index"] for s in group}
         for row in data.get("shots") or []:
-            if row.get("index") in wanted and not row.get("ok") and row.get("problems"):
-                out[row["index"]] = [p for p in row["problems"] if p]
+            # It sometimes marks a picture failed while saying it's fine
+            # ("no actual facial features, so it's fine; no clear fault").
+            found = [p for p in row.get("problems") or [] if p and not CLEARED.search(p)]
+            if row.get("index") in wanted and not row.get("ok") and found:
+                out[row["index"]] = found
     return out
+
+
+CLEARED = re.compile(r"no (clear |actual |real )?(fault|problem)|so it'?s fine|is fine|looks fine", re.IGNORECASE)
 
 
 # --- the same picture, drawn once (decision 090) ----------------------------------------

@@ -19,7 +19,7 @@ answered one next question at a time, in a cartoon look (decision 089).
 Depth no longer warps close pans, and background sound only plays under
 scenes that show its place, much quieter.
 
-### U. Watch the first Why, Though? film again (10 minutes)
+### U. Watch the remade Why, Though? film (10 minutes)
 **Why, Though? → Productions → "Why Can't We Dig to the Centre of the
 Earth?"**, Video stage. Compare it with the plague film: is this the
 kind of video you'd watch? Approve it, or say what's wrong.

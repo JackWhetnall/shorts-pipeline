@@ -73,7 +73,37 @@ def restated(scenes: list) -> list:
     return [(g, n) for g, n in grams.most_common(5) if n >= 4]
 
 
-def checks(script: dict, outline: dict, angle: dict = None) -> dict:
+WEAK_OPENING = re.compile(r"^\W*(?:\[[^\]]*\]\s*)?(you'?d think|imagine|have you ever|ever wondered|this is the "
+                          r"story|what if|picture this|so,? )", re.IGNORECASE)
+
+
+def explainer_checks(scenes: list) -> dict:
+    """{chapter: [problem]} for an explainer's shape (decision 091): it opens
+    on proof, not on a question or a wind-up, and no two chapters end on
+    the same question shape (the drill film ended three on "So what...?")."""
+    found: dict = {}
+    if scenes:
+        first = scenes[0]["narration"].strip()
+        if WEAK_OPENING.match(first) or first.rstrip().endswith("?"):
+            found.setdefault(scenes[0]["chapter"], []).append(
+                "Open on proof, not a question or a wind-up: the strangest concrete fact or sight in the "
+                "film, said plainly, in the first sentence.")
+    ends, last = {}, {}
+    for s in scenes:
+        last[s["chapter"]] = s["narration"].strip()
+    for chapter, line in sorted(last.items()):
+        if line.endswith("?"):
+            shape = " ".join(re.findall(r"[a-z']+", line.lower())[:2])
+            if shape in ends:
+                found.setdefault(chapter, []).append(
+                    f'Chapter {ends[shape]} already ended on a "{shape}..." question: end this one on a '
+                    f"reveal, a sharper problem or a cliffhanger instead.")
+            else:
+                ends[shape] = chapter
+    return found
+
+
+def checks(script: dict, outline: dict, angle: dict = None, kind: str = "story") -> dict:
     """{chapter number: [problem]} from the checks that need no model."""
     from pipeline.script_gen import _AI_TELLS
     found: dict = {}
@@ -110,6 +140,9 @@ def checks(script: dict, outline: dict, angle: dict = None) -> dict:
         if want and len(want & have) < 0.4 * len(want):
             found.setdefault(scenes[0]["chapter"], []).append(
                 f"The film must open with the chosen first line (or close to it): {hook}")
+    if kind == "explainer":
+        for chapter, problems in explainer_checks(scenes).items():
+            found.setdefault(chapter, []).extend(problems)
     return found
 
 
@@ -164,12 +197,74 @@ def critique(script: dict, outline: dict, angle: dict = None, kind: str = "story
     return out
 
 
+FACTS = """
+You are the science editor of a YouTube explainer channel, reading a finished script before it is
+voiced. Viewers of science channels check numbers and say so in the comments; one wrong figure
+costs the film its credibility. Find only real problems, line by line:
+- a number, ratio, date, duration or scale comparison that is wrong (work ratios out yourself:
+  384,000 / 6,371 is about 60, not 6), or that contradicts another line of the script;
+- a physical claim that is false or badly overstated (rock at 180 degrees Celsius does not glow);
+- a line that doesn't make sense when read literally, or a comparison that means nothing;
+- an invented character's action presented as a real present-day fact;
+- a stray production word that isn't narration (reframe, payoff, cold open, chapter, beat).
+Most lines are fine; leave them out. For each problem give the scene's number, the problem in a
+short sentence, and `narration`: the line rewritten to fix it, the same length and voice, keeping
+any [cue] at its start. Where the scene shows a card, `card` is its corrected words in the card's own
+shape ("label|value" items joined with " ; ", or the value), or "" if the card is fine.
+""".strip()
+
+
+def _facts_schema() -> dict:
+    row = {"type": "object", "properties": {
+        "scene": {"type": "integer"}, "problem": {"type": "string"}, "narration": {"type": "string"},
+        "card": {"type": "string"}},
+        "required": ["scene", "problem", "narration", "card"], "additionalProperties": False}
+    return {"type": "object", "properties": {"fixes": {"type": "array", "items": row}},
+            "required": ["fixes"], "additionalProperties": False}
+
+
+def _card_text(card: dict) -> str:
+    if not card:
+        return ""
+    bits = [card.get("heading", ""), card.get("value", ""), card.get("caption", "")] + list(card.get("items") or [])
+    return " / ".join(b for b in bits if b)
+
+
+def fact_check(script: dict) -> tuple:
+    """(the script with wrong lines rewritten, [{scene, problem}]): one
+    call over the whole narration, for explainers (decision 091). The first
+    explainer needed nine lines fixed by hand: sixty times closer said as
+    "six and a half", a 180-degree bit "glowing red", a prompt word left in."""
+    scenes = script["scenes"]
+    lines = [f"{i}. {s['narration']}" + (f"  [card: {_card_text(s.get('card'))}]" if s.get("card") else "")
+             for i, s in enumerate(scenes)]
+    data = call_json(FACTS, "The script:\n" + "\n".join(lines), _facts_schema(),
+                     operation="documentary_fact_check", max_tokens=8000, effort="medium")
+    fixed, notes = [dict(s) for s in scenes], []
+    for row in data.get("fixes") or []:
+        i, text = row.get("scene"), " ".join(str(row.get("narration") or "").split())
+        if not isinstance(i, int) or not 0 <= i < len(fixed) or not text:
+            continue
+        fixed[i]["narration"] = text
+        card = fixed[i].get("card")
+        new = str(row.get("card") or "").strip()
+        if card and new:
+            if card.get("items") and "|" in new:
+                card = {**card, "items": [x.strip() for x in new.split(";") if "|" in x][:5] or card["items"]}
+            elif card.get("kind") == "number":
+                card = {**card, "value": new[:24]}
+            fixed[i]["card"] = card
+        notes.append({"scene": i, "problem": " ".join(str(row.get("problem") or "").split())})
+    return {**script, "scenes": fixed}, notes
+
+
 def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -> dict:
     """The script with its weakest chapters written again, and `edits`
     saying which and why. A critic that can't be reached leaves the
     script as it is (the checks still count)."""
     from pipeline.documentary import script as scripts
-    problems = checks(script, outline, angle)
+    from pipeline.documentary import kinds as film_kinds
+    problems = checks(script, outline, angle, film_kinds.of(channel))
     try:
         from pipeline.documentary import kinds
         reviews = critique(script, outline, angle, kinds.of(channel))
@@ -196,6 +291,14 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -
             continue
         edits.append({"chapter": n, "why": notes, "score": reviews.get(n, {}).get("score")})
         log.info(f"  [documentary] chapter {n} rewritten: {'; '.join(notes)[:200]}")
-    script = {**script, "edits": edits,
+    facts = []
+    if film_kinds.of(channel) == "explainer":
+        try:
+            script, facts = fact_check(script)
+        except PipelineError as exc:
+            log.warning(f"  [documentary] the fact check failed ({exc}); the script is unchecked")
+        for f in facts:
+            log.info(f"  [documentary] scene {f['scene'] + 1} corrected: {f['problem'][:160]}")
+    script = {**script, "edits": edits, "facts": facts,
               "review": {str(n): reviews[n]["score"] for n in reviews}}
     return script

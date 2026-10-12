@@ -55,10 +55,19 @@ def picture(channel, data: dict, folder: Path, pictures: dict) -> tuple:
     from core import production
     folder = Path(folder)
     kept = folder / ART_NAME
-    if kept.exists():
-        return kept, ""
-    angle = production.chosen_angle(data)
+    angle = production.packaging(data)
     subject = (angle.get("thumbnail") or {}).get("subject") or ""
+    # Kept only while it shows the same idea in the same look: the remade
+    # drill film came out with the old cartoon drill on its thumbnail
+    # (decision 091).
+    from pipeline.documentary import stills as storyboard
+    key = storyboard.fingerprint({"subject": subject, "look": storyboard.look_for(channel).get("description", "")})
+    stamp = kept.with_suffix(".key")
+    if kept.exists() and (not stamp.exists() or stamp.read_text(encoding="utf-8") == key):
+        if not stamp.exists():
+            stamp.write_text(key, encoding="utf-8")
+        return kept, ""
+    kept.unlink(missing_ok=True)
     note = ""
     if subject:
         try:
@@ -70,6 +79,7 @@ def picture(channel, data: dict, folder: Path, pictures: dict) -> tuple:
                 f"thirds of the frame, strongly lit with clear contrast and a readable expression; "
                 f"the right third quiet and dark, nothing important there."), names, folder, "close-up")
             drawn.replace(kept)
+            stamp.write_text(key, encoding="utf-8")
             return kept, ""
         except PipelineError as exc:
             note = f"Thumbnail picture couldn't be drawn ({exc.user_message}); a still stands in."
