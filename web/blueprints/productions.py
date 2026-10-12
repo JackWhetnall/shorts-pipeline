@@ -108,6 +108,16 @@ def page(key, subtopic_id):
     from pipeline.documentary import stills as storyboard_stills
     scene_count = len((data.get("script") or {}).get("scenes") or [])
     minutes = float(channel.documentary.minutes)
+    scenes = (data.get("script") or {}).get("scenes") or []
+    missing = [i for i, s in enumerate(scenes) if str(i) not in (data.get("stills") or {})]
+    # What a fresh storyboard would keep (decision 088), for the button's price.
+    try:
+        keeping = len(storyboard_stills.reusable(channel, data, scenes)) if scenes and \
+            production.state(data, "stills") in ("todo", "stale", "failed") else 0
+    except Exception as exc:  # noqa: BLE001 - the page shows without the estimate
+        log.warning(f"Couldn't work out which pictures to keep: {exc}")
+        keeping = 0
+    to_draw = sum(1 for s in scenes if s.get("medium") != "card") - keeping
     video_rel = _made(channel, (data.get("video") or {}).get("path"))
     report, viewers = {}, {}
     if video_rel:
@@ -122,8 +132,10 @@ def page(key, subtopic_id):
         stage_jobs={stage: job for (sid, stage), job in working.items() if sid == subtopic_id},
         framings=scripts.FRAMINGS, cameras=scripts.CAMERA,
         words=scripts.words(data["script"]) if data.get("script") else 0,
-        stills_cost=storyboard_stills.cost_estimate(channel, scene_count or round(
+        stills_cost=storyboard_stills.cost_estimate(channel, max(0, to_draw) if scenes else round(
             minutes * 60 / channel.documentary.scene_seconds)),
+        missing=missing, keeping=keeping, to_draw=max(0, to_draw),
+        missing_cost=storyboard_stills.cost_estimate(channel, len(missing)),
         voice_chars=sum(len(s["narration"]) + 1 for s in (data.get("script") or {}).get("scenes") or []),
         video=video_rel, report=report, viewers=viewers,
         angle=production.chosen_angle(data),
@@ -206,6 +218,10 @@ def start_stage(key, subtopic_id, stage):
     extra = {"note": " ".join(form.get("note", "").split())}
     if form.get("chapter"):
         extra["chapter"] = int(form["chapter"])
+    if form.get("missing"):
+        data = production.load(key, subtopic_id)
+        extra["only"] = [i for i in range(len((data.get("script") or {}).get("scenes") or []))
+                         if str(i) not in (data.get("stills") or {})]
     if form.get("scene") not in (None, ""):
         index = int(form["scene"])
         extra["only"] = [index]

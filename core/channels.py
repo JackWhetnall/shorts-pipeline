@@ -491,6 +491,9 @@ class Documentary(_MappingLike):
     # Embers, dust, rain or snow drifting over the pictures where a scene
     # has them, so a still breathes.
     atmosphere: bool = True
+    # Real depth when the camera moves: near things move more than far
+    # ones (pipeline.documentary.depth, decision 088). Needs the depth model.
+    depth: bool = True
 
 
 @dataclass

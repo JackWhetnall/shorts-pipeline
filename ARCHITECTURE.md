@@ -781,6 +781,12 @@ stills), cuts on sentence starts (`render.beats_in`), cards drawn over
 the scene before (`media.backdrop_for`), and each chapter's `sound`, a
 background bed from `ambience.py` (ElevenLabs sound effects, cached).
 
+Decision [088](docs/decisions/088-pictures-kept-redrawn-and-given-depth.md):
+each still records what it was drawn from (`still_keys`); a storyboard
+drawn again keeps what still fits (`stills.reusable`) and draws the
+rest; a shot's move gets depth parallax (`depth.py`, Depth Anything V2
+Small in `cache/models/`), finished by `finish.camera_shot(moving=)`.
+
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
 channel (`ChannelConfig.long_form`) has its own settings page,

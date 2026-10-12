@@ -137,6 +137,68 @@ def draw_one(channel, outline: dict, direction: str, cast: list, folder: Path, f
                           models.image_model(channel.animation.image_model))
 
 
+# --- what a still was drawn from, so it can be kept (decision 088) ----------------------
+
+REUSE_SIMILAR = 0.9             # a direction this close, same cast and framing, keeps its picture
+
+
+def _norm(text: str) -> str:
+    return " ".join(str(text or "").lower().split())
+
+
+def description(channel, outline: dict, scene: dict) -> dict:
+    """Everything a scene's still depends on: what's drawn, who is in it
+    (as they look now), how it's framed, and the look it's drawn in."""
+    import hashlib
+    import json
+    look = look_for(channel, "wide")
+    looks = {m["name"]: _norm(m.get("description")) for m in outline.get("cast") or []}
+    cast = sorted(scene.get("cast") or [])
+    style_key = hashlib.sha1(json.dumps([look.get("description") or look.get("key") or "",
+                                         getattr(channel.animation, "image_model", "")],
+                                        sort_keys=True).encode()).hexdigest()[:12]
+    return {"direction": _norm(scene.get("direction")), "cast": cast, "cast_looks": [looks.get(c, "") for c in cast],
+            "framing": scene.get("framing", "medium"), "medium": scene.get("medium", "picture"),
+            "art_query": _norm(scene.get("art_query")), "look": style_key}
+
+
+def fingerprint(desc: dict) -> str:
+    import hashlib
+    import json
+    return hashlib.sha1(json.dumps(desc, sort_keys=True).encode()).hexdigest()
+
+
+def reusable(channel, data: dict, scenes: list) -> dict:
+    """{new scene index: the old still that still fits it}, for a
+    storyboard drawn again after its script changed: the same thing in the
+    same framing, by the same cast, in the same look, or a direction only
+    reworded. Cards are left out (they cost nothing to make again)."""
+    import difflib
+    folder_paths = {int(k): v for k, v in (data.get("stills") or {}).items()}
+    old = []
+    for k, desc in (data.get("still_keys") or {}).items():
+        rel = folder_paths.get(int(k))
+        if rel and desc.get("medium") != "card":
+            old.append((desc, rel))
+    out = {}
+    for i, scene in enumerate(scenes):
+        if scene.get("medium") == "card":
+            continue
+        desc = description(channel, data["outline"], scene)
+        key = fingerprint(desc)
+        match = next((rel for d, rel in old if fingerprint(d) == key), None)
+        if match is None:
+            same = [(d, rel) for d, rel in old if all(d.get(f) == desc[f] for f in
+                                                       ("cast", "cast_looks", "framing", "medium", "look"))]
+            scored = [(difflib.SequenceMatcher(None, d["direction"], desc["direction"]).ratio(), rel)
+                      for d, rel in same]
+            best = max(scored, default=(0, None))
+            match = best[1] if best[0] >= REUSE_SIMILAR else None
+        if match:
+            out[i] = match
+    return out
+
+
 def _try(one, shot, fix=None):
     try:
         return one(shot, fix) if fix else one(shot)

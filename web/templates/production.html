@@ -180,7 +180,9 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
 
 {# --- 3. Storyboard --------------------------------------------------------- #}
 <section class="card {{ section_class('stills') }}" id="stills">
-  <h2>Storyboard {{ pill('stills') }}</h2>
+  <h2>Storyboard {{ pill('stills') }}
+    {% if data.stills_kept %}<span class="prod-pill" data-tooltip="Kept from the last storyboard: their scenes didn't change">{{ data.stills_kept }} kept</span>{% endif %}
+    {% if data.stills and missing and data.stages.stills.state != 'stale' %}<span class="prod-pill pill-bad">{{ missing|length }} missing</span>{% endif %}</h2>
   {% if data.stages.script.state != 'approved' %}
   {% elif data.stills %}
   <div class="prod-stills">
@@ -189,22 +191,26 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
     <figure>
       {% if name %}<a href="{{ url_for('productions.asset', key=key, subtopic_id=row.id, name=name) }}" target="_blank">
         <img src="{{ url_for('productions.asset', key=key, subtopic_id=row.id, name=name) }}?v={{ data.stages.stills.at }}" alt="Scene {{ loop.index }}" loading="lazy"></a>
-      {% else %}<div class="prod-missing">No picture</div>{% endif %}
+      {% else %}<div class="prod-missing">No picture
+        {% if 'stills' not in stage_jobs and data.stages.stills.state != 'stale' %}{{ start_form('stills', 'Draw it', with_note=false, extra='<input type="hidden" name="scene" value="' ~ loop.index0 ~ '">') }}{% endif %}</div>{% endif %}
       {% set kind = (data.shown or {}).get(loop.index0|string) %}
       <figcaption><span class="prod-scene-n">{{ loop.index }}</span>{% if kind in ('card', 'painting') %} <span class="prod-media"
         {% if (data.credits or {}).get(loop.index0|string) %}data-tooltip="{{ data.credits[loop.index0|string] }}"{% endif %}>{{ kind }}</span>{% endif %}
         {{ s.narration[:140] }}{{ '…' if s.narration|length > 140 }}
-        <details><summary class="hint">Redraw</summary>
-          {{ start_form('stills', 'Redraw', 'What to change', extra='<input type="hidden" name="scene" value="' ~ loop.index0 ~ '">') }}
-        </details>
+        {% if name %}<details><summary class="hint prod-redraw">Redraw</summary>
+          {{ start_form('stills', 'Redraw', 'What to change (optional)', extra='<input type="hidden" name="scene" value="' ~ loop.index0 ~ '">') }}
+        </details>{% endif %}
       </figcaption>
     </figure>
     {% endfor %}
   </div>
   <div class="actions">{% if data.stages.stills.state == 'ready' %}{{ approve_form('stills') }}{% endif %}</div>
-  {% if 'stills' not in stage_jobs %}{{ start_form('stills', 'Draw all again', with_note=false) }}{% endif %}
+  {% if 'stills' not in stage_jobs %}
+  {% if missing and data.stages.stills.state != 'stale' %}{{ start_form('stills', 'Draw the ' ~ missing|length ~ ' missing · $' ~ '%.2f'|format(missing_cost), with_note=false, extra='<input type="hidden" name="missing" value="1">') }}{% endif %}
+  {% if data.stages.stills.state == 'stale' %}{{ start_form('stills', 'Draw ' ~ to_draw ~ ' changed' ~ (' (' ~ keeping ~ ' kept)' if keeping else '') ~ ' · $' ~ '%.2f'|format(stills_cost), with_note=false) }}{% endif %}
+  {% endif %}
   {% elif 'stills' not in stage_jobs %}
-  {{ start_form('stills', 'Draw ' ~ data.script.scenes|length ~ ' pictures', with_note=false) }}
+  {{ start_form('stills', 'Draw ' ~ to_draw ~ ' pictures' ~ (' (' ~ keeping ~ ' kept)' if keeping else '') ~ ' · $' ~ '%.2f'|format(stills_cost), with_note=false) }}
   {% endif %}
 </section>
 
@@ -325,6 +331,8 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
   .prod-missing { aspect-ratio: 16 / 9; display: grid; place-items: center; background: var(--surface-2);
                   border-radius: var(--radius-sm); color: var(--text-faint); }
   .prod-teaser ol { padding-left: 1.3rem; }
+  .prod-missing { flex-direction: column; gap: var(--sp-2); }
+  .prod-redraw { cursor: pointer; color: var(--accent); }
   .prod-angles { display: grid; gap: var(--sp-2); margin: var(--sp-3) 0; }
   .prod-angle { display: grid; grid-template-columns: auto auto 1fr; gap: 2px var(--sp-2); align-items: baseline;
                 padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }

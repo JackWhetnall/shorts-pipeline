@@ -269,9 +269,8 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
         first = scene["chapter"] not in started
         started.add(scene["chapter"])
         if kinds[i] == "card":
-            raw = cards.clip(scene["card"], card_style, seconds, work / f"card_{i:03d}.mp4",
-                             backdrop=media.backdrop_for(i, pictures, scenes))
-            parts.append(finish.grade(raw, work / f"scene_{i:03d}.mp4", look))
+            parts.append({"card": scene["card"], "seconds": seconds, "raw": work / f"card_{i:03d}.mp4",
+                          "out": work / f"scene_{i:03d}.mp4", "backdrop": media.backdrop_for(i, pictures, scenes)})
             timeline.append([round(start, 2), round(start + seconds, 2)])
             continue
         overlay = None
@@ -291,13 +290,33 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
         for k, (picture, length, move) in enumerate(shots.cut(pictures[i], framings.get(i, []), seconds,
                                                               scene.get("camera", "push_in"), work,
                                                               f"s{i:03d}", beats=beats)):
-            label = overlay if k == 0 else None
-            parts.append(finish.camera_shot(picture, work / f"scene_{i:03d}_{k}.mp4", length, look, move, label,
-                                            overlay_until=min(5.0, length - 0.4), adjust=adjust,
-                                            atmosphere=loop,
-                                            atmosphere_strength=atmosphere.strength(kind_of_air or "")))
+            parts.append({"picture": picture, "seconds": length, "move": move, "out": work / f"scene_{i:03d}_{k}.mp4",
+                          "label": overlay if k == 0 else None, "adjust": adjust, "air": loop,
+                          "strength": atmosphere.strength(kind_of_air or "")})
             timeline.append([round(at, 2), round(at + length, 2)])
             at += length
+
+    # The shots, four at a time: with depth (decision 088) each is a
+    # parallax move drawn here, then finished like any other.
+    from pipeline.documentary import depth
+    with_depth = bool(getattr(channel.documentary, "depth", True)) and depth.available()
+    log.info(f"[4/5] {len(parts)} shots" + (" with depth" if with_depth else "") + "...")
+
+    def make_shot(part):
+        if "card" in part:
+            raw = cards.clip(part["card"], card_style, part["seconds"], part["raw"], backdrop=part["backdrop"])
+            return finish.grade(raw, part["out"], look)
+        moving = None
+        if with_depth:
+            try:
+                moving = depth.clip(part["picture"], part["out"].with_name(part["out"].stem + "_depth.mp4"),
+                                    part["seconds"], part["move"])
+            except Exception as exc:  # noqa: BLE001 - a flat move beats no shot
+                log.warning(f"  [depth] {part['out'].name} moves flat ({exc})")
+        return finish.camera_shot(part["picture"], part["out"], part["seconds"], look, part["move"], part["label"],
+                                  overlay_until=min(5.0, part["seconds"] - 0.4), adjust=part["adjust"],
+                                  atmosphere=part["air"], atmosphere_strength=part["strength"], moving=moving)
+    parts = job_context.parallel_map(make_shot, parts, max_workers=4)
     job_context.report_progress(None)
     board = finish.join(parts, work / "board.mp4")
 

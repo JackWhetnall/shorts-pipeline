@@ -145,14 +145,16 @@ CAMERA_SCALE = 1.5          # drawn larger than the frame first, so the move is 
 
 def camera_shot(image: Path, out: Path, seconds: float, look: dict, move: str = "push_in",
                 overlay: Path = None, overlay_until: float = 0.0, adjust: list = None,
-                atmosphere: Path = None, atmosphere_strength: float = 0.6) -> Path:
+                atmosphere: Path = None, atmosphere_strength: float = 0.6, moving: Path = None) -> Path:
     """A still on screen for `seconds`, the camera moving across it, in
     the look's grade and grain. `overlay` (a transparent picture the
     frame's size: a chapter title, a caption) fades in at half a second
     and out at `overlay_until`. `adjust`: ffmpeg filters applied to the
     picture before the grade (an exposure lift). `atmosphere`: a looping
     clip of light on black (embers, dust, rain) screened over the picture
-    at `atmosphere_strength`, so a still breathes (decision 087)."""
+    at `atmosphere_strength`, so a still breathes (decision 087).
+    `moving`: the camera's move already made (a depth parallax clip,
+    pipeline.documentary.depth); it is finished like the still would be."""
     z0, z1, x0, x1 = CAMERA_MOVES.get(move, CAMERA_MOVES["push_in"])
     frames = max(2, round(seconds * FPS))
     w, h = _size(look)
@@ -162,11 +164,15 @@ def camera_shot(image: Path, out: Path, seconds: float, look: dict, move: str = 
     zoom = (f"zoompan=z='{z0}+({z1 - z0})*{ease}':"
             f"x='(iw-iw/zoom)*({x0}+({x1 - x0})*{ease})':y='(ih-ih/zoom)/2':"
             f"d={frames}:s={w}x{h}:fps={FPS}")
-    chain = [f"scale={big_w}:{big_h}:force_original_aspect_ratio=increase:flags=lanczos",
-             f"crop={big_w}:{big_h}"] + list(adjust or []) + [zoom, "setsar=1"]
+    if moving is not None:
+        chain = [f"scale={w}:{h}:flags=lanczos"] + list(adjust or []) + ["setsar=1"]
+    else:
+        chain = [f"scale={big_w}:{big_h}:force_original_aspect_ratio=increase:flags=lanczos",
+                 f"crop={big_w}:{big_h}"] + list(adjust or []) + [zoom, "setsar=1"]
     chain += grade_filters(look) + texture_filters(look) + ["format=yuv420p"]
     out.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [_ffmpeg(), "-v", "error", "-y", "-loop", "1", "-i", str(image)]
+    cmd = [_ffmpeg(), "-v", "error", "-y"] + (["-i", str(moving)] if moving is not None
+                                               else ["-loop", "1", "-i", str(image)])
     if atmosphere is not None:
         # Light added, never darkened: a screen blend of the particles.
         n = 1

@@ -10,6 +10,7 @@ Redoing an earlier stage makes every later one stale.
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 from types import SimpleNamespace
 
 from core import curriculum, production
@@ -111,10 +112,35 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
         cast.merge(key, sid, data["outline"].get("cast") or [])
         scenes = data["script"]["scenes"]
         target = folder / "stills"
+        kept_paths, kept_credits = {}, {}
         if only is None:
-            # Drawn afresh: the old ones belong to an older script.
-            shutil.rmtree(target, ignore_errors=True)
-        wanted = list(range(len(scenes))) if only is None else list(only)
+            # Drawn again for a changed script (decision 088): every picture
+            # whose scene still asks for the same thing is kept, the rest
+            # drawn. The old folder is set aside until the new one is done.
+            keep = stills.reusable(channel, data, scenes)
+            previous = folder / "stills_previous"
+            shutil.rmtree(previous, ignore_errors=True)
+            if target.exists():
+                target.replace(previous)
+            target.mkdir(parents=True, exist_ok=True)
+            for i, rel in keep.items():
+                source = previous / Path(rel).name
+                if source.exists():
+                    prefix = "art" if Path(rel).name.startswith("art_") else "kf"
+                    kept_paths[i] = target / f"{prefix}_{i:02d}.jpg"
+                    shutil.copyfile(source, kept_paths[i])
+                    # A kept painting keeps its credit line.
+                    was = next((k for k, v in (data.get("stills") or {}).items() if v == rel), None)
+                    if prefix == "art" and was in (data.get("credits") or {}):
+                        kept_credits[str(i)] = data["credits"][was]
+            if kept_paths:
+                log.info(f"  [documentary] kept {len(kept_paths)} pictures from the last storyboard")
+        else:
+            # Drawn again on purpose: the old picture must not come back.
+            for i in only:
+                for prefix in ("kf", "art", "card"):
+                    (target / f"{prefix}_{i:02d}.jpg").unlink(missing_ok=True)
+        wanted = [i for i in (range(len(scenes)) if only is None else only) if i not in kept_paths]
         # Paintings and cards first (decision 086); any that can't be made
         # are drawn instead, so no scene is left without a picture.
         setting = row["title"] + (f" ({row['angle']})" if row.get("angle") else "")
@@ -123,16 +149,30 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
         to_draw = [i for i in wanted if scenes[i].get("medium", "picture") == "picture"] + draw_instead
         drawn = stills.draw(channel, data["outline"], scenes, target, frame="wide", only=to_draw,
                             notes=notes) if to_draw else {}
+        failed = [i for i in to_draw if i not in drawn]
+        if failed:
+            # One more try for any that failed, before anyone has to ask.
+            log.info(f"  [documentary] {len(failed)} picture(s) failed; trying them once more")
+            try:
+                drawn.update(stills.draw(channel, data["outline"], scenes, target, frame="wide", only=failed,
+                                         notes=notes, check=False))
+            except PipelineError as exc:
+                log.warning(f"  [documentary] still couldn't draw {len(failed)}: {exc}")
+        for i, path in kept_paths.items():
+            if path.name.startswith("kf_"):
+                drawn[i] = path
         # Cards last, each drawn over the picture before it (decision 087).
         pictures = {int(k): folder / v for k, v in (data.get("stills") or {}).items()} if only is not None else {}
-        pictures.update({**drawn, **others})
+        pictures.update({**drawn, **others, **{i: p for i, p in kept_paths.items() if p.name.startswith("art_")}})
         cards_made, _, cards_drawn = media.make(channel, scenes, target, only=wanted, kinds=("card",),
                                                 pictures=pictures)
         if cards_drawn:
             drawn.update(stills.draw(channel, data["outline"], scenes, target, frame="wide", only=cards_drawn,
                                      notes=notes))
         others.update(cards_made)
+        others.update({i: p for i, p in kept_paths.items() if p.name.startswith("art_")})
         made_now = {**drawn, **others}
+        descs = {str(i): stills.description(channel, data["outline"], scenes[i]) for i in made_now}
         names = {str(i): str(p.relative_to(folder)).replace("\\", "/") for i, p in made_now.items()}
         shown = {str(i): "drawn" for i in drawn}
         shown.update({str(i): ("card" if scenes[i].get("medium") == "card" else "painting") for i in others})
@@ -146,9 +186,14 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
             for i in wanted:
                 credit.pop(str(i), None)
             credit.update({str(i): c for i, c in credits.items()})
-            d["shown"], d["credits"] = kinds, credit
+            credit.update(kept_credits)
+            keys = {} if only is None else dict(d.get("still_keys") or {})
+            keys.update(descs)
+            d["shown"], d["credits"], d["still_keys"] = kinds, credit, keys
+            d["stills_kept"] = len(kept_paths)
             production.made(d, "stills", kept)
         production.update(key, sid, store)
+        shutil.rmtree(folder / "stills_previous", ignore_errors=True)
         missing = len(scenes) - len(production.load(key, sid)["stills"])
         if missing:
             done.warnings.append(f"{missing} still(s) couldn't be drawn; redraw them from the storyboard.")
