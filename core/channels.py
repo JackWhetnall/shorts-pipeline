@@ -483,6 +483,14 @@ class Documentary(_MappingLike):
     auto_make: bool = False
     # Films made and waiting for a look before it starts another.
     ahead: int = 1
+    # Decision 087. The ElevenLabs model it's voiced with ("": the shorts'
+    # model); a v3/v4 model reads delivery cues the script writes.
+    voice_model: str = ""
+    # Characters speak their own lines, each in a voice of their own.
+    dialogue: bool = False
+    # Embers, dust, rain or snow drifting over the pictures where a scene
+    # has them, so a still breathes.
+    atmosphere: bool = True
 
 
 @dataclass

@@ -48,6 +48,15 @@ from pipeline.plan import Voiceover, WordTiming
 log = get_logger(__name__)
 
 ELEVENLABS_MODEL = "eleven_turbo_v2_5"
+# Models that read inline delivery cues ("[whispers] Get up.") rather than
+# saying them (decision 087). Everything else has them taken out first.
+TAGGED_MODELS = ("eleven_v3", "eleven_v4", "eleven_v4_turbo")
+_DELIVERY_TAG = re.compile(r"\[[a-z][a-z \-']{1,30}\]\s*", re.IGNORECASE)
+
+
+def strip_tags(text: str) -> str:
+    """The words without their delivery cues."""
+    return " ".join(_DELIVERY_TAG.sub("", text or "").split())
 SAMPLE_RATE = 44100
 OUTPUT_FORMAT = f"mp3_{SAMPLE_RATE}_128"
 TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/with-timestamps"
@@ -296,6 +305,26 @@ def transcript_match_ratio(expected_text: str, audio_path: str) -> float:
     return difflib.SequenceMatcher(None, expected, heard).ratio()
 
 
+def without_tags(alignment: dict) -> dict:
+    """The alignment with any [delivery cue] taken out, characters and all."""
+    keep = {"characters": [], "character_start_times_seconds": [], "character_end_times_seconds": []}
+    depth = 0
+    for ch, start, end in zip(alignment["characters"], alignment["character_start_times_seconds"],
+                              alignment["character_end_times_seconds"]):
+        if ch == "[":
+            depth += 1
+            continue
+        if ch == "]" and depth:
+            depth -= 1
+            continue
+        if depth:
+            continue
+        keep["characters"].append(ch)
+        keep["character_start_times_seconds"].append(start)
+        keep["character_end_times_seconds"].append(end)
+    return keep
+
+
 def words_from_alignment(alignment: dict) -> list:
     """Group character-level alignment into words on whitespace.
     Punctuation is just another non-whitespace character, so it stays
@@ -454,7 +483,7 @@ MAX_WORD_GAP = 1.5      # seconds between two words of one line before it counts
 
 def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1.0,
                        max_attempts: int = 3, previous_text: str = "",
-                       next_text: str = "", say_as: dict = None) -> tuple:
+                       next_text: str = "", say_as: dict = None, model: str = None) -> tuple:
     """One segment. Returns (word_timings, samples, fps).
 
     `previous_text` and `next_text` are the neighbouring lines. They are
@@ -475,9 +504,13 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
     chunk from a person talking normally. The transcript check covers
     what it was for, by comparing words rather than waveform shape.)
     """
+    model = model or ELEVENLABS_MODEL
+    if model not in TAGGED_MODELS:
+        text, previous_text, next_text = strip_tags(text), strip_tags(previous_text), strip_tags(next_text)
     tts_text = speakable(text, say_as)
-    # What Whisper should hear: the words as written, not the respellings.
-    heard_text = speakable(text)
+    # What Whisper should hear: the words as written, not the respellings
+    # (or the delivery cues, which aren't said).
+    heard_text = speakable(strip_tags(text))
     word_timings, samples = [], None
     # The best take so far: when every attempt falls short, the closest
     # one is kept, not whichever came last.
@@ -486,7 +519,7 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
     for attempt in range(max_attempts):
         payload = {
             "text": tts_text,
-            "model_id": ELEVENLABS_MODEL,
+            "model_id": model,
             "output_format": OUTPUT_FORMAT,
             "voice_settings": {"speed": speed},
         }
@@ -495,14 +528,15 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
         if next_text:
             payload["next_text"] = speakable(next_text, say_as)
         response = _post_with_backoff(voice_id, payload)
-        costs.record_elevenlabs("voiceover", ELEVENLABS_MODEL,
+        costs.record_elevenlabs("voiceover", model,
                                 _billed_characters(response, tts_text))
 
         data = response.json()
         with open(out_path, "wb") as f:
             f.write(base64.b64decode(data["audio_base64"]))
 
-        word_timings = words_from_alignment(data["alignment"])
+        # A delivery cue is aligned like words but never said.
+        word_timings = words_from_alignment(without_tags(data["alignment"]))
         samples = decode_audio_file(out_path, fps=SAMPLE_RATE)
         is_last = attempt == max_attempts - 1
 
@@ -582,10 +616,10 @@ VOICE_CACHE_DIR = CACHE_DIR / "voice_segments"
 VOICE_CACHE_DAYS = 60
 
 
-def segment_key(text: str, voice_id: str, speed: float, say_as: dict = None) -> str:
+def segment_key(text: str, voice_id: str, speed: float, say_as: dict = None, model: str = None) -> str:
     import hashlib
     import json
-    said = [speakable(text, say_as), voice_id, ELEVENLABS_MODEL, round(float(speed or 1.0), 3)]
+    said = [speakable(text, say_as), voice_id, model or ELEVENLABS_MODEL, round(float(speed or 1.0), 3)]
     return hashlib.sha1(json.dumps(said).encode("utf-8")).hexdigest()
 
 
@@ -618,12 +652,13 @@ def keep_segment(key: str, audio_path, word_timings: list) -> None:
 
 
 def characters_to_voice(segments: list, citation: str, pacing, source_index: int, voice_id: str,
-                        speed: float, say_as: dict = None, reuse: bool = False) -> int:
+                        speed: float, say_as: dict = None, reuse: bool = False, model: str = None,
+                        voices: dict = None) -> int:
     """What this narration will bill, less the lines that will be reused."""
     voiced = _voiced_in_this_job()
     total = 0
-    for text, _, _ in build_plan(segments, citation, pacing, source_index):
-        key = segment_key(text, voice_id, speed, say_as)
+    for text, _, index in build_plan(segments, citation, pacing, source_index):
+        key = segment_key(text, (voices or {}).get(index, voice_id), speed, say_as, model)
         if not ((reuse or key in voiced) and cached_segment(key)):
             total += len(apply_pronunciation_overrides(text))
     return total
@@ -701,7 +736,8 @@ def _stitch(results, segments, out_audio_path: str, close: bool = False):
 
 def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: str,
                        pacing, speed: float = 1.0, source_index: int = 0,
-                       say_as: dict = None, reuse: bool = False, close: bool = False) -> Voiceover:
+                       say_as: dict = None, reuse: bool = False, close: bool = False,
+                       model: str = None, voices: dict = None) -> Voiceover:
     """Synthesize the whole narration and fill in each segment's real
     start/end times.
 
@@ -715,7 +751,12 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
     documentary, whose scenes run on one into the next: given the next
     line, the engine sometimes began saying it, and the usual pad kept
     that stutter at the end of the line before (decision 079).
+
+    `model`: the ElevenLabs model (default ELEVENLABS_MODEL). `voices`:
+    {segment index: voice id} for lines someone other than the narrator
+    speaks, a character's (decision 087).
     """
+    voices = voices or {}
     plan = build_plan(segments, citation, pacing, source_index)
     out_path = Path(out_audio_path)
     segment_paths = [out_path.with_name(f"{out_path.stem}_seg{i}.mp3") for i in range(len(plan))]
@@ -741,7 +782,8 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
     def synth_one(item):
         i, (text, pause, segment_index) = item
         preview = text if len(text) <= 50 else text[:47] + "..."
-        key = segment_key(text, voice_id, speed, say_as)
+        speaker = voices.get(segment_index, voice_id) if segment_index is not None else voice_id
+        key = segment_key(text, speaker, speed, say_as, model)
         kept = cached_segment(key) if reuse or key in voiced else None
         if kept:
             source = "the video this remakes" if reuse and key not in voiced else "the earlier attempt"
@@ -752,10 +794,10 @@ def generate_voiceover(segments: list, citation, voice_id: str, out_audio_path: 
         job_context.report_detail("tts", i, {"status": "active"})
         try:
             timings, samples, _ = synthesize_segment(
-                text, voice_id, str(segment_paths[i]), speed,
+                text, speaker, str(segment_paths[i]), speed,
                 previous_text=plan[i - 1][0] if i > 0 else "",
                 next_text=plan[i + 1][0] if i + 1 < len(plan) and pause < HELD_PAUSE and not close else "",
-                say_as=say_as)
+                say_as=say_as, model=model)
         except Exception:
             job_context.report_detail("tts", i, {"status": "error"})
             raise

@@ -58,6 +58,21 @@ def overused(scenes: list, cast_words: set = frozenset()) -> list:
     return [(w, n) for w, n in counts.most_common(8) if n > limit]
 
 
+def restated(scenes: list) -> list:
+    """[(phrase, count)] for three-word phrases a film keeps coming back
+    to, word for word. The first One Day In History film restated one idea
+    (the law that kept the apprentice in London) in a dozen wordings,
+    which only the critic can hear; this catches the verbatim kind."""
+    import re as _re
+    grams = Counter()
+    for s in scenes:
+        words = _re.findall(r"[a-z']+", s["narration"].lower())
+        for a, b, c in zip(words, words[1:], words[2:]):
+            if sum(1 for w in (a, b, c) if len(w) > 3 and w not in STOP) >= 1:
+                grams[f"{a} {b} {c}"] += 1
+    return [(g, n) for g, n in grams.most_common(5) if n >= 4]
+
+
 def checks(script: dict, outline: dict, angle: dict = None) -> dict:
     """{chapter number: [problem]} from the checks that need no model."""
     from pipeline.script_gen import _AI_TELLS
@@ -84,6 +99,10 @@ def checks(script: dict, outline: dict, angle: dict = None) -> dict:
     for word, count in overused(scenes, cast_words):
         worst = max(by_chapter, key=lambda n: sum(r["narration"].lower().count(word) for r in by_chapter[n]))
         found.setdefault(worst, []).append(f'"{word}" is used {count} times in the film: vary it or cut it.')
+    for phrase, count in restated(scenes):
+        worst = max(by_chapter, key=lambda n: sum(r["narration"].lower().count(phrase) for r in by_chapter[n]))
+        found.setdefault(worst, []).append(f'"{phrase}" comes back {count} times: say the idea once and let '
+                                           f'the story show it.')
     hook = (angle or {}).get("hook", "")
     if hook and scenes:
         want = {w.lower().strip(".,!?") for w in hook.split() if len(w) > 4}
@@ -99,11 +118,14 @@ You are the story editor of a YouTube documentary channel, reading a
 script before it is voiced. Viewers leave the moment a film stops giving
 them something new, and a chapter that only fills time costs the whole
 film. Score each chapter from 1 to 10:
-- `momentum`: does every scene move the story or answer something, and
-  does the chapter end on a turn that makes the next one necessary?
+- `momentum`: does someone want something and act, does every scene
+  move the story, and does the chapter end on a turn that makes the next
+  one necessary? Watching, remembering and explaining score low.
 - `specificity`: names, numbers, concrete details and vivid true moments,
   rather than lines that could be in any film?
-- `voice`: does it sound like a person talking, not like writing?
+- `voice`: does it sound like a person talking, with rhythm and dynamics
+  a narrator can perform (and lines of dialogue that sound spoken), not
+  like writing? Restating the theme or moralising scores low.
 Then, for each chapter, `fix`: one or two sentences saying exactly what
 would make it better (or "" if nothing). Be demanding: 9 and 10 are rare.
 """.strip()

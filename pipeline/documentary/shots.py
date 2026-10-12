@@ -29,7 +29,7 @@ log = get_logger(__name__)
 
 MODEL = "claude-haiku-4-5"
 GROUP = 8
-SHOT_SECONDS = 5.5              # a scene is cut about this often
+SHOT_SECONDS = 4.8              # a scene is cut about this often
 MIN_SHOT = 2.6                  # but never into shots shorter than this
 MAX_SHOTS = 3
 MIN_ZOOM, MAX_ZOOM = 1.35, 2.2  # a crop between ~74% and ~45% of the picture's width
@@ -128,9 +128,13 @@ def plan(stills: dict, cache_path: Path) -> tuple:
     return {i: known.get(_key(p), []) for i, p in stills.items() if Path(p).exists()}, problem
 
 
-def cut(still: Path, boxes: list, seconds: float, move: str, folder: Path, stem: str) -> list:
+def cut(still: Path, boxes: list, seconds: float, move: str, folder: Path, stem: str,
+        beats: list = None) -> list:
     """[(picture, seconds, move)] for one scene: the whole still first with
-    the script's move, then each framing, cropped and moved differently."""
+    the script's move, then each framing, cropped and moved differently.
+    `beats`: times in the scene (seconds from its start) where a new
+    sentence or clause begins; each cut is moved to the nearest one, so
+    the picture changes with the words rather than in the middle of them."""
     from PIL import Image
     if not boxes and seconds > HOLD_MAX:
         # Nothing named worth a closer look, but too long to hold: the
@@ -139,8 +143,8 @@ def cut(still: Path, boxes: list, seconds: float, move: str, folder: Path, stem:
     n = count(seconds, len(boxes))
     if n == 1:
         return [(Path(still), seconds, move)]
-    each = seconds / n
-    out = [(Path(still), each, move)]
+    lengths = _lengths(seconds, n, beats or [])
+    out = [(Path(still), lengths[0], move)]
     image = Image.open(still).convert("RGB")
     w, h = image.size
     for k, (left, top, width, height) in enumerate(boxes[:n - 1], start=1):
@@ -150,8 +154,21 @@ def cut(still: Path, boxes: list, seconds: float, move: str, folder: Path, stem:
         centre = left + width / 2
         # Towards the framing's side of the picture, or in and out for a centred one.
         moved = "pan_right" if centre < 0.4 else "pan_left" if centre > 0.6 else ("push_in" if k == 2 else "pull_out")
-        out.append((path, each, moved))
+        out.append((path, lengths[k], moved))
     return out
+
+
+def _lengths(seconds: float, n: int, beats: list) -> list:
+    """`n` shot lengths adding up to `seconds`, each cut on the nearest
+    beat to an even split when one is close enough."""
+    cuts = []
+    for k in range(1, n):
+        even = seconds * k / n
+        near = [b for b in beats if abs(b - even) <= 0.4 * seconds / n
+                and (not cuts or b - cuts[-1] >= MIN_SHOT) and seconds - b >= MIN_SHOT]
+        cuts.append(min(near, key=lambda b: abs(b - even)) if near else even)
+    edges = [0.0] + cuts + [seconds]
+    return [round(b - a, 3) for a, b in zip(edges, edges[1:])]
 
 
 def longest_hold(timeline: list) -> float:

@@ -46,14 +46,20 @@ The plan:
   film builds to and pays off. A life is not a list of dates; find the
   thing that explains the rest.
 - `visual_concept`: the one visual idea that carries every picture: how
-  the light and colour move through the film (cold to warm, a single
-  accent colour that grows), a way of framing the subject, perhaps a
+  the light and colour move through the film (following the real time
+  of day: bright clear daylight when it's day, warm dusk, lamplit night;
+  never a whole film in gloom), a way of framing the subject, perhaps a
   motif. A motif appears in at most one scene in five, and only where it
   belongs physically (no lit lamp on a stage in daylight). Two films on
   this channel should look like the same series but never like the same
   film.
 - `promise`: what the viewer was promised (the chosen angle's), in one
   sentence. The film keeps it.
+- `want`: what the person at the centre wants today, concretely (to get
+  the bread to the sick house before dark; to get through the gate), and
+  what happens if they fail. Each chapter puts something new in the way.
+  A film about watching events go by loses people; a film about someone
+  trying to get something keeps them.
 - `open_loops`: two to four questions the opening raises that later
   chapters answer, the angle's open question last (answered at the end).
 - `chapters`: in order, built to keep a viewer watching:
@@ -66,8 +72,9 @@ The plan:
     a time, never more than a fifth of the film, and never before the
     second minute unless the promise is about it.
   - Every chapter turns on something new: a reveal, a reversal, a
-    question answered and a sharper one opened. Somewhere between
-    minutes three and six the stakes rise again (a re-hook).
+    question answered and a sharper one opened, and ends on it, so the
+    next chapter is needed. Somewhere between minutes three and six the
+    stakes rise again (a re-hook).
   - The payoff (keeping the promise, closing the last loop) comes in the
     final fifth, concretely; then the film ends quickly, no summary.
   For each chapter:
@@ -83,6 +90,9 @@ The plan:
     help, a real painting of the period (if the channel allows them) and
     animated cards: a big number, a comparison, a quote on screen, a
     timeline, a map of where we are;
+  - `sound`: what's heard behind the narration there, one of: none,
+    interior_fire, street_quiet, street_busy, market, night, rain, bells,
+    countryside, sea, battle, hall, workshop;
   - `minutes`: its share of the running time.
 - `cast`: every person, place and object that appears in more than one
   scene, with `kind` (character, place, object) and a `description` a
@@ -109,11 +119,17 @@ light of tragedy, illness, war or death.
 """.strip()
 
 
+def _sounds():
+    from pipeline.documentary.ambience import SOUNDS
+    return SOUNDS.keys()
+
+
 def schema() -> dict:
     chapter = {"type": "object", "properties": {
         "title": {"type": "string"}, "says": {"type": "string"}, "turn": {"type": "string"},
-        "shows": {"type": "string"}, "minutes": {"type": "number"}},
-        "required": ["title", "says", "turn", "shows", "minutes"], "additionalProperties": False}
+        "shows": {"type": "string"}, "sound": {"type": "string", "enum": list(_sounds())},
+        "minutes": {"type": "number"}},
+        "required": ["title", "says", "turn", "shows", "sound", "minutes"], "additionalProperties": False}
     member = {"type": "object", "properties": {
         "name": {"type": "string"}, "kind": {"type": "string", "enum": ["character", "place", "object"]},
         "description": {"type": "string"}},
@@ -122,11 +138,12 @@ def schema() -> dict:
         "title_options": {"type": "array", "items": {"type": "string"}},
         "through_line": {"type": "string"},
         "promise": {"type": "string"},
+        "want": {"type": "string"},
         "open_loops": {"type": "array", "items": {"type": "string"}},
         "visual_concept": {"type": "string"},
         "chapters": {"type": "array", "items": chapter},
         "cast": {"type": "array", "items": member}},
-        "required": ["title_options", "through_line", "promise", "open_loops", "visual_concept",
+        "required": ["title_options", "through_line", "promise", "want", "open_loops", "visual_concept",
                      "chapters", "cast"],
         "additionalProperties": False}
 
@@ -242,19 +259,24 @@ PRODUCTION_WORDS = re.compile(r"^\s*(?:cold open|opening|intro(?:duction)?|chapt
                               re.IGNORECASE)
 
 
-def chapter_title(raw) -> str:
+def chapter_title(raw, turn: str = "") -> str:
     """A chapter's title as viewers see it in the chapter list: without
-    "Cold open -" or "Chapter 2:" in front, and without dashes."""
+    "Cold open -" or "Chapter 2:" in front, and without dashes. A title
+    that was only "Cold Open" takes the chapter's turn instead."""
     title = " ".join(str(raw or "").split())
     stripped = PRODUCTION_WORDS.sub("", title).strip(" -–—:")
+    if not stripped and turn:
+        first = re.split(r"(?<=[.!?])\s", " ".join(str(turn).split()))[0].rstrip(".")
+        stripped = first if len(first) <= 60 else " ".join(first[:60].split()[:-1])
     title = stripped or title
     return re.sub(r"\s*[–—]\s*|\s+-\s+", ": ", title, count=1)
 
 
 def clean(data: dict, minutes: float) -> dict:
-    chapters = [{"title": chapter_title(c.get("title")),
+    chapters = [{"title": chapter_title(c.get("title"), c.get("turn")),
                  "says": str(c.get("says") or "").strip(), "turn": str(c.get("turn") or "").strip(),
                  "shows": str(c.get("shows") or "").strip(),
+                 "sound": c.get("sound") if c.get("sound") in _sounds() else "none",
                  "minutes": max(0.2, float(c.get("minutes") or 1))}
                 for c in data.get("chapters") or [] if str(c.get("says") or "").strip()]
     if not chapters:
@@ -274,6 +296,7 @@ def clean(data: dict, minutes: float) -> dict:
     return {"title_options": [t.strip() for t in data.get("title_options") or [] if t.strip()][:3],
             "through_line": str(data.get("through_line") or "").strip(),
             "promise": str(data.get("promise") or "").strip(),
+            "want": str(data.get("want") or "").strip(),
             "open_loops": [" ".join(str(q).split()) for q in data.get("open_loops") or [] if str(q).strip()][:4],
             "visual_concept": str(data.get("visual_concept") or "").strip(),
             "chapters": chapters, "cast": cast}

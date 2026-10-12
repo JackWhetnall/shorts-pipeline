@@ -24,13 +24,24 @@ History**, made its first film this way.
 The code changed: close the app's window and start it again, or it
 restarts itself once idle.
 
-### Q. Watch the first One Day In History film and approve it (15 minutes)
-**One Day In History → Productions → "A Day in Plague London, 1665"**:
-the Angle, outline, script and storyboard were approved as the channel's
-autopilot would; the **Video** stage waits for you, with its scorecard
-pills. Watch it from there. Approve it if it's good; if not, say what's
-wrong in the box above the stage you'd change and press **Write again**
-or **Redraw**.
+### Q. Top up the OpenAI API account so the remake can be drawn (2 minutes)
+The remade plague film (decision 087) is written and voiced, but OpenAI
+refused to draw: **"You have no credits remaining."** Add credit at
+**platform.openai.com → Settings → Billing** ($10 covers about four
+films' pictures, roughly $2.50 each). Then tell me, or press **Draw**
+on its **Storyboard** stage, and then **Make the video**.
+
+### Q2. Listen to the new narrator (5 minutes)
+`channels/one_day_in_history/productions/t0001/narration_preview.mp3`
+is the whole remade film's voice track: the channel's own designed
+narrator, with the characters in their own voices. If the voice isn't
+right, say so; the other two designs are in this chat.
+
+### Q3. Let the key make background sounds (1 minute, optional)
+**elevenlabs.io → Developers → API keys →** your key **→ Sound
+effects: on.** Films then get a bed under each chapter (a fire, a
+street, bells, rain). Each bed is made once for every channel, at about
+800 credits.
 
 ### R. Give One Day In History its YouTube channel (10 minutes)
 It needs its own YouTube channel (a new Brand Account on your Google

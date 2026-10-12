@@ -771,6 +771,16 @@ two lessons to the channel's list (`core.lessons`,
 stage each scheduler tick, approving up to the storyboard; the finished
 video always waits for a look.
 
+Decision [087](docs/decisions/087-a-second-look-at-what-holds-people.md):
+a channel's `documentary.voice_model` (v3/v4 perform the script's
+`[delivery cues]`, stripped everywhere else by `tts.strip_tags`),
+`documentary.dialogue` (a scene's `speaker` voiced by
+`render.voices_for`), `documentary.atmosphere` (`atmosphere.py`: embers,
+dust, rain or snow screened over a shot, and an exposure lift for dark
+stills), cuts on sentence starts (`render.beats_in`), cards drawn over
+the scene before (`media.backdrop_for`), and each chapter's `sound`, a
+background bed from `ambience.py` (ElevenLabs sound effects, cached).
+
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
 channel (`ChannelConfig.long_form`) has its own settings page,

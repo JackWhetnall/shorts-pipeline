@@ -144,11 +144,15 @@ CAMERA_SCALE = 1.5          # drawn larger than the frame first, so the move is 
 
 
 def camera_shot(image: Path, out: Path, seconds: float, look: dict, move: str = "push_in",
-                overlay: Path = None, overlay_until: float = 0.0) -> Path:
+                overlay: Path = None, overlay_until: float = 0.0, adjust: list = None,
+                atmosphere: Path = None, atmosphere_strength: float = 0.6) -> Path:
     """A still on screen for `seconds`, the camera moving across it, in
     the look's grade and grain. `overlay` (a transparent picture the
     frame's size: a chapter title, a caption) fades in at half a second
-    and out at `overlay_until`."""
+    and out at `overlay_until`. `adjust`: ffmpeg filters applied to the
+    picture before the grade (an exposure lift). `atmosphere`: a looping
+    clip of light on black (embers, dust, rain) screened over the picture
+    at `atmosphere_strength`, so a still breathes (decision 087)."""
     z0, z1, x0, x1 = CAMERA_MOVES.get(move, CAMERA_MOVES["push_in"])
     frames = max(2, round(seconds * FPS))
     w, h = _size(look)
@@ -159,11 +163,28 @@ def camera_shot(image: Path, out: Path, seconds: float, look: dict, move: str = 
             f"x='(iw-iw/zoom)*({x0}+({x1 - x0})*{ease})':y='(ih-ih/zoom)/2':"
             f"d={frames}:s={w}x{h}:fps={FPS}")
     chain = [f"scale={big_w}:{big_h}:force_original_aspect_ratio=increase:flags=lanczos",
-             f"crop={big_w}:{big_h}", zoom, "setsar=1"]
+             f"crop={big_w}:{big_h}"] + list(adjust or []) + [zoom, "setsar=1"]
     chain += grade_filters(look) + texture_filters(look) + ["format=yuv420p"]
     out.parent.mkdir(parents=True, exist_ok=True)
     cmd = [_ffmpeg(), "-v", "error", "-y", "-loop", "1", "-i", str(image)]
-    if overlay is not None:
+    if atmosphere is not None:
+        # Light added, never darkened: a screen blend of the particles.
+        n = 1
+        cmd += ["-stream_loop", "-1", "-i", str(atmosphere)]
+        graph = (f"[0:v]{','.join(chain[:-1])},format=gbrp[base];"
+                 f"[{n}:v]scale={w}:{h},format=gbrp,colorchannelmixer=rr={atmosphere_strength:.2f}:"
+                 f"gg={atmosphere_strength:.2f}:bb={atmosphere_strength:.2f}[air];"
+                 f"[base][air]blend=all_mode=screen:shortest=1,format=yuv420p[mixed]")
+        last = "mixed"
+        if overlay is not None:
+            until = max(1.2, min(overlay_until or seconds - 0.4, seconds - 0.2))
+            cmd += ["-loop", "1", "-i", str(overlay)]
+            graph += (f";[{n + 1}:v]format=rgba,fade=in:st=0.4:d=0.5:alpha=1,"
+                      f"fade=out:st={max(0.9, until - 0.5):.3f}:d=0.5:alpha=1[label];"
+                      f"[mixed][label]overlay=0:0:shortest=1,format=yuv420p[v]")
+            last = "v"
+        cmd += ["-filter_complex", graph, "-map", f"[{last}]"]
+    elif overlay is not None:
         until = max(1.2, min(overlay_until or seconds - 0.4, seconds - 0.2))
         cmd += ["-loop", "1", "-i", str(overlay)]
         graph = (f"[0:v]{','.join(chain[:-1])}[base];"

@@ -12,6 +12,12 @@ cost nothing to make.
 The map uses Natural Earth's country shapes (already cached for the quiz
 outlines): a slow zoom onto the place, its country picked out in the
 accent colour, a pin and its name.
+
+Over a picture (decision 087): the first film's cards were bright
+parchment slides between dark paintings, a jump of nearly five times in
+brightness, and read as a different film. Given a `backdrop` (the scene
+before), a card is drawn over that picture, blurred and darkened, in
+light type on a smoked-glass panel, so it's a moment in the film.
 """
 
 from __future__ import annotations
@@ -233,20 +239,47 @@ BUILDERS = {"number": _number, "versus": _versus, "quote": _quote, "timeline": _
             "list": _list, "map": _map}
 
 
-def build(card: dict, style: dict, duration: float) -> str:
-    """The card as one self-contained seekable page."""
+OVER_PICTURE = """
+  :root { --ink: #F6F0E6; --soft: rgba(246,240,230,.78); --card: rgba(16,13,10,.58); --on-card: #F6F0E6; }
+  .bg { background: #0d0b09 !important; }
+  .bg-photo { position: absolute; inset: -40px; background-size: cover; background-position: center;
+              filter: blur(18px) brightness(.42) saturate(1.1);
+              transform: scale(calc(1.02 + 0.02 * var(--t, 0) / var(--T, 1))); }
+  .bg-pattern { display: none; }
+  .bg-vignette { background: radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,.55) 100%) !important; }
+  .card { background: var(--card) !important; border: 1px solid rgba(246,240,230,.22) !important;
+          backdrop-filter: blur(6px); box-shadow: 0 18px 50px rgba(0,0,0,.35) !important; }
+  .card.filled { background: color-mix(in srgb, var(--fill) 78%, #000) !important; }
+  .chip { box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .kicker, .title, .hero:not(.accent-text) { text-shadow: 0 4px 24px rgba(0,0,0,.5); }
+  .rail path, .map path { stroke: rgba(246,240,230,.55) !important; }
+  .map .land { fill: color-mix(in srgb, var(--bg) 40%, #1b1611) !important; }
+  .map .home { fill: color-mix(in srgb, var(--a1) 85%, #000) !important; }
+  .mapwrap { background: color-mix(in srgb, var(--a5) 30%, #0b0a09); }
+"""
+
+
+def build(card: dict, style: dict, duration: float, backdrop: Path = None) -> str:
+    """The card as one self-contained seekable page; over `backdrop` (a
+    picture, blurred and darkened) when given."""
     from pipeline.templates import page, theme
     kind = card.get("kind")
     if kind not in BUILDERS:
         raise ValueError(f"no card kind {kind!r}")
     css, body = BUILDERS[kind](card, max(1.0, duration))
+    photo = ""
+    if backdrop is not None and Path(backdrop).exists():
+        import base64
+        data = base64.b64encode(Path(backdrop).read_bytes()).decode("ascii")
+        photo = f"<div class='bg-photo' style=\"background-image:url(data:image/jpeg;base64,{data})\"></div>"
+        css += OVER_PICTURE
     return ("<!doctype html><html><head><meta charset='utf-8'><style>"
             f"{theme.css(style)}"
             f"html, body {{ width: {SIZE[0]}px; height: {SIZE[1]}px; }}"
             f".bg-grain {{ background-image: url({page.GRAIN}); }}"
             ".stage { left: 160px; top: 110px; width: 1600px; height: 860px; gap: 40px; }"
             f"{css}</style></head><body>{page.FILTERS}"
-            "<div class='bg'><div class='bg-pattern'></div><div class='bg-grain'></div>"
+            f"<div class='bg'>{photo}<div class='bg-pattern'></div><div class='bg-grain'></div>"
             f"<div class='bg-vignette'></div></div>"
             + (body if kind == "map" else f"<div class='stage'>{body}</div>")
             + f"<script>window.TEMPLATE_DURATION = {max(1.0, duration):.3f};</script>"
@@ -258,14 +291,14 @@ def style_for(channel) -> dict:
     return art.resolve(channel.scenes.art)
 
 
-def preview(card: dict, style: dict, out: Path, at: float = 3.0) -> Path:
+def preview(card: dict, style: dict, out: Path, at: float = 3.0, backdrop: Path = None) -> Path:
     """A still of the card once it's built, for the storyboard."""
     from pipeline.scenes import render
-    render.page_frame(build(card, style, max(at + 1, 5.0)), at, out, size=SIZE)
+    render.page_frame(build(card, style, max(at + 1, 5.0), backdrop), at, out, size=SIZE)
     return Path(out)
 
 
-def clip(card: dict, style: dict, seconds: float, out: Path) -> Path:
+def clip(card: dict, style: dict, seconds: float, out: Path, backdrop: Path = None) -> Path:
     """The card filmed for `seconds`."""
     from pipeline.scenes import render
-    return render.render_page(build(card, style, seconds), seconds, Path(out), size=SIZE)
+    return render.render_page(build(card, style, seconds, backdrop), seconds, Path(out), size=SIZE)

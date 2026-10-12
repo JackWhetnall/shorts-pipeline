@@ -65,15 +65,28 @@ def painting(scene: dict, out: Path, setting: str = "") -> str:
     return artwork.credit(work)
 
 
-def card_still(channel, scene: dict, out: Path) -> Path:
+def card_still(channel, scene: dict, out: Path, backdrop: Path = None) -> Path:
     from pipeline.documentary import cards
-    return cards.preview(scene["card"], cards.style_for(channel), out)
+    return cards.preview(scene["card"], cards.style_for(channel), out, backdrop=backdrop)
 
 
-def make(channel, scenes: list, folder: Path, only: list = None, setting: str = "") -> tuple:
+def backdrop_for(index: int, pictures: dict, scenes: list):
+    """The picture a card is drawn over: the nearest drawn or painted
+    scene before it, else after it."""
+    def usable(i):
+        return i in pictures and scenes[i].get("medium") != "card"
+    for i in list(range(index - 1, -1, -1)) + list(range(index + 1, len(scenes))):
+        if usable(i):
+            return pictures[i]
+    return None
+
+
+def make(channel, scenes: list, folder: Path, only: list = None, setting: str = "",
+         kinds: tuple = ("painting", "card"), pictures: dict = None) -> tuple:
     """({index: picture path}, {index: credit}, [indices to draw instead])
     for the scenes that aren't drawn: paintings and cards. `setting`: the
-    film's time and place (its plan entry)."""
+    film's time and place (its plan entry). `kinds`: which to make now.
+    `pictures`: {index: still} the cards are drawn over (decision 087)."""
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     made, credits, draw_instead = {}, {}, []
@@ -81,6 +94,8 @@ def make(channel, scenes: list, folder: Path, only: list = None, setting: str = 
         if only is not None and i not in only:
             continue
         medium = scene.get("medium", "picture")
+        if medium not in kinds:
+            continue
         if medium == "painting":
             out = folder / f"art_{i:02d}.jpg"
             try:
@@ -91,8 +106,9 @@ def make(channel, scenes: list, folder: Path, only: list = None, setting: str = 
                 draw_instead.append(i)
         elif medium == "card" and scene.get("card"):
             out = folder / f"card_{i:02d}.jpg"
+            backdrop = backdrop_for(i, pictures, scenes) if pictures else None
             try:
-                made[i] = card_still(channel, scene, out)
+                made[i] = card_still(channel, scene, out, backdrop)
             except Exception as exc:  # noqa: BLE001 - a card that won't build is drawn instead
                 log.warning(f"  [documentary] scene {i + 1}: card failed ({exc}); drawn instead")
                 draw_instead.append(i)

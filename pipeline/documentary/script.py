@@ -54,9 +54,11 @@ editor cuts several shots from it), so:
   sentences, written for the ear. The words of consecutive scenes read
   as one continuous narration; never restart or summarise.
 - `direction`: the stage direction for the painter: where we are, who
-  is there and what they're doing, the moment caught, the light. One
-  concrete, drawable moment, never a montage or a diagram. No text,
-  signs or writing in the picture.
+  is there and what they're doing, the moment caught, the time of day
+  and its light. One concrete, drawable moment, never a montage or a
+  diagram. No text, signs or writing in the picture. Daylight scenes are
+  bright and clear; darkness only when it really is night or a closed
+  room, and even then lit by something.
 - `cast`: the outline's cast members in the picture, by their exact
   names. Anyone else in it is described in the direction instead.
 - `framing`: extreme wide, wide, medium, close-up or extreme close-up.
@@ -68,11 +70,16 @@ editor cuts several shots from it), so:
 - `chapter`: the chapter's number, from 1.
 - `medium`: "picture" (drawn, the usual), "painting" (a real painting of
   the period, found in a museum's collection by `art_query`; only when
-  the channel allows paintings) or "card" (an animated card instead of a
-  picture, described in `card`). Paintings and cards together make about
-  one scene in five or six, spread through the film, never two cards in
-  a row. A painting or card scene still has a `direction`, drawn instead
-  if no painting fits.
+  the channel allows paintings) or "card" (an animated card over the
+  picture before it, described in `card`). A card is for the rare fact
+  that hits harder seen than heard (a shocking number, a stark
+  comparison, a map when the story moves somewhere new): three in a film
+  at most, never a list of rules, a summary or a timeline the narration
+  already gives. A painting or card scene still has a `direction`, drawn
+  instead if no painting fits.
+- `speaker`: "" when the narrator speaks; when the channel uses
+  dialogue, a cast member's exact name for a line that character says
+  aloud in the moment (see below).
 - `art_query`: for a painting, a short museum search for it ("Dutch
   street market", "plague doctor"), else "".
 - `card`: for a card scene, its `kind` and words, which match what is
@@ -92,6 +99,20 @@ The film's first scene speaks the chosen angle's first line (tightened if
 it needs to be) over the most striking picture in the film, and the
 opening chapter raises the open loops. Its last scene lands the promise.
 
+Make it a story, not a tour:
+- Someone wants something concrete today (to get the bread out, to get
+  a message through, to get out before the gate shuts) and every
+  chapter puts something in the way. The viewer should always know what
+  is wanted, what stands in the way and what it costs to fail.
+- Things happen: people act, argue, lie, help, run. A scene where
+  someone only watches or remembers is a scene to cut.
+- Every chapter ends on a turn that makes the next one necessary: a
+  knock, a choice, a bad surprise, a question.
+- Say the film's big idea once, at the end, if at all. Never restate the
+  theme or explain what a moment means; never close on a moral.
+- Warmth and wit are welcome, even in dark places: a dry aside, a human
+  detail, a small joke a person there would have made.
+
 Write for the ear and for retention:
 - Sentences of about fifteen words on average, some much shorter.
   Contractions. Concrete nouns, names and numbers: something specific in
@@ -106,6 +127,9 @@ Write for the ear and for retention:
   vivid, five times is a tic.
 - Never pad. A chapter that needs more words gets more specifics, not
   more adjectives.
+- Vary the music of it: a long sentence that rolls, then a short one.
+  Then a fragment. Questions the viewer would ask. Real dynamics, from
+  a whisper to urgency, so a voice has something to perform.
 
 Narration is read by a voice engine exactly as written: no dashes, no
 stage directions in it, numbers and dates written the way they're said.
@@ -132,9 +156,9 @@ def schema() -> dict:
         "camera": {"type": "string", "enum": list(CAMERA)},
         "caption": {"type": "string"}, "narration": {"type": "string"},
         "medium": {"type": "string", "enum": list(MEDIA)}, "art_query": {"type": "string"},
-        "card": card},
+        "card": card, "speaker": {"type": "string"}},
         "required": ["chapter", "direction", "cast", "framing", "camera", "caption", "narration",
-                     "medium", "art_query", "card"],
+                     "medium", "art_query", "card", "speaker"],
         "additionalProperties": False}
     return {"type": "object", "properties": {
         "scenes": {"type": "array", "items": scene}, "description": {"type": "string"}},
@@ -151,17 +175,43 @@ def outline_text(outline: dict, angle: dict = None) -> str:
     head = angle_text(angle or {})
     return ((f"{head}\n\n" if head else "")
             + (f"Promise: {outline['promise']}\n" if outline.get("promise") else "")
+            + (f"What they want today: {outline['want']}\n" if outline.get("want") else "")
             + (f"Open loops (raised in the opening, answered later):\n{loops}\n" if loops else "")
             + f"Through-line: {outline.get('through_line', '')}\n"
             f"Visual concept: {outline.get('visual_concept', '')}\n\nChapters:\n{chapters}\n\n"
             f"Cast:\n{cast or '(none)'}")
 
 
+DIALOGUE = """
+This channel's films use dialogue. In most chapters, a few scenes are a
+character speaking aloud in the moment: `speaker` is their exact cast
+name, `narration` is only what they say (one or two short sentences,
+plain words of the period, never explaining the plot, never "as you
+know"), and the picture shows them saying it. Only characters in the
+cast speak; the person the viewer plays never does. The narrator speaks
+every other scene and never quotes a line a character has just said.
+""".strip()
+
+DELIVERY = """
+The voice reads delivery cues. A line may begin with one cue in square
+brackets when it changes how the line is said: [whispers], [softly],
+[tense], [urgent], [warm], [wry], [sadly], [shocked], [sighs], [laughs
+softly], [shouting]. Use them where a good narrator would change gear,
+about one scene in four, never two in a row, never anything but these.
+""".strip()
+
+
 def _system(channel) -> list:
     from core import lessons
-    from pipeline import artwork
+    from pipeline import artwork, tts
     extra = "" if artwork.allowed(channel) else ("\n\nThis channel doesn't show paintings: never use "
                                                  "the painting medium.")
+    if getattr(channel.documentary, "dialogue", False):
+        extra += "\n\n" + DIALOGUE
+    else:
+        extra += "\n\nThis channel doesn't use dialogue: `speaker` is always \"\"."
+    if voice_model(channel) in tts.TAGGED_MODELS:
+        extra += "\n\n" + DELIVERY
     taught = lessons.for_prompt(channel.key)
     return [SystemBlock(SYSTEM, cacheable=True),
             SystemBlock(f"The channel's brief for its writers:\n\n{channel.style_prompt}{extra}"
@@ -223,7 +273,8 @@ def _chapter(channel, title: str, outline: dict, number: int, before: list, note
     for attempt in range(2):
         data = call_json(_system(channel), user, schema(), operation="documentary_script",
                          max_tokens=MAX_TOKENS, effort=EFFORT)
-        out = clean(data, outline, paintings=_paintings(channel))
+        out = clean(data, outline, paintings=_paintings(channel),
+                    dialogue=bool(getattr(channel.documentary, "dialogue", False)))
         got = words(out)
         if got >= SHORT_OF * target:
             break
@@ -240,6 +291,12 @@ def _chapter(channel, title: str, outline: dict, number: int, before: list, note
 def _paintings(channel) -> bool:
     from pipeline import artwork
     return artwork.allowed(channel)
+
+
+def voice_model(channel) -> str:
+    """The ElevenLabs model this documentary channel is voiced with."""
+    from pipeline import tts
+    return getattr(channel.documentary, "voice_model", "") or tts.ELEVENLABS_MODEL
 
 
 def write(channel, title: str, outline: dict, note: str = "", angle: dict = None) -> dict:
@@ -285,8 +342,10 @@ def clean_card(raw) -> dict:
     return card if ok else {}
 
 
-def clean(data: dict, outline: dict, paintings: bool = True) -> dict:
+def clean(data: dict, outline: dict, paintings: bool = True, dialogue: bool = False) -> dict:
     names = {m["name"].lower(): m["name"] for m in outline.get("cast") or []}
+    speakers = {m["name"].lower(): m["name"] for m in outline.get("cast") or []
+                if m.get("kind", "character") == "character"}
     count = len(outline["chapters"])
     scenes = []
     for s in data.get("scenes") or []:
@@ -313,6 +372,11 @@ def clean(data: dict, outline: dict, paintings: bool = True) -> dict:
             scene["card"] = card
         if medium == "painting":
             scene["art_query"] = query
+        speaker = speakers.get(str(s.get("speaker") or "").strip().lower(), "") if dialogue else ""
+        if speaker:
+            scene["speaker"] = speaker
+            if speaker not in scene["cast"]:
+                scene["cast"].append(speaker)
         scenes.append(scene)
     if not scenes:
         raise PipelineError("script had no scenes",

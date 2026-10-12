@@ -118,10 +118,20 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
         # Paintings and cards first (decision 086); any that can't be made
         # are drawn instead, so no scene is left without a picture.
         setting = row["title"] + (f" ({row['angle']})" if row.get("angle") else "")
-        others, credits, draw_instead = media.make(channel, scenes, target, only=wanted, setting=setting)
+        others, credits, draw_instead = media.make(channel, scenes, target, only=wanted, setting=setting,
+                                                   kinds=("painting",))
         to_draw = [i for i in wanted if scenes[i].get("medium", "picture") == "picture"] + draw_instead
         drawn = stills.draw(channel, data["outline"], scenes, target, frame="wide", only=to_draw,
                             notes=notes) if to_draw else {}
+        # Cards last, each drawn over the picture before it (decision 087).
+        pictures = {int(k): folder / v for k, v in (data.get("stills") or {}).items()} if only is not None else {}
+        pictures.update({**drawn, **others})
+        cards_made, _, cards_drawn = media.make(channel, scenes, target, only=wanted, kinds=("card",),
+                                                pictures=pictures)
+        if cards_drawn:
+            drawn.update(stills.draw(channel, data["outline"], scenes, target, frame="wide", only=cards_drawn,
+                                     notes=notes))
+        others.update(cards_made)
         made_now = {**drawn, **others}
         names = {str(i): str(p.relative_to(folder)).replace("\\", "/") for i, p in made_now.items()}
         shown = {str(i): "drawn" for i in drawn}
