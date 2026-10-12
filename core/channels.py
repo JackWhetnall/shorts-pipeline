@@ -494,6 +494,10 @@ class Documentary(_MappingLike):
     # Real depth when the camera moves: near things move more than far
     # ones (pipeline.documentary.depth, decision 088). Needs the depth model.
     depth: bool = True
+    # "story" (someone wants something; things in the way) or "explainer"
+    # (a viewer's question answered, one next question at a time):
+    # pipeline.documentary.kinds, decision 089.
+    kind: str = "story"
 
 
 @dataclass
@@ -654,6 +658,9 @@ class ChannelConfig:
             if self.documentary.pictures not in LONG_FORM_PICTURES:
                 raise ConfigError(f"{where} has an unknown kind of pictures "
                                   f"({self.documentary.pictures!r}).")
+            if self.documentary.kind not in ("story", "explainer"):
+                raise ConfigError(f"{where} makes an unknown kind of film ({self.documentary.kind!r}). "
+                                  f"Pick story or explainer.")
             if not 5 <= self.documentary.scene_seconds <= 40:
                 raise ConfigError(f"{where} holds each scene {self.documentary.scene_seconds} "
                                   f"seconds. Pick 5 to 40.")

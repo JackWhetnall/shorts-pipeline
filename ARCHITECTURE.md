@@ -787,6 +787,12 @@ drawn again keeps what still fits (`stills.reusable`) and draws the
 rest; a shot's move gets depth parallax (`depth.py`, Depth Anything V2
 Small in `cache/models/`), finished by `finish.camera_shot(moving=)`.
 
+Decision [089](docs/decisions/089-explainers-gentler-depth-fitting-sound.md):
+`documentary.kind` is "story" or "explainer"; `kinds.py` holds the
+parts of the pitch, outline, script and critic prompts that differ.
+Depth is used only where `depth.suits` (zooms; pans across a whole wide
+picture); a chapter's bed plays only under scenes `ambience.fits`.
+
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
 channel (`ChannelConfig.long_form`) has its own settings page,

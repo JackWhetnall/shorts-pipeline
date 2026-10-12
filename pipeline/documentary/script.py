@@ -55,8 +55,7 @@ editor cuts several shots from it), so:
   as one continuous narration; never restart or summarise.
 - `direction`: the stage direction for the painter: where we are, who
   is there and what they're doing, the moment caught, the time of day
-  and its light. One concrete, drawable moment, never a montage or a
-  diagram. No text, signs or writing in the picture. Daylight scenes are
+  and its light. {direction} No text, signs or writing in the picture. Daylight scenes are
   bright and clear; darkness only when it really is night or a closed
   room, and even then lit by something.
 - `cast`: the outline's cast members in the picture, by their exact
@@ -73,9 +72,7 @@ editor cuts several shots from it), so:
   the channel allows paintings) or "card" (an animated card over the
   picture before it, described in `card`). A card is for the rare fact
   that hits harder seen than heard (a shocking number, a stark
-  comparison, a map when the story moves somewhere new): three in a film
-  at most, never a list of rules, a summary or a timeline the narration
-  already gives. A painting or card scene still has a `direction`, drawn
+  comparison, a map when the story moves somewhere new): {cards}. A painting or card scene still has a `direction`, drawn
   instead if no painting fits.
 - `speaker`: "" when the narrator speaks; when the channel uses
   dialogue, a cast member's exact name for a line that character says
@@ -99,19 +96,7 @@ The film's first scene speaks the chosen angle's first line (tightened if
 it needs to be) over the most striking picture in the film, and the
 opening chapter raises the open loops. Its last scene lands the promise.
 
-Make it a story, not a tour:
-- Someone wants something concrete today (to get the bread out, to get
-  a message through, to get out before the gate shuts) and every
-  chapter puts something in the way. The viewer should always know what
-  is wanted, what stands in the way and what it costs to fail.
-- Things happen: people act, argue, lie, help, run. A scene where
-  someone only watches or remembers is a scene to cut.
-- Every chapter ends on a turn that makes the next one necessary: a
-  knock, a choice, a bad surprise, a question.
-- Say the film's big idea once, at the end, if at all. Never restate the
-  theme or explain what a moment means; never close on a moral.
-- Warmth and wit are welcome, even in dark places: a dry aside, a human
-  detail, a small joke a person there would have made.
+{shape}
 
 Write for the ear and for retention:
 - Sentences of about fifteen words on average, some much shorter.
@@ -201,6 +186,14 @@ about one scene in four, never two in a row, never anything but these.
 """.strip()
 
 
+def system_text(channel) -> str:
+    """The script's instructions for this channel's kind of film (decision 089)."""
+    from pipeline.documentary import kinds
+    kind = kinds.of(channel)
+    return (SYSTEM.replace("{shape}", kinds.SCRIPT_SHAPE[kind])
+            .replace("{direction}", kinds.SCRIPT_DIRECTION[kind]).replace("{cards}", kinds.SCRIPT_CARDS[kind]))
+
+
 def _system(channel) -> list:
     from core import lessons
     from pipeline import artwork, tts
@@ -213,7 +206,7 @@ def _system(channel) -> list:
     if voice_model(channel) in tts.TAGGED_MODELS:
         extra += "\n\n" + DELIVERY
     taught = lessons.for_prompt(channel.key)
-    return [SystemBlock(SYSTEM, cacheable=True),
+    return [SystemBlock(system_text(channel), cacheable=True),
             SystemBlock(f"The channel's brief for its writers:\n\n{channel.style_prompt}{extra}"
                         + (f"\n\n{taught}" if taught else ""))]
 

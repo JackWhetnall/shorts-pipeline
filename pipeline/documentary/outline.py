@@ -55,11 +55,7 @@ The plan:
   film.
 - `promise`: what the viewer was promised (the chosen angle's), in one
   sentence. The film keeps it.
-- `want`: what the person at the centre wants today, concretely (to get
-  the bread to the sick house before dark; to get through the gate), and
-  what happens if they fail. Each chapter puts something new in the way.
-  A film about watching events go by loses people; a film about someone
-  trying to get something keeps them.
+{want}
 - `open_loops`: two to four questions the opening raises that later
   chapters answer, the angle's open question last (answered at the end).
 - `chapters`: in order, built to keep a viewer watching:
@@ -67,10 +63,7 @@ The plan:
     angle's first line, shows the most striking pictures in the film,
     states the promise and raises the open loops. It is never an
     introduction, a date and the weather, or the start of a biography.
-  - Start the story where the promise is. Background (childhood, how
-    things got there) only where the story needs it, a minute at most at
-    a time, never more than a fifth of the film, and never before the
-    second minute unless the promise is about it.
+{start}
   - Every chapter turns on something new: a reveal, a reversal, a
     question answered and a sharper one opened, and ends on it, so the
     next chapter is needed. Somewhere between minutes three and six the
@@ -117,6 +110,14 @@ legitimate speculation are welcome when they're said to be legend or
 speculation; nothing is invented and presented as fact. Never make
 light of tragedy, illness, war or death.
 """.strip()
+
+
+def system_text(channel) -> str:
+    """The plan's instructions for this channel's kind of film (decision 089)."""
+    from pipeline.documentary import kinds
+    kind = kinds.of(channel)
+    return (SYSTEM.replace("{want}", kinds.OUTLINE_WANT[kind]).replace("{start}", kinds.OUTLINE_START[kind])
+            + kinds.OUTLINE_SOUND[kind])
 
 
 def _sounds():
@@ -193,7 +194,7 @@ def write(channel, row: dict, note: str = "", angle: dict = None) -> dict:
     from pipeline.documentary import cast as library
     topic = curriculum.find_topic(channel.key, row["topic"]) or {}
     minutes = float(channel.documentary.minutes)
-    system = [SystemBlock(SYSTEM, cacheable=True),
+    system = [SystemBlock(system_text(channel), cacheable=True),
               SystemBlock(f"The channel's brief for its writers:\n\n{channel.style_prompt}"
                           + (f"\n\nHow it opens a video: {channel.hook_style}" if channel.hook_style else ""))]
     look = _look_text(channel)

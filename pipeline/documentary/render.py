@@ -120,10 +120,14 @@ def beats_in(word_timings: list, start: float, seconds: float) -> list:
 
 
 def chapter_sounds(scenes: list, segments: list, outline: dict) -> list:
-    """[(start, end, sound)] for each chapter's stretch of the film."""
+    """[(start, end, sound)]: each chapter's bed, under the scenes that
+    show its place (decision 089); cards and other scenes get none."""
+    from pipeline.documentary import ambience
     spans = []
     for s, seg in zip(scenes, segments):
         key = (outline["chapters"][s["chapter"] - 1].get("sound") or "none")             if s["chapter"] <= len(outline["chapters"]) else "none"
+        if key != "none" and (s.get("medium") == "card" or not ambience.fits(key, s.get("direction", ""))):
+            key = "none"
         if spans and spans[-1][2] == key and abs(spans[-1][1] - seg.start) < 0.01:
             spans[-1] = (spans[-1][0], seg.end, key)
         else:
@@ -291,6 +295,7 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
                                                               scene.get("camera", "push_in"), work,
                                                               f"s{i:03d}", beats=beats)):
             parts.append({"picture": picture, "seconds": length, "move": move, "out": work / f"scene_{i:03d}_{k}.mp4",
+                          "framing": scene.get("framing", "medium"), "whole": k == 0,
                           "label": overlay if k == 0 else None, "adjust": adjust, "air": loop,
                           "strength": atmosphere.strength(kind_of_air or "")})
             timeline.append([round(at, 2), round(at + length, 2)])
@@ -307,7 +312,7 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
             raw = cards.clip(part["card"], card_style, part["seconds"], part["raw"], backdrop=part["backdrop"])
             return finish.grade(raw, part["out"], look)
         moving = None
-        if with_depth:
+        if with_depth and depth.suits(part["move"], part["framing"], part["whole"]):
             try:
                 moving = depth.clip(part["picture"], part["out"].with_name(part["out"].stem + "_depth.mp4"),
                                     part["seconds"], part["move"])

@@ -105,7 +105,7 @@ def subject_words(subject: str) -> set:
     """The words that say what a film is about, from its plan entry's
     title: "A Day in Plague London, 1665" -> plague, london, 1665."""
     return {w.lower() for w in re.findall(r"[A-Za-z0-9']+", subject or "")
-            if (len(w) >= 4 or w.isdigit()) and w.lower() not in GENERIC}
+            if (len(w) >= 4 or w.isdigit()) and w.lower() not in GENERIC and "'" not in w}
 
 
 def title_problems(title: str, words: str = "", subject: str = "") -> list:
@@ -173,8 +173,10 @@ def earlier_titles(channel_key: str, subtopic_id: str) -> list:
 def write(channel, row: dict, note: str = "") -> dict:
     """Angles for one plan entry, the best chosen. About two cents."""
     from core import lessons
+    from pipeline.documentary import kinds
     topic = curriculum.find_topic(channel.key, row["topic"]) or {}
-    system = [SystemBlock(SYSTEM.format(angles=ANGLES), cacheable=True),
+    extra = kinds.PITCH[kinds.of(channel)]
+    system = [SystemBlock(SYSTEM.format(angles=ANGLES) + (f"\n\n{extra}" if extra else ""), cacheable=True),
               SystemBlock(f"The channel: {channel.channel_display_name or channel.key}. Its brief for "
                           f"its writers:\n\n{channel.style_prompt}"
                           + (f"\n\nHow it opens a video: {channel.hook_style}" if channel.hook_style else ""))]

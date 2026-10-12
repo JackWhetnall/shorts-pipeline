@@ -33,8 +33,36 @@ log = get_logger(__name__)
 FOLDER = CACHE_DIR / "ambience"
 URL = "https://api.elevenlabs.io/v1/sound-generation"
 BED_SECONDS = 20
-UNDER_DB = 15.0                 # how far a bed sits under the voice
+# How far a bed sits under the voice. It was 15, and the fire's crackle
+# was "loud and harsh" under the remade plague film (decision 089).
+UNDER_DB = 24.0
+CREST = 3.0                     # a bed's loudest moment, at most this many times its average
 CROSSFADE = 1.5
+
+# What a scene's direction must show for its chapter's bed to play under
+# it (decision 089): the fire ran under street scenes, close faces and
+# cards for minutes at a time, "inconsistent with what is on show".
+FITS = {
+    "interior_fire": r"(fire|hearth|oven|bakehouse|bakery|kitchen|forge|flames?|embers?|fireplace)",
+    "street_quiet": r"(street|lane|alley|road|square|doorway|outside|town|village)",
+    "street_busy": r"(street|lane|alley|road|square|crowd|cart|outside|town|bridge)",
+    "market": r"(market|stall|crowd|square|trader|haggl\w*)",
+    "night": r"(night|dark|moon\w*|midnight|stars?)",
+    "rain": r"(rain\w*|storm|wet|downpour)",
+    "bells": r"(bells?|church|steeple|tower|cathedral|street|town|rooftops?)",
+    "countryside": r"(field|fields|meadow|countryside|farm|hill|hills|road|village|orchard)",
+    "sea": r"(sea|ship|deck|waves?|harbour|harbor|ocean|boat|shore)",
+    "battle": r"(battle\w*|cannon|musket\w*|soldiers?|army|trench\w*|siege)",
+    "hall": r"(hall|court|chamber|crowd|room|church|theatre|tavern)",
+    "workshop": r"(workshop|forge|anvil|bench|tools?|smith|mill|factory)",
+}
+
+
+def fits(key: str, direction: str) -> bool:
+    """Whether a scene shows the place its chapter's bed is the sound of."""
+    import re
+    pattern = FITS.get(key)
+    return bool(pattern and re.search(rf"\b{pattern}\b", direction or "", re.IGNORECASE))
 
 SOUNDS = {
     "none": "",
@@ -102,7 +130,11 @@ def bed(spans: list, fps: int, length: int, voice_rms: float) -> tuple:
             if samples.ndim == 1:
                 samples = np.repeat(samples[:, None], 2, axis=1)
             rms = float(np.sqrt((samples ** 2).mean()) or 1.0)
-            loaded[key] = samples * (target / rms)
+            samples = samples * (target / rms)
+            peak = float(np.abs(samples).max() or 1.0)
+            if peak > CREST * target:
+                samples *= CREST * target / peak        # a crackle that cuts through is turned down
+            loaded[key] = samples
         source = loaded[key]
         a, b = max(0, int((start - CROSSFADE / 2) * fps)), min(length, int((end + CROSSFADE / 2) * fps))
         if b <= a:

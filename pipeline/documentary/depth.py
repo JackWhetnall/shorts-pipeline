@@ -49,7 +49,23 @@ MOVES = {
     "still": (1.06, 1.08, 0.0, 0.04),
 }
 
+# How much more a near point slides sideways than the middle distance,
+# and a far one less. It was 2.5, which sent the background the other way
+# and tore faces apart on a close pan (the owner, 12 Oct: "panning up
+# close is horrible"); zooms looked fine.
+PAN_SPREAD = 0.6
+WIDE = ("extreme wide", "wide")
+
 _session = None
+
+
+def suits(move: str, framing: str, whole: bool) -> bool:
+    """Whether a shot gets depth (decision 089): a push, pull or hold
+    always; a pan only across the whole of a wide picture, where nothing
+    is close enough to warp. A close crop pans flat."""
+    if not move.startswith("pan"):
+        return True
+    return whole and framing in WIDE
 
 
 def available() -> bool:
@@ -122,7 +138,7 @@ def frames(still: Path, near: np.ndarray, seconds: float, move: str = "push_in")
     dx, dy = xs - w / 2, ys - h / 2
     cx, cy = w / 2, h / 2
     n = max(2, round(seconds * FPS))
-    spread = (1 + 2.5 * (near - 0.5)).astype(np.float32)
+    spread = (1 + PAN_SPREAD * (near - 0.5)).astype(np.float32)
     for i in range(n):
         e = 0.5 - 0.5 * np.cos(np.pi * i / (n - 1))          # eased progress
         zoom = z0 + (z1 - z0) * e

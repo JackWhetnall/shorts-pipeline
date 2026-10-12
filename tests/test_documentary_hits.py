@@ -218,7 +218,7 @@ def test_the_editor_rewrites_the_weakest_chapters_and_says_why(world, monkeypatc
     script = {"scenes": [{"chapter": 1, "narration": "It's five in the morning and the bells have started counting the dead.",
                           "medium": "picture"},
                          {"chapter": 2, "narration": "Things happened.", "medium": "picture"}], "description": ""}
-    monkeypatch.setattr(editor, "critique", lambda s, o, a=None: {1: {"score": 8.5, "fix": ""},
+    monkeypatch.setattr(editor, "critique", lambda s, o, a=None, kind="story": {1: {"score": 8.5, "fix": ""},
                                                                   2: {"score": 4.0, "fix": "Say what the bread cost."}})
     rewritten = []
 

@@ -4,13 +4,29 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 11 Oct 2026. Start with P to S: a new channel, One Day In History, has its first film waiting for you. The project is pivoting to long-form: Phase 0 is built and step 0 has your part. History Unmystified has its own, shorter settings page and is ready for its first film: see F to H. Pub Quiz Buzz and Minute Pastor both publish
+*Last updated: 12 Oct 2026. Start with U and V: a new explainer channel, Why, Though?, has its first film. Then P to S: a new channel, One Day In History, has its first film waiting for you. The project is pivoting to long-form: Phase 0 is built and step 0 has your part. History Unmystified has its own, shorter settings page and is ready for its first film: see F to H. Pub Quiz Buzz and Minute Pastor both publish
 by themselves. Do the "Now" section first. The app's new home page,
 **Today**, now lists what needs you as it happens, and **Money** shows
 costs, runway and payback; this file is for steps outside the app. The
 app has a new look (decision 068): restart it (step E) to see it.*
 
 ---
+
+## Why, Though?: an explainer channel (12 Oct)
+
+A documentary channel can now make **explainers**: a viewer's question
+answered one next question at a time, in a cartoon look (decision 089).
+Depth no longer warps close pans, and background sound only plays under
+scenes that show its place, much quieter.
+
+### U. Watch the first Why, Though? film (10 minutes)
+**Why, Though? → Productions → "Why Can't We Dig to the Centre of the
+Earth?"**, Video stage. Compare it with the plague film: is this the
+kind of video you'd watch? Approve it, or say what's wrong.
+
+### V. Decide which channels to keep (2 minutes)
+Delete, keep or pause One Day In History and Why, Though? in Settings.
+Neither makes films on its own yet.
 
 ## Films built to be watched, and One Day In History (11 Oct)
 

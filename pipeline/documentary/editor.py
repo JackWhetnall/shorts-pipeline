@@ -118,9 +118,7 @@ You are the story editor of a YouTube documentary channel, reading a
 script before it is voiced. Viewers leave the moment a film stops giving
 them something new, and a chapter that only fills time costs the whole
 film. Score each chapter from 1 to 10:
-- `momentum`: does someone want something and act, does every scene
-  move the story, and does the chapter end on a turn that makes the next
-  one necessary? Watching, remembering and explaining score low.
+{momentum}
 - `specificity`: names, numbers, concrete details and vivid true moments,
   rather than lines that could be in any film?
 - `voice`: does it sound like a person talking, with rhythm and dynamics
@@ -140,7 +138,12 @@ def critic_schema() -> dict:
             "required": ["chapters"], "additionalProperties": False}
 
 
-def critique(script: dict, outline: dict, angle: dict = None) -> dict:
+def critic_text(kind: str = "story") -> str:
+    from pipeline.documentary import kinds
+    return CRITIC.replace("{momentum}", kinds.CRITIC_MOMENTUM.get(kind, kinds.CRITIC_MOMENTUM["story"]))
+
+
+def critique(script: dict, outline: dict, angle: dict = None, kind: str = "story") -> dict:
     """{chapter: {"score", "fix"}} from one critic call."""
     lines = []
     for i, c in enumerate(outline["chapters"], start=1):
@@ -148,7 +151,7 @@ def critique(script: dict, outline: dict, angle: dict = None) -> dict:
         lines += [s["narration"] for s in script["scenes"] if s["chapter"] == i]
     promise = (angle or {}).get("promise") or outline.get("promise", "")
     user = (f"The film's promise: {promise}\n" if promise else "") + "The script:\n" + "\n".join(lines)
-    data = call_json(CRITIC, user, critic_schema(), operation="documentary_critic",
+    data = call_json(critic_text(kind), user, critic_schema(), operation="documentary_critic",
                      max_tokens=CRITIC_MAX_TOKENS, effort=CRITIC_EFFORT)
     out = {}
     for row in data.get("chapters") or []:
@@ -168,7 +171,8 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -
     from pipeline.documentary import script as scripts
     problems = checks(script, outline, angle)
     try:
-        reviews = critique(script, outline, angle)
+        from pipeline.documentary import kinds
+        reviews = critique(script, outline, angle, kinds.of(channel))
     except PipelineError as exc:
         log.warning(f"  [documentary] the editor's read failed ({exc}); checks only")
         reviews = {}
