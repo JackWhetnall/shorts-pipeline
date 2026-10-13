@@ -126,17 +126,17 @@ SCRIPT_SHAPE = {
 - Be funny where it's natural: a dry aside, an absurd comparison. Wonder
   over solemnity.
 - Each picture shows the idea being said: a visual metaphor, a cutaway,
-  someone trying it, things side by side at their real scale.""",
+  someone trying it, things side by side at their real scale. The film's
+  settings anchor it; most ideas get a one-off picture of their own, from
+  the film's own world where possible. One picture per idea: when the
+  narration comes back to an idea, so does its picture.""",
 }
 
 SCRIPT_DIRECTION = {
     "story": "One concrete, drawable moment, never a montage or a\n  diagram.",
     "explainer": ("One clear, drawable picture of the idea being said: a character doing something, a "
                   "cutaway, a visual metaphor, two things side by side at scale. Never a chart, a "
-                  "labelled diagram or a montage. A cutaway of a planet or an object sits in space or on "
-                  "its own, never hanging over a landscape. Vary where we are and the light from scene to "
-                  "scene (daylight, night, a lab, space, inside the thing); one time of day for a whole "
-                  "film looks like one picture."),
+                  "labelled diagram or a montage."),
 }
 
 SCRIPT_CARDS = {

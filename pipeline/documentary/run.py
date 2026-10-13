@@ -147,17 +147,34 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
         others, credits, draw_instead = media.make(channel, scenes, target, only=wanted, setting=setting,
                                                    kinds=("painting",))
         to_draw = [i for i in wanted if scenes[i].get("medium", "picture") == "picture"] + draw_instead
-        # A picture the film comes back to is drawn once (decision 090).
-        same = stills.repeats(scenes, to_draw) if only is None else {}
+        # A picture the film comes back to is drawn once: as the picture
+        # editor planned it (decision 092), or, for a script made before
+        # that, as one quick look finds (decision 090).
+        if only is not None:
+            same = {}
+        elif (data["script"].get("pictures") or {}).get("planned"):
+            pool = set(to_draw) | set(kept_paths)
+            same = {i: s["same_as"] for i, s in enumerate(scenes)
+                    if i in to_draw and isinstance(s.get("same_as"), int) and s["same_as"] in pool}
+        else:
+            same = stills.repeats(scenes, to_draw)
         if same:
             log.info(f"  [documentary] {len(same)} scene(s) reuse an earlier picture")
             to_draw = [i for i in to_draw if i not in same]
         drawn = stills.draw(channel, data["outline"], scenes, target, frame="wide", only=to_draw,
                             notes=notes) if to_draw else {}
         for i, j in same.items():
-            if j in drawn:
+            source = drawn.get(j) or kept_paths.get(j)
+            if source is not None and Path(source).exists():
                 drawn[i] = target / f"kf_{i:02d}.jpg"
-                shutil.copyfile(drawn[j], drawn[i])
+                shutil.copyfile(source, drawn[i])
+        if only is not None:
+            # A picture redrawn on purpose goes with every scene that shows it again.
+            for i, s in enumerate(scenes):
+                j = s.get("same_as")
+                if i not in only and j in drawn and str(i) in (data.get("stills") or {}):
+                    drawn[i] = target / f"kf_{i:02d}.jpg"
+                    shutil.copyfile(drawn[j], drawn[i])
         failed = [i for i in to_draw + list(same) if i not in drawn]
         if failed:
             # One more try for any that failed, before anyone has to ask.
@@ -200,6 +217,9 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
             keys.update(descs)
             d["shown"], d["credits"], d["still_keys"] = kinds, credit, keys
             d["stills_kept"] = len(kept_paths)
+            for i in only or ():
+                # Redrawn on purpose: it has a picture of its own now.
+                (d["script"]["scenes"][i] if i < len(d["script"]["scenes"]) else {}).pop("same_as", None)
             d["stills_reused"] = {str(i): j for i, j in same.items() if i in drawn} if only is None \
                 else {k: v for k, v in (d.get("stills_reused") or {}).items() if int(k) not in only}
             production.made(d, "stills", kept)

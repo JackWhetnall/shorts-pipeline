@@ -805,6 +805,15 @@ explainers are structured by `kinds.py` (proof, stakes, mystery, clues,
 twist, payoff); `editor.explainer_checks` and `editor.fact_check` run on
 explainer scripts only (corrections kept as `script.facts`).
 
+Decision [092](docs/decisions/092-pictures-planned-as-a-set.md):
+an outline has `settings` (each at a scale) and each cast member the
+settings it exists in; scenes name a setting or "one-off".
+`pictures.plan` (after `editor.final_line`) redirects misplaced pictures,
+sets `same_as` for pictures shown again and balances settings, checked by
+`pictures.audit`/`validate`; the storyboard draws only originals.
+`shots.interleave` cuts between neighbours in one setting; the render holds
+and fades the last picture (`END_HOLD`, `FADE_OUT`).
+
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
 channel (`ChannelConfig.long_form`) has its own settings page,

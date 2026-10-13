@@ -34,6 +34,9 @@ MAX_TOKENS = 16000
 EFFORT = "medium"
 EARLIER_SHOWN = 8
 COLD_OPEN_MAX = 1.2             # minutes: the first chapter is the hook, not the start of the story
+# Decision 092: where a film's pictures happen, each at one scale, so a
+# person never stands beside a planet cut open in space.
+SCALES = ("space", "planet", "landscape", "human", "small", "microscopic", "cutaway")
 
 SYSTEM = """
 You are the story editor of a documentary channel. Plan one long-form
@@ -87,11 +90,31 @@ The plan:
     interior_fire, street_quiet, street_busy, market, night, rain, bells,
     countryside, sea, battle, hall, workshop;
   - `minutes`: its share of the running time.
-- `cast`: every person, place and object that appears in more than one
-  scene, with `kind` (character, place, object) and a `description` a
-  painter could hold on to: for a person, their age in this film, face,
-  hair, build, period-accurate clothes and colours; for a place, its
-  layout, materials and light. The same person at very different ages is
+- `settings`: the places the film keeps returning to, three to six,
+  each at one scale: a laboratory; the view down its
+  microscope; the drilling site on the tundra; the inside of the
+  borehole; the whole planet, cut open, seen from space. Each has a
+  `name`, its `scale` (space, planet, landscape, human, small,
+  microscopic or cutaway) and a `description` a painter could hold on
+  to: what is there, the light, how big things are. Every picture
+  happens in exactly one setting and shows only what exists there at
+  that scale. Something from another setting is seen only through a real
+  thing in this one (a creature on the lab's monitor, a globe on a desk,
+  a map on a wall), never placed in it. A cutaway or microscopic setting
+  holds only what is really inside it: a person exists there only if a
+  person could really stand there. A picture the film doesn't return to
+  (a visual metaphor, an example, a comparison) has a place of its own
+  and isn't listed.
+- `cast`: the people and particular objects that must look the same in
+  more than one picture, with `kind` (character or object), `settings`
+  (the names of every setting it can be seen in: a drill bit is in the
+  shaft, and on the rig when it's hauled up; a person isn't inside a
+  planet's cutaway, a microbe isn't on the lab bench) and a
+  `description` a painter could hold on to: for a person, their age in
+  this film, face, hair, build, period-accurate clothes and colours. A
+  diagram, a cutaway, a symbol or an idea is never cast: each picture
+  draws it as that moment needs. Places are settings, not cast. Keep the
+  cast small. The same person at very different ages is
   two members ("George Washington (young surveyor)" and "George
   Washington (president)"). Describe who they are and how they look,
   never the medium or art style they're drawn in (no "felt figure", no
@@ -133,8 +156,13 @@ def schema() -> dict:
         "required": ["title", "says", "turn", "shows", "sound", "minutes"], "additionalProperties": False}
     member = {"type": "object", "properties": {
         "name": {"type": "string"}, "kind": {"type": "string", "enum": ["character", "place", "object"]},
+        "settings": {"type": "array", "items": {"type": "string"}},
         "description": {"type": "string"}},
-        "required": ["name", "kind", "description"], "additionalProperties": False}
+        "required": ["name", "kind", "settings", "description"], "additionalProperties": False}
+    setting = {"type": "object", "properties": {
+        "name": {"type": "string"}, "scale": {"type": "string", "enum": list(SCALES)},
+        "description": {"type": "string"}},
+        "required": ["name", "scale", "description"], "additionalProperties": False}
     return {"type": "object", "properties": {
         "title_options": {"type": "array", "items": {"type": "string"}},
         "through_line": {"type": "string"},
@@ -143,9 +171,10 @@ def schema() -> dict:
         "open_loops": {"type": "array", "items": {"type": "string"}},
         "visual_concept": {"type": "string"},
         "chapters": {"type": "array", "items": chapter},
+        "settings": {"type": "array", "items": setting},
         "cast": {"type": "array", "items": member}},
         "required": ["title_options", "through_line", "promise", "want", "open_loops", "visual_concept",
-                     "chapters", "cast"],
+                     "chapters", "settings", "cast"],
         "additionalProperties": False}
 
 
@@ -184,6 +213,11 @@ def problems(outline: dict, minutes: float) -> list:
         found.append("These chapters don't turn on anything: " + "; ".join(flat[:4]))
     if not outline.get("open_loops"):
         found.append("No open loops: the opening must raise questions the later chapters answer.")
+    if not outline.get("settings"):
+        found.append("No settings: name the places the pictures happen in, each at one scale.")
+    homeless = [m["name"] for m in outline.get("cast") or [] if outline.get("settings") and not m.get("settings")]
+    if homeless:
+        found.append("These cast members exist in no setting: " + "; ".join(homeless[:4]))
     return found
 
 
@@ -287,17 +321,28 @@ def clean(data: dict, minutes: float) -> dict:
     total = sum(c["minutes"] for c in chapters)
     for c in chapters:
         c["minutes"] = round(c["minutes"] * minutes / total, 1)
+    settings, named = [], {}
+    for s in data.get("settings") or []:
+        name = " ".join(str(s.get("name") or "").split())
+        if name and name.lower() not in named:
+            named[name.lower()] = name
+            settings.append({"name": name, "scale": s.get("scale") if s.get("scale") in SCALES else "human",
+                             "description": " ".join(str(s.get("description") or name).split())})
     cast, seen = [], set()
     for m in data.get("cast") or []:
         name = " ".join(str(m.get("name") or "").split())
-        if name and name.lower() not in seen:
+        if name and name.lower() not in seen and name.lower() not in named:
             seen.add(name.lower())
-            cast.append({"name": name, "kind": m.get("kind") if m.get("kind") in ("character", "place", "object")
-                         else "character", "description": " ".join(str(m.get("description") or name).split())})
+            member = {"name": name, "kind": m.get("kind") if m.get("kind") in ("character", "place", "object")
+                      else "character", "description": " ".join(str(m.get("description") or name).split())}
+            if settings:
+                member["settings"] = [named[w.strip().lower()] for w in m.get("settings") or []
+                                      if w.strip().lower() in named]
+            cast.append(member)
     return {"title_options": [t.strip() for t in data.get("title_options") or [] if t.strip()][:3],
             "through_line": str(data.get("through_line") or "").strip(),
             "promise": str(data.get("promise") or "").strip(),
             "want": str(data.get("want") or "").strip(),
             "open_loops": [" ".join(str(q).split()) for q in data.get("open_loops") or [] if str(q).strip()][:4],
             "visual_concept": str(data.get("visual_concept") or "").strip(),
-            "chapters": chapters, "cast": cast}
+            "chapters": chapters, "settings": settings, "cast": cast}

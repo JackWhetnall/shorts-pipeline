@@ -44,7 +44,8 @@ Each picture below is a frame from a cartoon. Look closely at each one for these
 - a person or animal with extra or missing arms, legs, hands or fingers, or two bodies merged;
 - a face on something that isn't a character: look at every tool, machine, rock and planet in
   the picture; cartoon eyes or a smiling mouth drawn on one is a fault (round studs or bolts aren't);
-- the same character drawn twice in one picture when the description names them once.
+- the same character drawn twice in one picture when the description names them once;
+- several panels, a grid or a sheet of small studies instead of one single picture.
 Anything else is fine: don't judge style, colour or composition. Most pictures have no fault;
 `ok` is false only for a fault you can actually see, said in one short sentence.
 """.strip()
@@ -63,12 +64,19 @@ def board(outline: dict, channel_key: str) -> dict:
         elements[library.key_of(member["name"])] = {
             "kind": known.get("kind", "character"), "name": known["name"],
             "description": known.get("description", "")}
+    # Each setting is drawn from a sheet of its own, like a place, at its
+    # own scale (decision 092), so the lab is the same lab in every picture.
+    for setting in outline.get("settings") or []:
+        elements.setdefault(library.key_of(setting["name"]), {
+            "kind": "place", "name": setting["name"],
+            "description": f"{setting['description']} (Scale: {setting['scale']}.)"})
     return {"elements": elements, "colour_script": outline.get("visual_concept", "")}
 
 
 def shots(scenes: list) -> list:
     return [{"index": i, "framing": s.get("framing", "medium"), "image": s["direction"],
-             "elements": [library.key_of(n) for n in s.get("cast") or []]}
+             "elements": [library.key_of(n) for n in s.get("cast") or []]
+             + ([library.key_of(s["setting"])] if s.get("setting") not in (None, "", "one-off") else [])}
             for i, s in enumerate(scenes)]
 
 
@@ -269,9 +277,13 @@ def description(channel, outline: dict, scene: dict) -> dict:
     style_key = hashlib.sha1(json.dumps([look.get("description") or look.get("key") or "",
                                          getattr(channel.animation, "image_model", "")],
                                         sort_keys=True).encode()).hexdigest()[:12]
-    return {"direction": _norm(scene.get("direction")), "cast": cast, "cast_looks": [looks.get(c, "") for c in cast],
-            "framing": scene.get("framing", "medium"), "medium": scene.get("medium", "picture"),
-            "art_query": _norm(scene.get("art_query")), "look": style_key}
+    out = {"direction": _norm(scene.get("direction")), "cast": cast, "cast_looks": [looks.get(c, "") for c in cast],
+           "framing": scene.get("framing", "medium"), "medium": scene.get("medium", "picture"),
+           "art_query": _norm(scene.get("art_query")), "look": style_key}
+    if scene.get("setting"):
+        where = {s["name"]: s for s in outline.get("settings") or []}.get(scene["setting"], {})
+        out["setting"] = _norm(f"{scene['setting']} {where.get('description', '')}")
+    return out
 
 
 def fingerprint(desc: dict) -> str:
@@ -300,8 +312,9 @@ def reusable(channel, data: dict, scenes: list) -> dict:
         key = fingerprint(desc)
         match = next((rel for d, rel in old if fingerprint(d) == key), None)
         if match is None:
-            same = [(d, rel) for d, rel in old if all(d.get(f) == desc[f] for f in
-                                                       ("cast", "cast_looks", "framing", "medium", "look"))]
+            same = [(d, rel) for d, rel in old if all(d.get(f) == desc.get(f) for f in
+                                                       ("cast", "cast_looks", "framing", "medium", "look",
+                                                        "setting"))]
             scored = [(difflib.SequenceMatcher(None, d["direction"], desc["direction"]).ratio(), rel)
                       for d, rel in same]
             best = max(scored, default=(0, None))

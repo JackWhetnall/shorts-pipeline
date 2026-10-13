@@ -55,7 +55,11 @@ SENTENCE_GAP = 0.32         # after a full stop, question or exclamation
 CLAUSE_GAP = 0.16           # after a comma, semicolon or colon
 RUN_ON_GAP = 0.06           # mid-sentence: the line carries straight on
 CHAPTER_GAP = 1.1           # and a longer one, now and then, between chapters
-END_HOLD = 2.0
+# The last picture held after the last word, then faded out with the
+# music (decision 092): the first explainers concluded and stopped.
+END_HOLD = 5.0
+FADE_OUT = 2.5
+FADE_AUDIO = 3.5
 THUMB = (1280, 720)
 
 
@@ -273,6 +277,7 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
     air = bool(getattr(channel.documentary, "atmosphere", False))
     started = set()
     parts, timeline, scene_times = [], [], []
+    units = []
     for i, (scene, seg) in enumerate(zip(scenes, segments)):
         job_context.report_progress(round(100 * i / len(scenes)))
         # A segment runs to the next one's start, its pause included.
@@ -282,9 +287,9 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
         first = scene["chapter"] not in started
         started.add(scene["chapter"])
         if kinds[i] == "card":
-            parts.append({"card": scene["card"], "seconds": seconds, "raw": work / f"card_{i:03d}.mp4",
-                          "out": work / f"scene_{i:03d}.mp4", "backdrop": media.backdrop_for(i, pictures, scenes)})
-            timeline.append([round(start, 2), round(start + seconds, 2)])
+            units.append({"i": i, "card": True, "start": start, "seconds": seconds, "part": {
+                "card": scene["card"], "seconds": seconds, "raw": work / f"card_{i:03d}.mp4",
+                "out": work / f"scene_{i:03d}.mp4", "backdrop": media.backdrop_for(i, pictures, scenes)}})
             continue
         overlay = None
         chapter_title = (outline["chapters"][scene["chapter"] - 1]["title"]
@@ -294,22 +299,50 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
         if chapter_title or caption:
             overlay = work / f"label_{i:03d}.png"
             label_overlay(size, chapter_title, 0, caption, art, style=labels).save(overlay)
-        at = start
         # Decision 087: a dark still lifted to a natural level, air where
         # the scene has it, and cuts on the starts of its sentences.
         adjust = atmosphere.exposure(pictures[i], scene.get("direction", ""))
         kind_of_air = atmosphere.pick(scene.get("direction", "")) if air else None
         loop = atmosphere.clip(kind_of_air) if kind_of_air else None
-        beats = beats_in(voice.word_timings, start, seconds)
-        for k, (picture, length, move) in enumerate(shots.cut(pictures[i], framings.get(i, []), seconds,
-                                                              scene.get("camera", "push_in"), work,
-                                                              f"s{i:03d}", beats=beats)):
-            parts.append({"picture": picture, "seconds": length, "move": move, "out": work / f"scene_{i:03d}_{k}.mp4",
-                          "framing": scene.get("framing", "medium"), "whole": k == 0,
-                          "label": overlay if k == 0 else None, "adjust": adjust, "air": loop,
-                          "strength": atmosphere.strength(kind_of_air or "")})
-            timeline.append([round(at, 2), round(at + length, 2)])
-            at += length
+        talking = max(0.5, seconds - END_HOLD) if i == len(scenes) - 1 else seconds
+        beats = beats_in(voice.word_timings, start, talking)
+        finish_with = {"framing": scene.get("framing", "medium"), "adjust": adjust, "air": loop,
+                       "strength": atmosphere.strength(kind_of_air or ""), "from": i}
+        units.append({"i": i, "start": start, "seconds": talking, "beats": beats, "label": overlay,
+                      "setting": scene.get("setting"), "whole": Path(pictures[i]), "finish": finish_with,
+                      "shots": [{"picture": Path(p), "seconds": n, "move": m, **finish_with}
+                                for p, n, m in shots.cut(pictures[i], framings.get(i, []), talking,
+                                                         scene.get("camera", "push_in"), work, f"s{i:03d}",
+                                                         beats=beats)]})
+
+    # Cut between neighbouring pictures of one setting (decision 092), then
+    # hold the last picture and fade out.
+    shots.interleave(units)
+    end = units[-1]
+    if end.get("card"):
+        end["part"]["fade"] = FADE_OUT
+    else:
+        tail = end["shots"][-1]
+        if tail["picture"] != end["whole"]:
+            tail = {"picture": end["whole"], "seconds": 0.0, "move": "pull_out", **end["finish"]}
+            end["shots"].append(tail)
+        tail["seconds"] += END_HOLD
+        tail["hold"], tail["fade"] = END_HOLD, FADE_OUT
+    for unit in units:
+        if unit.get("card"):
+            parts.append(unit["part"])
+            timeline.append([round(unit["start"], 2), round(unit["start"] + unit["seconds"], 2)])
+            continue
+        at = unit["start"]
+        for k, shot in enumerate(unit["shots"]):
+            parts.append({"picture": shot["picture"], "seconds": shot["seconds"], "move": shot["move"],
+                          "out": work / f"scene_{unit['i']:03d}_{k}.mp4", "framing": shot["framing"],
+                          "whole": shot["picture"] == Path(pictures[shot["from"]]),
+                          "label": unit["label"] if k == 0 else None, "adjust": shot["adjust"],
+                          "air": shot["air"], "strength": shot["strength"], "fade": shot.get("fade")})
+            held = shot["seconds"] - shot.get("hold", 0.0)
+            timeline.append([round(at, 2), round(at + held, 2)])
+            at += shot["seconds"]
 
     # The shots, four at a time: with depth (decision 088) each is a
     # parallax move drawn here, then finished like any other.
@@ -318,6 +351,10 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
     log.info(f"[4/5] {len(parts)} shots" + (" with depth" if with_depth else "") + "...")
 
     def make_shot(part):
+        made = _make_shot(part)
+        return fade_out(made, part["seconds"], part["fade"]) if part.get("fade") else made
+
+    def _make_shot(part):
         if "card" in part:
             raw = cards.clip(part["card"], card_style, part["seconds"], part["raw"], backdrop=part["backdrop"])
             return finish.grade(raw, part["out"], look)
@@ -358,6 +395,9 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
         audio = audio + beds
     if channel.sound.music:
         audio = audio + music_bed(channel, audio, voice.fps, stem, credits, seamless=True)
+    fading = min(len(audio), int(FADE_AUDIO * voice.fps))
+    if fading:
+        audio[-fading:] *= np.linspace(1.0, 0.0, fading, dtype=np.float32)[:, None]
     peak = float(np.abs(audio).max() or 1.0)
     if peak > 0.98:
         audio *= 0.98 / peak
@@ -400,6 +440,18 @@ def make(channel, data: dict, production_folder: Path) -> SimpleNamespace:
     shutil.rmtree(work, ignore_errors=True)
     return SimpleNamespace(video_path=video_path, warnings=reasons[1:] + [n for n in (shot_problem, thumb_note) if n],
                            similarity=similar, script=Script(segments=segments))
+
+
+def fade_out(clip: Path, seconds: float, fade: float) -> Path:
+    """`clip` fading to black over its last `fade` seconds."""
+    import subprocess
+    import imageio_ffmpeg
+    out = Path(clip).with_name(Path(clip).stem + "_fade.mp4")
+    subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-y", "-i", str(clip), "-vf",
+                    f"fade=t=out:st={max(0.0, seconds - fade):.3f}:d={fade:.3f}", "-an", "-c:v", "libx264",
+                    "-preset", "veryfast", "-crf", "15", "-pix_fmt", "yuv420p", str(out)],
+                   check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return out
 
 
 def thumbnail(still: Path, title: str, art: dict) -> Image.Image:

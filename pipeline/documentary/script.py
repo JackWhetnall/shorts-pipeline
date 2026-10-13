@@ -40,6 +40,7 @@ FRAMINGS = ("extreme wide", "wide", "medium", "close-up", "extreme close-up")
 CAMERA = ("push_in", "pull_out", "pan_left", "pan_right", "still")
 MEDIA = ("picture", "painting", "card")
 CARD_KINDS = ("none", "number", "versus", "quote", "timeline", "list", "map")
+ONE_OFF = "one-off"             # a picture with a place of its own (decision 092)
 
 SYSTEM = """
 You write the narration script of a documentary as a play: scene by
@@ -55,11 +56,21 @@ editor cuts several shots from it), so:
   as one continuous narration; never restart or summarise.
 - `direction`: the stage direction for the painter: where we are, who
   is there and what they're doing, the moment caught, the time of day
-  and its light. {direction} No text, signs or writing in the picture. Daylight scenes are
+  and its light. {direction} One frozen moment, never a process
+  ("tighter and tighter", "until it vanishes" is drawn as a strip of
+  panels). No text, signs or writing in the picture. Daylight scenes are
   bright and clear; darkness only when it really is night or a closed
   room, and even then lit by something.
+- `setting`: the outline's setting the picture happens in, by its exact
+  name, or "one-off" for a picture with a place of its own that the film
+  doesn't return to (a visual metaphor, an example, a comparison),
+  described fully in its direction. The direction shows that place at its
+  own scale and nothing that doesn't exist there. Something from another
+  setting is seen only through a real thing in this one (a screen, a
+  model, a map, a window).
 - `cast`: the outline's cast members in the picture, by their exact
-  names. Anyone else in it is described in the direction instead.
+  names, only those who exist in its setting (none in a one-off picture).
+  Anyone else in it is described in the direction instead.
 - `framing`: extreme wide, wide, medium, close-up or extreme close-up.
   Vary it as a film editor would.
 - `camera`: how the picture moves while it's on screen: push_in,
@@ -90,11 +101,22 @@ editor cuts several shots from it), so:
   - map: `heading` the place's name, `caption` a short line (a year, a
     "you are here"), `lat` and `lon` where it is. Use a map when the
     story arrives somewhere new.
-  For any other medium: kind "none", the rest empty and 0.
+  For any other medium: kind "none", the rest empty and 0. The line
+  spoken over a card is short (under about eighteen words): a card is
+  one held frame, and a long line holds it past ten seconds.
+
+Every picture is one the viewer hasn't seen yet: never the same subject
+from the same viewpoint as an earlier picture (they're listed), even with
+small changes. Move between the settings as the narration moves, and
+vary the framing and the light.
 
 The film's first scene speaks the chosen angle's first line (tightened if
 it needs to be) over the most striking picture in the film, and the
-opening chapter raises the open loops. Its last scene lands the promise.
+opening chapter raises the open loops. Its last scene lands the promise,
+and its last line is the film's ending: short (under fifteen words),
+final when spoken, often a callback to the opening or the title; never a
+question, a summary, a moral or "so next time". Nothing follows it but
+the last picture, held.
 
 {shape}
 
@@ -139,11 +161,11 @@ def schema() -> dict:
         "cast": {"type": "array", "items": {"type": "string"}},
         "framing": {"type": "string", "enum": list(FRAMINGS)},
         "camera": {"type": "string", "enum": list(CAMERA)},
-        "caption": {"type": "string"}, "narration": {"type": "string"},
+        "caption": {"type": "string"}, "narration": {"type": "string"}, "setting": {"type": "string"},
         "medium": {"type": "string", "enum": list(MEDIA)}, "art_query": {"type": "string"},
         "card": card, "speaker": {"type": "string"}},
         "required": ["chapter", "direction", "cast", "framing", "camera", "caption", "narration",
-                     "medium", "art_query", "card", "speaker"],
+                     "setting", "medium", "art_query", "card", "speaker"],
         "additionalProperties": False}
     return {"type": "object", "properties": {
         "scenes": {"type": "array", "items": scene}, "description": {"type": "string"}},
@@ -154,7 +176,10 @@ def outline_text(outline: dict, angle: dict = None) -> str:
     chapters = "\n".join(f"{i}. {c['title']} (about {c['minutes']:g} min)\n   Says: {c['says']}\n"
                          + (f"   Turns on: {c['turn']}\n" if c.get("turn") else "")
                          + f"   Shows: {c['shows']}" for i, c in enumerate(outline["chapters"], start=1))
-    cast = "\n".join(f"- {m['name']} ({m['kind']}): {m['description']}" for m in outline.get("cast") or [])
+    cast = "\n".join(f"- {m['name']} ({m['kind']}"
+                     + (f"; in: {', '.join(m['settings'])}" if m.get("settings") else "")
+                     + f"): {m['description']}" for m in outline.get("cast") or [])
+    settings = "\n".join(f"- {s['name']} ({s['scale']}): {s['description']}" for s in outline.get("settings") or [])
     loops = "\n".join(f"- {q}" for q in outline.get("open_loops") or [])
     from pipeline.documentary.outline import angle_text
     head = angle_text(angle or {})
@@ -164,7 +189,8 @@ def outline_text(outline: dict, angle: dict = None) -> str:
             + (f"Open loops (raised in the opening, answered later):\n{loops}\n" if loops else "")
             + f"Through-line: {outline.get('through_line', '')}\n"
             f"Visual concept: {outline.get('visual_concept', '')}\n\nChapters:\n{chapters}\n\n"
-            f"Cast:\n{cast or '(none)'}")
+            + (f"Settings:\n{settings}\n\n" if settings else "")
+            + f"Cast:\n{cast or '(none)'}")
 
 
 DIALOGUE = """
@@ -248,10 +274,13 @@ def _chapter(channel, title: str, outline: dict, number: int, before: list, note
     seconds = float(chapter["minutes"]) * 60
     scenes = max(2, round(seconds / float(doc.scene_seconds)))
     so_far = "\n".join(f"[{s['chapter']}] {s['narration']}" for s in before)
+    pictures = "\n".join(f"- [{s.get('setting') or '?'}] {' '.join(s['direction'].split()[:16])}"
+                         for s in before if s.get("medium", "picture") != "card")
     target = round(seconds * words_per_second(channel))
     each = max(12, round(target / scenes))
     user = (f"The video: {title}\n\n{outline_text(outline, angle)}\n\n"
             + (f"The narration so far, chapter by chapter:\n{so_far}\n\n" if so_far else "")
+            + (f"The pictures so far (show none of them again):\n{pictures}\n\n" if pictures else "")
             + f"Write chapter {number} of {len(outline['chapters'])} now: {target} words of narration "
               f"in all, in about {scenes} scenes of about {each} words each, continuing straight on "
               f"from the narration so far. The length matters: the chapter has {chapter['minutes']:g} "
@@ -309,8 +338,16 @@ def rewrite_chapter(channel, title: str, outline: dict, script: dict, chapter: i
     kept. Returns the whole script."""
     before = [s for s in script["scenes"] if s["chapter"] < chapter]
     fresh = _chapter(channel, title, outline, chapter, before, note or "a better version", angle)["scenes"]
-    out = before + fresh + [s for s in script["scenes"] if s["chapter"] > chapter]
-    return {**script, "scenes": out}
+    after = [dict(s) for s in script["scenes"] if s["chapter"] > chapter]
+    old = sum(1 for s in script["scenes"] if s["chapter"] == chapter)
+    shift = len(fresh) - old
+    for s in after:
+        j = s.get("same_as")
+        if isinstance(j, int) and j >= len(before) + old:
+            s["same_as"] = j + shift
+        elif isinstance(j, int) and j >= len(before):
+            s.pop("same_as")             # it showed a picture of the chapter rewritten
+    return {**script, "scenes": before + fresh + after}
 
 
 def clean_card(raw) -> dict:
@@ -340,6 +377,7 @@ def clean(data: dict, outline: dict, paintings: bool = True, dialogue: bool = Fa
     speakers = {m["name"].lower(): m["name"] for m in outline.get("cast") or []
                 if m.get("kind", "character") == "character"}
     count = len(outline["chapters"])
+    settings = {s["name"].lower(): s["name"] for s in outline.get("settings") or []}
     scenes = []
     for s in data.get("scenes") or []:
         narration = " ".join(str(s.get("narration") or "").split())
@@ -365,6 +403,10 @@ def clean(data: dict, outline: dict, paintings: bool = True, dialogue: bool = Fa
             scene["card"] = card
         if medium == "painting":
             scene["art_query"] = query
+        raw_setting = str(s.get("setting") or "").strip().lower()
+        setting = settings.get(raw_setting) or (ONE_OFF if raw_setting == ONE_OFF else None)
+        if setting:
+            scene["setting"] = setting
         speaker = speakers.get(str(s.get("speaker") or "").strip().lower(), "") if dialogue else ""
         if speaker:
             scene["speaker"] = speaker

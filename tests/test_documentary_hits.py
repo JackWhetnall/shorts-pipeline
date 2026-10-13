@@ -106,6 +106,7 @@ def test_choosing_another_angle_makes_what_followed_from_the_first_stale(world):
 def _outline(first_minutes=0.8, turns=True, loops=("Will you live?",)):
     return {"title_options": ["T"], "through_line": "x", "promise": "p", "open_loops": list(loops),
             "visual_concept": "v", "cast": [],
+            "settings": [{"name": "The street", "scale": "human", "description": "a London street"}],
             "chapters": [{"title": "Five a.m.", "says": "s", "turn": "t" if turns else "", "shows": "w",
                           "minutes": first_minutes},
                          {"title": "Noon", "says": "s", "turn": "t" if turns else "", "shows": "w",
@@ -227,6 +228,10 @@ def test_the_editor_rewrites_the_weakest_chapters_and_says_why(world, monkeypatc
         return {**script, "scenes": [s if s["chapter"] != chapter else {**s, "narration": "Bread was a penny."}
                                      for s in script["scenes"]]}
     monkeypatch.setattr(scripts, "rewrite_chapter", fake_rewrite)
+    from pipeline.documentary import pictures
+    monkeypatch.setattr(editor, "final_line", lambda channel, title, script: (script, ""))
+    monkeypatch.setattr(pictures, "plan", lambda outline, script, kind="story": {**script, "pictures": {
+        "planned": True, "changes": [], "shown_again": 0}})
     out = editor.edit(channel, "T", outline, script, _angle("T"))
     assert [c for c, _ in rewritten] == [2] and "Say what the bread cost." in rewritten[0][1]
     assert out["edits"][0]["chapter"] == 2 and out["scenes"][1]["narration"] == "Bread was a penny."

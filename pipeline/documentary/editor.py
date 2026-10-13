@@ -251,11 +251,47 @@ def fact_check(script: dict) -> tuple:
         if card and new:
             if card.get("items") and "|" in new:
                 card = {**card, "items": [x.strip() for x in new.split(";") if "|" in x][:5] or card["items"]}
-            elif card.get("kind") == "number":
-                card = {**card, "value": new[:24]}
+            elif card.get("kind") == "number" and len(new) <= 16 and re.search(r"\d", new):
+                # Only a number: one correction put "Rock turns ductile near|" on a card.
+                card = {**card, "value": new}
             fixed[i]["card"] = card
         notes.append({"scene": i, "problem": " ".join(str(row.get("problem") or "").split())})
     return {**script, "scenes": fixed}, notes
+
+
+FINAL = """
+You decide a documentary's last line, the one the viewer leaves with. After it, the last picture
+is held in silence and the film fades out. A strong last line is short (under fifteen words),
+sounds final when spoken aloud, and lands the film's idea in a concrete image, often a callback to
+the opening or the title. It is never a question, a summary, a moral, a call to action ("so next
+time...", "subscribe") or "and that's why". Judge the current last line honestly: if it's strong,
+keep it. If not, write the line that should end this film, following straight on from the line
+before it, in the channel's voice, adding no new fact.
+""".strip()
+
+
+def final_line(channel, title: str, script: dict) -> tuple:
+    """(the script with its last line made an ending, the note or ""): one
+    small call (decision 092). The first explainer ended on a line that
+    restated the twist and stopped, with nothing after it."""
+    scenes = script["scenes"]
+    if not scenes:
+        return script, ""
+    opening = " ".join(s["narration"] for s in scenes[:3])
+    closing = "\n".join(f"{'LAST LINE: ' if k == len(scenes) - 1 else ''}{s['narration']}"
+                         for k, s in list(enumerate(scenes))[-6:])
+    user = (f"The channel's brief: {channel.style_prompt}\n\nThe film: {title}\n\nHow it opens: {opening}"
+            f"\n\nHow it ends:\n{closing}")
+    schema = {"type": "object", "properties": {"keep": {"type": "boolean"}, "line": {"type": "string"},
+                                               "why": {"type": "string"}},
+              "required": ["keep", "line", "why"], "additionalProperties": False}
+    data = call_json(FINAL, user, schema, operation="documentary_last_line", max_tokens=3000, effort="low")
+    line = " ".join(str(data.get("line") or "").split())
+    if data.get("keep") or not line or line.endswith("?"):
+        return script, ""
+    fixed = [dict(s) for s in scenes]
+    fixed[-1]["narration"] = line
+    return {**script, "scenes": fixed}, " ".join(str(data.get("why") or "").split())
 
 
 def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -> dict:
@@ -299,6 +335,23 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -
             log.warning(f"  [documentary] the fact check failed ({exc}); the script is unchecked")
         for f in facts:
             log.info(f"  [documentary] scene {f['scene'] + 1} corrected: {f['problem'][:160]}")
-    script = {**script, "edits": edits, "facts": facts,
+    ending = ""
+    try:
+        script, ending = final_line(channel, title, script)
+    except PipelineError as exc:
+        log.warning(f"  [documentary] the last line wasn't looked at ({exc})")
+    if ending:
+        log.info(f"  [documentary] last line rewritten: {ending[:160]}")
+    # Every picture looked at together (decision 092).
+    from pipeline.documentary import pictures
+    try:
+        script = pictures.plan(outline, script, film_kinds.of(channel))
+        planned = script["pictures"]
+        log.info(f"  [documentary] pictures planned: {len(planned['changes'])} changed, "
+                 f"{planned['shown_again']} shown again")
+    except PipelineError as exc:
+        log.warning(f"  [documentary] the picture editor failed ({exc}); the rules alone applied")
+        script = {**script, "scenes": pictures.validate(outline, script["scenes"])}
+    script = {**script, "edits": edits, "facts": facts, "ending": ending,
               "review": {str(n): reviews[n]["score"] for n in reviews}}
     return script

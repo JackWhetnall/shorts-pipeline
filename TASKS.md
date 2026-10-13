@@ -19,10 +19,15 @@ answered one next question at a time, in a cartoon look (decision 089).
 Depth no longer warps close pans, and background sound only plays under
 scenes that show its place, much quieter.
 
-### U. Watch the remade Why, Though? film (10 minutes)
+### U. Watch the third Why, Though? film (10 minutes)
 **Why, Though? → Productions → "Why Can't We Dig to the Centre of the
 Earth?"**, Video stage. Compare it with the plague film: is this the
 kind of video you'd watch? Approve it, or say what's wrong.
+
+### U1. Read a script before approving it (5 minutes a film)
+Script stage: the fact check catches most wrong numbers, but on the last
+film it missed eight lines (an invented quote, characters given real
+lives today). Edit any line in place before approving.
 
 ### U2. Pick a better title if you like (1 minute, free)
 **Angle** section: choose a title from the list, **Use title only · $0**.

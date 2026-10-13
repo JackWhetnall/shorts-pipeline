@@ -158,6 +158,46 @@ def cut(still: Path, boxes: list, seconds: float, move: str, folder: Path, stem:
     return out
 
 
+def interleave(units: list) -> None:
+    """Across a run of neighbouring scenes in one setting, each scene's
+    last detail shot is carried into the next scene, after that scene's
+    whole picture: A | B, a detail of A | C, a detail of B. An editor cuts
+    between two angles of one place like this, rather than always showing
+    a whole picture and then a zoom into it (the owner, decision 092).
+    Only within a setting, so the cut back never jars; every scene keeps
+    the number of shots it was planned with (the first in a run gives one
+    up, if its picture can then be held that long); the lengths are cut
+    again on the beats. `units`: per scene, {"i", "seconds", "beats",
+    "setting", "card"?, "shots": [{"picture", "seconds", "move", "from"}]},
+    changed in place."""
+    def same(a, b):
+        return (a is not None and b is not None and not a.get("card") and not b.get("card")
+                and a.get("setting") not in (None, "", "one-off") and a.get("setting") == b.get("setting"))
+
+    carry = None
+    for idx, unit in enumerate(units):
+        if unit.get("card") or unit.get("setting") in (None, "", "one-off"):
+            carry = None
+            continue
+        if not same(units[idx - 1] if idx else None, unit):
+            carry = None
+        continues = same(unit, units[idx + 1] if idx + 1 < len(units) else None)
+        planned = len(unit["shots"])
+        new = [unit["shots"][0]]
+        if carry is not None and (planned >= 2 or unit["seconds"] / 2 >= MIN_SHOT):
+            new.append(carry)
+        room = max(planned, len(new)) - len(new)
+        keep, rest = list(unit["shots"][1:1 + room]), list(unit["shots"][1 + room:])
+        if continues and not rest and keep and unit["seconds"] / (len(new) + len(keep) - 1) <= HOLD_MAX:
+            rest = [keep.pop()]
+        new += keep
+        carry = rest[-1] if continues and rest else None
+        if new != unit["shots"]:
+            unit["shots"] = new
+            for shot, length in zip(new, _lengths(unit["seconds"], len(new), unit.get("beats") or [])):
+                shot["seconds"] = length
+
+
 def _lengths(seconds: float, n: int, beats: list) -> list:
     """`n` shot lengths adding up to `seconds`, each cut on the nearest
     beat to an even split when one is close enough."""
