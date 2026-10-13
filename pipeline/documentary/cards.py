@@ -61,7 +61,9 @@ def _number(card: dict, duration: float) -> tuple:
                    f"data-prefix='{esc(match.group(1))}' data-suffix='{esc(match.group(3))}'")
     body = (f"<div class='kicker' {_in(0.2)}>{esc(card.get('heading', ''))}</div>"
             f"<div class='hero big a1 accent-text' data-fit='120' {_in(0.45, 'pop', 0.7)}{counted}>"
-            f"{'' if counted else esc(value)}</div>"
+            # The final value from the start, so the fit is measured on it, not
+            # on "0" (decision 093: "100,000,000 years" ran off the card).
+            f"{esc(value)}</div>"
             + (f"<div class='card filled a2 cap' {_in(1.1)}><div class='body'>{esc(card.get('caption', ''))}</div></div>"
                if card.get("caption") else ""))
     css = """

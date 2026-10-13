@@ -169,7 +169,7 @@ def test_stills_are_drawn_with_the_style_sheet_and_the_casts_sheets(world, monke
     channel, row = world
     from pipeline.animation import bible, keyframes
     style_ref = tmp_path / "style.png"
-    monkeypatch.setattr(bible, "reference", lambda channel, look: style_ref)
+    monkeypatch.setattr(bible, "reference", lambda channel, look, film=False: style_ref)
     monkeypatch.setattr(stills, "look_for", lambda channel, frame="wide": {"identity": "abc", "frame": frame})
     sheets_drawn = []
     monkeypatch.setattr(library, "sheet", lambda channel, look, member, ref: sheets_drawn.append(member["name"])

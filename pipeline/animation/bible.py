@@ -189,25 +189,44 @@ STYLE_SHEET = (
     "labels, numbers or borders.")
 
 
-def reference(channel, look: dict) -> Path:
+# For a documentary's storyboard (decision 093): studies with nothing in
+# them a picture could borrow. The sheet above, drawn into every still as
+# its first reference, put its old man, its child and its cup into film
+# pictures: an old man and a boy recurred through the first drill film,
+# and glasses of water stood on cliffs and salt flats in the salt film.
+FILM_STYLE_SHEET = (
+    "An art-style reference sheet, drawn in exactly the style of the reference picture: the "
+    "same medium, line quality, rendering, texture, palette and light. Take nothing else from "
+    "it: none of its people, places or objects. On a plain background, a loose grid of eight "
+    "small, separate studies of form, light and texture only: a sphere lit from one side, a "
+    "rough stone cube, a rounded hill, a bank of cloud, a ribbon of water, a patch of rock "
+    "texture, a single leaf, a soft gradient of sky. No people, no animals, no hands, no "
+    "household objects, no vessels or tools. Each study finished in the style, with generous "
+    "space between them. No text, labels, numbers or borders.")
+
+
+def reference(channel, look: dict, film: bool = False) -> Path:
     """The style reference every keyframe and sheet is drawn with: the
-    style sheet made from the chosen frame, drawn on first need."""
+    style sheet made from the chosen frame, drawn on first need. `film`:
+    the documentary storyboard's sheet, studies with no people or objects
+    in them (kept alongside, so the shorts' sheet is untouched)."""
     frame = chosen_frame(channel, look)
     data = load(channel.key, look)
     d = folder(channel.key, look)
-    name = data.get("sheet")
+    field = "film_sheet" if film else "sheet"
+    name = data.get(field)
     if name and (d / name).exists():
         return d / name
-    name = f"sheet_{look['identity']}_{data['chosen'] + 1}.png"
-    images.draw(STYLE_SHEET + "\n" + looks.style_text(look), d / name,
+    name = f"{'film_' if film else ''}sheet_{look['identity']}_{data['chosen'] + 1}.png"
+    images.draw((FILM_STYLE_SHEET if film else STYLE_SHEET) + "\n" + looks.style_text(look), d / name,
                 models.image_model(models.BIBLE_IMAGE_MODEL), references=[frame],
                 size=(1024, 1024), operation="animation_style_sheet")
     with _lock:
         data = load(channel.key, look)
-        old = data.get("sheet")
+        old = data.get(field)
         if old and old != name:
             (d / old).unlink(missing_ok=True)
-        data["sheet"] = name
+        data[field] = name
         _save(channel.key, look, data)
     return d / name
 

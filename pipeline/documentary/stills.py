@@ -70,7 +70,11 @@ def board(outline: dict, channel_key: str) -> dict:
         elements.setdefault(library.key_of(setting["name"]), {
             "kind": "place", "name": setting["name"],
             "description": f"{setting['description']} (Scale: {setting['scale']}.)"})
-    return {"elements": elements, "colour_script": outline.get("visual_concept", "")}
+    # No colour script for the drawer (decision 093): the visual concept is
+    # the writer's, who puts a motif only where it belongs, and every
+    # direction already names its light. Sent with every picture, "the same
+    # two glasses ... wherever the scene allows them" stood glasses on cliffs.
+    return {"elements": elements, "colour_script": ""}
 
 
 def shots(scenes: list) -> list:
@@ -107,7 +111,7 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
     from pipeline.animation import bible
     notes = notes or {}
     look = look_for(channel, frame)
-    style_ref = bible.reference(channel, look)
+    style_ref = bible.reference(channel, look, film=True)
     the_board = board(outline, channel.key)
     the_board["never"] = list(channel.avoid_imagery or [])
     the_shots = shots(scenes)
@@ -243,7 +247,7 @@ def draw_one(channel, outline: dict, direction: str, cast: list, folder: Path, f
     look with its cast's model sheets. Raises PipelineError if it can't."""
     from pipeline.animation import bible
     look = look_for(channel, frame)
-    style_ref = bible.reference(channel, look)
+    style_ref = bible.reference(channel, look, film=True)
     the_board = board(outline, channel.key)
     the_board["never"] = list(channel.avoid_imagery or [])
     shot = {"index": 99, "framing": framing, "image": direction,

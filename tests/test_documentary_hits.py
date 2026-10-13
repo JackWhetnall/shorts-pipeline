@@ -230,6 +230,7 @@ def test_the_editor_rewrites_the_weakest_chapters_and_says_why(world, monkeypatc
     monkeypatch.setattr(scripts, "rewrite_chapter", fake_rewrite)
     from pipeline.documentary import pictures
     monkeypatch.setattr(editor, "final_line", lambda channel, title, script: (script, ""))
+    monkeypatch.setattr(editor, "restatements", lambda script: (script, []))
     monkeypatch.setattr(pictures, "plan", lambda outline, script, kind="story": {**script, "pictures": {
         "planned": True, "changes": [], "shown_again": 0}})
     out = editor.edit(channel, "T", outline, script, _angle("T"))

@@ -250,3 +250,75 @@ def test_a_number_card_is_only_corrected_with_a_number(monkeypatch):
     monkeypatch.setattr(editor, "call_json", lambda *a, **k: {"fixes": [
         {"scene": 0, "problem": "p", "narration": "y", "card": "Rock turns ductile near|..."}]})
     assert editor.fact_check({"scenes": scenes})[0]["scenes"][0]["card"]["value"] == "300C"
+
+
+def test_a_line_that_only_repeats_an_earlier_point_is_rewritten(monkeypatch):
+    """Decision 093: the drill film made the same points again in new words."""
+    script = {"scenes": [{"chapter": 1, "narration": "Clear the atmosphere and resistance falls to nothing."},
+                         {"chapter": 2, "narration": "Space empties out as you climb."},
+                         {"chapter": 2, "narration": "The sky above runs empty."}]}
+    monkeypatch.setattr(editor, "call_json", lambda *a, **k: {"repeats": [
+        {"scene": 1, "earlier": 0, "narration": "A rocket's engines fall silent eight minutes after launch."},
+        {"scene": 2, "earlier": 0, "narration": "the last line is never touched"},
+        {"scene": 0, "earlier": 1, "narration": "an earlier line can't repeat a later one"}]})
+    out, notes = editor.restatements(script)
+    assert [n["scene"] for n in notes] == [1] and out["scenes"][1]["narration"].startswith("A rocket's")
+    assert out["scenes"][2]["narration"] == "The sky above runs empty."
+
+
+def test_an_untitled_chapter_is_written_again_or_named_by_what_it_says():
+    raw = {"chapters": [{"title": "Cold open", "says": "Every river is dissolving rock right now. More.",
+                         "turn": "The question is stated as a promise: why?", "shows": "w", "sound": "none",
+                         "minutes": 1}], "settings": [{"name": "A river", "scale": "landscape", "description": "d"}]}
+    clean = outlines.clean(raw, 4)
+    assert clean["chapters"][0]["title"] == "Every river is dissolving rock right now"
+    assert any("no real title" in p for p in outlines.problems({**clean, "open_loops": ["?"]}, 4))
+
+
+def test_a_rewritten_line_never_keeps_the_chapter_marker_it_was_shown(monkeypatch):
+    script = {"scenes": [{"chapter": 1, "narration": "Salt goes in."}, {"chapter": 3, "narration": "Salt goes in again."},
+                         {"chapter": 3, "narration": "End."}]}
+    monkeypatch.setattr(editor, "call_json", lambda *a, **k: {"repeats": [
+        {"scene": 1, "earlier": 0, "narration": "[chapter 3] [wry] Salt leaves by seafloor mud."}]})
+    assert editor.restatements(script)[0]["scenes"][1]["narration"] == "[wry] Salt leaves by seafloor mud."
+
+
+def test_the_fact_check_is_told_to_doubt_the_films_own_thesis():
+    assert "central claims" in editor.FACTS and "never" in editor.FACTS
+
+
+def test_a_list_card_is_corrected_with_its_line(monkeypatch):
+    card = {"kind": "list", "heading": "The valve", "value": "", "caption": "",
+            "items": ["Salt arrives", "Water leaves", "Salt stays, with nowhere to drain"]}
+    scenes = [{"chapter": 1, "narration": "Salt never leaves.", "medium": "card", "card": card}]
+    monkeypatch.setattr(editor, "call_json", lambda *a, **k: {"fixes": [
+        {"scene": 0, "problem": "salt leaves slowly", "narration": "Salt leaves, but slowly.",
+         "card": "Salt arrives ; Water leaves ; Salt leaves slowly, into seafloor mud"}]})
+    out = editor.fact_check({"scenes": scenes})[0]["scenes"][0]["card"]
+    assert out["items"][-1] == "Salt leaves slowly, into seafloor mud"
+
+
+def test_the_drawer_gets_neither_the_writers_motif_nor_a_sheet_of_props(tmp_path):
+    """Decision 093: a style sheet with an old man, a child and a cup, and a
+    visual concept about "the same two glasses ... wherever the scene allows",
+    put people and glasses into pictures that never asked for them."""
+    import inspect
+    from pipeline.animation import bible
+    from pipeline.documentary import stills
+    board = stills.board({"visual_concept": "the same two glasses wherever the scene allows", "cast": []}, "x")
+    assert board["colour_script"] == ""
+    assert "No people" in bible.FILM_STYLE_SHEET and "film=True" in inspect.getsource(stills.draw)
+
+
+def test_the_description_is_checked_against_the_corrected_script(monkeypatch):
+    script = {"scenes": [{"chapter": 1, "narration": "About 175 times weaker."}],
+              "description": "A journey: rivers are two hundred times too diluted to taste."}
+    seen = []
+
+    def fake(system, user, schema, **kw):
+        seen.append(user)
+        return {"fixes": [], "description": "Rivers carry salt about 175 times too diluted to taste."}
+    monkeypatch.setattr(editor, "call_json", fake)
+    out, notes = editor.fact_check(script)
+    assert "two hundred" in seen[0] and out["description"].startswith("Rivers carry salt about 175")
+    assert notes == [{"scene": -1, "problem": "the description"}]

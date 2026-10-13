@@ -814,6 +814,10 @@ sets `same_as` for pictures shown again and balances settings, checked by
 `shots.interleave` cuts between neighbours in one setting; the render holds
 and fades the last picture (`END_HOLD`, `FADE_OUT`).
 
+Decision [093](docs/decisions/093-repeated-points-brighter-days-real-chapter-titles.md):
+`editor.restatements` rewrites lines that only repeat an earlier point,
+before the fact check; an outline chapter left untitled is written again.
+
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
 channel (`ChannelConfig.long_form`) has its own settings page,

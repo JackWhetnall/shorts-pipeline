@@ -204,13 +204,21 @@ costs the film its credibility. Find only real problems, line by line:
 - a number, ratio, date, duration or scale comparison that is wrong (work ratios out yourself:
   384,000 / 6,371 is about 60, not 6), or that contradicts another line of the script;
 - a physical claim that is false or badly overstated (rock at 180 degrees Celsius does not glow);
+  check the film's central claims too, not only its details: the idea the whole film argues can be
+  the thing that's wrong. An absolute ("never", "always", "every", "no way out") that is only mostly
+  true is a fault: say what really happens, keeping the line's punch;
 - a line that doesn't make sense when read literally, or a comparison that means nothing;
 - an invented character's action presented as a real present-day fact;
 - a stray production word that isn't narration (reframe, payoff, cold open, chapter, beat).
 Most lines are fine; leave them out. For each problem give the scene's number, the problem in a
 short sentence, and `narration`: the line rewritten to fix it, the same length and voice, keeping
 any [cue] at its start. Where the scene shows a card, `card` is its corrected words in the card's own
-shape ("label|value" items joined with " ; ", or the value), or "" if the card is fine.
+shape (its items joined with " ; ", each "label|value" if the card's are, or the value), or ""
+if the card is fine. A card that says what the corrected line no longer says is a fault too.
+
+Then read the YouTube description the same way, against the script as you've corrected it: a
+number or claim the script no longer makes, or a stock phrase ("journey", "it turns out",
+"delve"), is a fault. Give it rewritten in `description`, or "" if it's fine.
 """.strip()
 
 
@@ -219,8 +227,9 @@ def _facts_schema() -> dict:
         "scene": {"type": "integer"}, "problem": {"type": "string"}, "narration": {"type": "string"},
         "card": {"type": "string"}},
         "required": ["scene", "problem", "narration", "card"], "additionalProperties": False}
-    return {"type": "object", "properties": {"fixes": {"type": "array", "items": row}},
-            "required": ["fixes"], "additionalProperties": False}
+    return {"type": "object", "properties": {"fixes": {"type": "array", "items": row},
+                                             "description": {"type": "string"}},
+            "required": ["fixes", "description"], "additionalProperties": False}
 
 
 def _card_text(card: dict) -> str:
@@ -238,7 +247,8 @@ def fact_check(script: dict) -> tuple:
     scenes = script["scenes"]
     lines = [f"{i}. {s['narration']}" + (f"  [card: {_card_text(s.get('card'))}]" if s.get("card") else "")
              for i, s in enumerate(scenes)]
-    data = call_json(FACTS, "The script:\n" + "\n".join(lines), _facts_schema(),
+    described = f"\n\nThe YouTube description:\n{script['description']}" if script.get("description") else ""
+    data = call_json(FACTS, "The script:\n" + "\n".join(lines) + described, _facts_schema(),
                      operation="documentary_fact_check", max_tokens=8000, effort="medium")
     fixed, notes = [dict(s) for s in scenes], []
     for row in data.get("fixes") or []:
@@ -249,14 +259,22 @@ def fact_check(script: dict) -> tuple:
         card = fixed[i].get("card")
         new = str(row.get("card") or "").strip()
         if card and new:
-            if card.get("items") and "|" in new:
-                card = {**card, "items": [x.strip() for x in new.split(";") if "|" in x][:5] or card["items"]}
+            if card.get("items"):
+                # "label|value" items keep their shape; a list's items are plain lines.
+                paired = all("|" in x for x in card["items"])
+                items = [x.strip() for x in new.split(";") if x.strip() and ("|" in x or not paired)][:5]
+                card = {**card, "items": items if len(items) >= 2 else card["items"]}
             elif card.get("kind") == "number" and len(new) <= 16 and re.search(r"\d", new):
                 # Only a number: one correction put "Rock turns ductile near|" on a card.
                 card = {**card, "value": new}
             fixed[i]["card"] = card
         notes.append({"scene": i, "problem": " ".join(str(row.get("problem") or "").split())})
-    return {**script, "scenes": fixed}, notes
+    out = {**script, "scenes": fixed}
+    better = " ".join(str(data.get("description") or "").split())
+    if better and script.get("description"):
+        out["description"] = better
+        notes.append({"scene": -1, "problem": "the description"})
+    return out, notes
 
 
 FINAL = """
@@ -294,6 +312,53 @@ def final_line(channel, title: str, script: dict) -> tuple:
     return {**script, "scenes": fixed}, " ".join(str(data.get("why") or "").split())
 
 
+RESTATED = """
+You are the script editor of a YouTube documentary, reading its narration for one fault only:
+lines that say again what the film has already said, adding nothing. Viewers feel it as padding
+and leave. A line restates when its point was already made by an earlier line, whatever the
+wording ("Space empties out as you climb" after "Clear the atmosphere and resistance falls to
+nothing"). It does not restate if it adds a new fact, number, example or consequence; and one
+deliberate callback to the film's central question in a chapter is fine.
+
+For each restating line give its `scene`, the `earlier` scene that made the point, and
+`narration`: the line rewritten to move the film on instead, with the next concrete detail,
+example or consequence the story needs there. Never invent a fact: a new fact must be well
+established and checkable; if you aren't sure, use an everyday example or a consequence of what
+the film has already said. Keep the same length and voice, keep any [cue] at
+its start, and make it fit the lines either side and the picture it's spoken over. At most
+{most}, the worst first; most films have only a few.
+""".strip()
+RESTATED_MAX = 10
+
+
+def restatements(script: dict) -> tuple:
+    """(the script with lines that only repeat an earlier point rewritten,
+    [{scene, earlier}]): one small call (decision 093). The checks above
+    catch a phrase said word for word; the owner heard the drill film make
+    the same points again in new words ("repeats itself a couple of
+    times"), which only a reader catches."""
+    scenes = script["scenes"]
+    lines = [f"{i}. [chapter {s['chapter']}] {s['narration']}"
+             + (f"   (picture: {' '.join(s.get('direction', '').split()[:14])})" if s.get("medium") != "card" else "")
+             for i, s in enumerate(scenes)]
+    schema = {"type": "object", "properties": {"repeats": {"type": "array", "items": {
+        "type": "object", "properties": {"scene": {"type": "integer"}, "earlier": {"type": "integer"},
+                                         "narration": {"type": "string"}},
+        "required": ["scene", "earlier", "narration"], "additionalProperties": False}}},
+        "required": ["repeats"], "additionalProperties": False}
+    data = call_json(RESTATED.replace("{most}", str(RESTATED_MAX)), "The narration:\n" + "\n".join(lines), schema,
+                     operation="documentary_restated", max_tokens=8000, effort="low")
+    fixed, notes = [dict(s) for s in scenes], []
+    for row in (data.get("repeats") or [])[:RESTATED_MAX]:
+        i, j = row.get("scene"), row.get("earlier")
+        # The lines are shown to it as "[chapter 3] ..."; it once copied that in.
+        text = re.sub(r"^\[chapter \d+\]\s*", "", " ".join(str(row.get("narration") or "").split()), flags=re.I)
+        if isinstance(i, int) and isinstance(j, int) and 0 <= j < i < len(fixed) and text and i != len(fixed) - 1:
+            fixed[i]["narration"] = text
+            notes.append({"scene": i, "earlier": j})
+    return {**script, "scenes": fixed}, notes
+
+
 def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -> dict:
     """The script with its weakest chapters written again, and `edits`
     saying which and why. A critic that can't be reached leaves the
@@ -327,6 +392,14 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -
             continue
         edits.append({"chapter": n, "why": notes, "score": reviews.get(n, {}).get("score")})
         log.info(f"  [documentary] chapter {n} rewritten: {'; '.join(notes)[:200]}")
+    # Before the fact check, so the lines it writes are checked too.
+    restated = []
+    try:
+        script, restated = restatements(script)
+    except PipelineError as exc:
+        log.warning(f"  [documentary] repeated points weren't looked for ({exc})")
+    if restated:
+        log.info(f"  [documentary] {len(restated)} line(s) that repeated an earlier point rewritten")
     facts = []
     if film_kinds.of(channel) == "explainer":
         try:
@@ -334,7 +407,8 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -
         except PipelineError as exc:
             log.warning(f"  [documentary] the fact check failed ({exc}); the script is unchecked")
         for f in facts:
-            log.info(f"  [documentary] scene {f['scene'] + 1} corrected: {f['problem'][:160]}")
+            where = "the description" if f["scene"] < 0 else f"scene {f['scene'] + 1}"
+            log.info(f"  [documentary] {where} corrected: {f['problem'][:160]}")
     ending = ""
     try:
         script, ending = final_line(channel, title, script)
@@ -352,6 +426,6 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -
     except PipelineError as exc:
         log.warning(f"  [documentary] the picture editor failed ({exc}); the rules alone applied")
         script = {**script, "scenes": pictures.validate(outline, script["scenes"])}
-    script = {**script, "edits": edits, "facts": facts, "ending": ending,
+    script = {**script, "edits": edits, "facts": facts, "ending": ending, "restated": restated,
               "review": {str(n): reviews[n]["score"] for n in reviews}}
     return script

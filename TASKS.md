@@ -19,6 +19,11 @@ answered one next question at a time, in a cartoon look (decision 089).
 Depth no longer warps close pans, and background sound only plays under
 scenes that show its place, much quieter.
 
+### U0. Watch the salt film (10 minutes)
+**Why, Though? → Productions → "Why Is the Sea Salty but Rivers Aren't?"**
+(titled "Why Rivers Are Secretly Salty Too"): the first film made from a
+fresh topic with everything in place. Bright daylight look.
+
 ### U. Watch the third Why, Though? film (10 minutes)
 **Why, Though? → Productions → "Why Can't We Dig to the Centre of the
 Earth?"**, Video stage. Compare it with the plague film: is this the

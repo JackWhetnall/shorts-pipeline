@@ -213,6 +213,10 @@ def problems(outline: dict, minutes: float) -> list:
         found.append("These chapters don't turn on anything: " + "; ".join(flat[:4]))
     if not outline.get("open_loops"):
         found.append("No open loops: the opening must raise questions the later chapters answer.")
+    untitled = [str(n) for n, c in enumerate(chapters, start=1) if c.get("untitled")]
+    if untitled:
+        found.append(f"Chapter(s) {', '.join(untitled)} have no real title; give each the question or "
+                     f"idea a viewer would look for, never 'cold open', 'intro' or 'chapter'.")
     if not outline.get("settings"):
         found.append("No settings: name the places the pictures happen in, each at one scale.")
     homeless = [m["name"] for m in outline.get("cast") or [] if outline.get("settings") and not m.get("settings")]
@@ -308,7 +312,12 @@ def chapter_title(raw, turn: str = "") -> str:
 
 
 def clean(data: dict, minutes: float) -> dict:
-    chapters = [{"title": chapter_title(c.get("title"), c.get("turn")),
+    # A title that was only "Cold open" falls back to what the chapter says
+    # (decision 093): its turn was once a production note, "The question is
+    # stated as a promise: ...", which became the video's first chapter.
+    chapters = [{"title": chapter_title(c.get("title"), c.get("says")),
+                 **({"untitled": True} if not PRODUCTION_WORDS.sub("", str(c.get("title") or "")).strip(" -–—:")
+                    else {}),
                  "says": str(c.get("says") or "").strip(), "turn": str(c.get("turn") or "").strip(),
                  "shows": str(c.get("shows") or "").strip(),
                  "sound": c.get("sound") if c.get("sound") in _sounds() else "none",
