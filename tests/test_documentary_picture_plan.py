@@ -131,7 +131,7 @@ def test_the_last_picture_fades_out(tmp_path):
     meta = next(reader)
     frames = [np.frombuffer(f, dtype=np.uint8) for f in reader]
     assert frames[0].mean() > 200 and frames[-1].mean() < 40 and meta["size"] == (64, 36)
-    assert render.END_HOLD >= 4
+    assert render.END_HOLD >= 10                                   # room for the end-screen cards
 
 
 def test_one_off_pictures_have_no_cast_and_never_cut_together():

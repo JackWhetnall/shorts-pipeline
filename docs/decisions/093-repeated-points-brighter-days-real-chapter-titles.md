@@ -82,3 +82,8 @@ documentaries; the shorts' animation is unchanged:
 - **List cards are corrected with their line.** The fact check could
   only correct cards with "label|value" items. A list card kept saying
   salt has "nowhere to drain" after its line was corrected.
+
+**A ten-second ending.** The owner asked for the last picture to be held
+longer, "for the ending cards to appear before fading out". It's now 10
+seconds (`render.END_HOLD`, was 5). YouTube end-screen elements need at
+least 5 seconds and can run up to 20.

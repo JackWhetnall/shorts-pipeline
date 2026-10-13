@@ -56,8 +56,10 @@ CLAUSE_GAP = 0.16           # after a comma, semicolon or colon
 RUN_ON_GAP = 0.06           # mid-sentence: the line carries straight on
 CHAPTER_GAP = 1.1           # and a longer one, now and then, between chapters
 # The last picture held after the last word, then faded out with the
-# music (decision 092): the first explainers concluded and stopped.
-END_HOLD = 5.0
+# music (decision 092): the first explainers concluded and stopped. Ten
+# seconds (decision 094), long enough for YouTube's end-screen cards to
+# appear and be clicked before the fade.
+END_HOLD = 10.0
 FADE_OUT = 2.5
 FADE_AUDIO = 3.5
 THUMB = (1280, 720)
