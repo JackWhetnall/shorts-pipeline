@@ -818,6 +818,14 @@ Decision [093](docs/decisions/093-repeated-points-brighter-days-real-chapter-tit
 `editor.restatements` rewrites lines that only repeat an earlier point,
 before the fact check; an outline chapter left untitled is written again.
 
+Decision [094](docs/decisions/094-overnight-batch-overseen-within-a-ceiling.md):
+`images.draw_batch` draws a storyboard round as one OpenAI batch in batch
+mode; `core.film_budget` caps a film's spend (cost records carry
+`production`); `documentary.hours` and `documentary.overseen` let the
+autopilot work overnight and leave the script and storyboard to
+`core.overseer`, driven by the scheduled `film-overseer` task
+(`docs/overseer.md`).
+
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
 channel (`ChannelConfig.long_form`) has its own settings page,

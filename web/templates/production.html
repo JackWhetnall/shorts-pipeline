@@ -21,6 +21,21 @@
 </ol>
 
 {% if note %}<p class="meta info-banner" role="status">{{ note }}</p>{% endif %}
+{% if budget %}
+<p class="prod-spend">
+  <span class="prod-pill {{ 'pill-bad' if budget.over }}" data-tooltip="This film's spend; it pauses at twice a usual film (${{ '%.2f'|format(budget.usual) }})">${{ '%.2f'|format(budget.spent) }} of ${{ '%.2f'|format(budget.ceiling) }}</span>
+  {% if budget.over %}<span class="prod-pill pill-bad">Paused</span>
+  <form method="post" action="{{ url_for('productions.allow_more', key=key, subtopic_id=row.id) }}" class="inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn-secondary">Allow ${{ '%.2f'|format(budget.usual) }} more</button>
+  </form>{% endif %}
+</p>
+{% endif %}
+{% if data.overseer %}
+<details class="prod-overseer" open><summary>Overseer</summary>
+  <ul>{% for n in data.overseer[-4:]|reverse %}<li><span class="hint">{{ n.at[:16]|replace('T', ' ') }}</span> {{ n.text }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
 {% if not look_chosen %}<p class="meta info-banner">No look chosen yet:
   <a href="{{ url_for('channels.settings', key=key, _anchor='section-pictures') }}">choose one</a> before the storyboard.</p>{% endif %}
 
@@ -352,6 +367,8 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
   .prod-angle > input { grid-row: span 3; }
   .prod-angle-score { font-weight: 700; color: var(--accent); grid-row: span 3; }
   .prod-angle-score small { font-weight: 400; color: var(--text-dim); }
+  .prod-spend { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+  .prod-overseer ul { margin: var(--sp-1) 0; padding-left: 1.2rem; }
   .prod-too-long { color: var(--danger); }
   .prod-retitle { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin: var(--sp-2) 0; }
   .prod-angle .hint, .prod-angle em, .prod-thumb-words { grid-column: 3; }

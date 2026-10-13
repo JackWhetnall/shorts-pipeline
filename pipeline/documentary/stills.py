@@ -23,7 +23,7 @@ from pathlib import Path
 from core import job_context
 from core.errors import PipelineError
 from core.logging_setup import get_logger
-from pipeline.animation import keyframes, models, style
+from pipeline.animation import images, keyframes, models, style
 from pipeline.documentary import cast as library
 
 log = get_logger(__name__)
@@ -121,46 +121,71 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
 
-    def one(shot, fix=None):
+    def fixes_for(shot, fix=None):
         note = notes.get(shot["index"])
-        fixes = ([f"The owner asks: {note}"] if note else []) + (fix or [])
-        return keyframes.draw(shot, the_board, look, style_ref, sheets, folder, model,
-                              fix=fixes or None)
+        return ([f"The owner asks: {note}"] if note else []) + (fix or [])
 
-    drawn = {}
-    for shot, path in zip(wanted, job_context.parallel_map(lambda s: _try(one, s), wanted, max_workers=3)):
-        if path is not None:
-            drawn[shot["index"]] = path
+    def one(shot, fix=None):
+        return keyframes.draw(shot, the_board, look, style_ref, sheets, folder, model,
+                              fix=fixes_for(shot, fix) or None)
+
+    def draw_set(items: list) -> dict:
+        """{index: path} for [(shot, fix)]: one batch at half price when the
+        work is made ahead (decision 094), else three at a time."""
+        if not items:
+            return {}
+        from pipeline import llm
+        if llm.in_batch_mode():
+            jobs, ready = [], {}
+            for shot, fix in items:
+                asked = fixes_for(shot, fix)
+                job = keyframes.request(shot, the_board, look, style_ref, sheets, folder, model, fix=asked or None)
+                if job["out"].exists() and not asked:
+                    ready[shot["index"]] = job["out"]       # drawn already, as keyframes.draw keeps it
+                else:
+                    jobs.append(job)
+            try:
+                made = images.draw_batch(jobs)
+            except PipelineError as exc:
+                log.warning(f"  [documentary] the picture batch failed ({exc}); none of it drawn")
+                made = {}
+            return {**ready, **{i: p for i, p in made.items() if p is not None}}
+        paths = job_context.parallel_map(lambda item: _try(one, *item), items, max_workers=3)
+        return {shot["index"]: path for (shot, _), path in zip(items, paths) if path is not None}
+
+    drawn = draw_set([(s, None) for s in wanted])
     if not drawn:
         raise PipelineError("no stills drawn", user_message="None of the storyboard's pictures could be drawn.")
     if check:
-        for start in range(0, len(wanted), CHECK_GROUP):
-            group = [s for s in wanted[start:start + CHECK_GROUP] if s["index"] in drawn]
+        from pipeline import llm
+
+        def look_at(group):
             try:
-                problems = keyframes.check(group, drawn, the_board, style_ref, sheets)
+                return keyframes.check(group, drawn, the_board, style_ref, sheets)
             except PipelineError as exc:
                 log.warning(f"  [documentary] couldn't check stills ({exc}); kept unchecked")
-                continue
-            for index, found in problems.items():
-                log.info(f"  [documentary] redrawing still {index + 1}: {'; '.join(found)[:200]}")
-                again = _try(one, the_shots[index], found)
-                if again is not None:
-                    drawn[index] = again
-        for index, found in flaws([s for s in wanted if s["index"] in drawn], drawn).items():
+                return {}
+        groups = [[s for s in wanted[start:start + CHECK_GROUP] if s["index"] in drawn]
+                  for start in range(0, len(wanted), CHECK_GROUP)]
+        problems = {}
+        for found in llm.run_together([lambda g=g: look_at(g) for g in groups if g]):
+            problems.update(found)
+        for index, found in sorted(problems.items()):
             log.info(f"  [documentary] redrawing still {index + 1}: {'; '.join(found)[:200]}")
-            again = _try(one, the_shots[index], found)
-            if again is not None:
-                drawn[index] = again
+        drawn.update(draw_set([(the_shots[i], found) for i, found in sorted(problems.items())]))
+        faults = flaws([s for s in wanted if s["index"] in drawn], drawn)
+        for index, found in sorted(faults.items()):
+            log.info(f"  [documentary] redrawing still {index + 1}: {'; '.join(found)[:200]}")
+        drawn.update(draw_set([(the_shots[i], found) for i, found in sorted(faults.items())]))
     return drawn
 
 
 def flaws(the_shots: list, drawn: dict) -> dict:
     """{shot index: [fault]} from the cheap close look (decision 090):
     about a cent for ten pictures. A look that fails finds nothing."""
-    from pipeline.llm import DEFAULT_MODEL, call_json
-    out = {}
-    for start in range(0, len(the_shots), FLAW_GROUP):
-        group = the_shots[start:start + FLAW_GROUP]
+    from pipeline.llm import DEFAULT_MODEL, call_json, run_together
+
+    def look(group) -> dict:
         try:
             pictures = []
             for s in group:
@@ -171,14 +196,21 @@ def flaws(the_shots: list, drawn: dict) -> dict:
                              max_tokens=4000)
         except (PipelineError, OSError) as exc:
             log.warning(f"  [documentary] couldn't look for flaws ({exc}); kept as drawn")
-            continue
-        wanted = {s["index"] for s in group}
+            return {}
+        wanted, found_here = {s["index"] for s in group}, {}
         for row in data.get("shots") or []:
             # It sometimes marks a picture failed while saying it's fine
             # ("no actual facial features, so it's fine; no clear fault").
             found = [p for p in row.get("problems") or [] if p and not CLEARED.search(p)]
             if row.get("index") in wanted and not row.get("ok") and found:
-                out[row["index"]] = found
+                found_here[row["index"]] = found
+        return found_here
+
+    # Side by side in batch mode (one batch round, not eleven).
+    out = {}
+    groups = [the_shots[start:start + FLAW_GROUP] for start in range(0, len(the_shots), FLAW_GROUP)]
+    for found in run_together([lambda g=g: look(g) for g in groups]):
+        out.update(found)
     return out
 
 

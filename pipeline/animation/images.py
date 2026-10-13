@@ -32,6 +32,8 @@ log = get_logger(__name__)
 
 GENERATIONS = "https://api.openai.com/v1/images/generations"
 EDITS = "https://api.openai.com/v1/images/edits"
+FILES = "https://api.openai.com/v1/files"
+BATCHES = "https://api.openai.com/v1/batches"
 SERVICE = "The image service (OpenAI)"
 PORTRAIT = (864, 1536)          # 9:16, both sides multiples of 16
 LANDSCAPE = (1536, 1024)        # model sheets: a character three times across
@@ -83,6 +85,15 @@ def _rate_limited(response) -> float:
     return min(90.0, seconds + 1.0)
 
 
+# Batches (decision 094): a storyboard's pictures go as one batch at half
+# price, references uploaded once and named by file id. Most end within an
+# hour; the API allows a day. Polled gently; a run stopped mid-wait picks
+# its batch up again from the journal instead of paying twice.
+BATCH_POLL_FIRST, BATCH_POLL_MAX = 30, 300
+BATCH_WAIT_MAX = 20 * 3600
+_journal_lock = threading.Lock()
+
+
 def _key() -> str:
     value = os.environ.get("OPENAI_API_KEY", "").strip()
     if not value:
@@ -129,6 +140,8 @@ def draw(prompt: str, out_path: Path, model: ImageModel, *, references=(),
     order the prompt names them) when there are any. Saved at out_path;
     the format follows its suffix (.png or .jpg). `transparent` draws a
     cut-out on a transparent background (a kit object; needs .png)."""
+    from core import film_budget
+    film_budget.check_current()         # a film past its ceiling stops here (decision 094)
     out_path = Path(out_path)
     fmt = "png" if out_path.suffix.lower() == ".png" else "jpeg"
     fields = {"model": model.model, "prompt": prompt, "n": "1",
@@ -186,3 +199,166 @@ def draw(prompt: str, out_path: Path, model: ImageModel, *, references=(),
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(base64.b64decode(data["data"][0]["b64_json"]))
         return out_path
+
+
+# --- batches ---------------------------------------------------------------
+
+def _batch_journal_path() -> Path:
+    from core.paths import CACHE_DIR
+    return CACHE_DIR / "image_batches.json"
+
+
+def _read_batch_journal() -> dict:
+    import json
+    try:
+        return json.loads(_batch_journal_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_batch_journal(key: str, entry: dict = None) -> None:
+    """Record (or with no entry, forget) a batch. Checkpointing, so
+    best-effort: a journal that can't be written costs at most one batch
+    paid twice if the app stops mid-wait."""
+    import json
+    try:
+        with _journal_lock:
+            entries = _read_batch_journal()
+            cutoff = time.time() - 28 * 86400
+            entries = {k: v for k, v in entries.items() if v.get("at", 0) >= cutoff}
+            if entry:
+                entries[key] = entry
+            else:
+                entries.pop(key, None)
+            path = _batch_journal_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(entries, indent=1), encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001 - checkpointing; see above
+        log.warning(f"  [animation] couldn't update the image batch journal ({exc})")
+
+
+def _batch_key(jobs: list) -> str:
+    import hashlib
+    import json
+    said = [[str(j["key"]), j["prompt"], [f"{Path(r).name}:{int(Path(r).stat().st_mtime)}" for r in j["references"]],
+             list(j["size"]), j.get("quality") or j["model"].quality, j["model"].model] for j in jobs]
+    return hashlib.sha256(json.dumps(said, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def _upload(content: bytes, name: str, kind: str, purpose: str) -> str:
+    response = requests.post(FILES, headers={"Authorization": f"Bearer {_key()}"}, data={"purpose": purpose},
+                             files={"file": (name, content, kind)}, timeout=300)
+    if response.status_code != 200:
+        raise _error(response)
+    return response.json()["id"]
+
+
+def _forget_files(ids: list) -> None:
+    """Uploaded references and batch files, deleted once collected (best
+    effort: a file left behind costs nothing but room)."""
+    for file_id in ids:
+        try:
+            requests.delete(f"{FILES}/{file_id}", headers={"Authorization": f"Bearer {_key()}"}, timeout=60)
+        except requests.RequestException:
+            pass
+
+
+def _wait_batch(batch_id: str) -> dict:
+    headers = {"Authorization": f"Bearer {_key()}"}
+    started, pause = time.time(), BATCH_POLL_FIRST
+    while True:
+        try:
+            batch = requests.get(f"{BATCHES}/{batch_id}", headers=headers, timeout=60).json()
+        except (requests.RequestException, ValueError):
+            batch = {}
+        if batch.get("status") in ("completed", "failed", "expired", "cancelled"):
+            return batch
+        if time.time() - started > BATCH_WAIT_MAX:
+            log.warning(f"  [animation] image batch {batch_id} hadn't finished after "
+                        f"{BATCH_WAIT_MAX // 3600} hours; cancelled")
+            requests.post(f"{BATCHES}/{batch_id}/cancel", headers=headers, timeout=60)
+            return batch
+        time.sleep(pause)
+        pause = min(pause * 2, BATCH_POLL_MAX)
+
+
+def draw_batch(jobs: list) -> dict:
+    """Many pictures as one OpenAI batch, at half price: {job key: path,
+    or None for one that failed}. Each job is {"key", "prompt", "out",
+    "model", "references", "size", "operation", "quality"?}, every one with
+    references (they go to the edits endpoint). Blocks until the batch
+    ends, so only for work nobody is waiting on."""
+    import json
+    from core import film_budget
+    if not jobs:
+        return {}
+    film_budget.check_current()
+    headers = {"Authorization": f"Bearer {_key()}"}
+    key = _batch_key(jobs)
+    entry = _read_batch_journal().get(key)
+    if entry:
+        log.info(f"  [animation] picking up image batch {entry['batch']} from an earlier run")
+    else:
+        file_ids, uploaded = {}, []
+        for job in jobs:
+            for ref in job["references"]:
+                ref = str(ref)
+                if ref not in file_ids:
+                    file_ids[ref] = _upload(_reference_bytes(Path(ref)), "ref.png", "image/png", "vision")
+                    uploaded.append(file_ids[ref])
+        lines = []
+        for job in jobs:
+            fmt = "png" if Path(job["out"]).suffix.lower() == ".png" else "jpeg"
+            body = {"model": job["model"].model, "prompt": job["prompt"], "n": 1,
+                    "images": [{"file_id": file_ids[str(r)]} for r in job["references"]],
+                    "size": f"{job['size'][0]}x{job['size'][1]}",
+                    "quality": job.get("quality") or job["model"].quality, "output_format": fmt}
+            if fmt == "jpeg":
+                body["output_compression"] = 92
+            lines.append(json.dumps({"custom_id": str(job["key"]), "method": "POST", "url": "/v1/images/edits",
+                                     "body": body}))
+        input_id = _upload("\n".join(lines).encode("utf-8"), "batch.jsonl", "application/jsonl", "batch")
+        response = requests.post(BATCHES, headers={**headers, "Content-Type": "application/json"}, timeout=60,
+                                 data=json.dumps({"input_file_id": input_id, "endpoint": "/v1/images/edits",
+                                                  "completion_window": "24h"}))
+        if response.status_code != 200:
+            _forget_files(uploaded + [input_id])
+            raise _error(response)
+        entry = {"batch": response.json()["id"], "files": uploaded + [input_id], "at": time.time()}
+        _write_batch_journal(key, entry)
+        log.info(f"  [animation] {len(jobs)} picture(s) sent as batch {entry['batch']} at half price; waiting")
+    batch = _wait_batch(entry["batch"])
+    by_key = {str(j["key"]): j for j in jobs}
+    out = {j["key"]: None for j in jobs}
+    collected = []
+    if batch.get("output_file_id"):
+        collected.append(batch["output_file_id"])
+        text = requests.get(f"{FILES}/{batch['output_file_id']}/content", headers=headers, timeout=600).text
+        for line in text.splitlines():
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            job = by_key.get(row.get("custom_id"))
+            response = row.get("response") or {}
+            body = response.get("body") or {}
+            if job is None:
+                continue
+            if response.get("status_code") != 200 or not body.get("data"):
+                log.warning(f"  [animation] picture {job['key']} failed in the batch: "
+                            f"{str((body.get('error') or {}).get('message') or row.get('error'))[:160]}")
+                continue
+            costs.record_openai_image_usage(job.get("operation", "animation_keyframe"), job["model"].model,
+                                            body.get("usage"), job["model"].estimate, batch=True)
+            path = Path(job["out"])
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(base64.b64decode(body["data"][0]["b64_json"]))
+            out[job["key"]] = path
+    if batch.get("error_file_id"):
+        collected.append(batch["error_file_id"])
+    missing = sum(1 for v in out.values() if v is None)
+    log.info(f"  [animation] image batch {entry['batch']} {batch.get('status', 'ended')}: "
+             f"{len(jobs) - missing} drawn" + (f", {missing} failed" if missing else ""))
+    _forget_files(entry.get("files", []) + collected)
+    _write_batch_journal(key)
+    return out

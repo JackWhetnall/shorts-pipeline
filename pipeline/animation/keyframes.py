@@ -74,15 +74,24 @@ def path_for(folder: Path, shot: dict) -> Path:
     return Path(folder) / f"kf_{shot['index']:02d}.jpg"
 
 
+def request(shot: dict, board: dict, look: dict, style_ref: Path, sheets: dict, folder: Path,
+            model, fix: list = None) -> dict:
+    """What drawing this shot's frame asks for, as images.draw_batch takes
+    it (decision 094), so a storyboard can go as one batch."""
+    refs = references(shot, board, sheets)
+    return {"key": shot["index"], "prompt": prompt_for(shot, board, look, refs, fix),
+            "out": path_for(folder, shot), "model": model,
+            "references": [style_ref] + [sheets[k] for k, _ in refs],
+            "size": frames.get(look.get("frame")).image, "operation": "animation_keyframe"}
+
+
 def draw(shot: dict, board: dict, look: dict, style_ref: Path, sheets: dict, folder: Path,
          model, fix: list = None) -> Path:
-    refs = references(shot, board, sheets)
-    out = path_for(folder, shot)
-    if out.exists() and not fix:
-        return out
-    return images.draw(prompt_for(shot, board, look, refs, fix), out, model,
-                       references=[style_ref] + [sheets[k] for k, _ in refs],
-                       size=frames.get(look.get("frame")).image, operation="animation_keyframe")
+    job = request(shot, board, look, style_ref, sheets, folder, model, fix)
+    if job["out"].exists() and not fix:
+        return job["out"]
+    return images.draw(job["prompt"], job["out"], model, references=job["references"],
+                       size=job["size"], operation=job["operation"])
 
 
 def draw_all(shots: list, board: dict, look: dict, style_ref: Path, sheets: dict, folder: Path,

@@ -453,6 +453,24 @@ class Quiz(_MappingLike):
     longform_ready: int = 0
 
 
+def _hours_ok(text: str) -> bool:
+    import re
+    found = re.fullmatch(r"\s*(\d{1,2})\s*-\s*(\d{1,2})\s*", text or "")
+    return bool(found) and all(0 <= int(h) <= 24 for h in found.groups())
+
+
+def within_hours(text: str, hour: int) -> bool:
+    """Whether `hour` (0-23) falls in "start-end", which may run past
+    midnight ("23-7"). Empty: any hour."""
+    if not text or not _hours_ok(text):
+        return True
+    import re
+    start, end = (int(h) % 24 for h in re.findall(r"\d{1,2}", text))
+    if start == end:
+        return True
+    return start <= hour < end if start < end else (hour >= start or hour < end)
+
+
 @dataclass
 class Documentary(_MappingLike):
     """A long-form channel's shape (pipeline.documentary, decision 074).
@@ -505,6 +523,14 @@ class Documentary(_MappingLike):
     # (a viewer's question answered, one next question at a time):
     # pipeline.documentary.kinds, decision 089.
     kind: str = "story"
+    # Decision 094. The hours the autopilot may start a stage in, as
+    # "start-end" in local 24-hour time ("23-7": overnight, when batch
+    # prices' slowness costs nothing); "" for any time.
+    hours: str = ""
+    # The script and the storyboard wait for the overseer (a scheduled
+    # Claude session, tools/overseer.py) to read, fix and approve them,
+    # rather than the autopilot approving them unread.
+    overseen: bool = False
 
 
 @dataclass
@@ -665,6 +691,8 @@ class ChannelConfig:
             if self.documentary.pictures not in LONG_FORM_PICTURES:
                 raise ConfigError(f"{where} has an unknown kind of pictures "
                                   f"({self.documentary.pictures!r}).")
+            if self.documentary.hours and not _hours_ok(self.documentary.hours):
+                raise ConfigError(f"{where} has hours {self.documentary.hours!r}; write them like 23-7.")
             if self.documentary.captions not in ("corner", "tag", "none"):
                 raise ConfigError(f"{where} has an unknown kind of label ({self.documentary.captions!r}). "
                                   f"Pick corner, tag or none.")

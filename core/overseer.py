@@ -1,0 +1,239 @@
+"""
+The overseer's tools (decision 094): what a scheduled Claude session uses
+to read a film at its two checkpoints, fix what's wrong and approve it.
+
+The pipeline's own checks catch most faults, but not the ones that need
+judgement: a film whose whole thesis was false ("salt never leaves the
+sea"), an invented quote, a prop leaking into every picture. Those were
+caught by reading the script and looking at the storyboard. An overseen
+channel (`documentary.overseen`) leaves its script and storyboard
+"ready" for this; the autopilot does everything else, overnight, at
+batch prices. The session runs on the owner's Claude subscription, not
+the API.
+
+    python -m core.overseer status
+    python -m core.overseer script <channel> <id>
+    python -m core.overseer edit <channel> <id> <scene> --narration "..."
+    python -m core.overseer board <channel> <id>
+    python -m core.overseer redraw <channel> <id> 4,17 --note "..."
+    python -m core.overseer approve <channel> <id> <script|stills>
+    python -m core.overseer note <channel> <id> "what you did and why"
+
+How to review is in docs/overseer.md. Every change is recorded in the
+production's history as the overseer's.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+from core import channels as channel_config
+from core import curriculum, film_budget, production
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def overseen() -> dict:
+    return {k: c for k, c in channel_config.load_channels().items()
+            if c.format == "documentary" and getattr(c.documentary, "overseen", False) and not c.archived}
+
+
+def status() -> list:
+    """[{channel, id, title, stages, waiting, spent, ceiling}] for each
+    overseen channel's films in progress."""
+    out = []
+    for key in overseen():
+        for data in production.all_for(key):
+            stages = {s: production.state(data, s) for s in production.STAGES}
+            if stages["video"] in ("ready", "approved") or stages["pitch"] == "todo":
+                continue
+            waiting = [s for s in ("script", "stills") if stages[s] == "ready"]
+            out.append({"channel": key, "id": data["subtopic_id"], "title": data.get("title", ""),
+                        "stages": stages, "waiting": waiting,
+                        "spent": film_budget.spent(key, data["subtopic_id"]),
+                        "ceiling": film_budget.ceiling(key, data["subtopic_id"])})
+    return out
+
+
+def script_sheet(key: str, sid: str) -> str:
+    """The film's script as a reviewer reads it: angle, settings, then
+    every scene with its picture, then what the editors already changed."""
+    data = production.load(key, sid)
+    angle = production.chosen_angle(data)
+    outline, script = data.get("outline") or {}, data.get("script") or {}
+    lines = [f"FILM {key}/{sid}: {data.get('title', '')}",
+             f"Title: {production.packaging(data).get('title', '')}",
+             f"Hook: {angle.get('hook', '')}", f"Promise: {angle.get('promise', '')}", "",
+             "SETTINGS:"] + [f"  - {s['name']} ({s['scale']}): {s['description']}" for s in outline.get("settings") or []]
+    lines += ["CAST:"] + [f"  - {m['name']} ({m.get('kind')}; in {', '.join(m.get('settings') or []) or 'anywhere'}): "
+                          f"{m.get('description', '')[:160]}" for m in outline.get("cast") or []]
+    chapter = 0
+    for i, s in enumerate(script.get("scenes") or []):
+        if s["chapter"] != chapter:
+            chapter = s["chapter"]
+            title = (outline.get("chapters") or [{}] * chapter)[chapter - 1].get("title", "")
+            lines.append(f"\n== Chapter {chapter}: {title}")
+        if s.get("medium") == "card":
+            card = s.get("card") or {}
+            lines.append(f"[{i}] CARD {card.get('kind')}: {card.get('heading', '')} | {card.get('value', '')} | "
+                         f"{card.get('caption', '')} | {'; '.join(card.get('items') or [])}")
+        else:
+            again = f" (shows scene {s['same_as']}'s picture again)" if isinstance(s.get("same_as"), int) else ""
+            lines.append(f"[{i}] picture in {s.get('setting') or '?'}{again}: {s.get('direction', '')[:220]}")
+        lines.append(f"     SAYS: {s['narration']}")
+    lines += ["", f"DESCRIPTION: {script.get('description', '')}", "",
+              "ALREADY CHANGED BY THE EDITORS:"]
+    lines += [f"  - fact check, scene {f['scene']}: {f['problem']}" for f in script.get("facts") or []]
+    lines += [f"  - repeat pass rewrote scene {r['scene']} (repeated {r['earlier']})" for r in script.get("restated") or []]
+    lines += [f"  - picture editor, scene {c['scene']} {c['action']}: {c['why']}"
+              for c in (script.get("pictures") or {}).get("changes") or []]
+    if (script.get("pictures") or {}).get("unfixed"):
+        lines += ["PICTURE RULES STILL BROKEN:"] + [f"  - scene {u['scene']}: {u['problem']}"
+                                                 for u in script["pictures"]["unfixed"]]
+    return "\n".join(lines)
+
+
+def _history(d: dict, did: str) -> None:
+    d.setdefault("history", []).append({"at": _now(), "stage": "script", "did": did, "by": "overseer"})
+
+
+def edit(key: str, sid: str, scene: int, narration: str = None, direction: str = None,
+         card_value: str = None, card_items: str = None, description: str = None) -> None:
+    def change(d):
+        scenes = d["script"]["scenes"]
+        if description is not None:
+            d["script"]["description"] = description
+            _history(d, "rewrote the description")
+        if scene is None or scene < 0:
+            return
+        s = scenes[scene]
+        if narration is not None:
+            s["narration"] = " ".join(narration.split())
+        if direction is not None:
+            s["direction"] = " ".join(direction.split())
+            s.pop("same_as", None)
+        if card_value is not None and s.get("card"):
+            s["card"]["value"] = card_value
+        if card_items is not None and s.get("card"):
+            s["card"]["items"] = [x.strip() for x in card_items.split(";") if x.strip()]
+        _history(d, f"edited scene {scene}")
+    production.update(key, sid, change)
+
+
+def board(key: str, sid: str, per_sheet: int = 40) -> list:
+    """Numbered contact sheets of the storyboard, for looking at. Returns
+    their paths."""
+    from PIL import Image, ImageDraw
+    data = production.load(key, sid)
+    folder = production.folder(key, sid)
+    stills, scenes = data.get("stills") or {}, (data.get("script") or {}).get("scenes") or []
+    keys = sorted(stills, key=int)
+    out_dir = folder / "review"
+    out_dir.mkdir(exist_ok=True)
+    paths, w, h, cols = [], 384, 216, 8
+    for n, start in enumerate(range(0, len(keys), per_sheet), start=1):
+        chunk = keys[start:start + per_sheet]
+        rows = (len(chunk) + cols - 1) // cols
+        sheet = Image.new("RGB", (w * cols, h * rows), "white")
+        for j, k in enumerate(chunk):
+            im = Image.open(folder / stills[k]).convert("RGB").resize((w, h))
+            again = scenes[int(k)].get("same_as") if int(k) < len(scenes) else None
+            tag = f"{k}={again}" if isinstance(again, int) else k
+            draw = ImageDraw.Draw(im)
+            draw.rectangle((0, 0, 9 * len(tag) + 8, 18), fill="black")
+            draw.text((4, 3), tag, fill="white")
+            sheet.paste(im, ((j % cols) * w, (j // cols) * h))
+        path = out_dir / f"board_{n}.jpg"
+        sheet.save(path, quality=85)
+        paths.append(path)
+    return paths
+
+
+def redraw(key: str, sid: str, scenes: list, note: str = "") -> dict:
+    """Redraw these pictures now (a few cents each), with the reason."""
+    from pipeline.documentary import run
+    channel = channel_config.load_channels()[key]
+    notes = {i: note for i in scenes} if note else None
+    run.run_stage(channel, sid, "stills", only=list(scenes), notes=notes)
+    production.update(key, sid, lambda d: d.setdefault("history", []).append(
+        {"at": _now(), "stage": "stills", "did": f"redrew {', '.join(map(str, scenes))}: {note}"[:300],
+         "by": "overseer"}))
+    return {"redrawn": scenes}
+
+
+def approve(key: str, sid: str, stage: str) -> None:
+    if stage not in ("script", "stills"):
+        raise SystemExit("The overseer approves only the script and the storyboard.")
+    production.approve(key, sid, stage, by="overseer")
+
+
+def note(key: str, sid: str, text: str) -> None:
+    """A note for the owner, shown on the production page."""
+    production.update(key, sid, lambda d: d.setdefault("overseer", []).append({"at": _now(), "text": text}))
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(prog="python -m core.overseer")
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("status")
+    for name in ("script", "board"):
+        p = sub.add_parser(name)
+        p.add_argument("channel")
+        p.add_argument("id")
+    p = sub.add_parser("edit")
+    p.add_argument("channel")
+    p.add_argument("id")
+    p.add_argument("scene", type=int, help="-1 for the description only")
+    for flag in ("--narration", "--direction", "--card-value", "--card-items", "--description"):
+        p.add_argument(flag)
+    p = sub.add_parser("redraw")
+    p.add_argument("channel")
+    p.add_argument("id")
+    p.add_argument("scenes", help="comma-separated scene numbers")
+    p.add_argument("--note", default="")
+    p = sub.add_parser("approve")
+    p.add_argument("channel")
+    p.add_argument("id")
+    p.add_argument("stage")
+    p = sub.add_parser("note")
+    p.add_argument("channel")
+    p.add_argument("id")
+    p.add_argument("text")
+    args = parser.parse_args(argv)
+    if args.command == "status":
+        found = status()
+        if not found:
+            print("No overseen film in progress.")
+        for f in found:
+            print(f"{f['channel']}/{f['id']} {f['title']}: waiting for review: {', '.join(f['waiting']) or 'nothing'}; "
+                  f"stages {f['stages']}; spent ${f['spent']:.2f} of ${f['ceiling']:.2f}")
+    elif args.command == "script":
+        sys.stdout.reconfigure(encoding="utf-8")
+        print(script_sheet(args.channel, args.id))
+    elif args.command == "edit":
+        edit(args.channel, args.id, args.scene, args.narration, args.direction, args.card_value,
+             args.card_items, args.description)
+        print("edited")
+    elif args.command == "board":
+        for path in board(args.channel, args.id):
+            print(path)
+    elif args.command == "redraw":
+        print(redraw(args.channel, args.id, [int(x) for x in args.scenes.split(",") if x.strip()], args.note))
+    elif args.command == "approve":
+        approve(args.channel, args.id, args.stage)
+        print("approved", args.stage)
+    elif args.command == "note":
+        note(args.channel, args.id, args.text)
+        print("noted")
+    return 0
+
+
+if __name__ == "__main__":
+    from core.logging_setup import configure
+    configure()
+    raise SystemExit(main())

@@ -35,7 +35,11 @@ def run_stage(channel, subtopic_id: str, stage: str, note: str = "", only: list 
     if not production.can_start(data, stage) and not (stage == "teasers" and _making_teasers(data)):
         raise PipelineError(f"{stage} before its stages are approved", user_message=(
             "Approve the stages before this one first."))
+    from core import film_budget, job_context
+    film_budget.check(channel.key, subtopic_id)
     production.update(channel.key, subtopic_id, lambda d: production.mark(d, stage, "working"), title)
+    channel_token = job_context.set_channel_key(job_context.get_channel_key() or channel.key)
+    film = job_context.set_production(subtopic_id)
     try:
         result = _do(channel, row, data, stage, note, only, chapter, notes)
     except Exception as exc:
@@ -43,6 +47,9 @@ def run_stage(channel, subtopic_id: str, stage: str, note: str = "", only: list 
         production.update(channel.key, subtopic_id,
                           lambda d: production.mark(d, stage, "failed", friendly_message(exc)))
         raise
+    finally:
+        job_context.reset_production(film)
+        job_context._current_channel_key.reset(channel_token)
     if stage in ("outline", "script", "stills"):
         retire_video(channel, subtopic_id)
     return result

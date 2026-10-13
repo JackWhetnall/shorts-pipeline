@@ -27,6 +27,8 @@ from core.logging_setup import get_logger
 log = get_logger(__name__)
 
 AUTO_APPROVED = ("pitch", "outline", "script", "stills")
+# What an overseen channel leaves for the overseer to approve (decision 094).
+REVIEWED = ("script", "stills")
 
 
 def _busy(channel_key: str) -> bool:
@@ -81,6 +83,9 @@ def step(channel) -> str:
         return ""
     if _busy(channel.key):
         return ""
+    from datetime import datetime
+    from core.channels import within_hours
+    after_hours = not within_hours(getattr(doc, "hours", ""), datetime.now().hour)
     row, data, new = _next_film(channel)
     if row is None:
         return ""
@@ -97,6 +102,8 @@ def step(channel) -> str:
         chars = production.narration_still_to_voice(data)
         if chars and not voice_quota.has_room_for(chars):
             return ""
+    if state == "ready" and stage in REVIEWED and getattr(doc, "overseen", False):
+        return ""                       # the overseer reads it first (decision 094)
     if state == "ready" and stage in AUTO_APPROVED:
         production.approve(channel.key, row["id"], stage, by="autopilot")
         if stage == "outline":
@@ -112,6 +119,8 @@ def step(channel) -> str:
             return ""
         production.update(channel.key, row["id"], lambda d: d["stages"][stage].update(autopilot_retried=True))
     if state in ("todo", "stale", "failed"):
+        if after_hours:
+            return ""                       # stages start in the channel's hours only
         if stage == "teasers" and int(doc.teasers) < 1:
             return ""
         start(channel, row, stage)

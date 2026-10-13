@@ -108,12 +108,16 @@ class CostRecord:
     images: int = 0
     seconds: float = 0.0    # of generated video
     batch: bool = False     # sent through the Message Batches API, at half price
+    production: str = None  # the film (plan-entry id) it was for, if any (decision 094)
 
 
 def _write(record: CostRecord) -> None:
     """Append one record. Best-effort by contract: a cost log that can't
     be written must never take down a render that otherwise worked."""
     try:
+        if record.production is None:
+            from core import job_context
+            record.production = job_context.get_production()
         COST_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         line = json.dumps(asdict(record))
         with _lock:
@@ -211,18 +215,22 @@ def openai_image_usage_cost(model: str, usage: dict):
 
 
 def record_openai_image_usage(operation: str, model: str, usage: dict, fallback_usd: float,
-                              channel_key: str = None) -> CostRecord:
+                              channel_key: str = None, batch: bool = False) -> CostRecord:
     """One image from a token-billed model, costed from what it reported
     (or `fallback_usd`, the registry's estimate, when it reported
-    nothing)."""
+    nothing). `batch`: drawn through OpenAI's Batch API, at half price."""
     from core import job_context
     cost = openai_image_usage_cost(model, usage)
+    if batch:
+        cost = None if cost is None else cost * BATCH_DISCOUNT
+        fallback_usd *= BATCH_DISCOUNT
     usage = usage if isinstance(usage, dict) else {}
     record = CostRecord(
         ts=time.time(), service="openai-image", operation=operation, model=model,
         cost_usd=fallback_usd if cost is None else cost, job_id=job_context.get_job_id(),
         channel_key=channel_key or job_context.get_channel_key(), images=1,
-        input_tokens=usage.get("input_tokens") or 0, output_tokens=usage.get("output_tokens") or 0)
+        input_tokens=usage.get("input_tokens") or 0, output_tokens=usage.get("output_tokens") or 0,
+        batch=batch)
     _write(record)
     return record
 

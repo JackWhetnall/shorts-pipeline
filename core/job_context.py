@@ -41,6 +41,9 @@ _current_job_id: contextvars.ContextVar = contextvars.ContextVar("job_id", defau
 # because CLI runs have a channel but no job, and cost records want to be
 # attributable in both cases.
 _current_channel_key: contextvars.ContextVar = contextvars.ContextVar("channel_key", default=None)
+# Which film (a production's plan-entry id) the current work is for, so
+# its spend can be added up and capped (core.film_budget, decision 094).
+_current_production: contextvars.ContextVar = contextvars.ContextVar("production", default=None)
 
 # The single registered consumer of progress reports — webapp's job
 # registry in practice, nothing at all under the CLI. Kept as one object
@@ -82,6 +85,18 @@ def get_channel_key():
 
 def set_channel_key(channel_key):
     return _current_channel_key.set(channel_key)
+
+
+def get_production():
+    return _current_production.get()
+
+
+def set_production(subtopic_id):
+    return _current_production.set(subtopic_id)
+
+
+def reset_production(token) -> None:
+    _current_production.reset(token)
 
 
 # --- progress reporting -----------------------------------------------

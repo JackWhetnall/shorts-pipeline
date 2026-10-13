@@ -221,6 +221,8 @@ def _check_stop_reason(response, operation: str, max_tokens: int) -> None:
 
 
 def _call(request: dict, operation: str, model: str):
+    from core import film_budget
+    film_budget.check_current()         # a film past its ceiling stops here (decision 094)
     batch = in_batch_mode()
     try:
         response = _send_batched(request, operation) if batch else client().messages.create(**request)

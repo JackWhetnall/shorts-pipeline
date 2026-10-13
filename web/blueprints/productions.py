@@ -142,7 +142,30 @@ def page(key, subtopic_id):
         old_video=_made(channel, (data.get("video") or {}).get("retired")),
         teaser_videos=[v for v in (_made(channel, p) for p in (data.get("teasers") or {}).get("videos") or []) if v],
         speed={stage: _speed(key, stage) for stage in production.STAGES},
+        budget=_budget(key, subtopic_id),
         note=request.args.get("note", ""))
+
+
+def _budget(key: str, subtopic_id: str) -> dict:
+    """This film's spend against its ceiling (core.film_budget, decision 094)."""
+    from core import film_budget
+    try:
+        spent, top = film_budget.spent(key, subtopic_id), film_budget.ceiling(key, subtopic_id)
+        return {"spent": spent, "ceiling": top, "over": spent >= top, "usual": film_budget.usual(key)}
+    except Exception as exc:  # noqa: BLE001 - the page shows without it
+        log.warning(f"Couldn't work out the film's spend: {exc}")
+        return {}
+
+
+@bp.route("/channels/<key>/productions/<subtopic_id>/allow-more", methods=["POST"])
+def allow_more(key, subtopic_id):
+    """Raise a paused film's ceiling by one more usual film (decision 094)."""
+    from core import film_budget
+    _channel(key)
+    if curriculum.find(key, subtopic_id) is None:
+        abort(404)
+    top = film_budget.allow_more(key, subtopic_id)
+    return _back(key, subtopic_id, f"Allowed up to ${top:.2f}.", "pitch")
 
 
 def _speed(channel_key: str, stage: str) -> dict:

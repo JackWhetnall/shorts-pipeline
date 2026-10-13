@@ -4,13 +4,35 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 12 Oct 2026. Start with U and V: a new explainer channel, Why, Though?, has its first film. Then P to S: a new channel, One Day In History, has its first film waiting for you. The project is pivoting to long-form: Phase 0 is built and step 0 has your part. History Unmystified has its own, shorter settings page and is ready for its first film: see F to H. Pub Quiz Buzz and Minute Pastor both publish
+*Last updated: 13 Oct 2026. Start with W to Y: films are now made overnight. Then U and V: a new explainer channel, Why, Though?, has its first film. Then P to S: a new channel, One Day In History, has its first film waiting for you. The project is pivoting to long-form: Phase 0 is built and step 0 has your part. History Unmystified has its own, shorter settings page and is ready for its first film: see F to H. Pub Quiz Buzz and Minute Pastor both publish
 by themselves. Do the "Now" section first. The app's new home page,
 **Today**, now lists what needs you as it happens, and **Money** shows
 costs, runway and payback; this file is for steps outside the app. The
 app has a new look (decision 068): restart it (step E) to see it.*
 
 ---
+
+## Films made overnight (13 Oct)
+
+Why, Though? now makes its own films overnight (22:00 to 08:00) at batch
+prices, about half the cost. A scheduled Claude session, the **Overnight
+film overseer**, reads each script and storyboard, fixes them and
+approves them; you look at the finished film (decision 094).
+
+### W. Leave the PC on overnight (nothing to press)
+The app must be open and the PC awake from 22:00 to 08:00. A task that
+was due while the PC slept runs when the app next opens.
+
+### X. Let the overseer's first run through (2 minutes, once)
+**Scheduled** in the app's sidebar, **Overnight film overseer**, **Run
+now**. Approve the tool prompts it asks for, so later runs don't stop
+on them.
+
+### Y. Each morning: look at the new film (10 minutes)
+**Why, Though? → Productions**. The overseer's notes are at the top of
+each film. Up to 3 films can wait for you; approve or discard them so
+the next one starts. A film that reaches twice its usual cost pauses,
+marked **Paused**, with an **Allow more** button.
 
 ## Why, Though?: an explainer channel (12 Oct)
 
