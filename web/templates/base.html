@@ -45,7 +45,7 @@
     <div class="header-tools">
       {% if focus_choices|length > 1 %}
       <form method="post" action="{{ url_for('today.set_focus') }}" class="focus-switch"
-            title="Review, Queued, To post and the menu's counts show this channel only; Today and Activity show everything">
+            title="Review, Queued, To post, Insights and the menu's counts show this channel only; Today and Activity show everything">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="next" value="{{ request.full_path if request.method == 'GET' else url_for('today.page') }}">
         <select name="channel" aria-label="Channel" onchange="this.form.submit()">

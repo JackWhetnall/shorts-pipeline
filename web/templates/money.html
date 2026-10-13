@@ -39,6 +39,8 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="provider" value="anthropic">
         <label>$ <input type="number" name="usd" min="0" step="0.01" placeholder="Balance now" aria-label="Claude balance now"></label>
         <button type="submit" class="btn-ghost btn-small">Save</button>
+        <button type="submit" name="add" value="10" class="btn-ghost btn-small" data-tooltip="Topped up $10">+$10</button>
+        <button type="submit" name="add" value="20" class="btn-ghost btn-small" data-tooltip="Topped up $20">+$20</button>
         <a class="meta" href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener">Billing ↗</a>
       </form>
     </div>
@@ -50,6 +52,8 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="provider" value="openai">
         <label>$ <input type="number" name="usd" min="0" step="0.01" placeholder="Balance now" aria-label="OpenAI balance now"></label>
         <button type="submit" class="btn-ghost btn-small">Save</button>
+        <button type="submit" name="add" value="10" class="btn-ghost btn-small" data-tooltip="Topped up $10">+$10</button>
+        <button type="submit" name="add" value="20" class="btn-ghost btn-small" data-tooltip="Topped up $20">+$20</button>
       </form>
     </div>
     <div class="money-runway">
@@ -127,22 +131,22 @@
 
   <section class="card money-section" aria-labelledby="ypp">
     <h2 id="ypp">Partner Programme</h2>
+    {% set change = (f.ypp.values()|list|first) if f.ypp else none %}
+    {% if change and change.days_to_change %}<p class="hint">8,000 hours from 1 Feb 2027, in {{ change.days_to_change }} days</p>{% endif %}
     {% for key, y in f.ypp.items() %}
     <div class="money-ypp">
       <h3>{{ channels[key].channel_display_name or key }}{% if key in f.settings.in_ypp %} <span class="badge badge-good">In</span>{% endif %}</h3>
       <div class="kv"><span>Subscribers</span><b>{{ '{:,}'.format(y.subscribers) if y.subscribers is not none else '?' }} of 1,000</b></div>
-      <div class="kv"><span>Watch hours, last 12 months</span><b>{{ '{:,.1f}'.format(y.hours) }} of {{ '{:,}'.format(y.rule.hours) }}</b></div>
+      <div class="kv"><span data-tooltip="Long-form only; read from YouTube twice a day">Watch hours, last 12 months</span><b>{{ '{:,.1f}'.format(y.hours) }} of {{ '{:,}'.format(y.rule.hours) }}</b></div>
       <div class="meter meter-good"><span style="width: {{ (100 * y.hours_share)|round|int }}%"></span></div>
       <div class="kv"><span>Shorts views, last 90 days</span><b>{{ '{:,}'.format(y.shorts_views) }} of {{ '{:,}'.format(y.rule.shorts_views) }}</b></div>
       {% if y.days_to_change %}
-      <p class="meta">The bar doubles to 8,000 hours on 1 Feb 2027, in {{ y.days_to_change }} days. Joining before then needs about
-        {{ '{:,.1f}'.format(y.hours_per_day_needed) }} watch hours a day.</p>
+      <div class="kv"><span>A day to join first</span><b>{{ '{:,.1f}'.format(y.hours_per_day_needed) }} h</b></div>
       {% endif %}
     </div>
     {% else %}
     <p class="meta">No channel publishes on a schedule yet.</p>
     {% endfor %}
-    <p class="hint">Read from YouTube twice a day. Shorts don't count toward watch hours.</p>
   </section>
 </div>
 

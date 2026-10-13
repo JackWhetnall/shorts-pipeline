@@ -272,7 +272,10 @@ prod-section {{ 'prod-dim' if stage in stage_jobs or (order.index(stage) > first
 
 {# --- 5. Teasers ------------------------------------------------------------ #}
 <section class="card {{ section_class('teasers') }}" id="teasers">
-  <h2>Teasers {{ pill('teasers') }} <span class="prod-count">{{ channel.documentary.teasers }}</span></h2>
+  <h2>Teasers {{ pill('teasers') }} <span class="prod-count" data-tooltip="Teasers made per film">{{ channel.documentary.teasers }}</span></h2>
+  {% if data.stages.video.state != 'approved' %}
+  <p class="hint">After the video's approved</p>
+  {% endif %}
   {% if data.stages.video.state == 'approved' %}
   {% if data.teasers and data.teasers.scripts %}
   {% for t in data.teasers.scripts %}

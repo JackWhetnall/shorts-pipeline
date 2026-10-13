@@ -278,8 +278,9 @@ def _chapter(channel, title: str, outline: dict, number: int, before: list, note
                          for s in before if s.get("medium", "picture") != "card")
     target = round(seconds * words_per_second(channel))
     each = max(12, round(target / scenes))
-    user = (f"The video: {title}\n\n{outline_text(outline, angle)}\n\n"
-            + (f"The narration so far, chapter by chapter:\n{so_far}\n\n" if so_far else "")
+    # The outline is the same for every chapter: cached (decision 095).
+    context = f"The video: {title}\n\n{outline_text(outline, angle)}\n\n"
+    user = ((f"The narration so far, chapter by chapter:\n{so_far}\n\n" if so_far else "")
             + (f"The pictures so far (show none of them again):\n{pictures}\n\n" if pictures else "")
             + f"Write chapter {number} of {len(outline['chapters'])} now: {target} words of narration "
               f"in all, in about {scenes} scenes of about {each} words each, continuing straight on "
@@ -293,7 +294,7 @@ def _chapter(channel, title: str, outline: dict, number: int, before: list, note
         user += f"\n\nThe owner asks: {note}"
     out = None
     for attempt in range(2):
-        data = call_json(_system(channel), user, schema(), operation="documentary_script",
+        data = call_json(_system(channel), user, schema(), operation="documentary_script", cache_prefix=context,
                          max_tokens=MAX_TOKENS, effort=EFFORT)
         out = clean(data, outline, paintings=_paintings(channel),
                     dialogue=bool(getattr(channel.documentary, "dialogue", False)))

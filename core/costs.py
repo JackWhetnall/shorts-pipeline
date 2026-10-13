@@ -149,6 +149,10 @@ def record_claude(operation: str, model: str, usage, channel_key: str = None,
     output_tokens = getattr(usage, "output_tokens", 0) or 0
     cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
     cache_write = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    # Writes to the hour-long cache (decision 095) cost twice the input
+    # rate, not the five-minute write's 1.25x.
+    hour_writes = getattr(getattr(usage, "cache_creation", None), "ephemeral_1h_input_tokens", 0) or 0
+    hour_writes = min(hour_writes, cache_write)
 
     price = CLAUDE_PRICES.get(model)
     cost = None
@@ -157,7 +161,8 @@ def record_claude(operation: str, model: str, usage, channel_key: str = None,
             input_tokens * price.input
             + output_tokens * price.output
             + cache_read * price.cache_read
-            + cache_write * price.cache_write
+            + (cache_write - hour_writes) * price.cache_write
+            + hour_writes * price.input * 2
         ) / 1_000_000
         if batch:
             cost *= BATCH_DISCOUNT

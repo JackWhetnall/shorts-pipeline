@@ -12,6 +12,13 @@ app has a new look (decision 068): restart it (step E) to see it.*
 
 ---
 
+## Thumbnails (13 Oct)
+
+### Z. Send Quiz Night #1's thumbnail again (1 minute)
+**Pub Quiz Buzz → Videos**, **Set thumbnails on YouTube**. Its thumbnail
+was redrawn after it went out and never re-sent; the others are on
+YouTube already. Minute Pastor's shorts have no designed cover to send.
+
 ## Films made overnight (13 Oct)
 
 Why, Though? now makes its own films overnight (22:00 to 08:00) at batch

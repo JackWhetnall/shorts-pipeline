@@ -348,8 +348,8 @@ def put_out(channel, video_path: Path, privacy: str = "public", platforms: list 
         if (long or cover.exists()) and thumb.exists() and result.get("id"):
             try:
                 youtube.set_thumbnail(channel.key, result["id"], thumb)
+                mark_cover_set(video_path)
                 if thumb == cover:
-                    mark_cover_set(video_path)
                     if channel.publishing.thumbnail_tests and not long:
                         from core import thumbnail_tests
                         try:
@@ -540,21 +540,34 @@ def mark_cover_set(video) -> None:
     _cover_record(video).write_text(json.dumps({"set_at": _time.time()}), encoding="utf-8")
 
 
+def own_picture(video):
+    """The video's own thumbnail, if it has one: a short's designed cover
+    (decision 082) or a long video's thumbnail (`_thumb.jpg`, made with
+    it). A short's `_thumb.jpg` is only a frame for the app's lists."""
+    cover = video.with_name(f"{video.stem}_cover.jpg")
+    if cover.exists():
+        return cover
+    thumb = video.with_name(f"{video.stem}_thumb.jpg")
+    return thumb if thumb.exists() and gallery.is_long(video) else None
+
+
 def covers_to_set(channel) -> list:
-    """Videos out on YouTube with a thumbnail of their own (decision 082)
-    that hasn't been set there yet, or has changed since it was."""
+    """Videos out on YouTube with a thumbnail of their own that hasn't
+    been set there yet, or has changed since it was. Long videos' count
+    too: a long quiz's thumbnail redrawn after it went out was never sent
+    again, because only shorts' covers were looked at."""
     root = gallery.resolve_output_dir(channel.output_dir)
     if not root.exists():
         return []
     out = []
     for video in gallery.videos_in(root):
-        cover = video.with_name(f"{video.stem}_cover.jpg")
-        if not cover.exists():
+        picture = own_picture(video)
+        if picture is None:
             continue
         info = gallery.load_publish_info(video)
         if not info.get("youtube_url"):
             continue
-        if cover_set_at(video) >= cover.stat().st_mtime:
+        if cover_set_at(video) >= picture.stat().st_mtime:
             continue
         out.append(video)
     return out
@@ -572,7 +585,7 @@ def set_covers(channel, videos: list = None) -> dict:
         if not video_id:
             continue
         try:
-            youtube.set_thumbnail(channel.key, video_id, video.with_name(f"{video.stem}_cover.jpg"))
+            youtube.set_thumbnail(channel.key, video_id, own_picture(video))
         except PipelineError as exc:
             failed.append((info.get("title") or video.stem, exc.user_message))
             if "verif" in exc.user_message.lower() or "permission" in exc.user_message.lower():

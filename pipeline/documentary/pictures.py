@@ -138,6 +138,14 @@ def schema() -> dict:
             "required": ["changes"], "additionalProperties": False}
 
 
+def _context(outline: dict) -> str:
+    """The settings and cast: the same in every call of a plan (cached)."""
+    settings = "\n".join(f"- {s['name']} ({s['scale']}): {s['description']}" for s in outline.get("settings") or [])
+    cast = "\n".join(f"- {m['name']} ({m.get('kind', 'character')}; exists in: "
+                     f"{', '.join(m.get('settings') or []) or 'anywhere'})" for m in outline.get("cast") or [])
+    return f"Settings:\n{settings or '(none named)'}\n\nCast:\n{cast or '(none)'}\n\n"
+
+
 def _brief(outline: dict, scenes: list) -> str:
     settings = "\n".join(f"- {s['name']} ({s['scale']}): {s['description']}" for s in outline.get("settings") or [])
     cast = "\n".join(f"- {m['name']} ({m.get('kind', 'character')}; exists in: "
@@ -159,8 +167,11 @@ def _ask(outline: dict, scenes: list, kind: str, extra: str = "") -> dict:
     share, run = BALANCE.get(kind, BALANCE["story"])
     system = SYSTEM.replace("{balance}", BALANCE_TEXT.format(share=share, run=run)).replace("{most}",
                                                                                            str(PER_ANSWER))
-    return call_json(system, _brief(outline, scenes) + (f"\n\n{extra}" if extra else ""), schema(),
-                     operation="documentary_pictures", max_tokens=MAX_TOKENS, effort=EFFORT)
+    brief = _brief(outline, scenes)
+    context = _context(outline)
+    return call_json(system, brief[len(context):] + (f"\n\n{extra}" if extra else ""), schema(),
+                     operation="documentary_pictures", max_tokens=MAX_TOKENS, effort=EFFORT,
+                     cache_prefix=context if brief.startswith(context) else None)
 
 
 def _apply(outline: dict, scenes: list, data: dict) -> list:

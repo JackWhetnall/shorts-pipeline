@@ -117,6 +117,9 @@ _client = None
 # None outside batch mode; inside it, the `unless` check batched() was given.
 _batch_mode = contextvars.ContextVar("llm_batch_mode", default=None)
 _journal_lock = threading.Lock()
+# The system prompt's length for the call being built: a message prefix is
+# worth caching when the two together pass the minimum.
+_system_chars = contextvars.ContextVar("llm_system_chars", default="")
 
 
 class TruncatedResponse(PipelineError):
@@ -180,8 +183,17 @@ def _render_system(blocks) -> list:
         if b.cacheable and len(b.text) >= MIN_CACHEABLE_CHARS:
             last_cacheable = i
     if last_cacheable is not None:
-        rendered[last_cacheable]["cache_control"] = {"type": "ephemeral"}
+        rendered[last_cacheable]["cache_control"] = _cache_control()
     return rendered
+
+
+def _cache_control() -> dict:
+    """A cache breakpoint. Calls in batch mode are minutes apart, past the
+    default five-minute life, so a prefix written there would expire
+    before anything read it (decision 095): they ask for an hour, which
+    costs 2x input to write instead of 1.25x and pays back on the first
+    read."""
+    return {"type": "ephemeral", "ttl": "1h"} if in_batch_mode() else {"type": "ephemeral"}
 
 
 def _text_of(response) -> str:
@@ -388,7 +400,7 @@ def _batch_message(result, operation: str, batch_id: str):
 
 def call_json(system, user_msg: str, schema: dict, *, operation: str,
               model: str = DEFAULT_MODEL, max_tokens: int = DEFAULT_MAX_TOKENS,
-              effort: str = DEFAULT_EFFORT, images: list = None) -> dict:
+              effort: str = DEFAULT_EFFORT, images: list = None, cache_prefix: str = None) -> dict:
     """Ask Claude for JSON matching `schema` and return it parsed.
 
     `system` is either a plain string or a list of SystemBlock, stable
@@ -405,17 +417,23 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
 
     `images`: pictures to look at, before the text, as (media_type,
     base64) pairs or ("text", caption) pairs to label the one after.
+
+    `cache_prefix`: the start of the message that other calls repeat word
+    for word (an outline sent with every chapter, the quiz rounds sent
+    with every batch of questions), cached after the system prompt
+    (decision 095). The model reads prefix + user_msg as before.
     """
     budget = min(max_tokens, MAX_NONSTREAMING_TOKENS)
     last_error = None
 
     for attempt in range(MAX_ATTEMPTS):
         is_last = attempt == MAX_ATTEMPTS - 1
+        _system_chars.set(system if isinstance(system, str) else "".join(b.text for b in system))
         request = {
             "model": model,
             "max_tokens": budget,
             "system": _render_system(system),
-            "messages": [{"role": "user", "content": _content(user_msg, images)}],
+            "messages": [{"role": "user", "content": _content(user_msg, images, cache_prefix)}],
             "output_config": ({"format": {"type": "json_schema", "schema": schema}}
                               if schema is not None else {}),
         }
@@ -474,11 +492,16 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
         "The AI service (Claude)", f"{operation}: exhausted attempts")
 
 
-def _content(text: str, images: list = None):
-    if not images:
+def _content(text: str, images: list = None, prefix: str = None):
+    if not images and not prefix:
         return text
     content = []
-    for media_type, data in images:
+    if prefix:
+        block = {"type": "text", "text": prefix}
+        if len(prefix) >= MIN_CACHEABLE_CHARS or len(_system_chars.get() or "") + len(prefix) >= MIN_CACHEABLE_CHARS:
+            block["cache_control"] = _cache_control()
+        content.append(block)
+    for media_type, data in images or ():
         if media_type == "text":
             content.append({"type": "text", "text": data})
         else:

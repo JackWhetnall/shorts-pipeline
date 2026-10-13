@@ -162,6 +162,15 @@ def plan_rows(channels: dict, records: list) -> list:
 
 # --- runway ----------------------------------------------------------------------
 
+def top_up(provider: str, usd: float, now: float = None) -> float:
+    """Add a top-up to what's left now (the owner thinks "I put $20 on"),
+    and return the new balance. Nothing entered before counts as $0."""
+    from core import costs
+    left = balance(provider, costs.read_records(), settings()) or 0.0
+    set_balance(provider, round(left + usd, 2), now)
+    return round(left + usd, 2)
+
+
 def balance(provider: str, records: list, saved: dict) -> float | None:
     """What's left on a prepaid account, or None if the owner hasn't said
     what was loaded."""

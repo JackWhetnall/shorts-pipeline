@@ -27,12 +27,19 @@ def set_balance():
     provider = request.form.get("provider", "")
     if provider not in money.PROVIDERS:
         return redirect(url_for("money.page", note="Unknown account."))
+    label = money.PROVIDERS[provider]["label"]
+    if request.form.get("add"):
+        try:
+            added = float(request.form["add"])
+        except ValueError:
+            return redirect(url_for("money.page", note="The top-up has to be a number of dollars."))
+        usd = money.top_up(provider, added)
+        return redirect(url_for("money.page", note=f"{label}: +${added:.0f}, ${usd:.2f} now.") + "#balances")
     try:
         usd = float(request.form.get("usd") or "")
     except ValueError:
         return redirect(url_for("money.page", note="The balance has to be a number of dollars."))
     money.set_balance(provider, usd)
-    label = money.PROVIDERS[provider]["label"]
     return redirect(url_for("money.page", note=f"{label}: ${usd:.2f} from now on.") + "#balances")
 
 

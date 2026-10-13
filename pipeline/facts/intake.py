@@ -279,9 +279,10 @@ def _batch(conn, rows: list, categories: list) -> dict:
         f"{i + 1}. {raw['question']} Answer: {raw['answer']}"
         + (f" (set with the wrong options: {', '.join(raw['wrong'])})" if raw.get("wrong") else "")
         for i, (_, raw) in enumerate(live))
-    data = call_json(_system(), f"The rounds:\n{rounds_listed or '(none)'}\n\nThe questions:\n{listed}",
-                     PROCESS_SCHEMA, operation="intake_process", model=PROCESS_MODEL, max_tokens=12000,
-                     effort=PROCESS_EFFORT)
+    # The rounds are the same for every batch of questions: cached (decision 095).
+    data = call_json(_system(), f"The questions:\n{listed}", PROCESS_SCHEMA, operation="intake_process",
+                     model=PROCESS_MODEL, max_tokens=12000, effort=PROCESS_EFFORT,
+                     cache_prefix=f"The rounds:\n{rounds_listed or '(none)'}\n\n")
     done = {r.get("number"): r for r in data.get("results") or []}
     by_lower = {name.lower(): name for name in named}
 

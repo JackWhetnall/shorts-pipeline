@@ -168,8 +168,13 @@ def queued_page():
 
 @bp.route("/insights")
 def insights_page():
-    data = insights.collect()
+    from web import focus
     channels = load_channels(validate=False)
+    # The channel chosen in the header, if one is (everything otherwise).
+    key = focus.current(channels)
+    if key:
+        channels = {key: channels[key]} if key in channels else channels
+    data = insights.collect(list(channels) if key else None)
     connections = {key: youtube.connection(key) for key in channels}
     return render_template(
         "insights.html",

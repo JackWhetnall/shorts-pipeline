@@ -510,7 +510,13 @@ def _api_error(response, doing: str) -> YouTubeError:
                                    "permission to read statistics. Reconnect it from "
                                    "its settings.",
     }
-    message = messages.get(reason) or f"YouTube wouldn't {doing} (HTTP {response.status_code})."
+    if reason == "forbidden" and "thumbnail" in doing:
+        # Not the login: YouTube takes custom thumbnails only from an
+        # account with its intermediate features on (verified by phone).
+        message = ("YouTube won't take custom thumbnails from this account yet: verify it by phone "
+                   "in YouTube Studio, Settings, Channel, Feature eligibility.")
+    else:
+        message = messages.get(reason) or f"YouTube wouldn't {doing} (HTTP {response.status_code})."
     log.error(f"YouTube API error while trying to {doing}: {response.status_code} {detail}")
     return YouTubeError(f"{response.status_code} {detail}", user_message=message,
                         status=response.status_code)
