@@ -176,7 +176,7 @@ def test_stills_are_drawn_with_the_style_sheet_and_the_casts_sheets(world, monke
                         or tmp_path / f"{member['name']}.png")
     drawn = []
 
-    def fake_draw(shot, board, look, ref, sheets, folder, model, fix=None):
+    def fake_draw(shot, board, look, ref, sheets, folder, model, fix=None, combined=False):
         drawn.append((shot["index"], sorted(sheets), fix))
         path = Path(folder) / f"kf_{shot['index']:02d}.jpg"
         path.write_bytes(b"x")

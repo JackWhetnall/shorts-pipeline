@@ -201,6 +201,8 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             doc.captions = form.get("documentary_captions")
         if "documentary_depth_present" in form:
             doc.depth = bool(form.get("documentary_depth"))
+        if "documentary_combined_present" in form:
+            doc.combined_references = bool(form.get("documentary_combined"))
         from core.channels import LONG_FORM_PICTURES
         if form.get("documentary_pictures") in LONG_FORM_PICTURES:
             doc.pictures = form.get("documentary_pictures")

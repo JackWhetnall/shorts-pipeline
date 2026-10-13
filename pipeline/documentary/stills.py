@@ -118,6 +118,7 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
     wanted = [s for s in the_shots if only is None or s["index"] in only]
     sheets = _sheets(channel, look, the_board, wanted, style_ref)
     model = models.image_model(channel.animation.image_model)
+    combined = _combined(channel)
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
 
@@ -127,7 +128,7 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
 
     def one(shot, fix=None):
         return keyframes.draw(shot, the_board, look, style_ref, sheets, folder, model,
-                              fix=fixes_for(shot, fix) or None)
+                              fix=fixes_for(shot, fix) or None, combined=combined)
 
     def draw_set(items: list) -> dict:
         """{index: path} for [(shot, fix)]: one batch at half price when the
@@ -139,7 +140,8 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
             jobs, ready = [], {}
             for shot, fix in items:
                 asked = fixes_for(shot, fix)
-                job = keyframes.request(shot, the_board, look, style_ref, sheets, folder, model, fix=asked or None)
+                job = keyframes.request(shot, the_board, look, style_ref, sheets, folder, model, fix=asked or None,
+                                        combined=combined)
                 if job["out"].exists() and not asked:
                     ready[shot["index"]] = job["out"]       # drawn already, as keyframes.draw keeps it
                 else:
@@ -290,7 +292,12 @@ def draw_one(channel, outline: dict, direction: str, cast: list, folder: Path, f
     stale = keyframes.path_for(folder, shot)
     stale.unlink(missing_ok=True)
     return keyframes.draw(shot, the_board, look, style_ref, sheets, folder,
-                          models.image_model(channel.animation.image_model))
+                          models.image_model(channel.animation.image_model), combined=_combined(channel))
+
+
+def _combined(channel) -> bool:
+    """Whether its pictures are drawn from one sheet of references (decision 096)."""
+    return bool(getattr(getattr(channel, "documentary", None), "combined_references", True))
 
 
 # --- what a still was drawn from, so it can be kept (decision 088) ----------------------

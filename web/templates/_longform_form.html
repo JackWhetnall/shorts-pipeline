@@ -131,6 +131,11 @@
         <input type="checkbox" name="documentary_depth" {% if channel.documentary.depth %}checked{% endif %}>
         Depth on camera moves
       </label>
+      <input type="hidden" name="documentary_combined_present" value="1">
+      <label class="checkbox-label" data-tooltip="All references in one image: about half the picture cost">
+        <input type="checkbox" name="documentary_combined" {% if channel.documentary.combined_references %}checked{% endif %}>
+        One reference sheet per picture
+      </label>
       <input type="hidden" name="documentary_chapter_titles_present" value="1">
       <label class="checkbox-label">
         <input type="checkbox" name="documentary_chapter_titles" {% if channel.documentary.chapter_titles %}checked{% endif %}>

@@ -826,6 +826,11 @@ autopilot work overnight and leave the script and storyboard to
 `core.overseer`, driven by the scheduled `film-overseer` task
 (`docs/overseer.md`).
 
+Decision [096](docs/decisions/096-one-reference-sheet-per-picture.md):
+`keyframes.combine` sends a still's references as one sheet of numbered
+panels (`documentary.combined_references`, on by default), about half the
+picture cost.
+
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
 channel (`ChannelConfig.long_form`) has its own settings page,

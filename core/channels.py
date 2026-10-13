@@ -514,6 +514,11 @@ class Documentary(_MappingLike):
     # Off by default since decision 090: even limited to zooms and wide
     # pans, the owner found it warped shapes "in a slightly sickening way".
     depth: bool = False
+    # Decision 096. A picture's references (the style sheet, the cast's and
+    # the setting's sheets) go as one sheet of numbered panels: each
+    # reference is billed the same whatever its size, so it costs about
+    # half. Off: each goes separately, as before.
+    combined_references: bool = True
     # The on-screen label a scene can carry (a place and year, a name):
     # "corner", lower left on a dark band; "tag", a small pill in the
     # channel's accent colour, top left; or "none" (decision 090). Each

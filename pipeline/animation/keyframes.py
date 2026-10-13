@@ -17,10 +17,12 @@ word.
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 from pathlib import Path
 
 from core import job_context
+from core.paths import CACHE_DIR
 from core.logging_setup import get_logger
 from pipeline.animation import frame as frames, images, look as looks
 from pipeline.llm import call_json
@@ -29,6 +31,53 @@ log = get_logger(__name__)
 
 MAX_ELEMENT_REFS = 3
 CHECK_SIZE = (640, 640)         # the longer side; a vertical frame comes out 360x640
+
+# Decision 096. Every reference picture is billed at a fixed ~1,000 tokens
+# whatever its size, so three or four of them cost three or four times one
+# sheet holding them all: the references go as one sheet of numbered
+# panels, the style on the left, the rest stacked on the right.
+COMBINED_SIZE = (2048, 1152)
+COMBINED_STYLE_SHARE = 0.58
+COMBINED_DIR = CACHE_DIR / "reference_sheets"
+PANELS = ("The one reference image is a grid of numbered panels (the number in each panel's corner). "
+          "\"Image N\" below means panel N; the panels, their borders and numbers are references only "
+          "and never appear in the frame.\n\n")
+
+
+def combine(references: list) -> Path:
+    """One sheet of numbered panels from `references` (paths, in the order
+    the prompt names them), kept by what's in them so a film's pictures
+    that share references share the sheet."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    refs = [Path(r) for r in references]
+    key = hashlib.sha1(b"".join(hashlib.sha1(r.read_bytes()).digest() for r in refs)).hexdigest()[:16]
+    out = COMBINED_DIR / f"{key}.png"
+    if out.exists():
+        return out
+    width, height = COMBINED_SIZE
+    canvas = Image.new("RGB", COMBINED_SIZE, "white")
+    pen = ImageDraw.Draw(canvas)
+    try:
+        font = ImageFont.truetype("arialbd.ttf", 48)
+    except OSError:
+        font = ImageFont.load_default()
+    rest = refs[1:]
+    left = int(width * COMBINED_STYLE_SHARE) if rest else width
+    boxes = [(0, 0, left, height)] + [(left, k * height // len(rest), width, (k + 1) * height // len(rest))
+                                      for k in range(len(rest))]
+    for n, (ref, (x0, y0, x1, y1)) in enumerate(zip(refs, boxes), start=1):
+        image = Image.open(ref).convert("RGB")
+        image.thumbnail((x1 - x0 - 12, y1 - y0 - 12), Image.LANCZOS)
+        canvas.paste(image, (x0 + (x1 - x0 - image.width) // 2, y0 + (y1 - y0 - image.height) // 2))
+        pen.rectangle((x0, y0, x1 - 1, y1 - 1), outline="black", width=6)
+        pen.rectangle((x0 + 6, y0 + 6, x0 + 70, y0 + 70), fill="black")
+        pen.text((x0 + 22, y0 + 10), str(n), fill="white", font=font)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    partial = out.with_suffix(".part.png")
+    canvas.save(partial)
+    partial.replace(out)
+    return out
 
 
 def references(shot: dict, board: dict, sheets: dict) -> list:
@@ -75,19 +124,23 @@ def path_for(folder: Path, shot: dict) -> Path:
 
 
 def request(shot: dict, board: dict, look: dict, style_ref: Path, sheets: dict, folder: Path,
-            model, fix: list = None) -> dict:
+            model, fix: list = None, combined: bool = False) -> dict:
     """What drawing this shot's frame asks for, as images.draw_batch takes
-    it (decision 094), so a storyboard can go as one batch."""
+    it (decision 094), so a storyboard can go as one batch. `combined`:
+    its references as one sheet (decision 096)."""
     refs = references(shot, board, sheets)
-    return {"key": shot["index"], "prompt": prompt_for(shot, board, look, refs, fix),
-            "out": path_for(folder, shot), "model": model,
-            "references": [style_ref] + [sheets[k] for k, _ in refs],
-            "size": frames.get(look.get("frame")).image, "operation": "animation_keyframe"}
+    prompt = prompt_for(shot, board, look, refs, fix)
+    paths = [style_ref] + [sheets[k] for k, _ in refs]
+    if combined and len([p for p in paths if p]) > 1:
+        paths, prompt = [combine([p for p in paths if p])], PANELS + prompt
+    return {"key": shot["index"], "prompt": prompt, "out": path_for(folder, shot), "model": model,
+            "references": paths, "size": frames.get(look.get("frame")).image,
+            "operation": "animation_keyframe"}
 
 
 def draw(shot: dict, board: dict, look: dict, style_ref: Path, sheets: dict, folder: Path,
-         model, fix: list = None) -> Path:
-    job = request(shot, board, look, style_ref, sheets, folder, model, fix)
+         model, fix: list = None, combined: bool = False) -> Path:
+    job = request(shot, board, look, style_ref, sheets, folder, model, fix, combined)
     if job["out"].exists() and not fix:
         return job["out"]
     return images.draw(job["prompt"], job["out"], model, references=job["references"],
