@@ -232,6 +232,7 @@ def directions(n: int, rng=None, used: list = ()) -> list:
 # Every idea a channel has been shown, kept with its picture: what it
 # showed and in which direction, so the next batch can be different.
 IDEAS_FILE = "ideas.json"
+CONCEPTS_COST = 0.01            # the sketch of new ideas, one low-effort Sonnet call
 CONCEPTS_SYSTEM = (
     "You are a brand designer sketching logo ideas for a content channel. Each idea is one "
     "sentence saying what the mark shows: a single clear image or symbol, never a collection of "

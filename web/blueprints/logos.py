@@ -25,7 +25,8 @@ def logo_page(key):
         candidates=[p.name for p in assets.list_candidates(key)],
         variant_styles=logos_core.VARIANT_STYLES,
         candidate_count=logos_core.CANDIDATE_COUNT,
-        candidate_cost=logos_core.CANDIDATE_COUNT * costs.OPENAI_IMAGE_PRICES[logos_core.IMAGE_QUALITY_CANDIDATES],
+        candidate_cost=logos_core.CANDIDATE_COUNT * costs.OPENAI_IMAGE_PRICES[logos_core.IMAGE_QUALITY_CANDIDATES]
+        + logos_core.CONCEPTS_COST,
         logo_brief=_suggested_brief(channel),
     )
 

@@ -55,4 +55,4 @@ def test_the_logo_page_shows_ideas_already_made_and_their_price(monkeypatch, tmp
     client = create_app().test_client()
     key = next(iter(__import__("core.channels", fromlist=["load_channels"]).load_channels()))
     page = client.get(f"/channels/{key}/logo").get_data(as_text=True)
-    assert "candidates/ab_0.png" in page and "$0.21" in page
+    assert "candidates/ab_0.png" in page and "$0.22" in page
