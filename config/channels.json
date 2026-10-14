@@ -36,7 +36,14 @@
         "crystal ball"
       ],
       "monetization": {
-        "merch_url": "https://minute-pastor.printify.me/"
+        "patreon_url": "https://www.patreon.com/c/MinutePastor132",
+        "merch_url": "https://minute-pastor.printify.me/",
+        "affiliate_links": [
+          {
+            "label": "Our favourite journal",
+            "url": "https://link.amazon/B0i3Cp5Sc"
+          }
+        ]
       },
       "socials": {
         "youtube_url": "https://www.youtube.com/@MinutePastor",
@@ -46,14 +53,11 @@
       "publishing": {
         "enabled": true,
         "slots": [
-          "11:00"
+          "11:00",
+          "21:00"
         ],
-        "weekdays": [
-          0,
-          2,
-          4,
-          6
-        ],
+        "post_tiktok": true,
+        "post_instagram": true,
         "posting_browser": "chrome",
         "posting_profile": "Shorts minute_pastor"
       },
@@ -295,7 +299,7 @@
     },
     "history_unmystified": {
       "format": "documentary",
-      "voice": "JBFqnCBsd6RMkjVDRZzb",
+      "voice": "onwK4e9ZLuTAKqWW03F9",
       "style_prompt": "Write for someone who half-remembers this person's name from school and wants to actually understand why they mattered, told as a brisk little story rather than a list of dates. Each video should find a human decision, flaw, or turning point that can be used as an interesting point to explain everything else about the figure, and build the whole script around paying that off. Open by putting the audience inside a moment of real stakes for this person, not by announcing a biography. Then explore the history of this person chronologically, move scene to scene the way a storybook does: a setting, a problem, a choice, a consequence, seeing how their life lead them to being the famous person that they are today. Keep the tone warm, light and a little playful even when the subject is serious, but never make light of tragedy, illness, war or death for cheapness. Be precise about dates, titles and outcomes, but without making the subject feel too dry and monotonous - there is room to make this more interesting, even if the facts aren't 100% verified (as long as they are legitimate speculation or myths or legends, not invented). Avoid treating every figure's arc the same way \u2014 a scientist's turning point is not shaped like a monarch's. Each script should leave the viewer with a holistic view of the person and how they came to be famous for what they did.",
       "hook_style": "Open on a small, concrete moment of tension or decision this person actually faced, stated as a plain, specific question or scene rather than a grand claim about their importance; keep the energy warm and curious, never shouty or clickbait, and always something the video goes on to resolve honestly.",
       "avoid_imagery": [
@@ -304,9 +308,13 @@
         "modern office",
         "nazi uniform"
       ],
+      "speed": 0.9,
       "pacing": {
         "segment_count": 4,
         "target_seconds": 60.0
+      },
+      "ordering": {
+        "grouping": "round_robin"
       },
       "scenes": {
         "share": 100,
@@ -325,6 +333,18 @@
           "prop_style": "Round, big-headed cartoon characters with simple dot eyes and flat pastel costumes, drawn in thick clean storybook outlines with soft sticker shadows, minimal shading, warm and approachable."
         }
       },
+      "animation": {
+        "enabled": true,
+        "style": {
+          "approach": "acted",
+          "stage": "storybook",
+          "material": "ink_wash",
+          "people": "cartoon",
+          "mood": "vintage",
+          "motion": "hand_drawn",
+          "words": "name_cards"
+        }
+      },
       "sound": {
         "music_moods": [
           "warm acoustic storytelling",
@@ -332,8 +352,153 @@
           "playful pizzicato strings"
         ]
       },
+      "quiz": {
+        "difficulties": [
+          "Easy (2)",
+          "Medium (4)",
+          "Hard (5.5)",
+          "Very hard (7)",
+          "Impossible (9.5)"
+        ]
+      },
+      "archived": true,
       "channel_display_name": "History Unmystified",
       "content_mode": "topic"
+    },
+    "one_day_in_history": {
+      "format": "documentary",
+      "voice": "ILYR1zZ55hoDF4bpSxND",
+      "style_prompt": "Second person, present tense: the viewer IS an ordinary person living one day in a real place and year. You are their guide: a sharp, warm friend who knows this world inside out and can't resist the telling detail. Wry, quick, sometimes dark, never a lecturer. Give 'you' something concrete to get done today and real trouble in the way: hour by hour, people help, hinder, bargain, lie and joke, and they speak in their own voices. Every hour turns on something (a knock, a choice, a bad surprise) and the clock and the danger never go away. Facts arrive as things that happen to you: the price of bread is the coin you don't have, the law is the man at the door. Never a list, never a lesson, never the theme spelled out. Sensory and specific: what it smells like, what it costs, what could kill you before supper. End with you in bed, or not, and one line on what became of people like you.",
+      "hook_style": "First line: the hour, who you are, and the trouble you're in today, in under twenty words, said like a secret. Then what's at stake if you fail.",
+      "avoid_imagery": [
+        "gore",
+        "graphic violence",
+        "corpses shown close",
+        "modern objects",
+        "text or writing"
+      ],
+      "publishing": {
+        "enabled": true,
+        "thumbnail_tests": true
+      },
+      "scenes": {
+        "art": {
+          "preset": "parchment",
+          "ink": "#2B2523",
+          "ink_soft": "#6B5A4E",
+          "accent1": "#B8862B",
+          "accent2": "#A23B2A",
+          "accent3": "#7A5C2E",
+          "accent4": "#4E6B3A",
+          "accent5": "#3B5B8C",
+          "background": "#EADCC0",
+          "font_display": "Palatino Linotype",
+          "font_text": "Palatino Linotype"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "style": {
+          "approach": "acted",
+          "stage": "animated_film",
+          "material": "custom",
+          "people": "realistic",
+          "mood": "clean",
+          "motion": "smooth",
+          "words": "none",
+          "custom": {
+            "material": "a cinematic film still from a big-budget historical drama: natural, well-exposed light that follows the time of day (clear bright daylight, golden low sun, warm lamplight at night), true-to-life colour and textures, shallow depth of field, 35mm film grain"
+          }
+        }
+      },
+      "sound": {
+        "music_moods": [
+          "dark ambient period drone",
+          "slow cello and low strings",
+          "sparse lute and early music"
+        ]
+      },
+      "artwork": {
+        "mode": "allowed"
+      },
+      "documentary": {
+        "minutes": 12,
+        "teasers": 2,
+        "scene_seconds": 10,
+        "voice_model": "eleven_v4_turbo",
+        "dialogue": true
+      },
+      "archived": true,
+      "channel_display_name": "One Day In History",
+      "content_mode": "topic"
+    },
+    "why_though": {
+      "channel_display_name": "Why, Though?",
+      "format": "documentary",
+      "voice": "Xb7hH8MSUJpSbSDYk0k2",
+      "style_prompt": "Explain one question a curious person really has about the world, the way a brilliant, funny friend would over a drink: talking to 'you', starting from something you've seen or wondered, and getting to the answer one next question at a time. Every idea is made concrete: an analogy from ordinary life, a number at human scale, a quick thought experiment, a real attempt and what went wrong. Say the wrong answer most people assume, then why it's wrong. Real science and real history, said simply but never dumbed down; when scientists aren't sure, say so and say what the best guess is. Light, quick and a little cheeky, wonder over solemnity, with the occasional absurd comparison or a cartoon character in the picture reacting to the news. Never a lecture, never a list. End on the answer and one last surprising consequence, then stop.",
+      "hook_style": "First line: the question, in the viewer's own words, then the one fact that makes the obvious answer wrong. Under twenty-five words, no greeting, no 'imagine'.",
+      "avoid_imagery": [
+        "gore",
+        "text or writing",
+        "brand logos",
+        "real people's faces"
+      ],
+      "scenes": {
+        "art": {
+          "preset": "clean_flat",
+          "ink": "#F4F1E8",
+          "ink_soft": "#9AA6C8",
+          "accent1": "#FFB23F",
+          "accent2": "#FF6B4A",
+          "accent3": "#3FD0C9",
+          "accent4": "#8FD16A",
+          "accent5": "#7C8CFF",
+          "background": "#101A3A",
+          "font_display": "Segoe UI Black",
+          "font_text": "Segoe UI"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "style": {
+          "approach": "acted",
+          "stage": "animated_film",
+          "material": "custom",
+          "people": "custom",
+          "mood": "clean",
+          "motion": "smooth",
+          "words": "none",
+          "custom": {
+            "material": "flat geometric motion-graphics illustration: simple vector shapes with no outlines, a limited palette of four or five rich colours per picture: deep navy and indigo only for space, night and underground, and bright, clear daylight colours (sky blue, warm sand, fresh green, white cloud) for anything in daylight; soft inner glows and rim light, long soft shadows, subtle film grain and noise texture over everything, clean negative space, a polished popular-science animation look",
+            "people": "tiny simple adult figures made of rounded shapes, grown-up proportions, dot eyes, no mouths, no fingers, small in the frame"
+          }
+        }
+      },
+      "sound": {
+        "music_moods": [
+          "light curious electronic",
+          "playful pizzicato strings",
+          "upbeat quirky orchestral"
+        ]
+      },
+      "documentary": {
+        "minutes": 9,
+        "teasers": 2,
+        "scene_seconds": 7,
+        "voice_model": "eleven_v4_turbo",
+        "atmosphere": false,
+        "kind": "explainer",
+        "captions": "none",
+        "auto_make": true,
+        "overseen": true,
+        "hours": "22-8",
+        "ahead": 3
+      },
+      "content_mode": "topic",
+      "publishing": {
+        "enabled": true
+      }
     }
   }
 }

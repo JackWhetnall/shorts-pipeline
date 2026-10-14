@@ -26,6 +26,7 @@ import requests
 from core import costs
 from core.errors import ExternalServiceError, MissingCredentialError
 from core.logging_setup import get_logger
+from core.paths import write_atomically
 from pipeline.animation.models import ImageModel
 
 log = get_logger(__name__)
@@ -197,7 +198,7 @@ def draw(prompt: str, out_path: Path, model: ImageModel, *, references=(),
         costs.record_openai_image_usage(operation, model.model, data.get("usage"),
                                         model.estimate)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_bytes(base64.b64decode(data["data"][0]["b64_json"]))
+        write_atomically(out_path, base64.b64decode(data["data"][0]["b64_json"]))
         return out_path
 
 
@@ -352,7 +353,7 @@ def draw_batch(jobs: list) -> dict:
                                             body.get("usage"), job["model"].estimate, batch=True)
             path = Path(job["out"])
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(base64.b64decode(body["data"][0]["b64_json"]))
+            write_atomically(path, base64.b64decode(body["data"][0]["b64_json"]))
             out[job["key"]] = path
     if batch.get("error_file_id"):
         collected.append(batch["error_file_id"])

@@ -12,6 +12,27 @@ app has a new look (decision 068): restart it (step E) to see it.*
 
 ---
 
+## Surviving a restart overnight (14 Oct)
+
+Windows restarted the PC for an update at 00:14, and nothing ran until
+you signed in at 09:46. Nothing was damaged, and the app now picks up a
+film cut short. These settings keep the night going after a restart.
+
+### W1. Active hours over the night (1 minute)
+**Settings → Windows Update → Advanced options → Active hours →
+Manually**, 14:00 to 08:00 (18 hours is the most it allows). Windows
+won't restart for updates inside them. Your NoAutoRebootWithLoggedOnUsers
+setting may not be honoured on Windows 11 Home; this one is.
+
+### W2. Sign in by itself after an update (1 minute)
+**Settings → Accounts → Sign-in options →** turn on **Use my sign-in info
+to automatically finish setting up after an update**. Windows then signs
+in and locks the screen, and the app's logon task starts it again.
+
+### W3. Open Claude at sign-in (1 minute)
+**Task Manager → Startup apps → Claude → Enable.** The overseer only runs
+while Claude is open.
+
 ## Thumbnails (13 Oct)
 
 ### Z. Send Quiz Night #1's thumbnail again (1 minute)

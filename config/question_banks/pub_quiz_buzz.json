@@ -177,100 +177,6 @@
   ]
  },
  {
-  "video": "geography_fiendish",
-  "category": "Geography",
-  "hook": "Fiendish geography, can you handle it?",
-  "questions": [
-   {
-    "question": "What year were Antigua and Barbuda founded as a country?",
-    "answer": "1981"
-   },
-   {
-    "question": "Which mountain is the highest point of the Greek island of Euboea?",
-    "answer": "Dirfi"
-   },
-   {
-    "question": "In which Australian state is Cape Leeuwin located?",
-    "answer": "Western Australia"
-   },
-   {
-    "question": "Which ocean does Alaska's Baranof Island sit beside?",
-    "answer": "Pacific Ocean"
-   },
-   {
-    "question": "Which Irish county is the island of Inis Mór part of?",
-    "answer": "County Galway"
-   },
-   {
-    "question": "What is the highest peak on the Greek island of Cephalonia called?",
-    "answer": "Mount Ainos"
-   },
-   {
-    "question": "What type of rock makes up the Philippine volcano Mount Makiling?",
-    "answer": "Andesite"
-   },
-   {
-    "question": "Which Moroccan mountain range contains the peak Jebel Moussa?",
-    "answer": "The Rif"
-   },
-   {
-    "question": "In which Himalayan range does Nepal's Ama Dablam stand?",
-    "answer": "Mahalangur Himal"
-   },
-   {
-    "question": "Which sea does the Italian island of Caprera lie beside?",
-    "answer": "Tyrrhenian Sea"
-   }
-  ]
- },
- {
-  "video": "sport_hard",
-  "category": "Sport",
-  "hook": "Sport quiz: nicknames, races, and legends. Ready?",
-  "questions": [
-   {
-    "question": "Which annual motorcycle race is held on public roads on the Isle of Man?",
-    "answer": "TT"
-   },
-   {
-    "question": "What nickname, referring to a bolt of electricity, was given to sprinter Usain Bolt?",
-    "answer": "Lightning Bolt"
-   },
-   {
-    "question": "Which tennis player is nicknamed the 'King of Clay' for his French Open dominance?",
-    "answer": "Rafael Nadal"
-   },
-   {
-    "question": "Which famous American race is nicknamed 'The Greatest Spectacle in Racing'?",
-    "answer": "Indianapolis 500"
-   },
-   {
-    "question": "Which Argentine footballer scored the infamous 'Hand of God' goal in 1986?",
-    "answer": "Diego Maradona"
-   },
-   {
-    "question": "Which French town gives its name to the world's oldest 24-hour endurance motor race?",
-    "answer": "Le Mans"
-   },
-   {
-    "question": "Roughly how many miles long is a marathon race?",
-    "answer": "26.2 miles"
-   },
-   {
-    "question": "How many events make up the athletics discipline of the decathlon?",
-    "answer": "10"
-   },
-   {
-    "question": "In which city were the first modern Olympic Games held in 1896?",
-    "answer": "Athens"
-   },
-   {
-    "question": "What is the name of the backwards-arching high jump technique used by almost all elite jumpers today?",
-    "answer": "Fosbury Flop"
-   }
-  ]
- },
- {
   "video": "flags_countries_tricky",
   "category": "Flags & Countries",
   "hook": "Flags and countries, can you keep up?",
@@ -871,6 +777,2018 @@
    {
     "question": "In the Bible's creation story, on which day did God rest?",
     "answer": "The seventh day"
+   }
+  ]
+ },
+ {
+  "video": "film_tv_hard",
+  "category": "Film & TV",
+  "hook": "Film and TV quiz, think you know it?",
+  "questions": [
+   {
+    "question": "In Back to the Future, what vehicle is converted into a time machine?",
+    "answer": "A DeLorean"
+   },
+   {
+    "question": "What do the heroes of 'Ghostbusters' strap to their backs to catch ghosts?",
+    "answer": "Proton packs"
+   },
+   {
+    "question": "Which actor played the Joker in the 2008 film The Dark Knight?",
+    "answer": "Heath Ledger"
+   },
+   {
+    "question": "Which composer wrote the two-note theme that builds tension throughout Jaws?",
+    "answer": "John Williams"
+   },
+   {
+    "question": "Who directed the 1997 disaster romance Titanic and won the Best Director Oscar for it?",
+    "answer": "James Cameron"
+   },
+   {
+    "question": "Which singer performed 'Goldfinger', the theme song for the 1964 Bond film of the same name?",
+    "answer": "Shirley Bassey"
+   },
+   {
+    "question": "In which country was 'Monty Python and the Holy Grail' made?",
+    "answer": "United Kingdom"
+   },
+   {
+    "question": "Which award is television's equivalent of the Grammy?",
+    "answer": "The Emmy"
+   },
+   {
+    "question": "What is the name of the square at the heart of EastEnders?",
+    "answer": "Albert Square"
+   },
+   {
+    "question": "What is the name of the fictional kingdom ruled by Elsa in Frozen?",
+    "answer": "Arendelle"
+   }
+  ]
+ },
+ {
+  "video": "sport_fiendish",
+  "category": "Sport",
+  "hook": "Sport quiz, ready for the brutal round?",
+  "questions": [
+   {
+    "question": "Which British runner was the first person to run a mile in under four minutes?",
+    "answer": "Roger Bannister"
+   },
+   {
+    "question": "Which American sprinter won four gold medals at the 1936 Berlin Olympics?",
+    "answer": "Jesse Owens"
+   },
+   {
+    "question": "What colour is the centre target area, called the house, used in curling?",
+    "answer": "Red"
+   },
+   {
+    "question": "What nickname was given to golfer Jack Nicklaus because of his build and fair hair?",
+    "answer": "The Golden Bear"
+   },
+   {
+    "question": "How many players make up each side's playing squad in the Ryder Cup?",
+    "answer": "Twelve"
+   },
+   {
+    "question": "Who was the legendary runner said to have carried news of victory from Marathon to Athens?",
+    "answer": "Pheidippides"
+   },
+   {
+    "question": "What is the term for the large orange court markings a player cannot step over while shooting free throws?",
+    "answer": "Foul line"
+   },
+   {
+    "question": "What do figure skaters call a jump with a full rotation and a half in the air?",
+    "answer": "Axel"
+   },
+   {
+    "question": "In which decade was the Ryder Cup first contested between Britain and the USA?",
+    "answer": "The 1920s"
+   },
+   {
+    "question": "Over what distance is the steeplechase run at major athletics championships?",
+    "answer": "3000 metres"
+   }
+  ]
+ },
+ {
+  "video": "science_hard",
+  "category": "Science",
+  "hook": "Science quiz, think you've still got it?",
+  "questions": [
+   {
+    "question": "Why do you see lightning before you hear the thunder it causes?",
+    "answer": "Light travels faster than sound"
+   },
+   {
+    "question": "What is the study of earthquakes called?",
+    "answer": "Seismology"
+   },
+   {
+    "question": "Which flightless bird from Mauritius became extinct in the 17th century?",
+    "answer": "Dodo"
+   },
+   {
+    "question": "What is the world's largest hot desert?",
+    "answer": "The Sahara"
+   },
+   {
+    "question": "What famous phrase, associated with Darwin's theory, describes how the best-adapted organisms thrive?",
+    "answer": "Survival of the fittest"
+   },
+   {
+    "question": "Which group of Pacific islands is famous for inspiring Darwin's theory of evolution?",
+    "answer": "Galápagos Islands"
+   },
+   {
+    "question": "What is the chemical name for the rust that forms on iron?",
+    "answer": "Iron oxide"
+   },
+   {
+    "question": "What unit is used to measure the speed of ships and aircraft?",
+    "answer": "Knots"
+   },
+   {
+    "question": "How many laws of motion did Isaac Newton famously set out?",
+    "answer": "Three"
+   },
+   {
+    "question": "What do we call animals that have a backbone?",
+    "answer": "Vertebrates"
+   }
+  ]
+ },
+ {
+  "video": "countries_impossible",
+  "category": "Countries",
+  "hook": "Spot these countries from outline alone?",
+  "questions": [
+   {
+    "question": "Which country has this hourglass shaped outline in Central Africa?",
+    "answer": "Chad",
+    "kind": "outlines",
+    "subject": "Chad"
+   },
+   {
+    "question": "Which country has this slim upright shape in West Africa?",
+    "answer": "Benin",
+    "kind": "outlines",
+    "subject": "Benin"
+   },
+   {
+    "question": "Which country has this hooked coastline along the Red Sea?",
+    "answer": "Eritrea",
+    "kind": "outlines",
+    "subject": "Eritrea"
+   },
+   {
+    "question": "Which country has this rounded landlocked shape in West Africa?",
+    "answer": "Burkina Faso",
+    "kind": "outlines",
+    "subject": "Burkina Faso"
+   },
+   {
+    "question": "Which country has this small rectangular shape on South America's coast?",
+    "answer": "Suriname",
+    "kind": "outlines",
+    "subject": "Suriname"
+   },
+   {
+    "question": "Which country has this jagged landlocked shape in the Caucasus?",
+    "answer": "Armenia",
+    "kind": "outlines",
+    "subject": "Armenia"
+   },
+   {
+    "question": "Which country has this small triangular shape on the Adriatic?",
+    "answer": "Albania",
+    "kind": "outlines",
+    "subject": "Albania"
+   },
+   {
+    "question": "Which country has this circular shape sitting entirely inside another?",
+    "answer": "Lesotho",
+    "kind": "outlines",
+    "subject": "Lesotho"
+   },
+   {
+    "question": "Which country has this tiny jagged shape in the Horn of Africa?",
+    "answer": "Djibouti",
+    "kind": "outlines",
+    "subject": "Djibouti"
+   },
+   {
+    "question": "Which country has this narrow landlocked shape in Eastern Europe?",
+    "answer": "Moldova",
+    "kind": "outlines",
+    "subject": "Moldova"
+   }
+  ]
+ },
+ {
+  "video": "music_medium",
+  "category": "Music",
+  "hook": "Music quiz, can you name that tune?",
+  "questions": [
+   {
+    "question": "Which boy band had a global hit with 'What Makes You Beautiful'?",
+    "answer": "One Direction"
+   },
+   {
+    "question": "Which Canadian singer had an early hit simply called 'Baby'?",
+    "answer": "Justin Bieber"
+   },
+   {
+    "question": "The song \"Let It Go\" comes from the soundtrack of which animated Disney film?",
+    "answer": "Frozen"
+   },
+   {
+    "question": "Who is the lead singer of the band Coldplay?",
+    "answer": "Chris Martin"
+   },
+   {
+    "question": "What instrument did Ringo Starr play in The Beatles?",
+    "answer": "Drums"
+   },
+   {
+    "question": "Which Swedish pop group's songs feature throughout the film and musical \"Mamma Mia!\"?",
+    "answer": "ABBA"
+   },
+   {
+    "question": "Which Manchester band had a huge hit with 'Wonderwall'?",
+    "answer": "Oasis"
+   },
+   {
+    "question": "Which soul singer, nicknamed the 'Queen of Soul,' won numerous Grammy Awards?",
+    "answer": "Aretha Franklin"
+   },
+   {
+    "question": "Which former Beatle wrote and sang 'Imagine'?",
+    "answer": "John Lennon"
+   },
+   {
+    "question": "Whose acceptance speech did Kanye West famously interrupt at the 2009 VMAs?",
+    "answer": "Taylor Swift"
+   }
+  ]
+ },
+ {
+  "video": "nature_medium",
+  "category": "Nature",
+  "hook": "Wild animals and wild places, ready?",
+  "questions": [
+   {
+    "question": "What name is given to a group of lions?",
+    "answer": "Pride"
+   },
+   {
+    "question": "Which continent is home to wild gorillas?",
+    "answer": "Africa"
+   },
+   {
+    "question": "Which country is the tulip most closely associated with, despite originating in Central Asia?",
+    "answer": "Netherlands"
+   },
+   {
+    "question": "Which famous river flows through Egypt?",
+    "answer": "The Nile"
+   },
+   {
+    "question": "Much of the Amazon rainforest, protected in reserves, lies within which country?",
+    "answer": "Brazil"
+   },
+   {
+    "question": "The flightless kiwi, protected in national reserves, is a national symbol of which country?",
+    "answer": "New Zealand"
+   },
+   {
+    "question": "Which mammal is the only one that can truly fly?",
+    "answer": "Bat"
+   },
+   {
+    "question": "What process do trees use to turn sunlight into food?",
+    "answer": "Photosynthesis"
+   },
+   {
+    "question": "What is the largest animal ever to have lived on Earth?",
+    "answer": "Blue whale"
+   },
+   {
+    "question": "What is the largest living land animal?",
+    "answer": "African elephant"
+   }
+  ]
+ },
+ {
+  "video": "space_tricky",
+  "category": "Space",
+  "hook": "Space quiz, think you know the universe?",
+  "questions": [
+   {
+    "question": "How many astronauts flew aboard Apollo 11 to the Moon?",
+    "answer": "Three"
+   },
+   {
+    "question": "How many moons does Mars have?",
+    "answer": "Two"
+   },
+   {
+    "question": "Which country operates the famous Arecibo Observatory, until its collapse in 2020?",
+    "answer": "United States"
+   },
+   {
+    "question": "What term describes a star that a planet orbits around?",
+    "answer": "Host star"
+   },
+   {
+    "question": "What is the term for a planet that drifts through space without orbiting any star?",
+    "answer": "Rogue planet"
+   },
+   {
+    "question": "What name is given to the scientific study of possible life beyond Earth?",
+    "answer": "Astrobiology"
+   },
+   {
+    "question": "What acronym is used for the ongoing effort to detect signals from intelligent alien life?",
+    "answer": "SETI"
+   },
+   {
+    "question": "What term describes the dense stellar remnant left when a star like the Sun exhausts its nuclear fuel?",
+    "answer": "White dwarf"
+   },
+   {
+    "question": "Which planet is closest in size to Earth?",
+    "answer": "Venus"
+   },
+   {
+    "question": "What natural feature of space telescopes lets them avoid Earth's blurry atmosphere?",
+    "answer": "They orbit above it"
+   }
+  ]
+ },
+ {
+  "video": "flags_tricky",
+  "category": "Flags",
+  "hook": "Think you can spot a flag anywhere?",
+  "questions": [
+   {
+    "question": "Whose flag is the only one that isn't rectangular?",
+    "answer": "Nepal",
+    "kind": "flags",
+    "subject": "Nepal"
+   },
+   {
+    "question": "Which country's flag shows a green cedar tree on white?",
+    "answer": "Lebanon",
+    "kind": "flags",
+    "subject": "Lebanon"
+   },
+   {
+    "question": "Whose flag features a golden lion holding a sword?",
+    "answer": "Sri Lanka",
+    "kind": "flags",
+    "subject": "Sri Lanka"
+   },
+   {
+    "question": "Which country's flag shows a white dragon on orange and yellow?",
+    "answer": "Bhutan",
+    "kind": "flags",
+    "subject": "Bhutan"
+   },
+   {
+    "question": "Whose flag has a white AK-47 crossed with a hoe?",
+    "answer": "Mozambique",
+    "kind": "flags",
+    "subject": "Mozambique"
+   },
+   {
+    "question": "Which country's flag has a golden sun and eagle on blue?",
+    "answer": "Kazakhstan",
+    "kind": "flags",
+    "subject": "Kazakhstan"
+   },
+   {
+    "question": "Whose flag is red and green with an ornamental white pattern?",
+    "answer": "Belarus",
+    "kind": "flags",
+    "subject": "Belarus"
+   },
+   {
+    "question": "Which country's flag has a white cross with a coat of arms in the centre?",
+    "answer": "Dominican Republic",
+    "kind": "flags",
+    "subject": "Dominican Republic"
+   },
+   {
+    "question": "Whose flag is black, gold and aquamarine with a triangle?",
+    "answer": "Bahamas",
+    "kind": "flags",
+    "subject": "Bahamas"
+   },
+   {
+    "question": "Which country's flag is yellow, green and red in horizontal stripes?",
+    "answer": "Lithuania",
+    "kind": "flags",
+    "subject": "Lithuania"
+   }
+  ]
+ },
+ {
+  "video": "music_impossible",
+  "category": "Music",
+  "hook": "Music nerds only, think you qualify?",
+  "questions": [
+   {
+    "question": "Who had a 1981 hit single with 'Japanese Boy'?",
+    "answer": "Aneka"
+   },
+   {
+    "question": "Grand Theft Autumn/Where Is Your Boy is a song by which band?",
+    "answer": "Fall Out Boy"
+   },
+   {
+    "question": "Which rapper had a double platinum album featuring no guest artists?",
+    "answer": "J. Cole"
+   },
+   {
+    "question": "In which language is the song 'Caramelldansen' actually sung?",
+    "answer": "Swedish"
+   },
+   {
+    "question": "Which guitarist is known for the windmill arm-swing technique?",
+    "answer": "Pete Townshend"
+   },
+   {
+    "question": "What is the title of Justin Bieber's debut studio album?",
+    "answer": "My World 2.0"
+   },
+   {
+    "question": "In which year was 'Scatman's World' released?",
+    "answer": "1995"
+   },
+   {
+    "question": "How many piano sonatas did Beethoven compose?",
+    "answer": "32"
+   },
+   {
+    "question": "In what year was Avril Lavigne's debut album 'Let Go' released?",
+    "answer": "2002"
+   },
+   {
+    "question": "In 'Waltzing Matilda', what does the word 'matilda' actually refer to?",
+    "answer": "A swag (bedroll)"
+   }
+  ]
+ },
+ {
+  "video": "maths_tricky_2",
+  "category": "Maths",
+  "hook": "Maths quiz, fancy testing your brain?",
+  "questions": [
+   {
+    "question": "How many sides does a nonagon have?",
+    "answer": "Nine"
+   },
+   {
+    "question": "What do we call a triangle with two sides of equal length?",
+    "answer": "Isosceles"
+   },
+   {
+    "question": "What is the small raised number used to show a power, like the 2 in x²?",
+    "answer": "Exponent"
+   },
+   {
+    "question": "Isaac Newton and which German mathematician both independently developed calculus?",
+    "answer": "Gottfried Leibniz"
+   },
+   {
+    "question": "Which French philosopher and mathematician gave his name to the Cartesian coordinate system?",
+    "answer": "René Descartes"
+   },
+   {
+    "question": "What is the Roman numeral for fifty?",
+    "answer": "L"
+   },
+   {
+    "question": "Who wrote the world's first computer program, an algorithm for Charles Babbage's Analytical Engine?",
+    "answer": "Ada Lovelace"
+   },
+   {
+    "question": "How many edges does a cube have?",
+    "answer": "Twelve"
+   },
+   {
+    "question": "Which mathematician is said to have shouted 'Eureka!' after stepping into a bath?",
+    "answer": "Archimedes"
+   },
+   {
+    "question": "Which French mathematician's 'Last Theorem' went unproven for over 350 years?",
+    "answer": "Pierre de Fermat"
+   }
+  ]
+ },
+ {
+  "video": "general_knowledge_fiendish",
+  "category": "General Knowledge",
+  "hook": "Fiendish general knowledge, dare you try?",
+  "questions": [
+   {
+    "question": "What natural element do dragons traditionally control in Chinese mythology?",
+    "answer": "Water"
+   },
+   {
+    "question": "Which novel was Ian Fleming's first James Bond book, published in 1953?",
+    "answer": "Casino Royale"
+   },
+   {
+    "question": "In Cockney rhyming slang, what does 'trouble and strife' mean?",
+    "answer": "Wife"
+   },
+   {
+    "question": "Which rocket launched the Apollo astronauts to the Moon?",
+    "answer": "Saturn V"
+   },
+   {
+    "question": "The spoonerism 'a blushing crow' disguises which phrase for a severe setback?",
+    "answer": "Crushing blow"
+   },
+   {
+    "question": "Which Scandinavian country's flag shows a yellow cross on a blue background?",
+    "answer": "Sweden"
+   },
+   {
+    "question": "What British slang word for a toilet comes from a Victorian plumbing manufacturer's surname?",
+    "answer": "Crapper"
+   },
+   {
+    "question": "What is the name of the enzyme that unwinds the DNA double helix during replication?",
+    "answer": "Helicase"
+   },
+   {
+    "question": "Whose national flag colours were reversed to create the Red Cross emblem?",
+    "answer": "Switzerland"
+   },
+   {
+    "question": "Who is known as the Father of Modern Philosophy?",
+    "answer": "René Descartes"
+   }
+  ]
+ },
+ {
+  "video": "pop_culture_medium",
+  "category": "Pop Culture",
+  "hook": "Pop culture quiz, got your trivia hat on?",
+  "questions": [
+   {
+    "question": "Which Shakespeare play follows the 'star-crossed lovers' of Verona?",
+    "answer": "Romeo and Juliet"
+   },
+   {
+    "question": "What is the Japanese art of folding paper into decorative shapes called?",
+    "answer": "Origami"
+   },
+   {
+    "question": "What shape is the classic puzzle invented by Ernő Rubik?",
+    "answer": "Cube"
+   },
+   {
+    "question": "What does the abbreviation VR stand for?",
+    "answer": "Virtual Reality"
+   },
+   {
+    "question": "Which of Santa's reindeer is famous for his glowing red nose?",
+    "answer": "Rudolph"
+   },
+   {
+    "question": "What was the nationality of the artist Pablo Picasso?",
+    "answer": "Spanish"
+   },
+   {
+    "question": "Which author wrote the children's book Green Eggs and Ham?",
+    "answer": "Dr. Seuss"
+   },
+   {
+    "question": "Who painted the famous mural 'The Last Supper'?",
+    "answer": "Leonardo da Vinci"
+   },
+   {
+    "question": "Who painted 'The Starry Night'?",
+    "answer": "Vincent van Gogh"
+   },
+   {
+    "question": "Which entrepreneur founded Virgin Atlantic and Virgin Trains?",
+    "answer": "Richard Branson"
+   }
+  ]
+ },
+ {
+  "video": "geography_medium",
+  "category": "Geography",
+  "hook": "Geography basics, can you name them all?",
+  "questions": [
+   {
+    "question": "What is the name of the enormous coral reef system off the coast of Australia?",
+    "answer": "Great Barrier Reef"
+   },
+   {
+    "question": "What is the capital city of Germany?",
+    "answer": "Berlin"
+   },
+   {
+    "question": "What word simply means the total number of people living in a place?",
+    "answer": "Population"
+   },
+   {
+    "question": "Which is the world's most populous continent?",
+    "answer": "Asia"
+   },
+   {
+    "question": "What is a book of maps called?",
+    "answer": "An atlas"
+   },
+   {
+    "question": "Madagascar is a large island off the east coast of which continent?",
+    "answer": "Africa"
+   },
+   {
+    "question": "What word describes an official count of everyone living in a country?",
+    "answer": "Census"
+   },
+   {
+    "question": "What is the capital city of the United States?",
+    "answer": "Washington, D.C."
+   },
+   {
+    "question": "What is the capital city of Russia?",
+    "answer": "Moscow"
+   },
+   {
+    "question": "What is the collective name for the three waterfalls between the USA and Canada?",
+    "answer": "Niagara Falls"
+   }
+  ]
+ },
+ {
+  "video": "space_fiendish",
+  "category": "Space",
+  "hook": "Space quiz: got room for fiendish?",
+  "questions": [
+   {
+    "question": "Which planet is closest to the asteroid belt on its inner side?",
+    "answer": "Mars"
+   },
+   {
+    "question": "What is the term for a rocket component that falls away once its fuel is used up?",
+    "answer": "Booster"
+   },
+   {
+    "question": "How many stages did the Saturn V rocket have?",
+    "answer": "Three"
+   },
+   {
+    "question": "What term describes a star, like the Sun, that is steadily fusing hydrogen into helium in its core?",
+    "answer": "Main-sequence star"
+   },
+   {
+    "question": "What is the name of the technique that detects exoplanets by spotting a star's periodic dimming?",
+    "answer": "Transit method"
+   },
+   {
+    "question": "Who first used Cepheid variables to prove that other galaxies exist beyond the Milky Way?",
+    "answer": "Edwin Hubble"
+   },
+   {
+    "question": "Which NASA space telescope, launched in 2009, was the first mission dedicated to finding exoplanets?",
+    "answer": "Kepler"
+   },
+   {
+    "question": "What term describes the time an exoplanet takes to complete one orbit of its star?",
+    "answer": "Orbital period"
+   },
+   {
+    "question": "What is the name of the European Union's own satellite navigation system?",
+    "answer": "Galileo"
+   },
+   {
+    "question": "Which planet was the first to be discovered using a telescope?",
+    "answer": "Uranus"
+   }
+  ]
+ },
+ {
+  "video": "flags_easy",
+  "category": "Flags",
+  "hook": "Can you name a flag on sight?",
+  "questions": [
+   {
+    "question": "Whose flag is red, white and blue with fifty stars?",
+    "answer": "United States",
+    "kind": "flags",
+    "subject": "United States"
+   },
+   {
+    "question": "Which country flies the Union Jack?",
+    "answer": "United Kingdom",
+    "kind": "flags",
+    "subject": "United Kingdom"
+   },
+   {
+    "question": "Whose flag is a blue, white and red vertical tricolour?",
+    "answer": "France",
+    "kind": "flags",
+    "subject": "France"
+   },
+   {
+    "question": "Which country's flag shows a red circle on white?",
+    "answer": "Japan",
+    "kind": "flags",
+    "subject": "Japan"
+   },
+   {
+    "question": "Whose flag is black, red and gold in horizontal stripes?",
+    "answer": "Germany",
+    "kind": "flags",
+    "subject": "Germany"
+   },
+   {
+    "question": "Which country's flag is green, white and red in vertical stripes?",
+    "answer": "Italy",
+    "kind": "flags",
+    "subject": "Italy"
+   },
+   {
+    "question": "Whose flag is green and yellow with a blue globe?",
+    "answer": "Brazil",
+    "kind": "flags",
+    "subject": "Brazil"
+   },
+   {
+    "question": "Which country's flag has a Union Jack and the Southern Cross stars?",
+    "answer": "Australia",
+    "kind": "flags",
+    "subject": "Australia"
+   },
+   {
+    "question": "Whose flag is red with five yellow stars?",
+    "answer": "China",
+    "kind": "flags",
+    "subject": "China"
+   },
+   {
+    "question": "Which country's flag is red and yellow with a coat of arms?",
+    "answer": "Spain",
+    "kind": "flags",
+    "subject": "Spain"
+   }
+  ]
+ },
+ {
+  "video": "pop_culture_hard",
+  "category": "Pop Culture",
+  "hook": "Pop culture buffs, think you've got this?",
+  "questions": [
+   {
+    "question": "What is the name for a mythical half-fish, half-man creature?",
+    "answer": "Merman"
+   },
+   {
+    "question": "Which Spice Girl was known by the nickname 'Ginger Spice'?",
+    "answer": "Geri Halliwell"
+   },
+   {
+    "question": "What is the name of Thor's hammer in Norse mythology and Marvel films?",
+    "answer": "Mjolnir"
+   },
+   {
+    "question": "Who wrote the novel Jane Eyre?",
+    "answer": "Charlotte Brontë"
+   },
+   {
+    "question": "According to The Hitchhiker's Guide to the Galaxy, what is the answer to life, the universe and everything?",
+    "answer": "42"
+   },
+   {
+    "question": "Which country is Paddington Bear originally from, in the books?",
+    "answer": "Peru"
+   },
+   {
+    "question": "In which year was Facebook launched?",
+    "answer": "2004"
+   },
+   {
+    "question": "Under what pen name did the author Eric Blair write?",
+    "answer": "George Orwell"
+   },
+   {
+    "question": "Who wrote the book series A Song of Ice and Fire?",
+    "answer": "George R. R. Martin"
+   },
+   {
+    "question": "Which author wrote the novel Of Mice and Men?",
+    "answer": "John Steinbeck"
+   }
+  ]
+ },
+ {
+  "video": "maths_hard",
+  "category": "Maths",
+  "hook": "Numbers quiz, fancy a proper workout?",
+  "questions": [
+   {
+    "question": "What is the perimeter of a circle commonly called?",
+    "answer": "Circumference"
+   },
+   {
+    "question": "How many sides does a heptagon have?",
+    "answer": "7"
+   },
+   {
+    "question": "What term describes an angle greater than 90 degrees?",
+    "answer": "Obtuse"
+   },
+   {
+    "question": "How many sides does a Möbius strip have?",
+    "answer": "1"
+   },
+   {
+    "question": "What is the sum of the first four cube numbers, 1, 8, 27 and 64?",
+    "answer": "100"
+   },
+   {
+    "question": "In the sequence 3, 6, 9, 12, what is the tenth term?",
+    "answer": "30"
+   },
+   {
+    "question": "Which number comes immediately after a trillion in standard naming?",
+    "answer": "Quadrillion"
+   },
+   {
+    "question": "Integration is the reverse of which mathematical process?",
+    "answer": "Differentiation"
+   },
+   {
+    "question": "Which Greek mathematician ran naked through Syracuse shouting 'Eureka'?",
+    "answer": "Archimedes"
+   },
+   {
+    "question": "Which Roman numeral represents the number 500?",
+    "answer": "D"
+   }
+  ]
+ },
+ {
+  "video": "geography_tricky_2",
+  "category": "Geography",
+  "hook": "Geography trivia, think you can navigate this?",
+  "questions": [
+   {
+    "question": "What is Poland called in the Polish language?",
+    "answer": "Polska"
+   },
+   {
+    "question": "Which country's flag has the most colours of any national flag, with six in total?",
+    "answer": "South Africa"
+   },
+   {
+    "question": "What is the capital of Indonesia?",
+    "answer": "Jakarta"
+   },
+   {
+    "question": "Which explorer gave his name to the strait south of mainland South America?",
+    "answer": "Ferdinand Magellan"
+   },
+   {
+    "question": "Which African lake is the largest on the continent by surface area?",
+    "answer": "Lake Victoria"
+   },
+   {
+    "question": "Which is the world's tallest waterfall, found in Venezuela?",
+    "answer": "Angel Falls"
+   },
+   {
+    "question": "In Cyprus, which side of the road do cars drive on?",
+    "answer": "Left"
+   },
+   {
+    "question": "What is the capital city of Switzerland?",
+    "answer": "Bern"
+   },
+   {
+    "question": "Which European country's name literally means 'black mountain'?",
+    "answer": "Montenegro"
+   },
+   {
+    "question": "How many legs make up the triskelion symbol on the flag of the Isle of Man?",
+    "answer": "Three"
+   }
+  ]
+ },
+ {
+  "video": "music_fiendish",
+  "category": "Music",
+  "hook": "Music quiz, think you know the deep cuts?",
+  "questions": [
+   {
+    "question": "Which American singer-songwriter won the Nobel Prize in Literature?",
+    "answer": "Bob Dylan"
+   },
+   {
+    "question": "In Dolly Parton's 'Jolene', what colour hair does Jolene have according to the lyrics?",
+    "answer": "Auburn"
+   },
+   {
+    "question": "Which organisation presents the annual Grammy Awards?",
+    "answer": "The Recording Academy"
+   },
+   {
+    "question": "Which 1960s girl group launched Diana Ross to fame before her solo career?",
+    "answer": "The Supremes"
+   },
+   {
+    "question": "Which superstar won a record eight Grammy Awards in a single night in 1984?",
+    "answer": "Michael Jackson"
+   },
+   {
+    "question": "What are the two main characters called in Bon Jovi's 'Livin' on a Prayer'?",
+    "answer": "Tommy and Gina"
+   },
+   {
+    "question": "Which hugely successful pop group never won a competitive Grammy Award despite their global fame?",
+    "answer": "ABBA"
+   },
+   {
+    "question": "What nickname is often used for the Grammy Awards ceremony itself?",
+    "answer": "Music's Biggest Night"
+   },
+   {
+    "question": "The charity single 'We Are the World' won Record of the Year, credited to which collective?",
+    "answer": "USA for Africa"
+   },
+   {
+    "question": "What was the title of Adele's debut album, named after her age when she made it?",
+    "answer": "19"
+   }
+  ]
+ },
+ {
+  "video": "modern_history_hard_2",
+  "category": "Modern History",
+  "hook": "Modern history, fancy testing yourself?",
+  "questions": [
+   {
+    "question": "Which car maker pioneered the first moving assembly line?",
+    "answer": "Ford"
+   },
+   {
+    "question": "Which young pharaoh's tomb was discovered almost untouched in 1922?",
+    "answer": "Tutankhamun"
+   },
+   {
+    "question": "Which country first developed gunpowder, centuries before it reached Europe?",
+    "answer": "China"
+   },
+   {
+    "question": "Which country suffered terrible hyperinflation in the 1920s, before the Second World War?",
+    "answer": "Germany"
+   },
+   {
+    "question": "Which king of England broke away from the Roman Catholic Church in the 1530s?",
+    "answer": "Henry VIII"
+   },
+   {
+    "question": "Which Greek philosopher taught Alexander the Great?",
+    "answer": "Aristotle"
+   },
+   {
+    "question": "Which empire was famously said to be one on which the sun never set?",
+    "answer": "The British Empire"
+   },
+   {
+    "question": "Which empire's forces captured Constantinople in 1453, ending the Byzantine Empire?",
+    "answer": "Ottoman Empire"
+   },
+   {
+    "question": "In which battle was radar first used operationally to detect incoming enemy aircraft?",
+    "answer": "Battle of Britain"
+   },
+   {
+    "question": "What is the name of the famous battle in 1066 where William the Conqueror defeated King Harold?",
+    "answer": "Battle of Hastings"
+   }
+  ]
+ },
+ {
+  "video": "sport_easy",
+  "category": "Sport",
+  "hook": "Sport quiz, know the basics?",
+  "questions": [
+   {
+    "question": "What do you call it when a match finishes with no goals scored by either side?",
+    "answer": "Nil-nil"
+   },
+   {
+    "question": "What do football fans call it when a player scores three goals in one match?",
+    "answer": "Hat-trick"
+   },
+   {
+    "question": "What shape is a standard football pitch?",
+    "answer": "Rectangle"
+   },
+   {
+    "question": "What shape is a rugby ball, unlike a football?",
+    "answer": "Oval"
+   },
+   {
+    "question": "Which city hosted the 2012 Summer Olympic Games?",
+    "answer": "London"
+   },
+   {
+    "question": "Which sport sees athletes competing over 100 metres in the shortest time?",
+    "answer": "Sprinting"
+   },
+   {
+    "question": "Which sport features a 'slam dunk'?",
+    "answer": "Basketball"
+   },
+   {
+    "question": "How many players does each team have on the pitch in football, including the goalkeeper?",
+    "answer": "11"
+   },
+   {
+    "question": "What colour card does a referee show to send a player off?",
+    "answer": "Red"
+   },
+   {
+    "question": "In which country did the ancient Olympic Games originate?",
+    "answer": "Greece"
+   }
+  ]
+ },
+ {
+  "video": "nature_easy",
+  "category": "Nature",
+  "hook": "Nature quiz, know the great outdoors?",
+  "questions": [
+   {
+    "question": "What is the national tree symbol of Canada, found on its flag?",
+    "answer": "The maple leaf"
+   },
+   {
+    "question": "Which bird is famous for its ability to copy human speech?",
+    "answer": "Parrot"
+   },
+   {
+    "question": "What is the thick outer covering of a tree's trunk called?",
+    "answer": "Bark"
+   },
+   {
+    "question": "Which bird is a traditional symbol of peace?",
+    "answer": "Dove"
+   },
+   {
+    "question": "What do we call a baby frog before it grows legs?",
+    "answer": "Tadpole"
+   },
+   {
+    "question": "What is the collective name for very old, dense tropical forests found near the equator?",
+    "answer": "Rainforest"
+   },
+   {
+    "question": "What is the name for a very large wave caused by an earthquake?",
+    "answer": "Tsunami"
+   },
+   {
+    "question": "What do we call a large area of land covered mainly with trees?",
+    "answer": "A forest"
+   },
+   {
+    "question": "What type of tree produces acorns?",
+    "answer": "Oak"
+   },
+   {
+    "question": "Which seabird is famous for its black and white colouring and lives mostly in the southern hemisphere?",
+    "answer": "Penguin"
+   }
+  ]
+ },
+ {
+  "video": "flags_hard",
+  "category": "Flags",
+  "hook": "Can you spot these flags?",
+  "questions": [
+   {
+    "question": "Whose flag has black, yellow and red vertical stripes?",
+    "answer": "Belgium",
+    "kind": "flags",
+    "subject": "Belgium"
+   },
+   {
+    "question": "Which country's flag is red, white and red in horizontal stripes?",
+    "answer": "Austria",
+    "kind": "flags",
+    "subject": "Austria"
+   },
+   {
+    "question": "Whose flag is white over red in two horizontal stripes?",
+    "answer": "Poland",
+    "kind": "flags",
+    "subject": "Poland"
+   },
+   {
+    "question": "Which country's flag shows a golden eagle on red, white and black?",
+    "answer": "Egypt",
+    "kind": "flags",
+    "subject": "Egypt"
+   },
+   {
+    "question": "Whose flag has a shield and spears over black, red, green and white?",
+    "answer": "Kenya",
+    "kind": "flags",
+    "subject": "Kenya"
+   },
+   {
+    "question": "Which country's flag has a diagonal gold cross on green and black?",
+    "answer": "Jamaica",
+    "kind": "flags",
+    "subject": "Jamaica"
+   },
+   {
+    "question": "Whose flag has blue and white stripes with a red triangle and star?",
+    "answer": "Cuba",
+    "kind": "flags",
+    "subject": "Cuba"
+   },
+   {
+    "question": "Which country's flag is plain red with a single yellow star?",
+    "answer": "Vietnam",
+    "kind": "flags",
+    "subject": "Vietnam"
+   },
+   {
+    "question": "Whose flag is green with a white crescent, star and stripe?",
+    "answer": "Pakistan",
+    "kind": "flags",
+    "subject": "Pakistan"
+   },
+   {
+    "question": "Which country's flag is blue with a yellow cross?",
+    "answer": "Sweden",
+    "kind": "flags",
+    "subject": "Sweden"
+   }
+  ]
+ },
+ {
+  "video": "ancient_history_medium",
+  "category": "Ancient History",
+  "hook": "Ancient history, ready for the trickier stuff?",
+  "questions": [
+   {
+    "question": "Which ancient civilization built Machu Picchu high in the Andes mountains?",
+    "answer": "The Incas"
+   },
+   {
+    "question": "Which Macedonian king conquered much of the known world by the age of thirty?",
+    "answer": "Alexander the Great"
+   },
+   {
+    "question": "Which ancient wonder was a giant bronze statue that stood over the harbour at Rhodes?",
+    "answer": "Colossus of Rhodes"
+   },
+   {
+    "question": "Whose code of laws survives from ancient Babylon, one of the earliest written legal systems?",
+    "answer": "Hammurabi"
+   },
+   {
+    "question": "Alongside the Tigris, which river was central to life in ancient Mesopotamia?",
+    "answer": "The Euphrates"
+   },
+   {
+    "question": "Which Persian king led the invasion of Greece at the Battle of Thermopylae?",
+    "answer": "Xerxes"
+   },
+   {
+    "question": "Which Chinese philosopher's sayings were collected into the Analects?",
+    "answer": "Confucius"
+   },
+   {
+    "question": "On what date in March was Julius Caesar assassinated?",
+    "answer": "The Ides of March"
+   },
+   {
+    "question": "What is the name of the limestone statue with a lion's body and a human head near the Giza pyramids?",
+    "answer": "The Great Sphinx"
+   },
+   {
+    "question": "What was the ancient trade route linking China to the Mediterranean called?",
+    "answer": "The Silk Road"
+   }
+  ]
+ },
+ {
+  "video": "geography_easy",
+  "category": "Geography",
+  "hook": "Easy geography, ready to cruise through?",
+  "questions": [
+   {
+    "question": "Which river flows through Paris?",
+    "answer": "The Seine"
+   },
+   {
+    "question": "Which continent is home to no permanent human population?",
+    "answer": "Antarctica"
+   },
+   {
+    "question": "What do we call someone who moves from place to place with no fixed home?",
+    "answer": "Nomad"
+   },
+   {
+    "question": "What is the name for a large area of fresh water surrounded by land?",
+    "answer": "A lake"
+   },
+   {
+    "question": "What is the name of the world's tallest land animal, native to Africa?",
+    "answer": "Giraffe"
+   },
+   {
+    "question": "In which country would you find the Pyramids of Giza?",
+    "answer": "Egypt"
+   },
+   {
+    "question": "Which Scottish lake is famous for its supposed monster?",
+    "answer": "Loch Ness"
+   },
+   {
+    "question": "What do we call a person forced to leave their home country because of war or persecution?",
+    "answer": "Refugee"
+   },
+   {
+    "question": "What is the name for a large mass of snow, ice and rock falling rapidly down a mountainside?",
+    "answer": "Avalanche"
+   },
+   {
+    "question": "In which US city do the Lakers play their home games?",
+    "answer": "Los Angeles"
+   }
+  ]
+ },
+ {
+  "video": "geography_easy_2",
+  "category": "Geography",
+  "hook": "Easy geography, ready to cruise through?",
+  "questions": [
+   {
+    "question": "Which river flows through Paris?",
+    "answer": "The Seine"
+   },
+   {
+    "question": "Which continent is home to no permanent human population?",
+    "answer": "Antarctica"
+   },
+   {
+    "question": "What do we call someone who moves from place to place with no fixed home?",
+    "answer": "Nomad"
+   },
+   {
+    "question": "What is the name for a large area of fresh water surrounded by land?",
+    "answer": "A lake"
+   },
+   {
+    "question": "What is the name of the world's tallest land animal, native to Africa?",
+    "answer": "Giraffe"
+   },
+   {
+    "question": "In which country would you find the Pyramids of Giza?",
+    "answer": "Egypt"
+   },
+   {
+    "question": "Which Scottish lake is famous for its supposed monster?",
+    "answer": "Loch Ness"
+   },
+   {
+    "question": "What do we call a person forced to leave their home country because of war or persecution?",
+    "answer": "Refugee"
+   },
+   {
+    "question": "What is the name for a large mass of snow, ice and rock falling rapidly down a mountainside?",
+    "answer": "Avalanche"
+   },
+   {
+    "question": "In which US city do the Lakers play their home games?",
+    "answer": "Los Angeles"
+   }
+  ]
+ },
+ {
+  "video": "science_easy",
+  "category": "Science",
+  "hook": "Basic science, does it ring a bell?",
+  "questions": [
+   {
+    "question": "Which scientist is famously said to have been inspired by a falling apple?",
+    "answer": "Isaac Newton"
+   },
+   {
+    "question": "What do we call the process of a liquid turning into a gas?",
+    "answer": "Evaporation"
+   },
+   {
+    "question": "What gas do humans breathe in that is essential for survival?",
+    "answer": "Oxygen"
+   },
+   {
+    "question": "How many grams are there in a kilogram?",
+    "answer": "1000"
+   },
+   {
+    "question": "What is the name for a large, slow-moving river of ice?",
+    "answer": "Glacier"
+   },
+   {
+    "question": "How many centimetres are there in a metre?",
+    "answer": "100"
+   },
+   {
+    "question": "How many seconds are there in a minute?",
+    "answer": "60"
+   },
+   {
+    "question": "What do you call a mountain formed by erupted volcanic material?",
+    "answer": "Volcano"
+   },
+   {
+    "question": "How many degrees are there in a right angle?",
+    "answer": "90"
+   },
+   {
+    "question": "Which giant reptiles dominated Earth before dying out around 66 million years ago?",
+    "answer": "Dinosaurs"
+   }
+  ]
+ },
+ {
+  "video": "modern_history_fiendish",
+  "category": "Modern History",
+  "hook": "Modern history buffs, fancy a fiendish round?",
+  "intro": "This one spans explorers, reformers, and codebreakers, so brace yourself. Question one.",
+  "outro": "However many you got, that was a proper brain bender. Go on, send this one to a mate and see how they do.",
+  "questions": [
+   {
+    "question": "Which country did Vasco da Gama sail for?",
+    "answer": "Portugal"
+   },
+   {
+    "question": "Which country carried out the first ever test of a hydrogen bomb, in 1952?",
+    "answer": "United States"
+   },
+   {
+    "question": "Who founded the Women's Social and Political Union, leading Britain's suffragette movement?",
+    "answer": "Emmeline Pankhurst"
+   },
+   {
+    "question": "What was the name of the English colony founded in 1607, the first permanent English settlement in America?",
+    "answer": "Jamestown"
+   },
+   {
+    "question": "Who made the first flight across the English Channel?",
+    "answer": "Louis Blériot"
+   },
+   {
+    "question": "Which printer set up the first printing press in England, in 1476?",
+    "answer": "William Caxton"
+   },
+   {
+    "question": "Which German monk's actions in 1517 are credited with starting the Protestant Reformation?",
+    "answer": "Martin Luther"
+   },
+   {
+    "question": "What is the name of the ship Captain Cook commanded on his first voyage?",
+    "answer": "Endeavour"
+   },
+   {
+    "question": "Which explorer led the Spanish conquest of the Aztec Empire?",
+    "answer": "Hernan Cortes"
+   },
+   {
+    "question": "What was the codebreaking machine at Bletchley Park, designed to crack Enigma, called?",
+    "answer": "The Bombe"
+   }
+  ]
+ },
+ {
+  "video": "food_drink_impossible",
+  "category": "Food & Drink",
+  "hook": "Food and drink: can you survive impossible?",
+  "intro": "This one's stuffed with obscure chefs' secrets and old pub facts, so don't panic if you blank. Here's question one.",
+  "outro": "However many you got, this was a proper tough one, so no shame there. Let us know in the comments which category we should tackle next.",
+  "questions": [
+   {
+    "question": "What is the French term for cooking food sealed in a bag at a precise, low temperature in a water bath?",
+    "answer": "Sous vide"
+   },
+   {
+    "question": "Which pub name appears most frequently across the UK according to the BBPA?",
+    "answer": "Red Lion"
+   },
+   {
+    "question": "What kitchen tool with adjustable blades is used to slice vegetables into thin, even pieces?",
+    "answer": "Mandoline"
+   },
+   {
+    "question": "Which chain claims to have sold the first pizza ordered online?",
+    "answer": "Pizza Hut"
+   },
+   {
+    "question": "Which grape variety is used to make Beaujolais wine?",
+    "answer": "Gamay"
+   },
+   {
+    "question": "Which country's winemakers rediscovered the Carménère grape, once thought extinct?",
+    "answer": "Chile"
+   },
+   {
+    "question": "Scotch whisky mixed with Drambuie makes which classic cocktail?",
+    "answer": "Rusty Nail"
+   },
+   {
+    "question": "What food is traditionally eaten during the Mid-Autumn Festival to honour the moon?",
+    "answer": "Mooncakes"
+   },
+   {
+    "question": "What French culinary term describes cooking meat slowly, fully submerged in its own fat?",
+    "answer": "Confit"
+   },
+   {
+    "question": "What is the French name for a water bath used to gently heat delicate sauces or custards?",
+    "answer": "Bain-marie"
+   }
+  ]
+ },
+ {
+  "video": "countries_medium",
+  "category": "Countries",
+  "hook": "Could you name a country from its outline?",
+  "questions": [
+   {
+    "question": "Which country has this hexagon shaped outline in Western Europe?",
+    "answer": "France",
+    "kind": "outlines",
+    "subject": "France"
+   },
+   {
+    "question": "Which country has this long thin strip down South America's coast?",
+    "answer": "Chile",
+    "kind": "outlines",
+    "subject": "Chile"
+   },
+   {
+    "question": "Which country has this rectangular shape bridging two continents?",
+    "answer": "Turkey",
+    "kind": "outlines",
+    "subject": "Turkey"
+   },
+   {
+    "question": "Which country has this squarish shape on the Iberian Peninsula?",
+    "answer": "Spain",
+    "kind": "outlines",
+    "subject": "Spain"
+   },
+   {
+    "question": "Which country has this large peninsula shape in the Middle East?",
+    "answer": "Saudi Arabia",
+    "kind": "outlines",
+    "subject": "Saudi Arabia"
+   },
+   {
+    "question": "Which country has this curvy S shape in Southeast Asia?",
+    "answer": "Vietnam",
+    "kind": "outlines",
+    "subject": "Vietnam"
+   },
+   {
+    "question": "Which country has this crocodile shaped island in the Caribbean?",
+    "answer": "Cuba",
+    "kind": "outlines",
+    "subject": "Cuba"
+   },
+   {
+    "question": "Which country has this round volcanic island shape near the Arctic?",
+    "answer": "Iceland",
+    "kind": "outlines",
+    "subject": "Iceland"
+   },
+   {
+    "question": "Which country has this teardrop shaped island off South Asia?",
+    "answer": "Sri Lanka",
+    "kind": "outlines",
+    "subject": "Sri Lanka"
+   },
+   {
+    "question": "Which country has this island shape with a jagged northern coast?",
+    "answer": "United Kingdom",
+    "kind": "outlines",
+    "subject": "United Kingdom"
+   }
+  ]
+ },
+ {
+  "video": "film_tv_fiendish",
+  "category": "Film & TV",
+  "hook": "Film and TV buffs, fancy fiendish?",
+  "intro": "This one jumps from Wagner to wizards, so keep your wits sharp. Question one.",
+  "outro": "However many you got, that was a properly sneaky round, so no shame at all. Send this one to a mate and see how they fare.",
+  "questions": [
+   {
+    "question": "Which classical piece by Wagner plays during the helicopter attack scene in Apocalypse Now?",
+    "answer": "Ride of the Valkyries"
+   },
+   {
+    "question": "In which American city is the cult film 'Clueless' set?",
+    "answer": "Beverly Hills"
+   },
+   {
+    "question": "Which actress played Elsa in the Disney film Frozen, providing her singing voice?",
+    "answer": "Idina Menzel"
+   },
+   {
+    "question": "Which American composer wrote the theme song for The Pink Panther films?",
+    "answer": "Henry Mancini"
+   },
+   {
+    "question": "Which actor has played James Bond more times than any other, with seven films?",
+    "answer": "Roger Moore"
+   },
+   {
+    "question": "What is the name of the sinister rabbit in 'Donnie Darko'?",
+    "answer": "Frank"
+   },
+   {
+    "question": "Which two singers performed '(I've Had) The Time of My Life' from Dirty Dancing?",
+    "answer": "Bill Medley and Jennifer Warnes"
+   },
+   {
+    "question": "Barbra Streisand won her only Best Actress Oscar for which 1968 film?",
+    "answer": "Funny Girl"
+   },
+   {
+    "question": "Who directed the Harry Potter film Harry Potter and the Philosopher's Stone?",
+    "answer": "Chris Columbus"
+   },
+   {
+    "question": "What type of shop do Dante and Randal work in throughout the film 'Clerks'?",
+    "answer": "Convenience store"
+   }
+  ]
+ },
+ {
+  "video": "general_knowledge_tricky",
+  "category": "General Knowledge",
+  "hook": "Mixed trivia, think you can keep up?",
+  "intro": "This one jumps from Cockney slang to ozone layers, so stay sharp. Here's question one.",
+  "outro": "However many you got, that was a proper mixed bag of a round. Go on, send this one to a mate and see how they do.",
+  "questions": [
+   {
+    "question": "In Cockney rhyming slang, what does 'dog and bone' mean?",
+    "answer": "Phone"
+   },
+   {
+    "question": "What term describes the phenomenon where cities are significantly warmer than surrounding rural areas?",
+    "answer": "Urban heat island"
+   },
+   {
+    "question": "Which electrical problem is hidden in the spoonerism 'bat flattery'?",
+    "answer": "Flat battery"
+   },
+   {
+    "question": "What is the musical term for singing with no instrumental accompaniment?",
+    "answer": "A cappella"
+   },
+   {
+    "question": "Which country is home to the triangular stringed instrument called the balalaika?",
+    "answer": "Russia"
+   },
+   {
+    "question": "The spoonerism 'tips of the slung' is a scrambled version of which common expression?",
+    "answer": "Slip of the tongue"
+   },
+   {
+    "question": "What kind of branches encircle the world map on the United Nations flag?",
+    "answer": "Olive branches"
+   },
+   {
+    "question": "Which D.H. Lawrence novel was at the centre of a famous 1960 obscenity trial before its uncensored UK publication?",
+    "answer": "Lady Chatterley's Lover"
+   },
+   {
+    "question": "Which layer of the atmosphere contains the ozone layer?",
+    "answer": "Stratosphere"
+   }
+  ]
+ },
+ {
+  "video": "music_tricky",
+  "category": "Music",
+  "hook": "Music quiz, think your ears are sharp?",
+  "intro": "This one swings from Grammy trivia to lyrics you might've mumbled along to wrong. Here's question one.",
+  "outro": "However many you got, that was a proper melody of a round. Let us know in the comments which category we should tackle next.",
+  "questions": [
+   {
+    "question": "Which band's 1977 album 'Rumours' won the Grammy for Album of the Year?",
+    "answer": "Fleetwood Mac"
+   },
+   {
+    "question": "In 'Bohemian Rhapsody', which biblical demon is named alongside a plea to let him go?",
+    "answer": "Beelzebub"
+   },
+   {
+    "question": "Which Beatles album won the Grammy for Album of the Year in 1967?",
+    "answer": "Sgt. Pepper's Lonely Hearts Club Band"
+   },
+   {
+    "question": "What term describes winning a Grammy, Emmy, Oscar and Tony over a career?",
+    "answer": "EGOT"
+   },
+   {
+    "question": "In 'Danny Boy', which musical instrument is described as calling from glen to glen?",
+    "answer": "The pipes"
+   },
+   {
+    "question": "Adele's Grammy-sweeping album was named after her age at the time. What number is the title?",
+    "answer": "21"
+   },
+   {
+    "question": "On which day of the week is Billy Joel's 'Piano Man' set?",
+    "answer": "Saturday"
+   },
+   {
+    "question": "Which country music icon, known as 'The Man in Black,' won multiple Grammy Awards?",
+    "answer": "Johnny Cash"
+   },
+   {
+    "question": "Which disco star earned the nickname 'Queen of Disco' in the 1970s?",
+    "answer": "Donna Summer"
+   },
+   {
+    "question": "In Don McLean's 'American Pie', what make of car does he drive to the levee?",
+    "answer": "Chevy"
+   }
+  ]
+ },
+ {
+  "video": "countries_fiendish",
+  "category": "Countries",
+  "hook": "Can you spot a country by its outline?",
+  "questions": [
+   {
+    "question": "Which country has this small rounded shape in South America?",
+    "answer": "Uruguay",
+    "kind": "outlines",
+    "subject": "Uruguay"
+   },
+   {
+    "question": "Which country has this boomerang shaped outline in Europe?",
+    "answer": "Croatia",
+    "kind": "outlines",
+    "subject": "Croatia"
+   },
+   {
+    "question": "Which country has this shape with a detached tip near Arabia?",
+    "answer": "Oman",
+    "kind": "outlines",
+    "subject": "Oman"
+   },
+   {
+    "question": "Which country has this long thin shape beside an African lake?",
+    "answer": "Malawi",
+    "kind": "outlines",
+    "subject": "Malawi"
+   },
+   {
+    "question": "Which country has this shape on South America's northeast coast?",
+    "answer": "Guyana",
+    "kind": "outlines",
+    "subject": "Guyana"
+   },
+   {
+    "question": "Which country has this landlocked shape high in the Andes?",
+    "answer": "Bolivia",
+    "kind": "outlines",
+    "subject": "Bolivia"
+   },
+   {
+    "question": "Which country has this small wedge shape in North Africa?",
+    "answer": "Tunisia",
+    "kind": "outlines",
+    "subject": "Tunisia"
+   },
+   {
+    "question": "Which country has this shape with a tail beside a big island?",
+    "answer": "Papua New Guinea",
+    "kind": "outlines",
+    "subject": "Papua New Guinea"
+   },
+   {
+    "question": "Which country has this small shape between two seas in the Caucasus?",
+    "answer": "Georgia",
+    "kind": "outlines",
+    "subject": "Georgia"
+   },
+   {
+    "question": "Which country has this shape with a tiny coastal notch in the Middle East?",
+    "answer": "Jordan",
+    "kind": "outlines",
+    "subject": "Jordan"
+   }
+  ]
+ },
+ {
+  "video": "nature_impossible",
+  "category": "Nature",
+  "hook": "Nature quiz, this one's brutally obscure.",
+  "intro": "This one drags up the weird corners of biology, so don't fret if you blank. Question one.",
+  "outro": "However many you got, that was a proper gnarly round, so wear the bruises with pride. Let us know in the comments which category we should tackle next.",
+  "questions": [
+   {
+    "question": "Which part of the cannabis plant produces most of the psychoactive THC?",
+    "answer": "Female flower"
+   },
+   {
+    "question": "The nictitating membrane found in some animals is also known as the third what?",
+    "answer": "Eyelid"
+   },
+   {
+    "question": "Which terrier breed is recognised as the smallest?",
+    "answer": "Yorkshire Terrier"
+   },
+   {
+    "question": "Which colonial organism of polyps is often mistaken for a jellyfish?",
+    "answer": "Portuguese Man-of-War"
+   },
+   {
+    "question": "Which copper-rich protein gives octopus blood its blue colour?",
+    "answer": "Hemocyanin"
+   },
+   {
+    "question": "To which phylum do all mammals, birds and reptiles belong?",
+    "answer": "Chordata"
+   },
+   {
+    "question": "Roughly what percentage of energy is transferred from one trophic level to the next?",
+    "answer": "10%"
+   },
+   {
+    "question": "By definition, where would you find an abyssopelagic animal living?",
+    "answer": "Deep ocean floor"
+   },
+   {
+    "question": "Which tree species produces gum arabic, a natural hardened sap?",
+    "answer": "Acacia"
+   },
+   {
+    "question": "What type of organism is the largest living thing known?",
+    "answer": "Honey fungus"
+   }
+  ]
+ },
+ {
+  "video": "sport_hard",
+  "category": "Sport",
+  "hook": "Sport trivia, think you can score?",
+  "questions": [
+   {
+    "question": "In which country was rugby union said to have been invented?",
+    "answer": "England"
+   },
+   {
+    "question": "Which footballer is the only player to win the World Cup three times, as a player?",
+    "answer": "Pelé"
+   },
+   {
+    "question": "How many players from each team are on court at once in basketball?",
+    "answer": "Five"
+   },
+   {
+    "question": "Footballer Diego Maradona was from which South American country?",
+    "answer": "Argentina"
+   },
+   {
+    "question": "What colour flag warns motor racing drivers of a hazard ahead on the track?",
+    "answer": "Yellow flag"
+   },
+   {
+    "question": "What golfing term describes a score of one stroke over par on a hole?",
+    "answer": "Bogey"
+   },
+   {
+    "question": "Which swimmer holds the record for the most Olympic gold medals of any athlete?",
+    "answer": "Michael Phelps"
+   },
+   {
+    "question": "How many players are on a rugby union team on the pitch at one time?",
+    "answer": "15"
+   },
+   {
+    "question": "What is the term for starting a race from the front position on the grid?",
+    "answer": "Pole position"
+   },
+   {
+    "question": "Which country invented the sport of basketball?",
+    "answer": "United States"
+   }
+  ]
+ },
+ {
+  "video": "geography_fiendish",
+  "category": "Geography",
+  "hook": "Geography nerds, think you're untouchable?",
+  "questions": [
+   {
+    "question": "What is the capital of the US state of New York?",
+    "answer": "Albany"
+   },
+   {
+    "question": "Which city is home to the busiest port in Europe?",
+    "answer": "Rotterdam"
+   },
+   {
+    "question": "How many US states begin with the letter K?",
+    "answer": "Two"
+   },
+   {
+    "question": "Which is the world's largest inland body of water, bordered by Iran and Russia among others?",
+    "answer": "Caspian Sea"
+   },
+   {
+    "question": "Which German city sits on the River Isar?",
+    "answer": "Munich"
+   },
+   {
+    "question": "Off the coast of which country is the micronation of Sealand located?",
+    "answer": "United Kingdom"
+   },
+   {
+    "question": "Which African country has Spanish as an official language?",
+    "answer": "Equatorial Guinea"
+   },
+   {
+    "question": "Which is the second most spoken native language in Spain?",
+    "answer": "Catalan"
+   },
+   {
+    "question": "What is the largest of Japan's main islands?",
+    "answer": "Honshu"
+   },
+   {
+    "question": "Sweet potatoes originally came from which continent?",
+    "answer": "South America"
+   }
+  ]
+ },
+ {
+  "video": "sport_impossible",
+  "category": "General Knowledge",
+  "hook": "General knowledge, up for a challenge?",
+  "questions": [
+   {
+    "question": "In which fictional town is The Simpsons set?",
+    "answer": "Springfield"
+   },
+   {
+    "question": "What disease did the Pfizer-BioNTech vaccine, approved in 2020, protect against?",
+    "answer": "COVID-19"
+   },
+   {
+    "question": "Which wall divided a German city from 1961 to 1989?",
+    "answer": "Berlin Wall"
+   },
+   {
+    "question": "What device is commonly used to convert a document into a digital image?",
+    "answer": "Scanner"
+   },
+   {
+    "question": "On which continent is Disney's The Lion King set?",
+    "answer": "Africa"
+   },
+   {
+    "question": "What is the largest continent on Earth?",
+    "answer": "Asia"
+   },
+   {
+    "question": "What is the common term for unwanted junk email?",
+    "answer": "Spam"
+   },
+   {
+    "question": "Who wrote The Lord of the Rings trilogy?",
+    "answer": "J.R.R. Tolkien"
+   },
+   {
+    "question": "Who wrote Alice's Adventures in Wonderland?",
+    "answer": "Lewis Carroll"
+   },
+   {
+    "question": "In which year did the United Kingdom vote to leave the European Union?",
+    "answer": "2016"
+   }
+  ]
+ },
+ {
+  "video": "ancient_history_impossible",
+  "category": "Ancient History",
+  "hook": "Ancient history, ready for the brutal round?",
+  "intro": "This one's for the real history nerds, so don't worry if you stumble. Let's start with question one.",
+  "outro": "However many you got, that was a tough one so be proud. Tell us in the comments which era we should quiz next.",
+  "questions": [
+   {
+    "question": "Alexander the Great cut through a famous knot rather than untying it, in which city?",
+    "answer": "Gordium"
+   },
+   {
+    "question": "Which Athenian leader delivered the famous funeral oration praising Athenian democracy in the Peloponnesian War?",
+    "answer": "Pericles"
+   },
+   {
+    "question": "What were the two main social classes of Ancient Roman society called?",
+    "answer": "Patricians and plebeians"
+   },
+   {
+    "question": "Which Egyptian god had the head of an ibis and was linked to writing and wisdom?",
+    "answer": "Thoth"
+   },
+   {
+    "question": "In Egyptian mythology, which god is often credited with creating the world by uttering his own name?",
+    "answer": "Ra"
+   },
+   {
+    "question": "Which Persian king did Alexander the Great famously defeat to conquer the Persian Empire?",
+    "answer": "Darius III"
+   },
+   {
+    "question": "What was the Athenian practice called of voting to exile a citizen for ten years?",
+    "answer": "Ostracism"
+   },
+   {
+    "question": "What is the name given to a Greek citizen-soldier who fought as heavy infantry?",
+    "answer": "Hoplite"
+   },
+   {
+    "question": "What was the title given to the two chief magistrates elected each year in the Roman Republic?",
+    "answer": "Consuls"
+   },
+   {
+    "question": "Which Roman statesman and orator exposed the Catiline conspiracy against the Republic?",
+    "answer": "Cicero"
+   }
+  ]
+ },
+ {
+  "video": "ancient_history_fiendish",
+  "category": "Ancient History",
+  "hook": "Ancient history buffs, ready for fiendish?",
+  "intro": "This one drifts from Egyptian gods to Greek monsters, so hold tight. Here's question one.",
+  "outro": "However many you got, that was a proper ancient gauntlet, so wear it with pride. Tell us in the comments which era we should quiz next.",
+  "questions": [
+   {
+    "question": "Which ancient Egyptian god is depicted with the head of a falcon and rules the sun?",
+    "answer": "Ra"
+   },
+   {
+    "question": "What general name is given to the conflicts fought between Greece and the Persian Empire in the 5th century BC?",
+    "answer": "Persian Wars"
+   },
+   {
+    "question": "What was the name of Alexander the Great's father, king of Macedon?",
+    "answer": "Philip II"
+   },
+   {
+    "question": "What is the name for the school of philosophy founded by Plato in Athens?",
+    "answer": "The Academy"
+   },
+   {
+    "question": "What legendary creature is part goat, part lion, and part snake in Greek mythology?",
+    "answer": "Chimera"
+   },
+   {
+    "question": "What do the famous Roman letters SPQR stand for?",
+    "answer": "The Senate and People of Rome"
+   },
+   {
+    "question": "What Latin legal phrase, still used today, means 'let the buyer beware'?",
+    "answer": "Caveat emptor"
+   },
+   {
+    "question": "What is the name for the tight formation of overlapping shields used by Greek infantry?",
+    "answer": "Phalanx"
+   },
+   {
+    "question": "In Greek mythology, how many heads did the monster called the Hydra originally have?",
+    "answer": "Nine"
+   },
+   {
+    "question": "Which Egyptian god of the underworld was said to have been killed and brought back by Isis?",
+    "answer": "Osiris"
    }
   ]
  }

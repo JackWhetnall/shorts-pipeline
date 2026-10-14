@@ -5,12 +5,13 @@
    "at": 1791219903.1061077
   },
   "openai": {
-   "usd": 5.34,
-   "at": 1791219925.702715
+   "usd": 18.28,
+   "at": 1791900711.57637
   }
  },
  "elevenlabs_monthly_usd": 5.0,
  "long_rpm": 4.0,
  "shorts_rpm": 0.0,
- "in_ypp": []
+ "in_ypp": [],
+ "spare_voice": false
 }

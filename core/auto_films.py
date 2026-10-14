@@ -115,9 +115,15 @@ def step(channel) -> str:
         return f"making the teasers of {row['title']}"
     if state == "failed":
         entry = data["stages"][stage]
-        if entry.get("autopilot_retried"):
+        if entry.get("interrupted"):
+            # Cut short by a restart (decision 097): not its fault, so not its retry.
+            if after_hours:
+                return ""
+            production.update(channel.key, row["id"], lambda d: d["stages"][stage].pop("interrupted", None))
+        elif entry.get("autopilot_retried"):
             return ""
-        production.update(channel.key, row["id"], lambda d: d["stages"][stage].update(autopilot_retried=True))
+        else:
+            production.update(channel.key, row["id"], lambda d: d["stages"][stage].update(autopilot_retried=True))
     if state in ("todo", "stale", "failed"):
         if after_hours:
             return ""                       # stages start in the channel's hours only

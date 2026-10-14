@@ -181,7 +181,7 @@ def test_a_remake_reuses_every_unchanged_lines_voice(monkeypatch, tmp_path):
 
     monkeypatch.setattr(tts, "synthesize_segment", fake)
     monkeypatch.setattr(tts, "decode_audio_file", lambda path, fps: np.zeros((4410, 1)))
-    monkeypatch.setattr(tts, "_stitch", lambda results, segments, out: ([], np.zeros((1, 1)), tts.SAMPLE_RATE))
+    monkeypatch.setattr(tts, "_stitch", lambda results, segments, out, close=False: ([], np.zeros((1, 1)), tts.SAMPLE_RATE))
     lines = [Segment("Hello there."), Segment("Which planet is red?"), Segment("Mars.")]
     tts.generate_voiceover(lines, None, "v", str(tmp_path / "a.mp3"), Pacing())
     assert len(said) == 3

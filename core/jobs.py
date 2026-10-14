@@ -39,7 +39,7 @@ from pathlib import Path
 from core import job_context
 from core.errors import JobError, friendly_message
 from core.logging_setup import JobLogHandler, configure, get_logger
-from core.paths import JOB_STATE_DIR
+from core.paths import JOB_STATE_DIR, write_atomically
 
 log = get_logger(__name__)
 
@@ -127,7 +127,7 @@ def _persist(job_id: str) -> None:
         snapshot = job.to_dict()
     try:
         _dir(job_id).mkdir(parents=True, exist_ok=True)
-        _record_path(job_id).write_text(json.dumps(snapshot), encoding="utf-8")
+        write_atomically(_record_path(job_id), json.dumps(snapshot))
     except Exception:  # noqa: BLE001 - persistence must never break a render
         pass
 

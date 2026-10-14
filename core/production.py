@@ -43,6 +43,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.errors import PipelineError
+from core.logging_setup import get_logger
 from core.paths import CHANNELS_DIR, safe_join, write_atomically
 
 STAGES = ("pitch", "outline", "script", "stills", "video", "teasers")
@@ -51,6 +52,9 @@ LABELS = {"pitch": "Angle", "outline": "Outline", "script": "Script", "stills": 
 STATES = ("todo", "working", "ready", "approved", "failed", "stale")
 
 _lock = threading.Lock()
+
+
+log = get_logger(__name__)
 
 
 class ProductionError(PipelineError):
@@ -83,10 +87,15 @@ def exists(channel_key: str, subtopic_id: str) -> bool:
 def load(channel_key: str, subtopic_id: str, title: str = "") -> dict:
     """The production for a plan entry, or a blank one."""
     path = _path(channel_key, subtopic_id)
+    if not path.exists():
+        return blank(subtopic_id, title)
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return blank(subtopic_id, title)
+    except (OSError, ValueError) as exc:
+        # Never a blank in its place: the next save would write over the
+        # film, and the autopilot would pay to make it again (decision 097).
+        raise ProductionError(f"{path} unreadable: {exc}", user_message=(
+            f"This film's record ({subtopic_id}) can't be read; it's been left as it is.")) from exc
     for stage in STAGES:
         data["stages"].setdefault(stage, {"state": "todo"})
     data.setdefault("pitch", None)
@@ -106,7 +115,14 @@ def all_for(channel_key: str) -> list:
     root = CHANNELS_DIR / channel_key / "productions"
     if not root.exists():
         return []
-    return [load(channel_key, d.name) for d in sorted(root.iterdir()) if (d / "production.json").exists()]
+    films = []
+    for d in sorted(root.iterdir()):
+        if (d / "production.json").exists():
+            try:
+                films.append(load(channel_key, d.name))
+            except ProductionError as exc:
+                log.error(f"{channel_key}: skipping a film whose record can't be read ({exc})")
+    return films
 
 
 def state(data: dict, stage: str) -> str:
@@ -133,6 +149,33 @@ def update(channel_key: str, subtopic_id: str, change, title: str = "") -> dict:
         change(data)
         save(channel_key, data)
         return data
+
+
+INTERRUPTED = "Stopped part-way: the app or the PC restarted."
+
+
+def recover_interrupted(channel_keys) -> list:
+    """At startup, nothing is being made yet, so a stage still marked
+    working was cut short by a restart (decision 097). It becomes failed,
+    flagged `interrupted`, so the autopilot starts it again (without
+    counting that as its one retry) and the owner sees why. What it had
+    already paid for is kept: drawn pictures, voiced lines and finished
+    batches are picked up again. Returns [(channel, film, stage)]."""
+    found = []
+    for key in channel_keys:
+        for data in all_for(key):
+            stuck = [s for s in STAGES if state(data, s) == "working"]
+            if not stuck:
+                continue
+
+            def change(d, stuck=stuck):
+                for s in stuck:
+                    mark(d, s, "failed", INTERRUPTED)
+                    d["stages"][s]["interrupted"] = True
+                    d["history"].append({"at": _now(), "stage": s, "did": "interrupted by a restart"})
+            update(key, data["subtopic_id"], change)
+            found += [(key, data["subtopic_id"], s) for s in stuck]
+    return found
 
 
 def mark(data: dict, stage: str, new_state: str, error: str = "") -> None:

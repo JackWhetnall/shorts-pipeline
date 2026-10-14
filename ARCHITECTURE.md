@@ -831,6 +831,11 @@ Decision [096](docs/decisions/096-one-reference-sheet-per-picture.md):
 panels (`documentary.combined_references`, on by default), about half the
 picture cost.
 
+Decision [097](docs/decisions/097-restarts-overnight.md): at startup
+`production.recover_interrupted` fails any stage left working as
+`interrupted`, which the autopilot starts again; `production.load` refuses
+an unreadable record rather than returning a blank film.
+
 **Settings and setup** (decision
 [076](docs/decisions/076-long-form-settings-and-setup.md)). A long-form
 channel (`ChannelConfig.long_form`) has its own settings page,

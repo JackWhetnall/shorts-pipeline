@@ -151,12 +151,14 @@ def relative_to_output(path: Path) -> str:
     return str(Path(path).resolve().relative_to(OUTPUT_DIR)).replace("\\", "/")
 
 
-def write_atomically(path: Path, text: str) -> None:
-    """Write `text` to `path` so a reader only ever sees the old file or the
-    new one. Each write goes through its own temporary file: a temporary
-    name shared by every writer let two saves at once interleave into one
-    file, which is how Pub Quiz Buzz's topic plan was found with half of an
-    older copy after its end on 7 Oct (decision 077)."""
+def write_atomically(path: Path, text) -> None:
+    """Write `text` (or bytes) to `path` so a reader only ever sees the old
+    file or the new one. Each write goes through its own temporary file: a
+    temporary name shared by every writer let two saves at once interleave
+    into one file, which is how Pub Quiz Buzz's topic plan was found with
+    half of an older copy after its end on 7 Oct (decision 077). It's on
+    the disk before it replaces the old one, so a sudden power-off or
+    restart leaves one or the other, never an empty file (decision 097)."""
     import os
     import tempfile
     import time
@@ -165,8 +167,14 @@ def write_atomically(path: Path, text: str) -> None:
     with _write_lock(path):
         handle, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
         try:
-            with os.fdopen(handle, "w", encoding="utf-8") as f:
+            if isinstance(text, (bytes, bytearray)):
+                f = os.fdopen(handle, "wb")
+            else:
+                f = os.fdopen(handle, "w", encoding="utf-8")
+            with f:
                 f.write(text)
+                f.flush()
+                os.fsync(f.fileno())
             # Windows refuses to replace a file another process has open for
             # a moment (a reader, a virus scanner); that passes.
             for attempt in range(20):

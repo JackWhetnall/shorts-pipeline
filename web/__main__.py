@@ -75,6 +75,7 @@ def main() -> None:
     restored = jobs.load_persisted_jobs()
     if restored:
         log.info(f"Restored {restored} job record(s) from the last session.")
+    _recover_films()
     if not args.no_scheduler:
         scheduler.start_background()
     # Restart onto new code after an update, once nothing is running.
@@ -88,6 +89,19 @@ def main() -> None:
             log.info(f"On a phone on this network: http://{address}:{args.port}/m")
     app.run(host=args.host, port=args.port, debug=args.debug,
             use_reloader=args.debug, threaded=True)
+
+
+def _recover_films() -> None:
+    """Film stages a restart cut short are picked up again (decision 097)."""
+    from core import production
+    from core.channels import load_channels
+    try:
+        found = production.recover_interrupted(load_channels(validate=False).keys())
+    except Exception as exc:  # noqa: BLE001 - logged, and the app still starts
+        log.error(f"Couldn't check for films a restart interrupted: {exc}")
+        return
+    for key, film, stage in found:
+        log.info(f"{key} {film}: the {stage} was interrupted by a restart; it will start again")
 
 
 if __name__ == "__main__":
