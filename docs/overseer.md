@@ -54,9 +54,11 @@ faults:
 6. **The opening proves the title; the last line is an ending.** The
    last line should be short and final: no question, no summary, no
    moral.
-7. **Cards agree with their lines**, and a number card holds only a
-   number.
-8. **The description agrees with the corrected script.**
+7. **Every word on a card agrees with the corrected script**: heading,
+   value, caption and items. A number card holds only a number.
+8. **The description and the thumbnail words agree with the corrected
+   script.** The hook and promise are planning notes, never shown or
+   spoken: leave them.
 9. **Pictures:** each in one setting, nothing where it can't be. No
    "sequence" or "slowly … until" (those are drawn as panels).
 
@@ -66,7 +68,9 @@ Fix a line, a picture's direction or a card:
 python -m core.overseer edit <channel> <id> <scene> --narration "..."
 python -m core.overseer edit <channel> <id> <scene> --direction "..."
 python -m core.overseer edit <channel> <id> <scene> --card-value "175x" --card-items "A;B;C"
+python -m core.overseer edit <channel> <id> <scene> --card-heading "..." --card-caption "..."
 python -m core.overseer edit <channel> <id> -1 --description "..."
+python -m core.overseer edit <channel> <id> -1 --thumb-words "..."
 ```
 
 Keep each rewrite the same length and voice. Keep any `[cue]` at its

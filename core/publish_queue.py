@@ -537,7 +537,12 @@ def cover_set_at(video) -> float:
 
 def mark_cover_set(video) -> None:
     import time as _time
-    _cover_record(video).write_text(json.dumps({"set_at": _time.time()}), encoding="utf-8")
+    # Never earlier than the picture's own time: Windows can stamp a file a
+    # few milliseconds ahead of time.time(), so a cover sent just after it
+    # was saved looked unsent and went again.
+    picture = own_picture(Path(video))
+    stamped = picture.stat().st_mtime if picture is not None and picture.exists() else 0.0
+    _cover_record(video).write_text(json.dumps({"set_at": max(_time.time(), stamped)}), encoding="utf-8")
 
 
 def own_picture(video):

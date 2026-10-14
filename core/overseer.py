@@ -68,7 +68,9 @@ def script_sheet(key: str, sid: str) -> str:
     outline, script = data.get("outline") or {}, data.get("script") or {}
     lines = [f"FILM {key}/{sid}: {data.get('title', '')}",
              f"Title: {production.packaging(data).get('title', '')}",
-             f"Hook: {angle.get('hook', '')}", f"Promise: {angle.get('promise', '')}", "",
+             f"Thumbnail words: {(production.packaging(data).get('thumbnail') or {}).get('words', '')}",
+             f"Planning notes, never shown or spoken: hook \"{angle.get('hook', '')}\"; "
+             f"promise \"{angle.get('promise', '')}\"", "",
              "SETTINGS:"] + [f"  - {s['name']} ({s['scale']}): {s['description']}" for s in outline.get("settings") or []]
     lines += ["CAST:"] + [f"  - {m['name']} ({m.get('kind')}; in {', '.join(m.get('settings') or []) or 'anywhere'}): "
                           f"{m.get('description', '')[:160]}" for m in outline.get("cast") or []]
@@ -80,8 +82,9 @@ def script_sheet(key: str, sid: str) -> str:
             lines.append(f"\n== Chapter {chapter}: {title}")
         if s.get("medium") == "card":
             card = s.get("card") or {}
-            lines.append(f"[{i}] CARD {card.get('kind')}: {card.get('heading', '')} | {card.get('value', '')} | "
-                         f"{card.get('caption', '')} | {'; '.join(card.get('items') or [])}")
+            lines.append(f"[{i}] CARD {card.get('kind')}: heading \"{card.get('heading', '')}\" | value "
+                         f"\"{card.get('value', '')}\" | caption \"{card.get('caption', '')}\" | items "
+                         f"\"{'; '.join(card.get('items') or [])}\"")
         else:
             again = f" (shows scene {s['same_as']}'s picture again)" if isinstance(s.get("same_as"), int) else ""
             lines.append(f"[{i}] picture in {s.get('setting') or '?'}{again}: {s.get('direction', '')[:220]}")
@@ -103,12 +106,19 @@ def _history(d: dict, did: str) -> None:
 
 
 def edit(key: str, sid: str, scene: int, narration: str = None, direction: str = None,
-         card_value: str = None, card_items: str = None, description: str = None) -> None:
+         card_value: str = None, card_items: str = None, description: str = None,
+         card_heading: str = None, card_caption: str = None, thumb_words: str = None) -> None:
     def change(d):
         scenes = d["script"]["scenes"]
         if description is not None:
             d["script"]["description"] = description
             _history(d, "rewrote the description")
+        if thumb_words is not None:
+            # The words on the thumbnail of the angle the film goes out with (decision 098).
+            angle = production.packaging(d)
+            if angle:
+                angle.setdefault("thumbnail", {})["words"] = " ".join(thumb_words.split())
+                _history(d, "changed the thumbnail words")
         if scene is None or scene < 0:
             return
         s = scenes[scene]
@@ -121,6 +131,10 @@ def edit(key: str, sid: str, scene: int, narration: str = None, direction: str =
             s["card"]["value"] = card_value
         if card_items is not None and s.get("card"):
             s["card"]["items"] = [x.strip() for x in card_items.split(";") if x.strip()]
+        if card_heading is not None and s.get("card"):
+            s["card"]["heading"] = " ".join(card_heading.split())
+        if card_caption is not None and s.get("card"):
+            s["card"]["caption"] = " ".join(card_caption.split())
         _history(d, f"edited scene {scene}")
     production.update(key, sid, change)
 
@@ -189,7 +203,8 @@ def main(argv=None) -> int:
     p.add_argument("channel")
     p.add_argument("id")
     p.add_argument("scene", type=int, help="-1 for the description only")
-    for flag in ("--narration", "--direction", "--card-value", "--card-items", "--description"):
+    for flag in ("--narration", "--direction", "--card-value", "--card-items", "--card-heading",
+                 "--card-caption", "--description", "--thumb-words"):
         p.add_argument(flag)
     p = sub.add_parser("redraw")
     p.add_argument("channel")
@@ -217,7 +232,7 @@ def main(argv=None) -> int:
         print(script_sheet(args.channel, args.id))
     elif args.command == "edit":
         edit(args.channel, args.id, args.scene, args.narration, args.direction, args.card_value,
-             args.card_items, args.description)
+             args.card_items, args.description, args.card_heading, args.card_caption, args.thumb_words)
         print("edited")
     elif args.command == "board":
         for path in board(args.channel, args.id):

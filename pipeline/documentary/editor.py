@@ -212,9 +212,11 @@ costs the film its credibility. Find only real problems, line by line:
 - a stray production word that isn't narration (reframe, payoff, cold open, chapter, beat).
 Most lines are fine; leave them out. For each problem give the scene's number, the problem in a
 short sentence, and `narration`: the line rewritten to fix it, the same length and voice, keeping
-any [cue] at its start. Where the scene shows a card, `card` is its corrected words in the card's own
-shape (its items joined with " ; ", each "label|value" if the card's are, or the value), or ""
-if the card is fine. A card that says what the corrected line no longer says is a fault too.
+any [cue] at its start, or "" if the line itself is fine. Where the scene shows a card, check every
+part of it: `card` is its corrected value or items in the card's own shape (its items joined with
+" ; ", each "label|value" if the card's are, or the value), `card_heading` and `card_caption` its
+corrected heading and caption; each "" where that part is fine. A card that says what its line, or
+any corrected line, no longer says is a fault too, and so is a caption or heading that overstates.
 
 Then read the YouTube description the same way, against the script as you've corrected it: a
 number or claim the script no longer makes, or a stock phrase ("journey", "it turns out",
@@ -225,18 +227,24 @@ number or claim the script no longer makes, or a stock phrase ("journey", "it tu
 def _facts_schema() -> dict:
     row = {"type": "object", "properties": {
         "scene": {"type": "integer"}, "problem": {"type": "string"}, "narration": {"type": "string"},
-        "card": {"type": "string"}},
-        "required": ["scene", "problem", "narration", "card"], "additionalProperties": False}
+        "card": {"type": "string"}, "card_heading": {"type": "string"}, "card_caption": {"type": "string"}},
+        "required": ["scene", "problem", "narration", "card", "card_heading", "card_caption"],
+        "additionalProperties": False}
     return {"type": "object", "properties": {"fixes": {"type": "array", "items": row},
                                              "description": {"type": "string"}},
             "required": ["fixes", "description"], "additionalProperties": False}
 
 
 def _card_text(card: dict) -> str:
+    """A card's words, each part named, so a correction can say which part
+    it fixes (decision 098: captions went uncorrected when they weren't)."""
     if not card:
         return ""
-    bits = [card.get("heading", ""), card.get("value", ""), card.get("caption", "")] + list(card.get("items") or [])
-    return " / ".join(b for b in bits if b)
+    bits = [f'heading "{card["heading"]}"' if card.get("heading") else "",
+            f'value "{card["value"]}"' if card.get("value") else "",
+            f'caption "{card["caption"]}"' if card.get("caption") else "",
+            ("items " + " ; ".join(card["items"])) if card.get("items") else ""]
+    return ", ".join(b for b in bits if b)
 
 
 def fact_check(script: dict) -> tuple:
@@ -253,11 +261,19 @@ def fact_check(script: dict) -> tuple:
     fixed, notes = [dict(s) for s in scenes], []
     for row in data.get("fixes") or []:
         i, text = row.get("scene"), " ".join(str(row.get("narration") or "").split())
-        if not isinstance(i, int) or not 0 <= i < len(fixed) or not text:
+        if not isinstance(i, int) or not 0 <= i < len(fixed):
             continue
-        fixed[i]["narration"] = text
         card = fixed[i].get("card")
         new = str(row.get("card") or "").strip()
+        heading = " ".join(str(row.get("card_heading") or "").split())
+        caption = " ".join(str(row.get("card_caption") or "").split())
+        if not text and not (card and (new or heading or caption)):
+            continue
+        if text:
+            fixed[i]["narration"] = text
+        if card and (heading or caption):
+            card = {**card, **({"heading": heading} if heading else {}), **({"caption": caption} if caption else {})}
+            fixed[i]["card"] = card
         if card and new:
             if card.get("items"):
                 # "label|value" items keep their shape; a list's items are plain lines.
