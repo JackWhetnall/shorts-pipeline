@@ -95,5 +95,8 @@ def candidates_dir(channel_key: str) -> Path:
 
 
 def list_candidates(channel_key: str) -> list:
+    """Every logo idea the channel has been shown, newest first (decision 100)."""
     directory = candidates_dir(channel_key)
-    return sorted(directory.glob("*.png")) if directory.exists() else []
+    if not directory.exists():
+        return []
+    return sorted(directory.glob("*.png"), key=lambda p: (p.stat().st_mtime, p.name), reverse=True)

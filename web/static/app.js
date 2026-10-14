@@ -565,14 +565,14 @@ async function generateLogos(channelKey) {
       return;
     }
 
+    // New ideas go in front; earlier ones stay (decision 100).
     const grid = document.getElementById("logo-candidates-grid");
-    grid.innerHTML = "";
-    for (const candidate of data.candidates) {
+    for (const candidate of [...data.candidates].reverse()) {
       const el = document.createElement("img");
       el.src = candidate.url;
       el.className = "logo-candidate";
       el.onclick = () => selectLogo(channelKey, candidate.filename, el);
-      grid.appendChild(el);
+      grid.prepend(el);
     }
     const shown = document.getElementById("logo-candidates");
     shown.classList.remove("hidden");

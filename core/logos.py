@@ -96,7 +96,7 @@ from core import costs
 from core import assets
 from core.errors import ExternalServiceError, MissingCredentialError, PipelineError
 from core.logging_setup import get_logger
-from core.paths import channel_logo_dir
+from core.paths import channel_logo_dir, write_atomically
 
 log = get_logger(__name__)
 
@@ -114,7 +114,7 @@ IMAGE_SIZE = "1024x1024"
 # it looks comes from a different direction for each candidate, drawn
 # from DIRECTIONS, each with its own medium and its own way with colour.
 PROMPT_TEMPLATE = (
-    "A logo mark for a content channel about {topic}. {direction} "
+    "A logo mark for a content channel about {topic}. {concept}{direction} "
     "One clear idea, not a collection of symbols: it must read at a glance "
     "as a small round profile picture. Colours chosen for this subject and "
     "this treatment, not a default palette. No text, no letters, no words, "
@@ -213,14 +213,68 @@ def _openai_api_key() -> str:
     return os.environ.get("OPENAI_API_KEY")
 
 
-def build_prompt(fragment: str, style_suffix: str = "", direction: str = "") -> str:
-    return " ".join(PROMPT_TEMPLATE.format(topic=fragment.strip(), direction=direction).split()) + style_suffix
+def build_prompt(fragment: str, style_suffix: str = "", direction: str = "", concept: str = "") -> str:
+    concept = f"The mark shows {concept.rstrip('.')}. " if concept else ""
+    return " ".join(PROMPT_TEMPLATE.format(topic=fragment.strip(), direction=direction,
+                                           concept=concept).split()) + style_suffix
 
 
-def directions(n: int, rng=None) -> list:
-    """n different looks for one batch of candidates (decision 099)."""
+def directions(n: int, rng=None, used: list = ()) -> list:
+    """n different looks for one batch (decision 099), the ones this
+    channel has had least first, so a new batch isn't the last one again."""
     import random
-    return (rng or random).sample(DIRECTIONS, min(n, len(DIRECTIONS)))
+    rng = rng or random
+    counts = {d: list(used).count(d) for d in DIRECTIONS}
+    pool = sorted(DIRECTIONS, key=lambda d: (counts[d], rng.random()))
+    return pool[:min(n, len(DIRECTIONS))]
+
+
+# Every idea a channel has been shown, kept with its picture: what it
+# showed and in which direction, so the next batch can be different.
+IDEAS_FILE = "ideas.json"
+CONCEPTS_SYSTEM = (
+    "You are a brand designer sketching logo ideas for a content channel. Each idea is one "
+    "sentence saying what the mark shows: a single clear image or symbol, never a collection of "
+    "symbols, and never text or letters. Give ideas that differ from each other in what they "
+    "show, not only in how; at least one should be unexpected. Never repeat or closely vary an "
+    "idea the channel has already been shown. End each idea with its two or three colours, "
+    "different across the ideas and from those already shown (the image model drifts to warm "
+    "orange backgrounds when left to choose)."
+)
+
+
+def _ideas(channel_key: str) -> list:
+    import json
+    try:
+        return json.loads((_candidates_dir(channel_key) / IDEAS_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+
+
+def _save_ideas(channel_key: str, ideas: list) -> None:
+    import json
+    write_atomically(_candidates_dir(channel_key) / IDEAS_FILE, json.dumps(ideas, indent=1))
+
+
+def concepts(fragment: str, n: int, shown: list) -> list:
+    """n new ideas for what the mark shows, unlike those already shown
+    (decision 100). Without them every batch drew the brief's most
+    obvious picture again: a question mark and a globe, five times over.
+    About a cent. A failure falls back to the brief alone, logged."""
+    from core.errors import PipelineError
+    from pipeline.llm import call_json
+    schema = {"type": "object", "properties": {"ideas": {"type": "array", "items": {"type": "string"}}},
+              "required": ["ideas"], "additionalProperties": False}
+    before = "\n".join(f"- {c}" for c in shown[-40:]) or "(none yet)"
+    try:
+        data = call_json(CONCEPTS_SYSTEM, f"The channel: {fragment}\n\nIdeas already shown:\n{before}\n\n"
+                                          f"Give {n} new ideas.", schema, operation="logo_concepts",
+                         max_tokens=3000, effort="low")
+    except PipelineError as exc:
+        log.warning(f"  [logo] couldn't sketch new ideas ({exc}); drawing from the brief alone")
+        return [""] * n
+    ideas = [" ".join(str(i).split()) for i in data.get("ideas") or [] if str(i).strip()][:n]
+    return ideas + [""] * (n - len(ideas))
 
 
 def _logo_dir(channel_key: str) -> Path:
@@ -344,30 +398,34 @@ def _generate_image_edit(prompt: str, image_bytes: bytes, quality: str = "auto")
 
 
 def generate_candidates(channel_key: str, fragment: str, n: int = CANDIDATE_COUNT) -> list:
-    """One OpenAI call for n candidates, at IMAGE_QUALITY_CANDIDATES (cheaper
-    — these are for picking a direction, not the final asset). Clears any
-    previous candidates batch first (only the most recent batch is kept —
-    old unselected candidates aren't worth holding onto)."""
+    """n new candidates at IMAGE_QUALITY_CANDIDATES (cheaper: these are for
+    picking a direction, not the final asset). Each shows a new idea in a
+    look the channel has had least (decisions 099, 100). Earlier ones are
+    all kept: the owner can always go back to one."""
     candidates_dir = _candidates_dir(channel_key)
-    if candidates_dir.exists():
-        shutil.rmtree(candidates_dir)
     candidates_dir.mkdir(parents=True, exist_ok=True)
+    ideas = _ideas(channel_key)
+    looks = directions(n, used=[i.get("direction") for i in ideas])
+    shows = concepts(fragment, len(looks), [i["concept"] for i in ideas if i.get("concept")])
 
-    # One image per direction, so the options really differ (decision 099).
     from concurrent.futures import ThreadPoolExecutor
 
-    def one(direction):
-        return _generate_images(build_prompt(fragment, direction=direction), 1,
+    def one(pair):
+        direction, concept = pair
+        return _generate_images(build_prompt(fragment, direction=direction, concept=concept), 1,
                                 quality=IMAGE_QUALITY_CANDIDATES)[0]
     with ThreadPoolExecutor(max_workers=min(n, MAX_IMAGES_PER_MINUTE)) as pool:
-        images = list(pool.map(one, directions(n)))
+        images = list(pool.map(one, zip(looks, shows)))
 
     batch_id = uuid.uuid4().hex[:8]
     paths = []
-    for i, image_bytes in enumerate(images):
+    for i, (image_bytes, direction, concept) in enumerate(zip(images, looks, shows)):
         path = candidates_dir / f"{batch_id}_{i}.png"
-        path.write_bytes(image_bytes)
+        write_atomically(path, image_bytes)
         paths.append(path)
+        ideas.append({"file": path.name, "direction": direction, "concept": concept, "brief": fragment,
+                      "at": time.time()})
+    _save_ideas(channel_key, ideas)
     return paths
 
 
