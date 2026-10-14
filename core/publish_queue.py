@@ -197,6 +197,20 @@ def latest_slot(publishing, now: datetime):
     return None
 
 
+def _filled(plan, due: datetime, last) -> bool:
+    """Whether the slot `due` already had its video: one went out at or
+    after it, or since the slot before it. The second part is decision
+    101: moving a channel's time from 16:00 to 16:30 after the 16:00 video
+    had gone made 16:30 a new, empty slot the same day, and a second
+    video went out at once."""
+    if last is None:
+        return False
+    if due <= last:
+        return True
+    before = latest_slot(plan, due - timedelta(seconds=1))
+    return before is not None and last > before
+
+
 def schedule_for(channel, now: datetime = None) -> list:
     """[(video_path, when)] for everything queued, shorts then long videos,
     each in its lane's order. `when` is a local datetime, or None for "on
@@ -214,7 +228,7 @@ def schedule_for(channel, now: datetime = None) -> list:
         last = _parse(_load_state().get(_lane_key(channel.key, long), {}).get("last_slot"))
         due = latest_slot(plan, now)
         slots = []
-        if due and (last is None or due > last) and now - due <= MISSED_SLOT_GRACE:
+        if due and not _filled(plan, due, last) and now - due <= MISSED_SLOT_GRACE:
             slots.append(due)  # a slot that's due now and still unfilled
         slots += upcoming_slots(plan, now, len(videos))
         out += list(zip(videos, slots))
@@ -269,7 +283,7 @@ def publish_due(channels: dict, now: datetime = None) -> list:
                 lane = _lane_key(key, long)
                 due = latest_slot(_lane(channel, long), now)
                 last = _parse(state.get(lane, {}).get("last_slot"))
-                if due is None or (last is not None and due <= last) or now - due > MISSED_SLOT_GRACE:
+                if due is None or _filled(_lane(channel, long), due, last) or now - due > MISSED_SLOT_GRACE:
                     continue
                 if waiting_for(channel, videos[0]):
                     continue        # an earlier number is still in review; this slot waits for it

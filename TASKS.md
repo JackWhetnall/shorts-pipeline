@@ -12,6 +12,32 @@ app has a new look (decision 068): restart it (step E) to see it.*
 
 ---
 
+## Thumbnails that won't set (14 Oct)
+
+### A1. Why, Though?: verify with another number (5 minutes)
+A number verifies at most 2 channels a year, and yours is used up.
+Verification can't be moved or removed. Use any other number you can get
+a code on, for example a family member's mobile, a cheap pay-as-you-go
+SIM, or a landline (choose **Voice call**). The number isn't attached to
+your account beyond the code.
+**YouTube Studio** (signed in as Why, Though?) → **Settings → Channel →
+Feature eligibility → Intermediate features → Verify phone number**.
+Then, in the app, **Why, Though? → Videos → Set thumbnails** sends the
+two published films' thumbnails.
+
+### A2. Pub Quiz Buzz Shorts: set each cover by hand (1 minute a Short)
+YouTube picks its own frame for the Shorts shelf and the subscription
+feed, and the API can't change it.
+- **Desktop:** **YouTube Studio → Content → Shorts →** a Short → if
+  there's a **Thumbnail** section, upload its cover, which sits next to
+  the video as `..._cover.jpg` in `output\pub_quiz_buzz\<date>\`.
+- **Phone, if Studio has no Thumbnail section:** **YouTube app → You →
+  Your videos →** the Short **→ Edit → Thumbnail**, and pick the very
+  first frame (the round's title card, no answers).
+Tell me if neither shows up. Then we decide whether to change the
+Shorts themselves so that no frame shows answers. That would change
+the frozen channel.
+
 ## Surviving a restart overnight (14 Oct)
 
 Windows restarted the PC for an update at 00:14, and nothing ran until

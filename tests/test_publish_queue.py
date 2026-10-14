@@ -94,6 +94,17 @@ class TestPublishing:
         publish_queue.publish_due({"c": world.channel}, now=at + timedelta(days=1))
         assert gallery.load_publish_info(second)["youtube_url"]
 
+    def test_moving_the_time_later_the_same_day_doesnt_send_a_second_video(self, world):
+        # Decision 101: 16:00 went out, the time was moved to 16:30, and a
+        # second video went out at 16:36 as if 16:30 were a new slot.
+        first, second = world.video("a"), world.video("b")
+        assert len(publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 24, 18, 5))) == 1
+        world.channel.publishing.slots = ["18:30"]
+        assert publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 24, 18, 36)) == []
+        assert [w for _, w in publish_queue.schedule_for(world.channel, now=local(2026, 9, 24, 18, 36))]             == [local(2026, 9, 25, 18, 30)]
+        publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 25, 18, 31))
+        assert gallery.load_publish_info(second)["youtube_url"]
+
     def test_a_missed_slot_is_made_up_once_and_not_after_a_long_gap(self, world):
         world.video("a"), world.video("b")
         # Off for most of a day: the 18:00 slot is made up at 09:00.
