@@ -8,7 +8,7 @@ from flask import (
     Blueprint, abort, jsonify, render_template, request, send_from_directory, url_for,
 )
 
-from core import assets, logos as logos_core
+from core import assets, costs, logos as logos_core
 from core.paths import PathTraversalError, channel_logo_dir, safe_join
 from web.helpers import channel_or_404
 
@@ -25,6 +25,7 @@ def logo_page(key):
         candidates=[p.name for p in assets.list_candidates(key)],
         variant_styles=logos_core.VARIANT_STYLES,
         candidate_count=logos_core.CANDIDATE_COUNT,
+        candidate_cost=logos_core.CANDIDATE_COUNT * costs.OPENAI_IMAGE_PRICES[logos_core.IMAGE_QUALITY_CANDIDATES],
         logo_brief=_suggested_brief(channel),
     )
 

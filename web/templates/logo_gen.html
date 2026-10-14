@@ -28,12 +28,7 @@
 
 <div class="card">
   <h2>{{ "Generate a new logo" if has_logo else "Generate a logo" }}</h2>
-  <p class="subtitle">
-    Describe the channel in a sentence or two. The professional, no-text,
-    profile-picture framing is added automatically &mdash; you are
-    describing the <em>subject and mood</em>, not the artwork. Each attempt
-    is {{ candidate_count }} candidates and one paid API call.
-  </p>
+
   <div class="logo-brief">
     <label>What should the logo evoke?
       <textarea id="logo-fragment" rows="3"
@@ -44,11 +39,16 @@
       </span>
     </label>
   </div>
-  <button onclick="generateLogos('{{ key }}')" data-count="{{ candidate_count }}">Generate {{ candidate_count }} ideas</button>
+  <button onclick="generateLogos('{{ key }}')" data-count="{{ candidate_count }}">Generate {{ candidate_count }} ideas &middot; ${{ '%.2f'|format(candidate_cost) }}</button>
 </div>
 
-<div id="logo-candidates" class="hidden">
+<div id="logo-candidates" class="card{% if not candidates %} hidden{% endif %}">
   <h2>Pick one</h2>
-  <div id="logo-candidates-grid" class="logo-candidates-grid"></div>
+  <div id="logo-candidates-grid" class="logo-candidates-grid">
+    {% for name in candidates %}
+    <img src="{{ url_for('logos.serve_asset', key=key, filename='candidates/' ~ name) }}" class="logo-candidate"
+         onclick="selectLogo('{{ key }}', '{{ name }}', this)" alt="Logo idea {{ loop.index }}">
+    {% endfor %}
+  </div>
 </div>
 {% endblock %}

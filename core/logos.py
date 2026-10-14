@@ -10,10 +10,10 @@ version that said "YouTube channel" was coming back with YouTube
 play-button imagery baked into the mark, which is wrong for a logo meant
 to represent the channel itself across every platform it's posted to.
 
-POST https://api.openai.com/v1/images/generations with n=CANDIDATE_COUNT
-generates all candidates in a single call (unlike per-image-call
-providers) — see CLAUDE.md's "Channel logos" section for why this
-provider was picked. Plain `requests`, no SDK, matching the ElevenLabs
+POST https://api.openai.com/v1/images/generations, one image per
+candidate since decision 099: each candidate is drawn in a different
+direction (DIRECTIONS), which one prompt with n=CANDIDATE_COUNT can't do.
+The calls run side by side, so a batch takes about as long as one. Plain `requests`, no SDK, matching the ElevenLabs
 integration's pattern.
 
 Cost: gpt-image-1 is not cheap (a real batch of 20 images cost ~$3), so
@@ -105,20 +105,44 @@ OPENAI_EDITS_URL = "https://api.openai.com/v1/images/edits"
 OPENAI_MODEL = "gpt-image-1"
 IMAGE_SIZE = "1024x1024"
 
+# Decision 099. The prompt used to ask every channel for "shading,
+# gradients, and layered detail" in "a full, vivid color palette", centred
+# on a plain background, and all five candidates came from that one
+# prompt. Every channel's logo came out as the same glossy sticker
+# (orange on a navy disc, dark vignette), and the five were near-copies of
+# each other. Now the prompt sets only the rules a logo has to keep; how
+# it looks comes from a different direction for each candidate, drawn
+# from DIRECTIONS, each with its own medium and its own way with colour.
 PROMPT_TEMPLATE = (
-    "A striking, professional graphic-design logo mark for a content "
-    "creator's channel about {topic}, meant to be used as-is across "
-    "several different social media platforms. Bold, memorable, and "
-    "visually rich — real depth and polish (shading, gradients, and "
-    "layered detail are all welcome, use a full, vivid color palette), "
-    "the kind of logo that grabs attention and reads clearly even as a "
-    "small profile-picture thumbnail. No text, no letters, no words, and "
-    "no social-media app icons, play-button icons, camera icons, or any "
-    "other brand or platform symbols anywhere in the image — just an "
-    "original mark representing the subject itself, generic enough to "
-    "work as a profile picture anywhere. Centered composition, plain or "
-    "transparent-style background."
+    "A logo mark for a content channel about {topic}. {direction} "
+    "One clear idea, not a collection of symbols: it must read at a glance "
+    "as a small round profile picture. Colours chosen for this subject and "
+    "this treatment, not a default palette. No text, no letters, no words, "
+    "and no social-media app icons, play-button icons, camera icons, or any "
+    "other brand or platform symbols. Filling the square, on a flat "
+    "background that is part of the design."
 )
+
+# Distinct looks, each a medium and a colour approach. A batch takes
+# CANDIDATE_COUNT different ones, so the options differ from each other
+# and from other channels' logos.
+DIRECTIONS = [
+    "Flat vector in exactly two colours plus the background: bold solid shapes, no gradients, no "
+    "shading, no outlines.",
+    "Negative-space mark: one silhouette whose empty space forms a second image, in one colour on a "
+    "contrasting ground.",
+    "Hand-cut paper collage: a few torn and cut paper shapes with visible paper texture, muted colours.",
+    "Monoline icon: a single even-weight line drawing, rounded ends, one line colour on a bold ground.",
+    "Vintage woodcut or engraving: fine carved hatching in one dark ink on a warm off-white ground.",
+    "Risograph print: two overlapping ink colours with slight misregistration and grain, bright paper.",
+    "Bold geometric emblem built from circles, triangles and straight lines only, three flat colours.",
+    "Brush-and-ink mark: a few confident expressive brush strokes, one ink colour, lots of space.",
+    "Soft clay-like 3D object with matte surfaces and gentle studio light, pastel colours, no gloss.",
+    "Mid-century modern illustration: simple stylised shapes, limited retro palette, flat with subtle "
+    "texture.",
+    "Stained-glass style: bold dark leading between flat panes of a few rich colours.",
+    "Pixel-art icon on a 32-pixel grid, crisp square pixels, a small palette.",
+]
 
 # Fewer directions to browse per attempt (was 10) and cheaper per-image
 # quality for them (see module docstring) — both a direct response to
@@ -189,8 +213,14 @@ def _openai_api_key() -> str:
     return os.environ.get("OPENAI_API_KEY")
 
 
-def build_prompt(fragment: str, style_suffix: str = "") -> str:
-    return PROMPT_TEMPLATE.format(topic=fragment.strip()) + style_suffix
+def build_prompt(fragment: str, style_suffix: str = "", direction: str = "") -> str:
+    return " ".join(PROMPT_TEMPLATE.format(topic=fragment.strip(), direction=direction).split()) + style_suffix
+
+
+def directions(n: int, rng=None) -> list:
+    """n different looks for one batch of candidates (decision 099)."""
+    import random
+    return (rng or random).sample(DIRECTIONS, min(n, len(DIRECTIONS)))
 
 
 def _logo_dir(channel_key: str) -> Path:
@@ -323,8 +353,14 @@ def generate_candidates(channel_key: str, fragment: str, n: int = CANDIDATE_COUN
         shutil.rmtree(candidates_dir)
     candidates_dir.mkdir(parents=True, exist_ok=True)
 
-    prompt = build_prompt(fragment)
-    images = _generate_images(prompt, n, quality=IMAGE_QUALITY_CANDIDATES)
+    # One image per direction, so the options really differ (decision 099).
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(direction):
+        return _generate_images(build_prompt(fragment, direction=direction), 1,
+                                quality=IMAGE_QUALITY_CANDIDATES)[0]
+    with ThreadPoolExecutor(max_workers=min(n, MAX_IMAGES_PER_MINUTE)) as pool:
+        images = list(pool.map(one, directions(n)))
 
     batch_id = uuid.uuid4().hex[:8]
     paths = []

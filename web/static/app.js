@@ -574,7 +574,9 @@ async function generateLogos(channelKey) {
       el.onclick = () => selectLogo(channelKey, candidate.filename, el);
       grid.appendChild(el);
     }
-    document.getElementById("logo-candidates").classList.remove("hidden");
+    const shown = document.getElementById("logo-candidates");
+    shown.classList.remove("hidden");
+    shown.scrollIntoView({behavior: "smooth", block: "start"});
   });
 }
 
