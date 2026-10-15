@@ -271,6 +271,14 @@ def approve(key, subtopic_id, stage):
         choice = request.form.get("angle")
         production.approve(key, subtopic_id, stage,
                            choice=int(choice) if stage == "pitch" and choice not in (None, "") else None)
+        if stage == "video":
+            # The same approval as Review's: it goes out at the next slot (decision 104).
+            from core import publish_queue
+            made = production.video_file(channel, production.load(key, subtopic_id))
+            from core import gallery
+            info = gallery.load_publish_info(made) if made is not None and made.exists() else None
+            if info and not info["discarded"] and not gallery.is_out(info):
+                publish_queue.enqueue(made, approved_by="you")
         if stage == "outline":
             from pipeline.documentary import cast
             cast.merge(key, subtopic_id, production.load(key, subtopic_id)["outline"].get("cast") or [])

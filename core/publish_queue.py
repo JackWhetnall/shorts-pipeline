@@ -93,9 +93,12 @@ def enqueue(video_path: Path, approved_by: str) -> dict:
         gallery.set_aside(other, Path(video_path).stem)
     if info.get("set_aside_for"):
         gallery.set_aside(video_path, "")
-    return gallery.save_queue_state(video_path,
-                                    queued_at=info["queued_at"] or _now().isoformat(),
-                                    approved_by=approved_by)
+    saved = gallery.save_queue_state(video_path,
+                                     queued_at=info["queued_at"] or _now().isoformat(),
+                                     approved_by=approved_by)
+    from core import production
+    production.video_reviewed(video_path, approved=True)       # a film's video: one approval (decision 104)
+    return saved
 
 
 def unqueue(video_path: Path) -> dict:
@@ -105,7 +108,10 @@ def unqueue(video_path: Path) -> dict:
     other = long_pairs.partner(video_path)
     if other is not None and gallery.load_publish_info(other).get("set_aside_for") == Path(video_path).stem:
         gallery.set_aside(other, "")
-    return gallery.save_queue_state(video_path, queued_at=None, approved_by=None)
+    saved = gallery.save_queue_state(video_path, queued_at=None, approved_by=None)
+    from core import production
+    production.video_reviewed(video_path, approved=False)
+    return saved
 
 
 def number_of(video_path: Path) -> int:

@@ -317,3 +317,53 @@ def narration_still_to_voice(data: dict) -> int:
 def asset(channel_key: str, subtopic_id: str, name: str) -> Path:
     """A file of this production (a still, a teaser), by its stored name."""
     return safe_join(folder(channel_key, subtopic_id), name)
+
+
+# --- one approval for a film's video (decision 104) ----------------------------------------
+
+def film_of(video_path):
+    """(channel key, film id) whose made video is `video_path`, or None.
+    A film's video is reviewed in Review like any other, and on the film's
+    own page: the two were separate approvals, and approving in Review
+    alone left the film's video unapproved, so its teasers never came."""
+    from core import gallery
+    from core.channels import load_channels
+    video_path = Path(video_path).resolve()
+    key = gallery._channel_key_for(video_path)
+    if key is None:
+        return None
+    channel = load_channels(validate=False).get(key)
+    if channel is None or getattr(channel, "format", "documentary") != "documentary":
+        return None             # only films have a production to follow
+    root = gallery.resolve_output_dir(channel.output_dir)
+    for data in all_for(key):
+        made = (data.get("video") or {}).get("path")
+        if made and (root / made).resolve() == video_path:
+            return key, data["subtopic_id"]
+    return None
+
+
+def video_reviewed(video_path, approved: bool) -> None:
+    """Review approved the video (or took it back out of the queue): the
+    film's video stage follows, so the teasers start from either place."""
+    found = film_of(video_path)
+    if found is None:
+        return
+    key, sid = found
+
+    def change(data):
+        now = state(data, "video")
+        if approved and now == "ready" and can_start(data, "video"):
+            mark(data, "video", "approved")
+            data["history"].append({"at": _now(), "stage": "video", "did": "approved in Review"})
+        elif not approved and now == "approved" and current(data) == "teasers"                 and not (data.get("teasers") or {}).get("videos"):
+            mark(data, "video", "ready")
+            data["history"].append({"at": _now(), "stage": "video", "did": "taken back out of the queue"})
+    update(key, sid, change)
+
+
+def video_file(channel, data: dict):
+    """The film's made video as a path, or None."""
+    from core import gallery
+    made = (data.get("video") or {}).get("path")
+    return gallery.resolve_output_dir(channel.output_dir) / made if made else None

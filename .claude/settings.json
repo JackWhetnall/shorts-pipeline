@@ -1,6 +1,8 @@
 {
   "permissions": {
     "allow": [
+      "PowerShell(python -m core.overseer *)",
+      "Bash(python -m core.overseer *)",
       "Bash(python -m core.overseer:*)",
       "PowerShell(python -m core.overseer:*)",
       "Read(channels/**)",
