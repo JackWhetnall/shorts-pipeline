@@ -73,8 +73,9 @@ def _label_approved(channel, approved: list) -> None:
                else "Waits until YouTube is connected" if not publish_queue.can_publish(channel) else "")
     for video in approved:
         when = slots.get(str((OUTPUT_DIR / video["relpath"]).resolve()))
-        video["slot_label"] = waiting or (f"Goes out {when.strftime('%a %d %b, %H:%M')}" if when
-                                          else "Goes out on the next check")
+        text = publish_queue.slot_text(when)
+        video["slot_label"] = waiting or (text if text in ("Uploading now", "Going out now")
+                                          else f"Goes out {text}" if when else "Goes out on the next check")
 
 
 @bp.route("/channels/<key>/videos/<path:relpath>/approve", methods=["POST"])

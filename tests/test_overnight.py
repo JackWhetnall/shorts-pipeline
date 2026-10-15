@@ -165,6 +165,28 @@ def test_a_batch_left_waiting_is_picked_up_not_paid_for_again(openai, tmp_path):
     assert openai.created == [] and openai.uploads == [] and all(out.values())
 
 
+def test_a_batch_too_slow_is_cancelled_and_its_pictures_drawn_at_once(openai, tmp_path, monkeypatch):
+    # Decision 102: one sat "in progress" 16 hours, nothing drawn, and held
+    # the channel's autopilot all night.
+    jobs = _jobs(tmp_path, 2)
+    images._write_batch_journal(images._batch_key(jobs), {"batch": "batch-9", "files": [], "at": 1.0})
+    cancelled, drawn = [], []
+    real_post = openai.post
+
+    def post(url, **kw):
+        if url.endswith("/batches/batch-9/cancel"):
+            cancelled.append(url)
+            return N(status_code=200)
+        return real_post(url, **kw)
+    monkeypatch.setattr(images.requests, "post", post)
+    monkeypatch.setattr(images.requests, "get", lambda url, **kw: N(json=lambda: {"status": "cancelled"}
+                                                                    if cancelled else {"status": "in_progress"}))
+    monkeypatch.setattr(images, "draw", lambda prompt, out, model, **kw: drawn.append(prompt) or out)
+    monkeypatch.setattr(images.time, "sleep", lambda s: None)
+    out = images.draw_batch(jobs)
+    assert cancelled and drawn == ["picture 0", "picture 1"] and all(out.values())
+
+
 # --- the autopilot overnight, the overseer at its checkpoints ----------------------------------
 
 def test_hours_run_past_midnight():

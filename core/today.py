@@ -355,7 +355,7 @@ def running(channels: dict, now: float = None) -> list:
         rows.append({"key": key, "name": channel.channel_display_name or key, "status": status,
                      "schedule": schedule_label(channel.publishing), "queued": state["queued"],
                      "waiting": state["waiting"],
-                     "next": min(upcoming).strftime("%a %d %b %H:%M") if upcoming else "",
+                     "next": publish_queue.slot_text(min(upcoming), "%a %d %b %H:%M") if upcoming else "",
                      "making": block is None or "being made" in (block or ""),
                      "block": block if block and "ready and queued" not in block else ""})
     return rows

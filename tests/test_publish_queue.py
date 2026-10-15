@@ -105,6 +105,24 @@ class TestPublishing:
         publish_queue.publish_due({"c": world.channel}, now=local(2026, 9, 25, 18, 31))
         assert gallery.load_publish_info(second)["youtube_url"]
 
+    def test_a_video_being_sent_says_so_instead_of_moving_to_the_next_slot(self, world, monkeypatch):
+        # Decision 102: at 16:01 the page showed the video going out Friday
+        # while it was uploading for Wednesday's slot.
+        first, second = world.video("a"), world.video("b")
+        at = local(2026, 9, 24, 18, 1)
+        seen = []
+
+        def uploading(channel, path, **kw):
+            seen.append(publish_queue.schedule_for(world.channel, now=at))
+            return {"title": "A", "messages": []}
+        monkeypatch.setattr(publish_queue, "put_out", uploading)
+        publish_queue.publish_due({"c": world.channel}, now=at)
+        (path, when), (_, next_when) = seen[0]
+        assert Path(path).name == "a.mp4" and publish_queue.slot_text(when) == "Uploading now"
+        assert next_when == local(2026, 9, 25, 18, 0)
+        assert publish_queue._sending == {}
+        assert publish_queue.slot_text(at - timedelta(minutes=1), now=at) == "Going out now"
+
     def test_a_missed_slot_is_made_up_once_and_not_after_a_long_gap(self, world):
         world.video("a"), world.video("b")
         # Off for most of a day: the 18:00 slot is made up at 09:00.

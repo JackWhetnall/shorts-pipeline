@@ -108,7 +108,9 @@ def _slot_label(slots: dict, video: dict) -> str:
 def _when_label(when, queued: bool) -> str:
     if when is None:
         return "Goes out on the next check" if queued else ""
-    return "Goes out " + when.strftime("%a %d %b, %H:%M")
+    from core import publish_queue
+    text = publish_queue.slot_text(when)
+    return text if text in ("Uploading now", "Going out now") else "Goes out " + text
 
 
 @bp.route("/review")

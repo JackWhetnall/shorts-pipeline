@@ -110,13 +110,7 @@ def dashboard(key):
         progress=info,
         social_links=social_links, monetization_links=monetization_links,
         has_logo=has_logo(key),
-        upcoming=[{"title": gallery.load_publish_info(path)["title"] or path.stem,
-                   "when": when.strftime("%a %d %b, %H:%M") if when else "on the next check",
-                   "day": when.strftime("%a") if when else "Next",
-                   "date": when.strftime("%d %b").lstrip("0") if when else "",
-                   "time": when.strftime("%H:%M") if when else "check",
-                   "relpath": _relpath_or_none(path)}
-                  for path, when in publish_queue.schedule_for(channel)],
+        upcoming=[_upcoming_row(path, when) for path, when in publish_queue.schedule_for(channel)],
         generation_status=scheduler.generation_block(key, channel),
         weekday_names=("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
         plan_estimate=_plan_estimate(key, channel),
@@ -138,6 +132,22 @@ def _plan_estimate(key: str, channel):
     return {"videos": videos,
             "credits": videos * voice_quota.typical_video_credits(key),
             "limit": quota.limit if quota else None}
+
+
+def _upcoming_row(path, when) -> dict:
+    """A queued video on the channel page: its slot, or that it's going
+    out right now (decision 102)."""
+    from core import publish_queue
+    now_text = publish_queue.slot_text(when) if when else ""
+    if now_text in ("Uploading now", "Going out now"):
+        day, date, time_ = "Now", "", "uploading" if now_text == "Uploading now" else "due"
+    else:
+        day = when.strftime("%a") if when else "Next"
+        date = when.strftime("%d %b").lstrip("0") if when else ""
+        time_ = when.strftime("%H:%M") if when else "check"
+    return {"title": gallery.load_publish_info(path)["title"] or path.stem,
+            "when": now_text or "on the next check", "day": day, "date": date, "time": time_,
+            "relpath": _relpath_or_none(path)}
 
 
 def _relpath_or_none(path):

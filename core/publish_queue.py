@@ -197,6 +197,27 @@ def latest_slot(publishing, now: datetime):
     return None
 
 
+# Decision 102. Videos being sent right now ({resolved path: when it
+# started}): a long video takes minutes to upload, and the page went on
+# showing it in the next slot as if its own had been missed.
+_sending = {}
+
+
+class Uploading(datetime):
+    """The `when` of a video being sent right now."""
+
+
+def slot_text(when, fmt: str = "%a %d %b, %H:%M", now: datetime = None) -> str:
+    """How a video's slot reads: uploading, due now, or the slot itself."""
+    if isinstance(when, Uploading):
+        return "Uploading now"
+    if when is None:
+        return ""
+    if when <= (now or _now()):
+        return "Going out now"
+    return when.strftime(fmt)
+
+
 def _filled(plan, due: datetime, last) -> bool:
     """Whether the slot `due` already had its video: one went out at or
     after it, or since the slot before it. The second part is decision
@@ -219,6 +240,9 @@ def schedule_for(channel, now: datetime = None) -> list:
     out = []
     for long in (False, True):
         videos = queued(channel, long=long)
+        sending = [v for v in videos if str(Path(v).resolve()) in _sending]
+        out += [(v, Uploading.fromtimestamp(_sending[str(Path(v).resolve())]).astimezone()) for v in sending]
+        videos = [v for v in videos if v not in sending]
         if not videos:
             continue
         if not _slots_active(channel, long):
@@ -428,6 +452,17 @@ def publish_now(channel, video_path: Path, privacy: str = "public") -> dict:
 
 
 def send(channel, video_path: Path, may_retry: bool = False) -> str:
+    """_send, with the video shown as uploading while it goes (decision 102)."""
+    import time as _time
+    key = str(Path(video_path).resolve())
+    _sending[key] = _time.time()
+    try:
+        return _send(channel, video_path, may_retry)
+    finally:
+        _sending.pop(key, None)
+
+
+def _send(channel, video_path: Path, may_retry: bool = False) -> str:
     """Put one video out on every platform this channel uses.
 
     YouTube failing is not the end of the video: it goes back to review

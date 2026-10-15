@@ -91,7 +91,12 @@ def _rate_limited(response) -> float:
 # hour; the API allows a day. Polled gently; a run stopped mid-wait picks
 # its batch up again from the journal instead of paying twice.
 BATCH_POLL_FIRST, BATCH_POLL_MAX = 30, 300
-BATCH_WAIT_MAX = 20 * 3600
+# Decision 102. A batch that hasn't finished in this long is cancelled and
+# what it hadn't drawn is drawn at once at full price: one sat "in
+# progress" for 16 hours with nothing drawn and held its channel's
+# autopilot all night. The first real batch took 40 minutes.
+BATCH_WAIT_MAX = 2 * 3600
+BATCH_CANCEL_WAIT = 10 * 60          # for a cancelled batch to hand back what it had drawn
 _journal_lock = threading.Lock()
 
 
@@ -264,9 +269,12 @@ def _forget_files(ids: list) -> None:
             pass
 
 
-def _wait_batch(batch_id: str) -> dict:
+def _wait_batch(batch_id: str, started: float = None) -> dict:
+    """The batch once it has ended. `started`: when it was sent, so a run
+    picking it up after a restart counts the time already waited."""
     headers = {"Authorization": f"Bearer {_key()}"}
-    started, pause = time.time(), BATCH_POLL_FIRST
+    started, pause = started or time.time(), BATCH_POLL_FIRST
+    cancelled_at = None
     while True:
         try:
             batch = requests.get(f"{BATCHES}/{batch_id}", headers=headers, timeout=60).json()
@@ -274,11 +282,16 @@ def _wait_batch(batch_id: str) -> dict:
             batch = {}
         if batch.get("status") in ("completed", "failed", "expired", "cancelled"):
             return batch
-        if time.time() - started > BATCH_WAIT_MAX:
+        if cancelled_at is None and time.time() - started > BATCH_WAIT_MAX:
             log.warning(f"  [animation] image batch {batch_id} hadn't finished after "
-                        f"{BATCH_WAIT_MAX // 3600} hours; cancelled")
-            requests.post(f"{BATCHES}/{batch_id}/cancel", headers=headers, timeout=60)
-            return batch
+                        f"{BATCH_WAIT_MAX / 3600:g} hours; cancelled, and the rest drawn at once")
+            try:
+                requests.post(f"{BATCHES}/{batch_id}/cancel", headers=headers, timeout=60)
+            except requests.RequestException:
+                pass
+            cancelled_at, pause = time.time(), BATCH_POLL_FIRST
+        if cancelled_at is not None and time.time() - cancelled_at > BATCH_CANCEL_WAIT:
+            return {**batch, "status": "cancelled"}
         time.sleep(pause)
         pause = min(pause * 2, BATCH_POLL_MAX)
 
@@ -328,7 +341,7 @@ def draw_batch(jobs: list) -> dict:
         entry = {"batch": response.json()["id"], "files": uploaded + [input_id], "at": time.time()}
         _write_batch_journal(key, entry)
         log.info(f"  [animation] {len(jobs)} picture(s) sent as batch {entry['batch']} at half price; waiting")
-    batch = _wait_batch(entry["batch"])
+    batch = _wait_batch(entry["batch"], entry.get("at"))
     by_key = {str(j["key"]): j for j in jobs}
     out = {j["key"]: None for j in jobs}
     collected = []
@@ -362,4 +375,15 @@ def draw_batch(jobs: list) -> dict:
              f"{len(jobs) - missing} drawn" + (f", {missing} failed" if missing else ""))
     _forget_files(entry.get("files", []) + collected)
     _write_batch_journal(key)
+    if batch.get("status") != "completed" and missing:
+        # The batch itself gave out (too slow, expired, failed): what it
+        # didn't draw is drawn now at full price, not left undrawn (decision 102).
+        for job in jobs:
+            if out[job["key"]] is None:
+                try:
+                    out[job["key"]] = draw(job["prompt"], job["out"], job["model"], references=job["references"],
+                                           size=job["size"], operation=job.get("operation", "animation_keyframe"),
+                                           quality=job.get("quality"))
+                except Exception as exc:  # noqa: BLE001 - one picture; the caller sees it missing
+                    log.warning(f"  [animation] picture {job['key']} couldn't be drawn either: {exc}")
     return out

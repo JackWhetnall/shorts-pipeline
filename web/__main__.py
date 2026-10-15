@@ -75,7 +75,11 @@ def main() -> None:
     restored = jobs.load_persisted_jobs()
     if restored:
         log.info(f"Restored {restored} job record(s) from the last session.")
-    _recover_films()
+    # Only the app that makes films may say one was cut short: a second copy
+    # (a preview with --no-scheduler) marked a teaser the real app was still
+    # making as interrupted (decision 102).
+    if not args.no_scheduler:
+        _recover_films()
     if not args.no_scheduler:
         scheduler.start_background()
     # Restart onto new code after an update, once nothing is running.
