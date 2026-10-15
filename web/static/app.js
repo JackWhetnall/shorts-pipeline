@@ -801,7 +801,7 @@ function initHomeJobPolling() {
         if (label) label.textContent = job.queue_position ? `Queued · position ${job.queue_position}` : "Queued";
         continue;
       }
-      if (label) label.textContent = "Generating…";
+      if (label) label.textContent = job.waiting ? "Waiting on batch" : "Generating…";
       if (job.progress_percent === null || job.progress_percent === undefined) {
         fill.classList.add("indeterminate");
         fill.style.width = "";
@@ -910,6 +910,7 @@ function activityRow(job) {
   const running = job.status === "running";
   const stageLine = running
     ? `${job.stage_label || "Starting"} &middot; step ${job.stage || 1} of ${job.stage_total || 5}`
+      + (job.waiting ? ` &middot; <span class="status-pill">Waiting on batch</span>` : "")
     : (job.queue_position ? `Waiting &mdash; ${job.queue_position} in the queue` : "Waiting");
 
   // An indeterminate bar while a stage runs without a percentage of its

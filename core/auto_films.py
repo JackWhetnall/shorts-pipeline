@@ -32,8 +32,16 @@ REVIEWED = ("script", "stills")
 
 
 def _busy(channel_key: str) -> bool:
+    """A stage of this channel is being worked on (not just waiting on a
+    batch: then another film can move on, decision 103)."""
     return any(j.get("channel_key") == channel_key and (j.get("seed") or {}).get("type") == "production"
-               for j in jobs.active_in_order())
+               and not j.get("waiting") for j in jobs.active_in_order())
+
+
+def _being_made(channel_key: str) -> set:
+    """Films with a stage in a job now, waiting or not."""
+    return {(j.get("seed") or {}).get("subtopic_id") for j in jobs.active_in_order()
+            if j.get("channel_key") == channel_key and (j.get("seed") or {}).get("type") == "production"}
 
 
 def _waiting(channel) -> int:
@@ -48,7 +56,8 @@ def _next_film(channel):
     The scheduler pitches the next few films' angles ahead of time
     (storyboard.outline_ahead); a film with only an angle is still new."""
     from core import storyboard
-    films = production.all_for(channel.key)
+    busy = _being_made(channel.key)
+    films = [d for d in production.all_for(channel.key) if d["subtopic_id"] not in busy]
     for data in films:
         row = curriculum.find(channel.key, data["subtopic_id"])
         if row and production.state(data, "video") == "approved" and production.current(data) == "teasers"                 and int(channel.documentary.teasers) > 0 and not (data.get("teasers") or {}).get("videos"):
@@ -61,7 +70,7 @@ def _next_film(channel):
         if production.state(data, "outline") != "todo":
             return row, data, False
     upcoming = storyboard.upcoming(channel, count=1)
-    if not upcoming:
+    if not upcoming or upcoming[0]["id"] in busy:
         return None, None, False
     row = upcoming[0]
     return row, production.load(channel.key, row["id"], row["title"]), True

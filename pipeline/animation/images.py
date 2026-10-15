@@ -91,11 +91,12 @@ def _rate_limited(response) -> float:
 # hour; the API allows a day. Polled gently; a run stopped mid-wait picks
 # its batch up again from the journal instead of paying twice.
 BATCH_POLL_FIRST, BATCH_POLL_MAX = 30, 300
-# Decision 102. A batch that hasn't finished in this long is cancelled and
-# what it hadn't drawn is drawn at once at full price: one sat "in
-# progress" for 16 hours with nothing drawn and held its channel's
-# autopilot all night. The first real batch took 40 minutes.
-BATCH_WAIT_MAX = 2 * 3600
+# A batch is OpenAI's to finish within its 24-hour window: a job waiting on
+# one steps aside (decision 103), so a slow batch holds nothing else up and
+# keeps its half price. Only past the window (an hour's margin) is it
+# cancelled and what it hadn't drawn drawn at full price. Decision 102 had
+# cut this to two hours, when a wait still held every other job.
+BATCH_WAIT_MAX = 25 * 3600
 BATCH_CANCEL_WAIT = 10 * 60          # for a cancelled batch to hand back what it had drawn
 _journal_lock = threading.Lock()
 
@@ -341,7 +342,9 @@ def draw_batch(jobs: list) -> dict:
         entry = {"batch": response.json()["id"], "files": uploaded + [input_id], "at": time.time()}
         _write_batch_journal(key, entry)
         log.info(f"  [animation] {len(jobs)} picture(s) sent as batch {entry['batch']} at half price; waiting")
-    batch = _wait_batch(entry["batch"], entry.get("at"))
+    from core import job_context
+    with job_context.waiting_on_batch():
+        batch = _wait_batch(entry["batch"], entry.get("at"))
     by_key = {str(j["key"]): j for j in jobs}
     out = {j["key"]: None for j in jobs}
     collected = []

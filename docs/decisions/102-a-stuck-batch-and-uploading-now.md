@@ -1,6 +1,6 @@
 # 102 — A stuck picture batch, and "Uploading now"
 
-**Status:** active.
+**Status:** active, except the two-hour limit, which decision 103 replaced.
 
 ## What happened on the night of 14 to 15 October
 

@@ -98,6 +98,9 @@ class Job:
     # asked for it now or pressed Accelerate (decision 072). Its timings
     # describe batch waits, so core.job_eta leaves it out of the history.
     ahead: bool = False
+    # Decision 103. Only waiting on a batch: it has stepped aside, so the
+    # next job can run, and carries on in its own thread when it's back.
+    waiting: bool = False
     # Was made at batch prices, then accelerated.
     accelerated: bool = False
 
@@ -132,8 +135,32 @@ def _persist(job_id: str) -> None:
         pass
 
 
+_waits = {}            # job id: how many of its batches it's waiting on now
+
+
+def _occupying(job) -> bool:
+    """Holding the one place jobs run in: running and not just waiting."""
+    return job.status == "running" and not job.waiting
+
+
 class _Sink(job_context.JobSink):
     """Receives everything the pipeline reports about the running job."""
+
+    def on_waiting(self, job_id: str, waiting: bool) -> None:
+        # Counted: a job's calls made side by side each wait on their own
+        # batch, and it's working again only when none is still waiting.
+        with _lock:
+            job = _jobs.get(job_id)
+            if job is None:
+                return
+            _waits[job_id] = max(0, _waits.get(job_id, 0) + (1 if waiting else -1))
+            now_waiting = _waits[job_id] > 0
+            if job.waiting == now_waiting:
+                return
+            job.waiting = now_waiting
+        _persist(job_id)
+        if waiting:
+            _advance_queue()
 
     def on_stage(self, job_id: str, stage: int) -> None:
         with _lock:
@@ -251,6 +278,7 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
         with _lock:
             job = _jobs[job_id]
             job.status = "done"
+            job.waiting = False
             job.stage = job_context.STAGE_COUNT
             job.result_path = str(plan.video_path) if plan.video_path else None
             job.finished_at = time.time()
@@ -293,6 +321,7 @@ def _run(job_id: str, channel_key: str, seed: dict) -> None:
         with _lock:
             job = _jobs[job_id]
             job.status = "error"
+            job.waiting = False
             job.error = friendly_message(exc)
             job.error_traceback = traceback.format_exc()
             job.finished_at = time.time()
@@ -405,7 +434,7 @@ def _advance_queue() -> None:
     moving, rather than stopping with nothing to show for it."""
     while True:
         with _lock:
-            if not _queue:
+            if not _queue or any(_occupying(j) for j in _jobs.values()):
                 return
             next_id = _queue.pop(0)
             job = _jobs.get(next_id)
@@ -462,13 +491,13 @@ def start_job(channel_key: str, seed: dict, job_id: str = None, ahead: bool = Tr
     install()
     _refuse_if_stale()
     with _lock:
-        if not behind and any(j.status in RUNNING_STATES and j.channel_key == channel_key
+        if not behind and any(j.status in RUNNING_STATES and j.channel_key == channel_key and not j.waiting
                               for j in _jobs.values()):
             raise JobError(
                 f"job already active for {channel_key}",
                 user_message="This channel already has a video being generated.",
             )
-        running_now = any(j.status == "running" for j in _jobs.values())
+        running_now = any(_occupying(j) for j in _jobs.values())
         job_id = job_id or uuid.uuid4().hex
         now = time.time()
         _jobs[job_id] = Job(
@@ -525,9 +554,10 @@ def retry_job(job_id: str) -> str:
                 "channel busy",
                 user_message="This channel already has a video being generated.",
             )
-        running_now = any(j.status == "running" for j in _jobs.values())
+        running_now = any(_occupying(j) for j in _jobs.values())
         now = time.time()
         job.status = "queued" if running_now else "running"
+        job.waiting = False
         job.stage = 0
         job.progress_percent = None
         job.current_progress = None

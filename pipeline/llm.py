@@ -356,6 +356,12 @@ def _send_batched(request: dict, operation: str):
 
 
 def _wait_for(batch_id: str, operation: str) -> None:
+    from core import job_context
+    with job_context.waiting_on_batch():
+        _wait_until_ended(batch_id, operation)
+
+
+def _wait_until_ended(batch_id: str, operation: str) -> None:
     started = time.time()
     pause = BATCH_POLL_FIRST
     while True:

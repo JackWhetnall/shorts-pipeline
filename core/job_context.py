@@ -61,6 +61,7 @@ class JobSink:
     def on_progress(self, job_id: str, percent: float | None) -> None: ...
     def on_detail(self, job_id: str, section: str, item_index, patch: dict) -> None: ...
     def on_log(self, job_id: str, level: str, message: str) -> None: ...
+    def on_waiting(self, job_id: str, waiting: bool) -> None: ...
 
 
 def set_sink(sink: JobSink | None) -> None:
@@ -226,3 +227,24 @@ def parallel_map(fn, items: list, max_workers: int = 8) -> list:
     with ThreadPoolExecutor(max_workers=min(max_workers, len(items))) as pool:
         futures = [pool.submit(contextvars.copy_context().run, fn, item) for item in items]
         return [f.result() for f in futures]
+
+
+def report_waiting(waiting: bool) -> None:
+    """The job is only waiting on a batch now (True), or working again."""
+    job_id = _current_job_id.get()
+    if job_id and _sink:
+        _sink.on_waiting(job_id, waiting)
+
+
+class waiting_on_batch:
+    """Around a wait for a batch (decision 103): the job steps aside so the
+    next one can start, and carries on in its own thread when the batch is
+    back. A wait is hours at worst, and nothing else should wait with it."""
+
+    def __enter__(self):
+        report_waiting(True)
+        return self
+
+    def __exit__(self, *exc):
+        report_waiting(False)
+        return False
