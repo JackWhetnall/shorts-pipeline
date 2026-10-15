@@ -252,7 +252,12 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
     if stage == "teasers":
         from pipeline.documentary import teasers
         if note or not _making_teasers(data) or production.state(data, "teasers") in ("stale", "todo"):
-            scripts = teasers.write(channel, title, data["outline"], data["script"], note, angle)
+            others = [(d.get("teasers") or {}).get("scripts") for d in production.all_for(key)
+                      if d["subtopic_id"] != sid]
+            scripts = teasers.write(channel, title, data["outline"], data["script"], note, angle,
+                                    stills=data.get("stills"), recent=teasers.recent_lines(others))
+            if getattr(channel.documentary, "kind", "story") == "explainer":
+                scripts = teasers.checked(scripts)
             production.update(key, sid, lambda d: production.made(d, "teasers", {"scripts": scripts, "videos": []}))
             return done
         paths = teasers.make(channel, data, folder)

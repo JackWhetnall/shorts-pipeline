@@ -251,21 +251,27 @@ def test_a_still_is_moved_across_by_the_camera(tmp_path):
 
 # --- teasers -------------------------------------------------------------------------
 
-def test_teasers_are_cleaned_capped_and_keep_only_the_films_cast(world, monkeypatch):
+def test_teasers_are_cleaned_capped_and_shown_over_the_films_own_pictures(world, monkeypatch):
+    # Decision 106: pictures from the film, not drawn again.
     channel, row = world
     channel.documentary.teasers = 2
     seen = {}
 
     def fake(system, user, schema, **kw):
-        seen["system"] = system[0].text
+        seen["system"], seen["user"] = system[0].text, user
         teaser = {"title": "The crossing", "description": "d", "scenes": [
-            {"direction": "ice", "cast": ["George Washington (president)", "Someone"], "framing": "wide",
-             "camera": "push_in", "narration": "It was Christmas night."}]}
+            {"picture": 0, "camera": "push_in", "narration": "It was Christmas night."},
+            {"picture": 0, "camera": "hold", "narration": "And the river froze."},
+            {"picture": 7, "camera": "hold", "narration": "Nobody knew why."}]}
         return {"teasers": [teaser, teaser, teaser]}
     monkeypatch.setattr(teasers, "call_json", fake)
-    out = teasers.write(channel, "T", OUTLINE, {"scenes": [_scene(1, "Line.")]})
-    assert len(out) == 2 and out[0]["scenes"][0]["cast"] == ["George Washington (president)"]
-    assert "never mentions the documentary" in seen["system"] and "subscribing" in seen["system"]
+    scenes = [_scene(1, "Line one."), _scene(1, "Line two."), _scene(1, "Line three.")]
+    out = teasers.write(channel, "T", OUTLINE, {"scenes": scenes}, stills={"0": "a", "1": "b", "2": "c"},
+                        recent=['opened "x" ... closed "y"'])
+    assert len(out) == 2
+    assert [s["picture"] for s in out[0]["scenes"]] == [0, 1, 2]      # used once each; an unknown number mapped
+    assert "picture 2:" in seen["user"] and 'opened "x"' in seen["user"]
+    assert "Hook in the first line" in seen["system"] and "like and subscribe" in seen["system"]
 
 
 # --- the pages and the scheduler --------------------------------------------------------

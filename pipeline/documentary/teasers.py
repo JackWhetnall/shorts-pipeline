@@ -1,18 +1,17 @@
 """
 Teaser shorts from a documentary (decision 074).
 
-A few vertical shorts per long video, each a self-contained little film
-from one part of its story: a hook, a piece of the story told well, and
-an ending that leaves the real question open, so a viewer wants the
-whole thing. They are not adverts. Nothing in them says "watch the full
-video" or "subscribe"; the description names the long video, and the
-story does the asking.
+A few vertical shorts per long video whose job is to send viewers to it
+(decision 106): each hooks in its first line, makes the film's question
+plain, pays off one real piece of it, and leaves the rest to the full
+video, which it may say is there. The first ones did none of that: they
+were told never to mention the film, and read as one more scene.
 
 Their words are new (a short reusing the long video's sentences would
-be the reused content YouTube demonetises), and their pictures are drawn
-again, vertical, from the same people, places and look (`stills.draw`
-with the vertical frame): the same characters' model sheets and the
-same style sheet, so a teaser looks like part of the film.
+be the reused content YouTube demonetises). Their pictures are the
+film's own, made tall (`vertical`), rather than drawn again; a teaser
+written before that (with `direction` instead of `picture`) is still
+drawn the old way.
 """
 
 from __future__ import annotations
@@ -39,42 +38,53 @@ EFFORT = "medium"
 WORDS = (85, 130)               # 35-55 seconds spoken
 
 SYSTEM = """
-You write teaser shorts for a documentary: vertical videos of 35 to 55
-seconds, each a little film of its own made from one part of the
-documentary's story, in the same drawn style.
+You write teaser shorts for a documentary on this channel: vertical videos of 35 to 55
+seconds, shown in the Shorts feed to people who have never heard of the film. Each teaser's
+job is to make them go and watch the full documentary. It succeeds only if it does all of
+these, each in its own way:
 
-Each teaser:
-- opens on a hook: a concrete moment of tension from the story, stated
-  in the first line, the picture putting the viewer inside it;
-- tells one piece of the story well: a choice, a reversal, a strange
-  true detail. Different teasers take different parts of the story;
-- ends on an open question the full documentary answers, so a viewer
-  wants the whole story. One teaser carries the film's own promise and
-  the question only its ending answers (given below). Never reveal the
-  documentary's payoff (its through-line's answer);
-- never mentions the documentary, a full video, a channel, a link,
-  subscribing or watching more. The story does the asking;
-- is written in new words: never copy a sentence from the documentary's
-  narration;
-- has 3 to 6 scenes. Each scene: `narration` (spoken over it),
-  `direction` (one drawable moment for a vertical frame: subject in the
-  upper two thirds, no text in the picture), `cast` (the documentary's
-  cast members in it, by exact name), `framing`, `camera`;
-- `title`: a short title for the short; `description`: one or two
-  sentences about the story, without spoilers.
+- Hook in the first line. Within two seconds the viewer must have a reason to stay: a
+  claim that sounds wrong but is true, a question they can't answer, a number that doesn't
+  fit, a thing everyone believes that isn't so. Never a line that only sets the scene.
+- Make the premise plain. By the end the viewer knows what question the full documentary
+  answers, and why it's worth answering.
+- Pay off something real. Give one genuinely interesting piece of the documentary, told
+  well: a fact, a mechanism, a reversal, so the short is worth its time on its own.
+- Leave them wanting the rest. Stop short of the documentary's main answer (its
+  through-line's payoff) and make it clear there is more, and where it is. Ways to do that
+  include an open question left hanging, a reveal stopped at its turn, "and that's the easy
+  part", naming what the full film goes into next, or turning the viewer's assumption back on
+  them. Every teaser also says, once and in the narration's own voice, that the whole story
+  is a full video on this channel, worded freshly each time and placed wherever it lands best
+  (not always the last line). Never "like and subscribe", "link in bio", "smash that button"
+  or any stock call to action.
 
-Narration is read by a voice engine exactly as written: no dashes, no
-stage directions, numbers said as words.
+These are examples, not a template. Make the teasers differ from each other in which part of
+the story they take, how they hook and how they end, and don't repeat the shapes this
+channel's recent teasers used (listed below, when there are any).
+
+Facts: the narration below has been fact-checked and is right; where the outline or angle
+says more (a "complete" where the narration says "near-complete"), the narration wins. Claim
+nothing the narration doesn't.
+
+Words: new. Never copy a sentence from the documentary's narration. Narration is read by a
+voice engine exactly as written: no dashes, no stage directions, numbers said as words.
+
+Pictures: the documentary's own. Each teaser has 3 to 6 scenes. Each scene is `narration`
+(spoken over it), `picture` (the number of the documentary picture shown meanwhile, from the
+list: one that shows what the line says, each used at most once in a teaser) and `camera`.
+
+`title`: a short, honest title for the short. `description`: one or two sentences that pose
+the question without answering it.
 """.strip()
 
 
 def schema() -> dict:
     scene = {"type": "object", "properties": {
-        "direction": {"type": "string"}, "cast": {"type": "array", "items": {"type": "string"}},
-        "framing": {"type": "string", "enum": list(scripts.FRAMINGS)},
+        "picture": {"type": "integer"},
         "camera": {"type": "string", "enum": list(scripts.CAMERA)},
         "narration": {"type": "string"}},
-        "required": ["direction", "cast", "framing", "camera", "narration"], "additionalProperties": False}
+        "required": ["picture", "camera", "narration"], "additionalProperties": False}
     teaser = {"type": "object", "properties": {
         "title": {"type": "string"}, "description": {"type": "string"},
         "scenes": {"type": "array", "items": scene}},
@@ -83,31 +93,52 @@ def schema() -> dict:
             "required": ["teasers"], "additionalProperties": False}
 
 
-def write(channel, title: str, outline: dict, script: dict, note: str = "", angle: dict = None) -> list:
-    """The teasers' scripts. About three cents."""
+def write(channel, title: str, outline: dict, script: dict, note: str = "", angle: dict = None,
+          stills: dict = None, recent: list = None) -> list:
+    """The teasers' scripts, each scene shown over one of the film's
+    pictures (`stills`: {scene index: picture}). `recent`: the first and
+    last lines of the channel's recent teasers, so these don't repeat
+    their shapes. About three cents."""
     count = int(channel.documentary.teasers)
     if count < 1:
         return []
-    narration = "\n".join(f"[{s['chapter']}] {s['narration']}" for s in script["scenes"])
+    shown = {int(k) for k in (stills or {})}
+    lines = []
+    for i, s in enumerate(script["scenes"]):
+        picture = f" | picture {i}: {s.get('direction', '')[:160]}" if i in shown and s.get("medium", "picture") == "picture" else ""
+        lines.append(f"[chapter {s['chapter']}] {s['narration']}{picture}")
     user = (f"The documentary: {title}\n\n{scripts.outline_text(outline, angle)}\n\n"
-            f"Its narration, chapter by chapter:\n{narration}\n\n"
-            f"Write {count} teasers, each {WORDS[0]}-{WORDS[1]} words of narration.")
+            f"Its narration, scene by scene, with the picture shown over each (use these numbers):\n"
+            + "\n".join(lines) + "\n\n")
+    if recent:
+        user += "This channel's recent teasers opened and closed like this; do it differently:\n" + \
+            "\n".join(f"- {r}" for r in recent[-12:]) + "\n\n"
+    user += f"Write {count} teasers, each {WORDS[0]}-{WORDS[1]} words of narration."
     if note:
         user += f"\n\nThe owner asks: {note}"
     data = call_json([SystemBlock(SYSTEM, cacheable=True),
                       SystemBlock(f"The channel's brief for its writers:\n\n{channel.style_prompt}")],
                      user, schema(), operation="documentary_teasers", max_tokens=MAX_TOKENS, effort=EFFORT)
-    names = {m["name"].lower(): m["name"] for m in outline.get("cast") or []}
+    pictures = [i for i, s in enumerate(script["scenes"]) if i in shown and s.get("medium", "picture") == "picture"]
     out = []
     for t in data.get("teasers") or []:
-        scenes = [{"chapter": 1, "caption": "",
-                   "direction": " ".join(str(s.get("direction") or "").split()),
-                   "cast": [names[n.strip().lower()] for n in s.get("cast") or [] if n.strip().lower() in names],
-                   "framing": s.get("framing") if s.get("framing") in scripts.FRAMINGS else "medium",
-                   "camera": s.get("camera") if s.get("camera") in scripts.CAMERA else "push_in",
-                   "narration": " ".join(str(s.get("narration") or "").split())}
-                  for s in t.get("scenes") or []]
-        scenes = [s for s in scenes if s["narration"] and s["direction"]]
+        scenes, used = [], set()
+        for s in t.get("scenes") or []:
+            narration = " ".join(str(s.get("narration") or "").split())
+            picture = s.get("picture")
+            if not narration:
+                continue
+            if picture not in pictures or picture in used:
+                # A number not in the list, or one already used: the nearest unused picture.
+                spare = [p for p in pictures if p not in used]
+                if not spare:
+                    continue
+                picture = min(spare, key=lambda p: abs(p - (picture if isinstance(picture, int) else 0)))
+            used.add(picture)
+            scenes.append({"chapter": 1, "caption": "", "picture": picture,
+                           "direction": script["scenes"][picture].get("direction", ""),
+                           "camera": s.get("camera") if s.get("camera") in scripts.CAMERA else "push_in",
+                           "narration": narration})
         if scenes and str(t.get("title") or "").strip():
             out.append({"title": t["title"].strip(), "description": str(t.get("description") or "").strip(),
                         "scenes": scenes})
@@ -121,21 +152,80 @@ def make(channel, data: dict, production_folder: Path) -> list:
     review queue. Returns their video paths."""
     teasers = (data.get("teasers") or {}).get("scripts") or []
     long_title = ((data.get("outline") or {}).get("title_options") or [data.get("title", "")])[0]
+    film = (data.get("video") or {}).get("path")
+    film_info = gallery.load_publish_info(gallery.resolve_output_dir(channel.output_dir) / film) if film else {}
+    long_url = film_info.get("youtube_url") or ""
+    long_title = film_info.get("title") or long_title
     made = []
     for n, teaser in enumerate(teasers, start=1):
         job_context.report_stage(3)
         log.info(f"[3/5] Teaser {n} of {len(teasers)}: drawing its pictures...")
         folder = production_folder / "teasers" / str(n)
-        pictures = storyboard.draw(channel, data["outline"], teaser["scenes"], folder, frame="vertical")
+        if all(isinstance(s.get("picture"), int) for s in teaser["scenes"]):
+            pictures = _from_the_film(data, teaser["scenes"], production_folder, folder)
+        else:
+            pictures = storyboard.draw(channel, data["outline"], teaser["scenes"], folder, frame="vertical")
         missing = [i for i in range(len(teaser["scenes"])) if i not in pictures]
         if missing:
             raise PipelineError(f"teaser {n} missing stills {missing}",
                                 user_message=f"Teaser {n}'s pictures couldn't all be drawn. Try again.")
-        made.append(_render(channel, teaser, pictures, long_title, n))
+        made.append(_render(channel, teaser, pictures, long_title, n, long_url))
     return made
 
 
-def _render(channel, teaser: dict, pictures: dict, long_title: str, number: int) -> Path:
+def _from_the_film(data: dict, scenes: list, production_folder: Path, folder: Path) -> dict:
+    """{scene: tall picture} from the film's own pictures (decision 106)."""
+    from pipeline.documentary import vertical
+    stills = data.get("stills") or {}
+    sources = []
+    for s in scenes:
+        rel = stills.get(str(s["picture"]))
+        if not rel or not (production_folder / rel).exists():
+            raise PipelineError(f"teaser picture {s['picture']} missing",
+                                user_message="A picture this teaser uses has gone from the storyboard. "
+                                             "Write the teasers again.")
+        sources.append(production_folder / rel)
+    found = vertical.focus(sources)
+    return {i: vertical.tall(src, folder / f"tall_{i:02d}.jpg", left, right)
+            for i, (src, (left, right)) in enumerate(zip(sources, found))}
+
+
+def checked(teasers_: list) -> list:
+    """The teasers' lines through the same fact check as the film's
+    (decision 106): the first ocean teaser claimed "a complete map of
+    Mars", which the film had corrected. One call for all of them; a
+    failed check keeps them as written (logged)."""
+    from pipeline.documentary import editor
+    flat = [s for t in teasers_ for s in t["scenes"]]
+    if not flat:
+        return teasers_
+    try:
+        fixed, notes = editor.fact_check({"scenes": flat})
+    except PipelineError as exc:
+        log.warning(f"  [teasers] couldn't fact-check the teasers ({exc}); kept as written")
+        return teasers_
+    out, n = [], 0
+    for t in teasers_:
+        count = len(t["scenes"])
+        out.append({**t, "scenes": fixed["scenes"][n:n + count]})
+        n += count
+    for note in notes:
+        log.info(f"  [teasers] fact check: {note['problem'][:160]}")
+    return out
+
+
+def recent_lines(teaser_sets: list) -> list:
+    """The first and last lines of earlier teasers, for `write` to avoid."""
+    out = []
+    for scripts_ in teaser_sets:
+        for t in scripts_ or []:
+            scenes = t.get("scenes") or []
+            if scenes:
+                out.append(f"opened \"{scenes[0]['narration'][:120]}\" ... closed \"{scenes[-1]['narration'][:120]}\"")
+    return out
+
+
+def _render(channel, teaser: dict, pictures: dict, long_title: str, number: int, long_url: str = "") -> Path:
     from moviepy.editor import CompositeVideoClip, VideoFileClip
     from moviepy.video.io.ffmpeg_tools import ffmpeg_merge_video_audio
 
@@ -199,7 +289,7 @@ def _render(channel, teaser: dict, pictures: dict, long_title: str, number: int)
 
     description = teaser.get("description", "")
     if long_title:
-        description += f"\n\nThe full story: {long_title}"
+        description += f"\n\nThe full story: {long_title}" + (f"\n{long_url}" if long_url else "")
     if credits:
         description += "\n\n" + "\n".join(credits)
     gallery.save_title_and_description(video_path, teaser["title"], description.strip())
