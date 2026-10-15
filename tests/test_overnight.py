@@ -205,7 +205,7 @@ def test_an_overseen_script_waits_for_the_overseer_and_stages_start_only_in_hour
     from core import auto_films
     states = {"pitch": "approved", "outline": "approved", "script": "ready", "stills": "todo", "video": "todo"}
     monkeypatch.setattr(auto_films, "_busy", lambda k: False)
-    monkeypatch.setattr(auto_films, "_next_film", lambda c: ({"id": "t1", "title": "T"}, {"stages": {}}, False))
+    monkeypatch.setattr(auto_films, "_candidates", lambda c: [({"id": "t1", "title": "T"}, {"stages": {}}, False)])
     monkeypatch.setattr(production, "current", lambda d: next(s for s, v in states.items() if v != "approved"))
     monkeypatch.setattr(production, "state", lambda d, s: states[s])
     approved, started = [], []

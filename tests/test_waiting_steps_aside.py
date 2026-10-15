@@ -70,3 +70,39 @@ def test_the_autopilot_moves_another_film_on_while_one_waits(monkeypatch):
     row, data, new = auto_films._next_film(channel)
     assert row["id"] == "t2" and not new
     assert not auto_films._busy("why")
+
+
+def test_a_film_waiting_on_someone_doesnt_hold_the_rest_and_three_are_kept_in_hand(monkeypatch):
+    # Decision 105: one film at a time, and a film waiting for the
+    # overseer held everything else.
+    def film(sid, stages):
+        data = production.blank(sid, sid)
+        for s, v in stages.items():
+            data["stages"][s]["state"] = v
+        return data
+    films = {"t1": film("t1", {"pitch": "approved", "outline": "approved", "script": "ready"}),
+             "t2": film("t2", {"pitch": "approved"})}
+    monkeypatch.setattr(production, "all_for", lambda key: list(films.values()))
+    monkeypatch.setattr(production, "load", lambda key, sid, title="": films.get(sid) or production.blank(sid, title))
+    monkeypatch.setattr(auto_films.curriculum, "find", lambda key, sid: {"id": sid, "title": sid})
+    monkeypatch.setattr(jobs, "active_in_order", lambda: [])
+    monkeypatch.setattr("core.storyboard.upcoming", lambda channel, count=1: [{"id": "t2", "title": "t2"},
+                                                                              {"id": "t3", "title": "t3"}][:count])
+    started = []
+    monkeypatch.setattr(auto_films, "start", lambda c, r, s: started.append((r["id"], s)) or "j")
+    import core.channels as config
+    monkeypatch.setattr(config, "within_hours", lambda t, h: True)
+    from types import SimpleNamespace as N
+    channel = N(key="why", format="documentary", archived=False, publishing=N(enabled=True),
+                animation=N(style={"a": 1}),
+                documentary=N(auto_make=True, ahead=3, teasers=0, overseen=True, hours=""))
+    assert "started the outline of t2" in auto_films.step(channel)          # t1 waits for the overseer
+    films["t2"]["stages"]["outline"]["state"] = "working"
+    films["t3"] = film("t3", {"pitch": "approved"})
+    monkeypatch.setattr(auto_films, "_being_made", lambda key: {"t2"})
+    assert "started the outline of t3" in auto_films.step(channel)          # a third film in hand
+    films["t3"]["stages"]["outline"]["state"] = "working"
+    films["t4"] = film("t4", {"pitch": "approved"})
+    monkeypatch.setattr(auto_films, "_being_made", lambda key: {"t2", "t3"})
+    monkeypatch.setattr("core.storyboard.upcoming", lambda channel, count=1: [{"id": "t4", "title": "t4"}][:count])
+    assert auto_films.step(channel) == "" and started == [("t2", "outline"), ("t3", "outline")]  # three: enough

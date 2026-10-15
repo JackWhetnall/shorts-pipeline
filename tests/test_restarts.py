@@ -45,7 +45,7 @@ def test_the_autopilot_starts_an_interrupted_stage_again_without_using_its_retry
               "script": {"state": "failed", "interrupted": True, "autopilot_retried": True}}
     data = {"stages": stages}
     monkeypatch.setattr(auto_films, "_busy", lambda k: False)
-    monkeypatch.setattr(auto_films, "_next_film", lambda c: ({"id": "t1", "title": "T"}, data, False))
+    monkeypatch.setattr(auto_films, "_candidates", lambda c: [({"id": "t1", "title": "T"}, data, False)])
     monkeypatch.setattr(production, "update", lambda k, s, change, *a: change(data))
     started = []
     monkeypatch.setattr(auto_films, "start", lambda c, r, s: started.append(s) or "j")

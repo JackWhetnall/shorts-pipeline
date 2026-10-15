@@ -49,31 +49,58 @@ def _waiting(channel) -> int:
     return sum(1 for d in production.all_for(channel.key) if production.state(d, "video") == "ready")
 
 
-def _next_film(channel):
-    """(plan entry, production, whether it's a new film) to work on: a
-    film whose teasers are due, else one part-way through (past its
-    angle; not one made and waiting for a look), else the next one up.
+def _in_hand(channel) -> int:
+    """Films in hand (decision 105): being made (past their angle), or
+    made and not yet out, whether waiting for a look or approved and
+    queued. `documentary.ahead` is how many the channel keeps."""
+    from core import gallery
+    count = 0
+    for data in production.all_for(channel.key):
+        video = production.state(data, "video")
+        if video == "approved":
+            made = production.video_file(channel, data)
+            info = gallery.load_publish_info(made) if made is not None and made.exists() else None
+            if info and not info["discarded"] and not gallery.is_out(info):
+                count += 1
+        elif video == "ready" or production.state(data, "outline") != "todo":
+            count += 1
+    return count
+
+
+def _candidates(channel):
+    """(plan entry, production, whether it's a new film) in the order to
+    try them: films whose teasers are due, then films part-way through
+    (past their angle; not one made and waiting for a look), then the
+    next ones up. One waiting on the overseer or the owner no longer holds
+    the rest (decision 105). Films with a stage in a job are left out.
     The scheduler pitches the next few films' angles ahead of time
     (storyboard.outline_ahead); a film with only an angle is still new."""
     from core import storyboard
     busy = _being_made(channel.key)
     films = [d for d in production.all_for(channel.key) if d["subtopic_id"] not in busy]
+    out = []
     for data in films:
         row = curriculum.find(channel.key, data["subtopic_id"])
         if row and production.state(data, "video") == "approved" and production.current(data) == "teasers"                 and int(channel.documentary.teasers) > 0 and not (data.get("teasers") or {}).get("videos"):
-            return row, data, False
+            out.append((row, data, False))
     for data in films:
         row = curriculum.find(channel.key, data["subtopic_id"])
         stage = production.current(data)
         if row is None or stage in (None, "teasers") or production.state(data, "video") == "ready":
             continue
         if production.state(data, "outline") != "todo":
-            return row, data, False
-    upcoming = storyboard.upcoming(channel, count=1)
-    if not upcoming or upcoming[0]["id"] in busy:
-        return None, None, False
-    row = upcoming[0]
-    return row, production.load(channel.key, row["id"], row["title"]), True
+            out.append((row, data, False))
+    ahead = max(1, int(getattr(channel.documentary, "ahead", 1)))
+    for row in storyboard.upcoming(channel, count=ahead):
+        if row["id"] not in busy:
+            out.append((row, production.load(channel.key, row["id"], row["title"]), True))
+    return out
+
+
+def _next_film(channel):
+    """The first film to try (kept for callers that want just one)."""
+    found = _candidates(channel)
+    return found[0] if found else (None, None, False)
 
 
 def start(channel, row: dict, stage: str) -> str:
@@ -95,11 +122,19 @@ def step(channel) -> str:
     from datetime import datetime
     from core.channels import within_hours
     after_hours = not within_hours(getattr(doc, "hours", ""), datetime.now().hour)
-    row, data, new = _next_film(channel)
-    if row is None:
-        return ""
-    if new and _waiting(channel) >= max(1, int(getattr(doc, "ahead", 1))):
-        return ""                       # enough made and waiting for a look
+    ahead = max(1, int(getattr(doc, "ahead", 1)))
+    for row, data, new in _candidates(channel):
+        if new and _in_hand(channel) >= ahead:
+            break                       # enough in hand (decision 105)
+        done = _act(channel, row, data, after_hours)
+        if done:
+            return done
+    return ""
+
+
+def _act(channel, row: dict, data: dict, after_hours: bool) -> str:
+    """Move one film on by one step, or "" when it's waiting on someone."""
+    doc = channel.documentary
     stage = production.current(data)
     if stage is None:
         return ""
