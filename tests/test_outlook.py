@@ -94,3 +94,19 @@ def test_renaming_a_channel_carries_its_outlook_figures(tmp_path, monkeypatch):
     channel_data._move(outlook._cache_path("old"), outlook._cache_path("new"), problems, "outlook figures")
     assert (tmp_path / "new.json").exists() and not problems
     assert "outlook figures" in open("core/channel_data.py", encoding="utf-8").read()
+
+
+def test_a_film_and_its_teasers_cost_as_one_output(monkeypatch):
+    # Decision 112: films read $0.00 (their cost is in the cost log, not
+    # beside the video), and teasers counted as videos of their own.
+    from core import insights, production
+    film = {"relpath": "why/longform/d/film.mp4", "published": True, "report": {}}
+    teaser = {"relpath": "why/d/t.mp4", "published": True, "report": {"teaser": True}}
+    short = {"relpath": "why/d/q.mp4", "published": False, "report": {}, "cost": {"calls": 3, "total_usd": 0.3}}
+    monkeypatch.setattr(production, "film_of", lambda p: ("why", "t1") if "longform" in str(p) else None)
+    outputs = insights._outputs([film, teaser, short], {("why", "t1"): 2.5})
+    assert [(o["video"]["relpath"], o["cost"]) for o in outputs] == [("why/longform/d/film.mp4", 2.5),
+                                                                    ("why/d/q.mp4", 0.3)]
+    assert insights._film_costs([{"channel_key": "why", "production": "t1", "cost_usd": 1.0},
+                                 {"channel_key": "why", "production": "t1", "cost_usd": 0.5},
+                                 {"channel_key": "why", "cost_usd": 9}]) == {("why", "t1"): 1.5}

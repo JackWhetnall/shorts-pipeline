@@ -260,10 +260,11 @@
       <span class="stat-lab">Per video published</span>
     </div>
   </div>
-  {% if data.spend.unattributed_usd > 0.005 %}
-  <p class="meta">
-    <strong>{{ '$%.2f'|format(data.spend.unattributed_usd) }}</strong> went on runs that failed before a video was made.
-  </p>
+  {% if data.spend.in_progress_usd > 0.005 or data.spend.unattributed_usd > 0.005 %}
+  <div class="kv-columns">
+    {% if data.spend.in_progress_usd > 0.005 %}<div class="kv"><span>Films still being made</span><b>{{ '$%.2f'|format(data.spend.in_progress_usd) }}</b></div>{% endif %}
+    {% if data.spend.unattributed_usd > 0.005 %}<div class="kv"><span data-tooltip="Tests, previews, failed runs">Not tied to a video</span><b>{{ '$%.2f'|format(data.spend.unattributed_usd) }}</b></div>{% endif %}
+  </div>
   {% endif %}
   {% if data.spend.all_time.by_operation %}
   <div class="kv-columns">

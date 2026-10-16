@@ -60,7 +60,7 @@ def collect(channel_keys=None) -> dict:
         "totals": _totals(videos, purged),
         "discard_reasons": _discard_reasons(videos, purged),
         "quality": _quality(videos),
-        "spend": _spend(videos),
+        "spend": _spend(videos, set(channels)),
         "recent": _recent(videos, limit=30),
         "audience": _audience(videos),
         "by_channel": _by_channel(videos, channels),
@@ -141,24 +141,68 @@ def _quality(videos: list) -> dict:
     }
 
 
-def _spend(videos: list) -> dict:
+def _film_costs(records: list) -> dict:
+    """{(channel, film id): dollars} from the cost log: everything a film
+    cost, its teasers included (decision 112). A film's cost isn't written
+    beside its video the way a short's is, so it read as $0.00."""
+    out = {}
+    for r in records:
+        if r.get("production") and r.get("channel_key"):
+            key = (r["channel_key"], r["production"])
+            out[key] = out.get(key, 0.0) + float(r.get("cost_usd") or 0)
+    return out
+
+
+def _outputs(videos: list, film_costs: dict) -> list:
+    """What was made, as outputs: a short on its own, or a film with its
+    teasers (one output, costed as one, decision 112). [{video, cost, published}]"""
+    from core import production
+    out = []
+    for v in videos:
+        report = v.get("report") or {}
+        if report.get("teaser"):
+            continue                      # counted with its film
+        if gallery.is_long(v["relpath"]):
+            found = production.film_of(gallery.OUTPUT_DIR / v["relpath"])
+            if found and found in film_costs:
+                out.append({"video": v, "cost": film_costs[found], "published": v["published"]})
+                continue
+        if v.get("cost") and v["cost"].get("calls"):
+            out.append({"video": v, "cost": v["cost"]["total_usd"], "published": v["published"]})
+    return out
+
+
+def _spend(videos: list, channel_keys: set = None) -> dict:
     """Cost per generated video versus cost per *published* video.
 
     The second is the real number. If you throw away half of what you
     make, each published video costs twice what the generation log says —
-    and that gap is invisible unless something computes it.
+    and that gap is invisible unless something computes it. A film and its
+    teasers are one output (decision 112), and only the channels being
+    looked at count.
     """
-    costed = [v for v in videos if v.get("cost") and v["cost"].get("calls")]
-    attributed = sum(v["cost"]["total_usd"] for v in costed)
-    published = [v for v in costed if v["published"]]
-    all_time = costs.summary_all()
+    from core import production
+    records = costs.read_records()
+    if channel_keys is not None:
+        records = [r for r in records if r.get("channel_key") in channel_keys]
+    film_costs = _film_costs(records)
+    outputs = _outputs(videos, film_costs)
+    made_films = {production.film_of(gallery.OUTPUT_DIR / o["video"]["relpath"]) for o in outputs
+                  if gallery.is_long(o["video"]["relpath"])}
+    # Films still being made: spent on, no video yet. Not a failure.
+    in_progress = sum(usd for key, usd in film_costs.items() if key not in made_films
+                      and production.state(production.load(*key), "video") not in ("ready", "approved"))
+    costed = outputs
+    attributed = sum(o["cost"] for o in outputs)
+    published = [o for o in outputs if o["published"]]
+    all_time = costs._summarize(records)
 
     # Spend on runs that produced no video at all — a crash after the
     # voiceover, a cancelled job. It is real money and the largest single
     # step (the voiceover) is usually already paid for by the time
     # anything downstream can fail, so hiding it would defeat the point
     # of this page.
-    unattributed = max(0.0, all_time["total_usd"] - attributed)
+    unattributed = max(0.0, all_time["total_usd"] - attributed - in_progress)
 
     return {
         "costed_videos": len(costed),
@@ -166,9 +210,11 @@ def _spend(videos: list) -> dict:
         "total_usd": all_time["total_usd"],
         "attributed_usd": attributed,
         "unattributed_usd": unattributed,
+        "in_progress_usd": in_progress,
         "per_video_usd": (attributed / len(costed)) if costed else 0.0,
         # Everything spent, divided by what actually went out.
-        "per_published_usd": (all_time["total_usd"] / len(published)) if published else 0.0,
+        # (Not counting films still being made: they'll be outputs of their own.)
+        "per_published_usd": ((all_time["total_usd"] - in_progress) / len(published)) if published else 0.0,
         "published_count": len(published),
         "all_time": all_time,
     }

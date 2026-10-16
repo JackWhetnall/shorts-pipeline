@@ -134,3 +134,15 @@ def test_four_made_at_once_and_four_banked(monkeypatch):
     for making, banked, room in ((3, 4, True), (4, 0, False), (2, 6, False), (0, 7, True)):
         monkeypatch.setattr(auto_films, "_in_hand", lambda c, m=making, b=banked: (m, b))
         assert auto_films._room_for_a_new_film(channel) is room
+
+
+def test_activity_is_told_a_job_is_waiting_on_a_batch():
+    # Decision 112: the Activity feed dropped these fields, so its
+    # "Waiting on batch" label never showed.
+    from web.blueprints import jobs as page
+    job = {"id": "a", "channel_key": "why", "status": "running", "waiting": True, "waiting_since": 5.0,
+           "seed": {"type": "production", "topic": "T", "subtopic_id": "t1", "stage": "stills"}}
+    from web import create_app
+    with create_app().test_request_context():
+        row = page._for_activity(job, {"why": "Why"})
+    assert row["waiting"] is True and row["waiting_since"] == 5.0 and row["film"] is True

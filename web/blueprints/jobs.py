@@ -62,6 +62,11 @@ def _for_activity(job: dict, names: dict) -> dict:
         "queue_position": job.get("queue_position"),
         "title": seed.get("reference") or seed.get("topic") or "Untitled",
         "started_at": job.get("started_at"),
+        # Waiting on a batch, and since when, for "Waiting on batch · 7 h"
+        # (decision 112: these were dropped here, so the page never knew).
+        "waiting": bool(job.get("waiting")),
+        "waiting_since": job.get("waiting_since"),
+        "film": seed.get("type") == "production",
         "queued_at": job.get("queued_at"),
         "finished_at": job.get("finished_at"),
         "error": job.get("error"),

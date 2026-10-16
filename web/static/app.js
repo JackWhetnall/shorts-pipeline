@@ -934,7 +934,7 @@ function activityRow(job) {
   const accLabel = acc ? ` ${acc.extra_usd >= 0.01 ? "+$" + acc.extra_usd.toFixed(2) : "same price"}, ~${Math.max(1, acc.minutes_now)} min` : "";
   // A batch's own time can't be known (an OpenAI picture batch has taken
   // minutes, and sixteen hours): how long it's waited instead (decision 109).
-  const film = (job.seed || {}).type === "production";
+  const film = job.film || (job.seed || {}).type === "production";
   const waited = job.waiting && job.waiting_since ? activityWaited(job.waiting_since) : "";
   const batchLabel = waited ? `Waiting on batch &middot; ${waited} ` : (acc && !film ? `Batch: ~${acc.minutes_batch} min ` : "Batch ");
   const eta = job.ahead
