@@ -67,3 +67,23 @@ The ocean film's two teasers, written twice:
   opened with "a complete map of Mars".
 - **After:** both hook, pay off, and end by pointing to the full video in
   their own words. The crops keep each subject whole.
+
+## Later: the invitation (16 October)
+
+The owner found the endings tepid ("that's exactly where the full video
+goes next") and asked for something punchier and more casual: "check out
+the full video to find out more", or "why is X? how do we Y? this and
+other questions explained on our channel".
+
+The last line is now an invitation of its own, under twelve words, in
+one of two shapes:
+1. it tells them to go ("Go watch the full video.");
+2. two or three short questions the film answers, then where they're
+   answered ("How's that lawn actually getting mowed? Full video's got
+   it.").
+
+A flat "…is in the full video" or "…is on the channel" is ruled out, as
+are formal phrasings. No line repeats one used before. The first try,
+which only gave examples, still produced "…is in the full video" four
+times out of four; with the two shapes required, all four test endings
+landed.

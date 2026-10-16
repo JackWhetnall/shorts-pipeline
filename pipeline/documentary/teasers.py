@@ -54,13 +54,19 @@ these, each in its own way:
   through-line's payoff) and make it clear there is more, and where it is. Ways to do that
   include an open question left hanging, a reveal stopped at its turn, "and that's the easy
   part", naming what the full film goes into next, or turning the viewer's assumption back on
-  them. Every teaser also points to the full video, once, in a few crisp words, and the
-  pointer has to have some zing: "The answer's in the full video." "Full video's on the
-  channel." "That's where the full video starts." It can come before the last line rather
-  than be it, so the teaser still ends on its hook. Call it the video or the full video, never
-  "the documentary" or "the full documentary" (Shorts viewers don't go looking for one), and
-  never "on this channel" tacked on the end. Never "like and subscribe", "link in bio",
-  "smash that button" or any stock call to action. Two teasers never point the same way.
+  them.
+- End on an invitation to the full video, as its own last line, under twelve words, casual
+  and punchy, the way a friend would say it. It takes one of two shapes:
+  1. it tells them to go: "Check out the full video to find out." "Go watch the full video,
+     it gets weirder." "Catch the full story on the channel.";
+  2. two or three short questions the film answers, then where: "Why is the sea salty? Where
+     does the salt go? Answered on the channel." "How deep is it really? What's down there?
+     Full video's up now."
+  Never a flat statement that something "is in the full video" or "is on the channel", and
+  nothing tepid or formal ("that's exactly where the full video goes next", "the full video
+  walks through how it works"). Word it freshly every time: never the same line twice, here or
+  in the recent teasers below. Call it the video or the channel, never "the documentary".
+  Never "like and subscribe", "link in bio" or "smash that button".
 
 These are examples, not a template. Make the teasers differ from each other in which part of
 the story they take, how they hook and how they end, and don't repeat the shapes this
