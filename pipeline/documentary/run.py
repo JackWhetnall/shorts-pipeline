@@ -120,7 +120,13 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
         scenes = data["script"]["scenes"]
         target = folder / "stills"
         kept_paths, kept_credits = {}, {}
-        if only is None:
+        from core import job_context
+        resumed = only is None and job_context.load_json_checkpoint("stills_folder") is not None
+        if resumed:
+            # The same job again after a restart (decision 108): its folder is
+            # its own work so far, every picture it had drawn kept as it is.
+            log.info("  [documentary] carrying on with the storyboard from before the restart")
+        elif only is None:
             # Drawn again for a changed script (decision 088): every picture
             # whose scene still asks for the same thing is kept, the rest
             # drawn. The old folder is set aside until the new one is done.
@@ -142,6 +148,10 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
                         kept_credits[str(i)] = data["credits"][was]
             if kept_paths:
                 log.info(f"  [documentary] kept {len(kept_paths)} pictures from the last storyboard")
+            try:
+                job_context.save_json_checkpoint("stills_folder", True)
+            except Exception:  # noqa: BLE001 - a checkpoint is best-effort; the stage still runs
+                pass
         else:
             # Drawn again on purpose: the old picture must not come back.
             for i in only:

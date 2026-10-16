@@ -190,6 +190,37 @@ def test_stills_are_drawn_with_the_style_sheet_and_the_casts_sheets(world, monke
     assert ("the owner asks: make it dusk" in " ".join(dict((i, f) for i, _, f in drawn)[1]).lower())
 
 
+def test_a_storyboard_resumed_after_a_restart_checks_and_redraws_nothing_twice(world, monkeypatch, tmp_path):
+    # Decision 108: a resumed stage asks for the same redraws (so it picks
+    # up the batch already sent) and doesn't draw a finished round again.
+    channel, row = world
+    from core import job_context
+    from pipeline.animation import bible, keyframes
+    monkeypatch.setattr(bible, "reference", lambda channel, look, film=False: tmp_path / "style.png")
+    monkeypatch.setattr(stills, "look_for", lambda channel, frame="wide": {"identity": "abc", "frame": frame})
+    monkeypatch.setattr(library, "sheet", lambda channel, look, member, ref: tmp_path / f"{member['name']}.png")
+    saved = {}
+    monkeypatch.setattr(job_context, "save_json_checkpoint", lambda name, data: saved.__setitem__(name, data))
+    monkeypatch.setattr(job_context, "load_json_checkpoint", lambda name: saved.get(name))
+    monkeypatch.setattr(stills, "flaws", lambda shots, drawn: {})
+    drawn, checks = [], []
+
+    def fake_draw(shot, board, look, ref, sheets, folder, model, fix=None, combined=False):
+        drawn.append((shot["index"], bool(fix)))
+        path = Path(folder) / f"kf_{shot['index']:02d}.jpg"
+        path.write_bytes(b"x")
+        return path
+    monkeypatch.setattr(keyframes, "draw", fake_draw)
+    monkeypatch.setattr(keyframes, "check", lambda *a: checks.append(1) or {1: ["too dark"]})
+    scenes = [_scene(1, "a", ["Mount Vernon"]), _scene(1, "b", ["Mount Vernon"])]
+    stills.draw(channel, OUTLINE, scenes, tmp_path / "stills")
+    assert drawn == [(0, False), (1, False), (1, True)] and len(checks) == 1
+    drawn.clear()
+    out = stills.draw(channel, OUTLINE, scenes, tmp_path / "stills")       # the same job, after a restart
+    assert set(out) == {0, 1} and len(checks) == 1                         # the check's answer was kept
+    assert all(not fix for _, fix in drawn) and (1, True) not in drawn     # nor the finished round redrawn
+
+
 # --- running a stage ----------------------------------------------------------------
 
 def test_a_stage_runs_marks_itself_ready_and_a_failure_says_why(world, monkeypatch):

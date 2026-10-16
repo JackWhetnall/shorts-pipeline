@@ -167,18 +167,49 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
             except PipelineError as exc:
                 log.warning(f"  [documentary] couldn't check stills ({exc}); kept unchecked")
                 return {}
-        groups = [[s for s in wanted[start:start + CHECK_GROUP] if s["index"] in drawn]
-                  for start in range(0, len(wanted), CHECK_GROUP)]
-        problems = {}
-        for found in llm.run_together([lambda g=g: look_at(g) for g in groups if g]):
-            problems.update(found)
-        for index, found in sorted(problems.items()):
-            log.info(f"  [documentary] redrawing still {index + 1}: {'; '.join(found)[:200]}")
-        drawn.update(draw_set([(the_shots[i], found) for i, found in sorted(problems.items())]))
-        faults = flaws([s for s in wanted if s["index"] in drawn], drawn)
-        for index, found in sorted(faults.items()):
-            log.info(f"  [documentary] redrawing still {index + 1}: {'; '.join(found)[:200]}")
-        drawn.update(draw_set([(the_shots[i], found) for i, found in sorted(faults.items())]))
+        # Each check's answer and each redraw round is saved as it's done
+        # (decision 108): a stage resumed after a restart asks for the same
+        # redraws, so it picks up the batch already sent, and doesn't draw
+        # again a round that had finished.
+        import hashlib
+        tag = hashlib.sha1(",".join(str(s["index"]) for s in wanted).encode()).hexdigest()[:10]
+
+        def checked(name, find):
+            kept = job_context.load_json_checkpoint(f"stills_{tag}_{name}")
+            if kept is not None:
+                return {int(k): v for k, v in kept.items()}
+            found = find()
+            try:
+                job_context.save_json_checkpoint(f"stills_{tag}_{name}", {str(k): v for k, v in found.items()})
+            except Exception:  # noqa: BLE001 - a checkpoint is best-effort; the stage still runs
+                pass
+            return found
+
+        def redraw(name, problems):
+            for index, found in sorted(problems.items()):
+                log.info(f"  [documentary] redrawing still {index + 1}: {'; '.join(found)[:200]}")
+            if job_context.load_json_checkpoint(f"stills_{tag}_{name}") is not None:
+                return {i: path_of(i) for i in problems if path_of(i).exists()}   # drawn before the restart
+            again = draw_set([(the_shots[i], found) for i, found in sorted(problems.items())])
+            try:
+                job_context.save_json_checkpoint(f"stills_{tag}_{name}", sorted(again))
+            except Exception:  # noqa: BLE001 - best-effort, as above
+                pass
+            return again
+
+        def path_of(i):
+            return keyframes.path_for(folder, the_shots[i])
+
+        def look_all():
+            groups = [[s for s in wanted[start:start + CHECK_GROUP] if s["index"] in drawn]
+                      for start in range(0, len(wanted), CHECK_GROUP)]
+            problems = {}
+            for found in llm.run_together([lambda g=g: look_at(g) for g in groups if g]):
+                problems.update(found)
+            return problems
+        drawn.update(redraw("redrawn", checked("checked", look_all)))
+        faults = checked("flawed", lambda: flaws([s for s in wanted if s["index"] in drawn], drawn))
+        drawn.update(redraw("fixed", faults))
     return drawn
 
 
