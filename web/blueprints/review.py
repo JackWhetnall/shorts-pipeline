@@ -110,7 +110,7 @@ def _when_label(when, queued: bool) -> str:
         return "Goes out on the next check" if queued else ""
     from core import publish_queue
     text = publish_queue.slot_text(when)
-    return text if text in ("Uploading now", "Going out now") else "Goes out " + text
+    return text if text in ("Uploading now", "Going out now", "After its film") else "Goes out " + text
 
 
 @bp.route("/review")

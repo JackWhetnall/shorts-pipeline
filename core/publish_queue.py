@@ -217,6 +217,8 @@ def slot_text(when, fmt: str = "%a %d %b, %H:%M", now: datetime = None) -> str:
     """How a video's slot reads: uploading, due now, or the slot itself."""
     if isinstance(when, Uploading):
         return "Uploading now"
+    if isinstance(when, AfterFilm):
+        return "After its film"
     if when is None:
         return ""
     if when <= (now or _now()):
@@ -238,31 +240,96 @@ def _filled(plan, due: datetime, last) -> bool:
     return before is not None and last > before
 
 
+class AfterFilm(datetime):
+    """The `when` of a teaser whose film isn't queued or out yet: it goes
+    in the first shorts slot after its film (decision 107)."""
+
+
+def film_of_teaser(channel, video_path):
+    """The long video a teaser short is for, or None for any other short."""
+    report = gallery.load_report(video_path) or {}
+    rel = report.get("teaser_of_video")
+    if not report.get("teaser") or not rel:
+        return None
+    return gallery.resolve_output_dir(channel.output_dir) / rel
+
+
+def _shorts_with_teasers(videos: list, slots_for, films: dict, film_when: dict, now: datetime) -> list:
+    """[(video, when)] for a shorts lane with teasers in it (decision 107).
+    A teaser goes out close to its film: in the first slot after the film's
+    own, or as soon as possible once the film is out; one whose film isn't
+    queued yet waits for it. Every other short keeps its order in the
+    slots left."""
+    pending = sorted((v for v in videos if v in films and str(films[v].resolve()) in film_when),
+                     key=lambda v: film_when[str(films[v].resolve())] or now)
+    out_already = [v for v in videos if v in films and v not in pending
+                   and gallery.is_out(gallery.load_publish_info(films[v]))]
+    waiting = [v for v in videos if v in films and v not in pending and v not in out_already]
+    others = [v for v in videos if v not in films]
+    slots = slots_for(2 * len(videos) + 4)
+    taken, out = set(), []
+    for v in pending:
+        after = film_when[str(films[v].resolve())] or now
+        slot = next((s for s in slots if s not in taken and s > after), None)
+        if slot is not None:
+            taken.add(slot)
+            out.append((v, slot))
+        else:
+            waiting.append(v)
+    for v in out_already + others:
+        slot = next((s for s in slots if s not in taken), None)
+        if slot is not None:
+            taken.add(slot)
+        out.append((v, slot))
+    far = AfterFilm(9999, 1, 1, tzinfo=timezone.utc)
+    out += [(v, far) for v in waiting]
+    order = {v: i for i, v in enumerate(videos)}
+    return sorted(out, key=lambda vw: (vw[1] is None, vw[1] or far, order[vw[0]]))
+
+
 def schedule_for(channel, now: datetime = None) -> list:
     """[(video_path, when)] for everything queued, shorts then long videos,
     each in its lane's order. `when` is a local datetime, or None for "on
     the next check" (no plan or no slots)."""
     now = now or _now()
+    long_lane = _lane_schedule(channel, True, now, [])       # first: a teaser's slot follows its film's
+    return _lane_schedule(channel, False, now, long_lane) + long_lane
+
+
+def _lane_schedule(channel, long: bool, now: datetime, long_schedule: list) -> list:
+    """One lane's [(video, when)]. `long_schedule`: the long lane's, for
+    the shorts lane's teasers."""
     out = []
-    for long in (False, True):
-        videos = queued(channel, long=long)
-        sending = [v for v in videos if str(Path(v).resolve()) in _sending]
-        out += [(v, Uploading.fromtimestamp(_sending[str(Path(v).resolve())]).astimezone()) for v in sending]
-        videos = [v for v in videos if v not in sending]
-        if not videos:
-            continue
-        if not _slots_active(channel, long):
-            out += [(path, None) for path in videos]
-            continue
-        plan = _lane(channel, long)
-        last = _parse(_load_state().get(_lane_key(channel.key, long), {}).get("last_slot"))
-        due = latest_slot(plan, now)
-        slots = []
-        if due and not _filled(plan, due, last) and now - due <= MISSED_SLOT_GRACE:
-            slots.append(due)  # a slot that's due now and still unfilled
-        slots += upcoming_slots(plan, now, len(videos))
-        out += list(zip(videos, slots))
+    videos = queued(channel, long=long)
+    sending = [v for v in videos if str(Path(v).resolve()) in _sending]
+    out += [(v, Uploading.fromtimestamp(_sending[str(Path(v).resolve())]).astimezone()) for v in sending]
+    videos = [v for v in videos if v not in sending]
+    if not videos:
+        return out
+    films = {} if long else {v: f for v in videos if (f := film_of_teaser(channel, v)) is not None}
+    if not _slots_active(channel, long):
+        return out + [(path, None) for path in videos]
+    plan = _lane(channel, long)
+    last = _parse(_load_state().get(_lane_key(channel.key, long), {}).get("last_slot"))
+    due = latest_slot(plan, now)
+    first = [due] if due and not _filled(plan, due, last) and now - due <= MISSED_SLOT_GRACE else []
+
+    def slots_for(count):
+        return first + upcoming_slots(plan, now, count)   # a slot due now and still unfilled first
+    if films:
+        film_when = {str(Path(p).resolve()): w for p, w in long_schedule}
+        return out + _shorts_with_teasers(videos, slots_for, films, film_when, now)
+    out += list(zip(videos, slots_for(len(videos))))
     return out
+
+
+def in_order(channel, now: datetime = None) -> list:
+    """schedule_for, shorts and long videos together in the order they go
+    out: uploading first, then by slot, then those waiting for a check."""
+    far = datetime.max.replace(tzinfo=timezone.utc)
+    return sorted(schedule_for(channel, now),
+                  key=lambda pw: (0, pw[1]) if isinstance(pw[1], Uploading)
+                  else (1, pw[1]) if pw[1] is not None else (2, far))
 
 
 def _lane(channel, long: bool):
@@ -315,7 +382,13 @@ def publish_due(channels: dict, now: datetime = None) -> list:
                 last = _parse(state.get(lane, {}).get("last_slot"))
                 if due is None or _filled(_lane(channel, long), due, last) or now - due > MISSED_SLOT_GRACE:
                     continue
-                if waiting_for(channel, videos[0]):
+                planned = [v for v, w in schedule_for(channel, now)
+                           if w == due and not isinstance(w, (Uploading, AfterFilm))]
+                lane_videos = set(map(str, videos))
+                video = next((v for v in planned if str(v) in lane_videos), None)
+                if video is None:
+                    continue        # nothing for this slot (a teaser waits for its film, decision 107)
+                if waiting_for(channel, video):
                     continue        # an earlier number is still in review; this slot waits for it
                 lane_state = state.setdefault(lane, {})
                 previous = lane_state.get("last_slot")
@@ -323,7 +396,7 @@ def publish_due(channels: dict, now: datetime = None) -> list:
                 lane_state["last_slot"] = due.isoformat()
                 _save_state(state)
                 try:
-                    results.append(send(channel, videos[0], may_retry=tries + 1 < RETRY_TRIES))
+                    results.append(send(channel, video, may_retry=tries + 1 < RETRY_TRIES))
                     lane_state.pop("tries", None)
                     lane_state.pop("tries_slot", None)
                 except _TryAgain as again:

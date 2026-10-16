@@ -110,7 +110,7 @@ def dashboard(key):
         progress=info,
         social_links=social_links, monetization_links=monetization_links,
         has_logo=has_logo(key),
-        upcoming=[_upcoming_row(path, when) for path, when in publish_queue.schedule_for(channel)],
+        upcoming=[_upcoming_row(path, when) for path, when in publish_queue.in_order(channel)],
         generation_status=scheduler.generation_block(key, channel),
         weekday_names=("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
         plan_estimate=_plan_estimate(key, channel),
@@ -139,7 +139,9 @@ def _upcoming_row(path, when) -> dict:
     out right now (decision 102)."""
     from core import publish_queue
     now_text = publish_queue.slot_text(when) if when else ""
-    if now_text in ("Uploading now", "Going out now"):
+    if now_text == "After its film":
+        day, date, time_ = "After", "", "its film"
+    elif now_text in ("Uploading now", "Going out now"):
         day, date, time_ = "Now", "", "uploading" if now_text == "Uploading now" else "due"
     else:
         day = when.strftime("%a") if when else "Next"

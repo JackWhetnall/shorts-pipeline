@@ -74,7 +74,7 @@ def _label_approved(channel, approved: list) -> None:
     for video in approved:
         when = slots.get(str((OUTPUT_DIR / video["relpath"]).resolve()))
         text = publish_queue.slot_text(when)
-        video["slot_label"] = waiting or (text if text in ("Uploading now", "Going out now")
+        video["slot_label"] = waiting or (text if text in ("Uploading now", "Going out now", "After its film")
                                           else f"Goes out {text}" if when else "Goes out on the next check")
 
 

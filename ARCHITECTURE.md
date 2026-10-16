@@ -1043,3 +1043,9 @@ for, so:
 Anything that degrades sets a flag carried into the render report, the
 job warnings and the review queue, so a degraded video is never published
 as though it had the usual treatment.
+
+Decision [107](docs/decisions/107-outlook-teasers-with-their-film.md): `core.outlook`
+projects a channel's audience, Partner Programme date and payback from
+YouTube's day-by-day figures (`/money/outlook`); a teaser's report names
+its film (`teaser_of_video`), so it is published after the film and
+counted with it on Insights.

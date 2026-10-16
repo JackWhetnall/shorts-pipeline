@@ -54,10 +54,13 @@ these, each in its own way:
   through-line's payoff) and make it clear there is more, and where it is. Ways to do that
   include an open question left hanging, a reveal stopped at its turn, "and that's the easy
   part", naming what the full film goes into next, or turning the viewer's assumption back on
-  them. Every teaser also says, once and in the narration's own voice, that the whole story
-  is a full video on this channel, worded freshly each time and placed wherever it lands best
-  (not always the last line). Never "like and subscribe", "link in bio", "smash that button"
-  or any stock call to action.
+  them. Every teaser also points to the full video, once, in a few crisp words, and the
+  pointer has to have some zing: "The answer's in the full video." "Full video's on the
+  channel." "That's where the full video starts." It can come before the last line rather
+  than be it, so the teaser still ends on its hook. Call it the video or the full video, never
+  "the documentary" or "the full documentary" (Shorts viewers don't go looking for one), and
+  never "on this channel" tacked on the end. Never "like and subscribe", "link in bio",
+  "smash that button" or any stock call to action. Two teasers never point the same way.
 
 These are examples, not a template. Make the teasers differ from each other in which part of
 the story they take, how they hook and how they end, and don't repeat the shapes this
@@ -169,7 +172,7 @@ def make(channel, data: dict, production_folder: Path) -> list:
         if missing:
             raise PipelineError(f"teaser {n} missing stills {missing}",
                                 user_message=f"Teaser {n}'s pictures couldn't all be drawn. Try again.")
-        made.append(_render(channel, teaser, pictures, long_title, n, long_url))
+        made.append(_render(channel, teaser, pictures, long_title, n, long_url, film or ""))
     return made
 
 
@@ -225,7 +228,8 @@ def recent_lines(teaser_sets: list) -> list:
     return out
 
 
-def _render(channel, teaser: dict, pictures: dict, long_title: str, number: int, long_url: str = "") -> Path:
+def _render(channel, teaser: dict, pictures: dict, long_title: str, number: int, long_url: str = "",
+            film: str = "") -> Path:
     from moviepy.editor import CompositeVideoClip, VideoFileClip
     from moviepy.video.io.ffmpeg_tools import ffmpeg_merge_video_audio
 
@@ -294,7 +298,8 @@ def _render(channel, teaser: dict, pictures: dict, long_title: str, number: int,
         description += "\n\n" + "\n".join(credits)
     gallery.save_title_and_description(video_path, teaser["title"], description.strip())
     gallery.save_report(video_path, {
-        "teaser": True, "teaser_of": long_title, "video_seconds": round(segments[-1].end, 1),
+        "teaser": True, "teaser_of": long_title, "teaser_of_video": film,
+        "video_seconds": round(segments[-1].end, 1),
         "gate": {"passed": False, "reasons": [
             f"A teaser for “{long_title}”: it does most for the channel once the full "
             f"video is out."]}})

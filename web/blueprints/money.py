@@ -16,8 +16,13 @@ bp = Blueprint("money", __name__)
 @bp.route("/money")
 def page():
     from core import spare_voice
+    from web import focus
     channels = load_channels(validate=False)
-    return render_template("money.html", f=money.forecast(channels), channels=channels,
+    f = money.forecast(channels)
+    key = focus.current(channels)
+    if key:
+        f = money.for_channel(f, key)          # the channel chosen in the header (decision 107)
+    return render_template("money.html", f=f, channels=channels,
                            spare=spare_voice.current_plan(channels),
                            providers=money.PROVIDERS, note=request.args.get("note", ""))
 
@@ -56,3 +61,21 @@ def save_settings():
     changes["spare_voice"] = bool(request.form.get("spare_voice"))
     money.save_settings(changes)
     return redirect(url_for("money.page", note="Saved.") + "#assumptions")
+
+
+@bp.route("/money/outlook")
+def outlook():
+    """Where one channel is heading: audience, the Partner Programme, cost
+    and payback, in charts (core.outlook, decision 107)."""
+    from core import outlook as ahead
+    from web import focus
+    channels = load_channels(validate=False)
+    live = {k: c for k, c in channels.items() if not c.archived and c.publishing.enabled}
+    choices = [(k, c.channel_display_name or k) for k, c in live.items()]
+    key = request.args.get("channel") or focus.current(channels)
+    if key not in live:
+        key = next(iter(live), None)
+    if key is None:
+        return redirect(url_for("money.page", note="No channel publishes yet."))
+    return render_template("outlook.html", o=ahead.picture(channels[key], money.forecast(channels)),
+                           choices=choices)

@@ -187,6 +187,8 @@ def _audience(videos: list, limit: int = 30) -> dict:
                         reverse=True)[:limit]:
         stats = video["stats"]
         rows.append({
+            "long": gallery.is_long(video["relpath"]),
+            "film": _film_relpath(video),
             "name": video["title"],
             "channel": video["channel_name"],
             "channel_key": video["channel_key"],
@@ -208,13 +210,57 @@ def _audience(videos: list, limit: int = 30) -> dict:
         middle = len(values) // 2
         return values[middle] if len(values) % 2 else (values[middle - 1] + values[middle]) / 2
 
+    longs = [r for r in rows if r["long"]]
+    by_film = {r["relpath"]: r for r in longs}
+    for r in longs:
+        r["teasers"] = []
+        r["watch_hours"] = ((r["views"] or 0) * (r["avg_view_seconds"] or 0)) / 3600
+    shorts = []
+    for r in rows:
+        if r["long"]:
+            continue
+        if r["film"] in by_film:
+            by_film[r["film"]]["teasers"].append(r)       # a teaser counts toward its film (decision 107)
+        else:
+            shorts.append(r)
+    for r in longs:
+        r["teaser_views"] = sum(t["views"] or 0 for t in r["teasers"])
+    measured_long = [v for v in measured if gallery.is_long(v["relpath"])]
+    measured_short = [v for v in measured if not gallery.is_long(v["relpath"])]
     return {
         "measured": len(measured),
         "published": sum(1 for v in videos if v["published"]),
         "median_views": median("views"),
         "median_view_percent": median("avg_view_percent"),
         "rows": rows,
+        "longs": longs,
+        "shorts": shorts,
+        "long_views": sum(v["stats"].get("views") or 0 for v in measured_long),
+        "long_hours": sum((v["stats"].get("views") or 0) * (v["stats"].get("avg_view_seconds") or 0)
+                          for v in measured_long) / 3600,
+        "long_median_percent": _median([v["stats"].get("avg_view_percent") for v in measured_long]),
+        "short_views": sum(v["stats"].get("views") or 0 for v in measured_short),
+        "short_median_percent": _median([v["stats"].get("avg_view_percent") for v in measured_short]),
     }
+
+
+def _median(values):
+    values = sorted(v for v in values if isinstance(v, (int, float)))
+    if not values:
+        return None
+    middle = len(values) // 2
+    return values[middle] if len(values) % 2 else (values[middle - 1] + values[middle]) / 2
+
+
+def _film_relpath(video) -> str:
+    """For a teaser short, its film's relpath (as list_videos gives it), else ""."""
+    report = video.get("report") or {}
+    rel = report.get("teaser_of_video")
+    if not report.get("teaser") or not rel:
+        return ""
+    # The teaser's own relpath starts with its channel's folder; the film's sits under it too.
+    channel_dir = video["relpath"].split("/")[0]
+    return f"{channel_dir}/{rel}"
 
 
 def _recent(videos: list, limit: int = 30) -> list:

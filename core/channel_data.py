@@ -154,6 +154,9 @@ def migrate(old: str, new: str, output_moved: bool = True) -> list:
     attempt("YouTube connection", lambda: _move(youtube.TOKENS_DIR / f"{old}.json",
                                                 youtube.TOKENS_DIR / f"{new}.json", problems,
                                                 "YouTube connection"))
+    from core import outlook
+    attempt("outlook figures", lambda: _move(outlook._cache_path(old), outlook._cache_path(new), problems,
+                                             "outlook figures"))
 
     def history_entry(entries):
         if not isinstance(entries, list):

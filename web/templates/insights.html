@@ -63,19 +63,53 @@
   <p class="meta info-banner">{{ name }}: {{ s.error }}</p>
   {% endfor %}
   {% if a.measured %}
+  {% if a.longs %}
+  <h3>Long videos</h3>
   <div class="stat-strip">
-    <div class="stat">
-      <span class="stat-num">{{ '{:,}'.format(a.median_views|int) if a.median_views is not none else '—' }}</span>
-      <span class="stat-lab">Median views</span>
-    </div>
-    <div class="stat">
-      <span class="stat-num">{{ '%.0f'|format(a.median_view_percent) ~ '%' if a.median_view_percent is not none else '—' }}</span>
-      <span class="stat-lab">Median % viewed</span>
-    </div>
-    <div class="stat">
-      <span class="stat-num">{{ a.measured }} / {{ a.published }}</span>
-      <span class="stat-lab">Published videos measured</span>
-    </div>
+    <div class="stat"><span class="stat-num">{{ '{:,}'.format(a.long_views) }}</span><span class="stat-lab">Views</span></div>
+    <div class="stat"><span class="stat-num">{{ '{:,.1f}'.format(a.long_hours) }}</span><span class="stat-lab">Watch hours</span></div>
+    <div class="stat"><span class="stat-num">{{ '%.0f'|format(a.long_median_percent) ~ '%' if a.long_median_percent is not none else '—' }}</span><span class="stat-lab">Median % viewed</span></div>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Video</th><th>Published</th><th class="num">Views</th><th class="num">Watch hours</th>
+            <th class="num">% viewed</th><th class="num">Subs</th>
+            <th class="num"><span data-tooltip="Its teaser Shorts: how many are out, and their views">Teasers</span></th></tr>
+      </thead>
+      <tbody>
+        {% for row in a.longs %}
+        <tr>
+          <td><a href="{{ url_for('gallery.video_detail', key=row.channel_key, relpath=row.relpath) }}">{{ row.name }}</a>
+              <span class="hint">{{ row.channel }}</span></td>
+          <td>{{ row.published_at }}</td>
+          <td class="num">{{ '{:,}'.format(row.views) if row.views is not none else '—' }}</td>
+          <td class="num">{{ '{:,.1f}'.format(row.watch_hours) }}</td>
+          <td class="num">{{ '%.0f'|format(row.avg_view_percent) ~ '%' if row.avg_view_percent is not none else '—' }}</td>
+          <td class="num">{{ row.subscribers_gained if row.subscribers_gained is not none else '—' }}</td>
+          <td class="num">{% if row.teasers %}{{ row.teasers|length }} &middot; {{ '{:,}'.format(row.teaser_views) }} views{% else %}—{% endif %}</td>
+        </tr>
+        {% for t in row.teasers %}
+        <tr class="sub-row">
+          <td>&nbsp;&nbsp;&#8627; <a href="{{ url_for('gallery.video_detail', key=t.channel_key, relpath=t.relpath) }}">{{ t.name }}</a></td>
+          <td>{{ t.published_at }}</td>
+          <td class="num">{{ '{:,}'.format(t.views) if t.views is not none else '—' }}</td>
+          <td></td>
+          <td class="num">{{ '%.0f'|format(t.avg_view_percent) ~ '%' if t.avg_view_percent is not none else '—' }}</td>
+          <td class="num">{{ t.subscribers_gained if t.subscribers_gained is not none else '—' }}</td>
+          <td></td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if a.shorts %}
+  <h3>Shorts</h3>
+  <div class="stat-strip">
+    <div class="stat"><span class="stat-num">{{ '{:,}'.format(a.short_views) }}</span><span class="stat-lab">Views</span></div>
+    <div class="stat"><span class="stat-num">{{ '%.0f'|format(a.short_median_percent) ~ '%' if a.short_median_percent is not none else '—' }}</span><span class="stat-lab">Median % viewed</span></div>
   </div>
   <div class="tablewrap">
     <table>
@@ -84,7 +118,7 @@
             <th class="num">Avg watch</th><th class="num">Subs</th></tr>
       </thead>
       <tbody>
-        {% for row in a.rows %}
+        {% for row in a.shorts %}
         <tr>
           <td><a href="{{ url_for('gallery.video_detail', key=row.channel_key, relpath=row.relpath) }}">{{ row.name }}</a>
               <span class="hint">{{ row.channel }}</span></td>
@@ -98,7 +132,7 @@
       </tbody>
     </table>
   </div>
-  <p class="hint">% viewed matters most for short-form. YouTube reports it a day or two after views.</p>
+  {% endif %}
   {% elif any_stats_connection %}
   <p class="meta">No numbers yet. They're fetched twice a day for videos published
     through a connected channel.</p>

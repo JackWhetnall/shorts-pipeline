@@ -377,6 +377,23 @@ def payback(monthly_cost: float, saved: dict, views: dict) -> dict:
             "covered": earning >= monthly_cost > 0}
 
 
+def for_channel(f: dict, key: str) -> dict:
+    """The forecast narrowed to one channel (decision 107): its share of
+    the month's cost, its Partner Programme progress, and what it would
+    take to get its own costs back. The voice plan is a fixed price, so
+    each channel carries the share of it its schedule voices."""
+    from core import voice_quota
+    rows = [r for r in f["rows"] if r["key"] == key]
+    need = {r["key"]: (r["shorts"] + r["longs"]) * voice_quota.typical_video_credits(r["key"]) for r in f["rows"]}
+    total = sum(need.values())
+    share = need.get(key, 0) / total if total else 0.0
+    monthly = sum(r["monthly"] for r in rows) + float(f["settings"]["elevenlabs_monthly_usd"]) * share
+    views = {k: v for k, v in f["views"].items() if k == key}
+    return {**f, "monthly": monthly, "weekly": monthly * 7 / MONTH_DAYS, "daily": monthly / MONTH_DAYS,
+            "ypp": {k: v for k, v in f["ypp"].items() if k == key}, "rows": rows,
+            "payback": payback(monthly, f["settings"], views), "focus": key}
+
+
 # --- the whole picture ---------------------------------------------------------------
 
 def forecast(channels: dict = None, now: float = None) -> dict:
