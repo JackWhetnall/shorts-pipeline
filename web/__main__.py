@@ -80,12 +80,15 @@ def main() -> None:
     # making as interrupted (decision 102).
     if not args.no_scheduler:
         _recover_films()
+        resumed = jobs.resume_waiting()
+        if resumed:
+            log.info(f"Resumed {len(resumed)} film stage(s) a restart caught waiting on a batch.")
     if not args.no_scheduler:
         scheduler.start_background()
     # Restart onto new code after an update, once nothing is running.
     if not args.debug:
         code_freshness.remember(_CODE_AT_START)
-        code_freshness.watch(lambda: jobs.busy() or scheduler.busy())
+        code_freshness.watch(lambda: jobs.busy_for_restart() or scheduler.busy())
 
     log.info(f"Open http://{probe}:{args.port}/")
     if args.host == "0.0.0.0":

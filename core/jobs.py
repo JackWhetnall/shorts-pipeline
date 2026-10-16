@@ -469,6 +469,35 @@ def busy() -> bool:
         return any(j.status in RUNNING_STATES for j in _jobs.values())
 
 
+def busy_for_restart() -> bool:
+    """Whether a restart onto new code has to wait (decision 108): only for
+    work actually being done, or queued. A film stage only waiting on a
+    batch doesn't hold it: it's resumed by itself after the restart
+    (`resume_waiting`) and picks its batch up from the journal, paying
+    for nothing twice. Anything else waiting (a short) still holds it,
+    since nothing would resume it."""
+    with _lock:
+        return any(_occupying(j) or j.status == "queued"
+                   or (j.status == "running" and (j.seed or {}).get("type") != "production")
+                   for j in _jobs.values())
+
+
+def resume_waiting() -> list:
+    """Start again, under the same id, every film stage a restart caught
+    waiting on a batch (decision 108). Returns their ids."""
+    with _lock:
+        caught = [j.id for j in _jobs.values()
+                  if j.status == "interrupted" and j.waiting and (j.seed or {}).get("type") == "production"]
+    resumed = []
+    for job_id in caught:
+        try:
+            retry_job(job_id, behind=True)        # two of a channel's films can both have been waiting
+            resumed.append(job_id)
+        except JobError as exc:
+            log.warning(f"couldn't resume job {job_id} after the restart: {exc}")
+    return resumed
+
+
 def _refuse_if_stale() -> None:
     # Old core code in memory with new pipeline code from disk is how a
     # render once failed at its last step (core.code_freshness).
@@ -530,7 +559,7 @@ def dismiss_job(job_id: str) -> None:
     job_context.clear_checkpoints(job_id)
 
 
-def retry_job(job_id: str) -> str:
+def retry_job(job_id: str, behind: bool = False) -> str:
     """Re-run a failed or interrupted job under the SAME id.
 
     Reusing the id is what makes the retry cheap: checkpoints are keyed
@@ -548,8 +577,8 @@ def retry_job(job_id: str) -> str:
                 f"status {job.status}",
                 user_message=f'This job is "{job.status}" and can\'t be retried.',
             )
-        if any(j.status in RUNNING_STATES and j.channel_key == job.channel_key
-               and j.id != job_id for j in _jobs.values()):
+        if not behind and any(j.status in RUNNING_STATES and j.channel_key == job.channel_key
+                              and j.id != job_id for j in _jobs.values()):
             raise JobError(
                 "channel busy",
                 user_message="This channel already has a video being generated.",

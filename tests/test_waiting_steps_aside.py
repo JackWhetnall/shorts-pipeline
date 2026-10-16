@@ -106,3 +106,22 @@ def test_a_film_waiting_on_someone_doesnt_hold_the_rest_and_three_are_kept_in_ha
     monkeypatch.setattr(auto_films, "_being_made", lambda key: {"t2", "t3"})
     monkeypatch.setattr("core.storyboard.upcoming", lambda channel, count=1: [{"id": "t4", "title": "t4"}][:count])
     assert auto_films.step(channel) == "" and started == [("t2", "outline"), ("t3", "outline")]  # three: enough
+
+
+def test_a_restart_waits_only_for_work_being_done_and_resumes_waiting_film_stages(queue, monkeypatch):
+    # Decision 108: a storyboard waiting on its batch held the app's
+    # restart onto new code for hours.
+    a = jobs.start_job("why", {"type": "production", "subtopic_id": "t1", "stage": "stills"}, behind=True)
+    assert jobs.busy_for_restart()                                # working
+    jobs._sink.on_waiting(a, True)
+    assert not jobs.busy_for_restart()                            # only waiting: the restart may go ahead
+    s = jobs.start_job("pqb", {"type": "x"})
+    jobs._sink.on_waiting(s, True)
+    assert jobs.busy_for_restart()                                # a waiting short has nothing to resume it
+    # After the restart: the film stage comes back under its own id.
+    for job in jobs._jobs.values():
+        job.status = "interrupted"
+    jobs._jobs.pop(s)
+    queue.clear()
+    assert jobs.resume_waiting() == [a] and queue == [a] and jobs._jobs[a].status == "running"
+    assert not jobs._jobs[a].waiting
