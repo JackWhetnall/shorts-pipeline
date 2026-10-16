@@ -130,7 +130,8 @@ def create_app(debug: bool = False) -> Flask:
             from web import focus
             channels = load_channels(validate=False)
             key = focus.current(channels)
-            return {**nav_counts(channels, key),
+            from core import code_freshness
+            return {**nav_counts(channels, key), "update_pending": code_freshness.update_pending(),
                     "focus_key": key, "focus_channel": channels.get(key),
                     "focus_choices": sorted(((k, c.channel_display_name or k) for k, c in channels.items()
                                              if not c.archived), key=lambda kv: kv[1].lower())}

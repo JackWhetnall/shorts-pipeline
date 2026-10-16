@@ -101,6 +101,7 @@ class Job:
     # Decision 103. Only waiting on a batch: it has stepped aside, so the
     # next job can run, and carries on in its own thread when it's back.
     waiting: bool = False
+    waiting_since: float = None     # when it started waiting, for "Waiting on batch · 3 h"
     # Was made at batch prices, then accelerated.
     accelerated: bool = False
 
@@ -158,6 +159,7 @@ class _Sink(job_context.JobSink):
             if job.waiting == now_waiting:
                 return
             job.waiting = now_waiting
+            job.waiting_since = time.time() if now_waiting else None
         _persist(job_id)
         if waiting:
             _advance_queue()

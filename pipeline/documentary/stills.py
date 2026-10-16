@@ -28,6 +28,7 @@ from pipeline.documentary import cast as library
 
 log = get_logger(__name__)
 
+IMAGE_BATCH_MIN = 6             # fewer pictures than this are drawn now, not batched (decision 109)
 CHECK_GROUP = 10                # stills per vision check
 
 # Decision 090. The check above looks at ten small pictures at once and
@@ -137,7 +138,7 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
             return {}
         from pipeline import llm
         if llm.in_batch_mode():
-            jobs, ready = [], {}
+            jobs, ready, pending = [], {}, []
             for shot, fix in items:
                 asked = fixes_for(shot, fix)
                 job = keyframes.request(shot, the_board, look, style_ref, sheets, folder, model, fix=asked or None,
@@ -146,6 +147,14 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
                     ready[shot["index"]] = job["out"]       # drawn already, as keyframes.draw keeps it
                 else:
                     jobs.append(job)
+                    pending.append((shot, fix))
+            if len(jobs) < IMAGE_BATCH_MIN:
+                # A few pictures are drawn now (decision 109): a batch takes as
+                # long for one picture as for sixty, and a one-picture redraw
+                # sat ten hours with nothing drawn to save two cents.
+                paths = job_context.parallel_map(lambda item: _try(one, *item), pending, max_workers=3)
+                return {**ready, **{shot["index"]: path for (shot, _), path in zip(pending, paths)
+                                    if path is not None}}
             try:
                 made = images.draw_batch(jobs)
             except PipelineError as exc:

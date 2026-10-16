@@ -55,18 +55,20 @@ these, each in its own way:
   include an open question left hanging, a reveal stopped at its turn, "and that's the easy
   part", naming what the full film goes into next, or turning the viewer's assumption back on
   them.
-- End on an invitation to the full video, as its own last line, under twelve words, casual
-  and punchy, the way a friend would say it. It takes one of two shapes:
-  1. it tells them to go: "Check out the full video to find out." "Go watch the full video,
-     it gets weirder." "Catch the full story on the channel.";
+- End on an invitation to the full video, as its own last line, under fifteen words, casual
+  and punchy, the way a friend would say it. The viewer has no idea a longer video exists, so
+  the line has to tell them there is one, and where: on our channel, or our page. It takes one
+  of two shapes:
+  1. it sends them there: "Check out our page for the full explanation." "Go watch the full
+     video on our channel, it gets weirder." "The whole story's up on our channel.";
   2. two or three short questions the film answers, then where: "Why is the sea salty? Where
-     does the salt go? Answered on the channel." "How deep is it really? What's down there?
-     Full video's up now."
-  Never a flat statement that something "is in the full video" or "is on the channel", and
-  nothing tepid or formal ("that's exactly where the full video goes next", "the full video
-  walks through how it works"). Word it freshly every time: never the same line twice, here or
-  in the recent teasers below. Call it the video or the channel, never "the documentary".
-  Never "like and subscribe", "link in bio" or "smash that button".
+     does the salt go? This and more, explained on our channel."
+  Never assume they know about it: no bare "full video's got it", "watch the full video" or
+  "answered in the full video" with nowhere to go. Never a flat statement that something "is
+  in the full video", and nothing tepid or formal ("that's exactly where the full video goes
+  next", "the full video walks through how it works"). Word it freshly every time: never the
+  same line twice, here or in the recent teasers below. Never "the documentary". Never "like
+  and subscribe", "link in bio" or "smash that button".
 
 These are examples, not a template. Make the teasers differ from each other in which part of
 the story they take, how they hook and how they end, and don't repeat the shapes this

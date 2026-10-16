@@ -3102,3 +3102,8 @@ main > .card + form, main > form + .card { margin-top: var(--sp-4); }
 
 /* A teaser under its film on Insights (decision 107). */
 tr.sub-row td { color: var(--text-dim); font-size: 0.92em; }
+
+/* An update waiting for the app to restart onto it (decision 109). */
+.update-pending { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem;
+  border-radius: 999px; color: var(--accent); background: var(--accent-soft); }
+.update-pending:hover { background: var(--accent); color: var(--accent-contrast); }

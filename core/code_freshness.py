@@ -57,8 +57,21 @@ def remember(taken: tuple = None) -> None:
     _started_with = taken if taken is not None else fingerprint()
 
 
+_checked = (0.0, False)       # (when, answer): the header asks on every page
+
+
 def is_stale() -> bool:
     return _started_with is not None and (bool(_asked) or fingerprint() != _started_with)
+
+
+def update_pending() -> bool:
+    """is_stale, at most every ten seconds (decision 109): it reads every
+    watched file's details, and the header asks on every page."""
+    global _checked
+    import time
+    if time.time() - _checked[0] > 10:
+        _checked = (time.time(), is_stale())
+    return _checked[1]
 
 
 def request_restart(why: str) -> bool:

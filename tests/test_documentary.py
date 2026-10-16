@@ -302,9 +302,9 @@ def test_teasers_are_cleaned_capped_and_shown_over_the_films_own_pictures(world,
     assert len(out) == 2
     assert [s["picture"] for s in out[0]["scenes"]] == [0, 1, 2]      # used once each; an unknown number mapped
     assert "picture 2:" in seen["user"] and 'opened "x"' in seen["user"]
-    assert "Hook in the first line" in seen["system"] and "like and subscribe" in seen["system"]
-    assert "never \"the documentary\"" in " ".join(seen["system"].split())
-    assert "Check out the full video" in " ".join(seen["system"].split())
+    assert "Hook in the first line" in seen["system"] and "like and subscribe" in " ".join(seen["system"].split())
+    assert "Never \"the documentary\"" in " ".join(seen["system"].split())
+    assert "Check out our page for the full explanation" in " ".join(seen["system"].split())
 
 
 # --- the pages and the scheduler --------------------------------------------------------

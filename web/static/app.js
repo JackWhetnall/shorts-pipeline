@@ -906,11 +906,16 @@ function activityTimeOfDay(ts) {
   return new Date(ts * 1000).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
 }
 
+function activityWaited(since) {
+  const minutes = Math.max(1, Math.round((Date.now() / 1000 - since) / 60));
+  return minutes < 90 ? `${minutes} min` : `${Math.round(minutes / 60)} h`;
+}
+
 function activityRow(job) {
   const running = job.status === "running";
   const stageLine = running
     ? `${job.stage_label || "Starting"} &middot; step ${job.stage || 1} of ${job.stage_total || 5}`
-      + (job.waiting ? ` &middot; <span class="status-pill">Waiting on batch</span>` : "")
+
     : (job.queue_position ? `Waiting &mdash; ${job.queue_position} in the queue` : "Waiting");
 
   // An indeterminate bar while a stage runs without a percentage of its
@@ -927,8 +932,13 @@ function activityRow(job) {
   // and a button to make it now instead (decision 072).
   const acc = job.accelerate;
   const accLabel = acc ? ` ${acc.extra_usd >= 0.01 ? "+$" + acc.extra_usd.toFixed(2) : "same price"}, ~${Math.max(1, acc.minutes_now)} min` : "";
+  // A batch's own time can't be known (an OpenAI picture batch has taken
+  // minutes, and sixteen hours): how long it's waited instead (decision 109).
+  const film = (job.seed || {}).type === "production";
+  const waited = job.waiting && job.waiting_since ? activityWaited(job.waiting_since) : "";
+  const batchLabel = waited ? `Waiting on batch &middot; ${waited} ` : (acc && !film ? `Batch: ~${acc.minutes_batch} min ` : "Batch ");
   const eta = job.ahead
-    ? `<span class="activity-eta">${acc ? `Batch: ~${acc.minutes_batch} min ` : ""}<button type="button" class="btn-ghost btn-small" onclick="activityAccelerate('${job.id}', this)"
+    ? `<span class="activity-eta">${batchLabel}<button type="button" class="btn-ghost btn-small" onclick="activityAccelerate('${job.id}', this)"
          title="Next in the queue, at full speed">Accelerate${accLabel}</button></span>`
     : job.eta_label
       ? `<span class="activity-eta">${escapeHtml(job.eta_label)} left<span class="activity-eta-at"> &middot; done around ${activityTimeOfDay(job.eta_at)}</span></span>`
