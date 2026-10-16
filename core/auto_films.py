@@ -49,22 +49,34 @@ def _waiting(channel) -> int:
     return sum(1 for d in production.all_for(channel.key) if production.state(d, "video") == "ready")
 
 
-def _in_hand(channel) -> int:
-    """Films in hand (decision 105): being made (past their angle), or
-    made and not yet out, whether waiting for a look or approved and
-    queued. `documentary.ahead` is how many the channel keeps."""
+def _in_hand(channel) -> tuple:
+    """(films being made, films banked) (decisions 105, 111). Being made:
+    past its angle, its video not yet made. Banked: made and not yet out,
+    whether waiting for a look or approved and queued."""
     from core import gallery
-    count = 0
+    making = banked = 0
     for data in production.all_for(channel.key):
         video = production.state(data, "video")
         if video == "approved":
             made = production.video_file(channel, data)
             info = gallery.load_publish_info(made) if made is not None and made.exists() else None
             if info and not info["discarded"] and not gallery.is_out(info):
-                count += 1
-        elif video == "ready" or production.state(data, "outline") != "todo":
-            count += 1
-    return count
+                banked += 1
+        elif video == "ready":
+            banked += 1
+        elif production.state(data, "outline") != "todo":
+            making += 1
+    return making, banked
+
+
+def _room_for_a_new_film(channel) -> bool:
+    """Up to `parallel` films being made at once, and up to `ahead` more
+    banked on top of them (decision 111)."""
+    doc = channel.documentary
+    parallel = max(1, int(getattr(doc, "parallel", 1)))
+    bank = max(1, int(getattr(doc, "ahead", 1)))
+    making, banked = _in_hand(channel)
+    return making < parallel and making + banked < parallel + bank
 
 
 def _candidates(channel):
@@ -90,7 +102,7 @@ def _candidates(channel):
             continue
         if production.state(data, "outline") != "todo":
             out.append((row, data, False))
-    ahead = max(1, int(getattr(channel.documentary, "ahead", 1)))
+    ahead = max(1, int(getattr(channel.documentary, "parallel", 1)))
     for row in storyboard.upcoming(channel, count=ahead):
         if row["id"] not in busy:
             out.append((row, production.load(channel.key, row["id"], row["title"]), True))
@@ -122,10 +134,9 @@ def step(channel) -> str:
     from datetime import datetime
     from core.channels import within_hours
     after_hours = not within_hours(getattr(doc, "hours", ""), datetime.now().hour)
-    ahead = max(1, int(getattr(doc, "ahead", 1)))
     for row, data, new in _candidates(channel):
-        if new and _in_hand(channel) >= ahead:
-            break                       # enough in hand (decision 105)
+        if new and not _room_for_a_new_film(channel):
+            break                       # enough being made and banked (decision 111)
         done = _act(channel, row, data, after_hours)
         if done:
             return done
@@ -155,6 +166,8 @@ def _act(channel, row: dict, data: dict, after_hours: bool) -> str:
             cast.merge(channel.key, row["id"], production.load(channel.key, row["id"])["outline"].get("cast") or [])
         return f"approved the {production.LABELS[stage].lower()} of {row['title']}"
     if stage == "teasers" and state == "ready":
+        if getattr(doc, "overseen", False) and not (data.get("teasers") or {}).get("reviewed"):
+            return ""                   # the overseer reads the teasers' scripts first (decision 111)
         start(channel, row, "teasers")
         return f"making the teasers of {row['title']}"
     if state == "failed":

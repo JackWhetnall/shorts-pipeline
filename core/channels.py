@@ -499,8 +499,12 @@ class Documentary(_MappingLike):
     # stage started and approved by the scheduler, the finished video
     # still waiting for a look. Off: every stage waits for the owner.
     auto_make: bool = False
-    # Films made and waiting for a look before it starts another.
+    # Decision 111. The bank: films finished and not yet out (waiting for a
+    # look, or approved and queued) that it keeps, on top of
     ahead: int = 1
+    # the films it makes at once. A film takes a day or so, three days when
+    # the picture batches are slow, so a few go in parallel.
+    parallel: int = 2
     # Decision 087. The ElevenLabs model it's voiced with ("": the shorts'
     # model); a v3/v4 model reads delivery cues the script writes.
     voice_model: str = ""

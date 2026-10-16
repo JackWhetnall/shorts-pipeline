@@ -194,7 +194,8 @@ def apply_channel_form(channel: ChannelConfig, form) -> ChannelConfig:
             doc.chapter_titles = bool(form.get("documentary_chapter_titles"))
         if "documentary_auto_present" in form:
             doc.auto_make = bool(form.get("documentary_auto_make"))
-            doc.ahead = min(5, max(1, _maybe_int(form, "documentary_ahead", doc.ahead)))
+            doc.ahead = min(8, max(1, _maybe_int(form, "documentary_ahead", doc.ahead)))
+            doc.parallel = min(6, max(1, _maybe_int(form, "documentary_parallel", doc.parallel)))
         if form.get("documentary_kind") in ("story", "explainer"):
             doc.kind = form.get("documentary_kind")
         if form.get("documentary_captions") in ("corner", "tag", "none"):

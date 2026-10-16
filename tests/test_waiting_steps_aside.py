@@ -95,7 +95,7 @@ def test_a_film_waiting_on_someone_doesnt_hold_the_rest_and_three_are_kept_in_ha
     from types import SimpleNamespace as N
     channel = N(key="why", format="documentary", archived=False, publishing=N(enabled=True),
                 animation=N(style={"a": 1}),
-                documentary=N(auto_make=True, ahead=3, teasers=0, overseen=True, hours=""))
+                documentary=N(auto_make=True, ahead=1, parallel=3, teasers=0, overseen=True, hours=""))
     assert "started the outline of t2" in auto_films.step(channel)          # t1 waits for the overseer
     films["t2"]["stages"]["outline"]["state"] = "working"
     films["t3"] = film("t3", {"pitch": "approved"})
@@ -105,7 +105,7 @@ def test_a_film_waiting_on_someone_doesnt_hold_the_rest_and_three_are_kept_in_ha
     films["t4"] = film("t4", {"pitch": "approved"})
     monkeypatch.setattr(auto_films, "_being_made", lambda key: {"t2", "t3"})
     monkeypatch.setattr("core.storyboard.upcoming", lambda channel, count=1: [{"id": "t4", "title": "t4"}][:count])
-    assert auto_films.step(channel) == "" and started == [("t2", "outline"), ("t3", "outline")]  # three: enough
+    assert auto_films.step(channel) == "" and started == [("t2", "outline"), ("t3", "outline")]  # three at once: enough
 
 
 def test_a_restart_waits_only_for_work_being_done_and_resumes_waiting_film_stages(queue, monkeypatch):
@@ -125,3 +125,12 @@ def test_a_restart_waits_only_for_work_being_done_and_resumes_waiting_film_stage
     queue.clear()
     assert jobs.resume_waiting() == [a] and queue == [a] and jobs._jobs[a].status == "running"
     assert not jobs._jobs[a].waiting
+
+
+def test_four_made_at_once_and_four_banked(monkeypatch):
+    # Decision 111: films take a day or three, so several are made at once.
+    from types import SimpleNamespace as N
+    channel = N(key="why", documentary=N(parallel=4, ahead=4))
+    for making, banked, room in ((3, 4, True), (4, 0, False), (2, 6, False), (0, 7, True)):
+        monkeypatch.setattr(auto_films, "_in_hand", lambda c, m=making, b=banked: (m, b))
+        assert auto_films._room_for_a_new_film(channel) is room

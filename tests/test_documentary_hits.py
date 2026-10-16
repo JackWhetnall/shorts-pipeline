@@ -392,7 +392,7 @@ def test_chapter_titles_read_as_a_chapter_list_not_production_notes():
     assert outlines.chapter_title("Dawn - Bound by Contract") == "Dawn: Bound by Contract"
 
 
-def test_a_film_waiting_for_a_look_holds_back_the_next_even_if_its_angle_was_pitched_ahead(auto, monkeypatch):
+def test_a_banked_film_counts_against_the_bank_not_the_films_being_made(auto, monkeypatch):
     auto_films, channel, row, started = auto
     for stage in ("pitch", "outline", "script", "stills"):
         production.update("doc", row["id"], lambda d, s=stage: production.made(d, s, {} if s != "outline" else
@@ -403,9 +403,11 @@ def test_a_film_waiting_for_a_look_holds_back_the_next_even_if_its_angle_was_pit
     monkeypatch.setattr("core.storyboard.upcoming", lambda channel, count=1: [nxt][:count])
     # The scheduler pitched the next film's angle ahead of time.
     production.update("doc", nxt["id"], lambda d: production.made(d, "pitch", pitch.clean({"angles": [_angle("T")]})))
-    assert auto_films.step(channel) == "" and started == []
-    channel.documentary.ahead = 2
+    channel.documentary.parallel, channel.documentary.ahead = 1, 1
+    # Decision 111: the finished film is banked (one of one); the next can still be made.
     assert "approved the angle" in auto_films.step(channel)
+    channel.documentary.parallel = 0                                      # read as one: the floor
+    assert auto_films._room_for_a_new_film(channel)
 
 
 def test_a_film_is_planned_at_the_rate_its_narrator_really_speaks(world, tmp_path, monkeypatch):

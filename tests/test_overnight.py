@@ -233,3 +233,26 @@ def test_the_overseer_edits_approves_and_notes_through_one_tool(monkeypatch):
     assert data["history"][-1]["by"] == "overseer" and data["overseer"][0]["text"] == "Fixed the thesis."
     with pytest.raises(SystemExit):
         overseer.approve("doc", "t1", "video")                                    # the owner's alone
+
+
+def test_the_overseer_reads_the_teasers_before_they_are_made(monkeypatch):
+    # Decision 111: the teasers' scripts wait for the overseer on an overseen channel.
+    from core import auto_films, overseer
+    data = {"stages": {"pitch": {"state": "approved"}, "outline": {"state": "approved"},
+                       "script": {"state": "approved"}, "stills": {"state": "approved"},
+                       "video": {"state": "approved"}, "teasers": {"state": "ready"}},
+            "teasers": {"scripts": [{"title": "T", "scenes": [{"narration": "a", "picture": 0}]}]},
+            "history": [], "script": {"scenes": [{"direction": "d"}]}}
+    monkeypatch.setattr(auto_films, "_busy", lambda k: False)
+    monkeypatch.setattr(auto_films, "_candidates", lambda c: [({"id": "t1", "title": "T"}, data, False)])
+    monkeypatch.setattr(production, "update", lambda k, s, change, *a: change(data))
+    monkeypatch.setattr(production, "load", lambda k, s, t="": data)
+    started = []
+    monkeypatch.setattr(auto_films, "start", lambda c, r, s: started.append(s) or "j")
+    assert auto_films.step(_channel(overseen=True)) == "" and started == []        # waits for the overseer
+    overseer.edit_teaser("doc", "t1", 0, 0, narration="Find out in the full video on our channel.")
+    assert data["teasers"]["scripts"][0]["scenes"][0]["narration"].startswith("Find out")
+    assert "[0] Find out" in overseer.teaser_sheet("doc", "t1")
+    overseer.approve("doc", "t1", "teasers")
+    assert data["teasers"]["reviewed"] and auto_films.step(_channel(overseen=True)) and started == ["teasers"]
+    assert "Checkpoint 3: the teasers" in open("docs/overseer.md", encoding="utf-8").read()

@@ -96,9 +96,14 @@
         Makes its own films
         <button type="button" class="info-dot" data-tooltip="Each stage started and approved for you; the finished film waits for your look. ≈ $3–6 a film.">?</button>
       </label>
-      <label class="field-row"><span class="field-label">Films waiting for a look, at most</span>
-        <input type="number" name="documentary_ahead" min="1" max="5" class="narrow-number"
+      <label class="field-row"><span class="field-label">Films made at once</span>
+        <input type="number" name="documentary_parallel" min="1" max="6" class="narrow-number"
+               value="{{ channel.documentary.parallel }}">
+      </label>
+      <label class="field-row"><span class="field-label">Finished films banked, at most</span>
+        <input type="number" name="documentary_ahead" min="1" max="8" class="narrow-number"
                value="{{ channel.documentary.ahead }}">
+        <button type="button" class="info-dot" data-tooltip="Made and not yet out: waiting for a look or queued">?</button>
       </label>
     </fieldset>
 

@@ -16,7 +16,9 @@ the API.
     python -m core.overseer edit <channel> <id> <scene> --narration "..."
     python -m core.overseer board <channel> <id>
     python -m core.overseer redraw <channel> <id> 4,17 --note "..."
-    python -m core.overseer approve <channel> <id> <script|stills>
+    python -m core.overseer teasers <channel> <id>
+    python -m core.overseer edit-teaser <channel> <id> <teaser> <line> --narration "..."
+    python -m core.overseer approve <channel> <id> <script|stills|teasers>
     python -m core.overseer note <channel> <id> "what you did and why"
 
 How to review is in docs/overseer.md. Every change is recorded in the
@@ -50,9 +52,10 @@ def status() -> list:
     for key in overseen():
         for data in production.all_for(key):
             stages = {s: production.state(data, s) for s in production.STAGES}
-            if stages["video"] in ("ready", "approved") or stages["pitch"] == "todo":
+            teasers_due = stages["teasers"] == "ready" and not (data.get("teasers") or {}).get("reviewed")
+            if (stages["video"] in ("ready", "approved") and not teasers_due) or stages["pitch"] == "todo":
                 continue
-            waiting = [s for s in ("script", "stills") if stages[s] == "ready"]
+            waiting = [s for s in ("script", "stills") if stages[s] == "ready"] + (["teasers"] if teasers_due else [])
             out.append({"channel": key, "id": data["subtopic_id"], "title": data.get("title", ""),
                         "stages": stages, "waiting": waiting,
                         "spent": film_budget.spent(key, data["subtopic_id"]),
@@ -180,9 +183,47 @@ def redraw(key: str, sid: str, scenes: list, note: str = "") -> dict:
     return {"redrawn": scenes}
 
 
+def teaser_sheet(key: str, sid: str) -> str:
+    """The teasers' scripts as a reviewer reads them, each line numbered,
+    with the picture it's shown over (decision 111)."""
+    data = production.load(key, sid)
+    scenes = (data.get("script") or {}).get("scenes") or []
+    lines = [f"TEASERS for {key}/{sid}: {data.get('title', '')}",
+             "Read them against the film's narration (python -m core.overseer script ...).", ""]
+    for n, t in enumerate((data.get("teasers") or {}).get("scripts") or []):
+        lines.append(f"== Teaser {n}: {t.get('title', '')}")
+        lines.append(f"   description: {t.get('description', '')}")
+        for k, s in enumerate(t.get("scenes") or []):
+            pic = s.get("picture")
+            shown = f" (picture {pic}: {scenes[pic].get('direction', '')[:100]})" if isinstance(pic, int) and pic < len(scenes) else ""
+            lines.append(f"   [{k}] {s.get('narration', '')}{shown}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def edit_teaser(key: str, sid: str, teaser: int, line: int, narration: str = None, title: str = None) -> None:
+    def change(d):
+        t = d["teasers"]["scripts"][teaser]
+        if title is not None:
+            t["title"] = " ".join(title.split())
+        if narration is not None:
+            t["scenes"][line]["narration"] = " ".join(narration.split())
+        d.setdefault("history", []).append({"at": _now(), "stage": "teasers", "did": f"edited teaser {teaser}",
+                                            "by": "overseer"})
+    production.update(key, sid, change)
+
+
 def approve(key: str, sid: str, stage: str) -> None:
+    if stage == "teasers":
+        # Their scripts read: the autopilot makes them now (decision 111).
+        def change(d):
+            d.setdefault("teasers", {})["reviewed"] = True
+            d.setdefault("history", []).append({"at": _now(), "stage": "teasers", "did": "approved",
+                                                "by": "overseer"})
+        production.update(key, sid, change)
+        return
     if stage not in ("script", "stills"):
-        raise SystemExit("The overseer approves only the script and the storyboard.")
+        raise SystemExit("The overseer approves only the script, the storyboard and the teasers.")
     production.approve(key, sid, stage, by="overseer")
 
 
@@ -195,7 +236,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m core.overseer")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("status")
-    for name in ("script", "board"):
+    for name in ("script", "board", "teasers"):
         p = sub.add_parser(name)
         p.add_argument("channel")
         p.add_argument("id")
@@ -206,6 +247,13 @@ def main(argv=None) -> int:
     for flag in ("--narration", "--direction", "--card-value", "--card-items", "--card-heading",
                  "--card-caption", "--description", "--thumb-words"):
         p.add_argument(flag)
+    p = sub.add_parser("edit-teaser")
+    p.add_argument("channel")
+    p.add_argument("id")
+    p.add_argument("teaser", type=int)
+    p.add_argument("line", type=int)
+    p.add_argument("--narration")
+    p.add_argument("--title")
     p = sub.add_parser("redraw")
     p.add_argument("channel")
     p.add_argument("id")
@@ -233,6 +281,12 @@ def main(argv=None) -> int:
     elif args.command == "edit":
         edit(args.channel, args.id, args.scene, args.narration, args.direction, args.card_value,
              args.card_items, args.description, args.card_heading, args.card_caption, args.thumb_words)
+        print("edited")
+    elif args.command == "teasers":
+        sys.stdout.reconfigure(encoding="utf-8")
+        print(teaser_sheet(args.channel, args.id))
+    elif args.command == "edit-teaser":
+        edit_teaser(args.channel, args.id, args.teaser, args.line, args.narration, args.title)
         print("edited")
     elif args.command == "board":
         for path in board(args.channel, args.id):
