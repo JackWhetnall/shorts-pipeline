@@ -221,6 +221,31 @@ def test_a_storyboard_resumed_after_a_restart_checks_and_redraws_nothing_twice(w
     assert all(not fix for _, fix in drawn) and (1, True) not in drawn     # nor the finished round redrawn
 
 
+def test_a_small_round_is_drawn_now_even_in_batch_mode(world, monkeypatch, tmp_path):
+    # Decision 109: a one-picture redraw batch sat ten hours with nothing drawn.
+    channel, row = world
+    from pipeline import llm
+    from pipeline.animation import bible, images, keyframes
+    monkeypatch.setattr(bible, "reference", lambda channel, look, film=False: tmp_path / "style.png")
+    monkeypatch.setattr(stills, "look_for", lambda channel, frame="wide": {"identity": "abc", "frame": frame,
+                                                                        "image": "flat shapes"})
+    monkeypatch.setattr(library, "sheet", lambda channel, look, member, ref: tmp_path / f"{member['name']}.png")
+    monkeypatch.setattr(images, "draw_batch", lambda jobs: (_ for _ in ()).throw(AssertionError("batched")))
+    monkeypatch.setattr(stills, "_combined", lambda channel: False)
+    drawn = []
+
+    def fake_draw(shot, board, look, ref, sheets, folder, model, fix=None, combined=False):
+        path = Path(folder) / f"kf_{shot['index']:02d}.jpg"
+        path.write_bytes(b"x")
+        drawn.append(shot["index"])
+        return path
+    monkeypatch.setattr(keyframes, "draw", fake_draw)
+    scenes = [_scene(1, "a", ["Mount Vernon"]), _scene(1, "b", ["Mount Vernon"])]
+    with llm.batched():
+        out = stills.draw(channel, OUTLINE, scenes, tmp_path / "stills", check=False)
+    assert set(out) == {0, 1} and sorted(drawn) == [0, 1]
+
+
 # --- running a stage ----------------------------------------------------------------
 
 def test_a_stage_runs_marks_itself_ready_and_a_failure_says_why(world, monkeypatch):
