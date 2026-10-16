@@ -34,59 +34,59 @@ from pipeline.plan import Segment
 log = get_logger(__name__)
 
 MAX_TOKENS = 12000
-EFFORT = "medium"
+EFFORT = "high"                 # a few cents more for writing that reads cleanly (decision 110)
 WORDS = (85, 130)               # 35-55 seconds spoken
 
 SYSTEM = """
-You write teaser shorts for a documentary on this channel: vertical videos of 35 to 55
-seconds, shown in the Shorts feed to people who have never heard of the film. Each teaser's
-job is to make them go and watch the full documentary. It succeeds only if it does all of
-these, each in its own way:
+You write teaser shorts for a film on this channel: vertical videos of 35 to 55 seconds,
+shown in the Shorts feed to people who have never heard of the film. A teaser's job is to make
+them want to watch the full video. It does four things:
 
-- Hook in the first line. Within two seconds the viewer must have a reason to stay: a
-  claim that sounds wrong but is true, a question they can't answer, a number that doesn't
-  fit, a thing everyone believes that isn't so. Never a line that only sets the scene.
-- Make the premise plain. By the end the viewer knows what question the full documentary
-  answers, and why it's worth answering.
-- Pay off something real. Give one genuinely interesting piece of the documentary, told
-  well: a fact, a mechanism, a reversal, so the short is worth its time on its own.
-- Leave them wanting the rest. Stop short of the documentary's main answer (its
-  through-line's payoff) and make it clear there is more, and where it is. Ways to do that
-  include an open question left hanging, a reveal stopped at its turn, "and that's the easy
-  part", naming what the full film goes into next, or turning the viewer's assumption back on
-  them.
-- End on an invitation to the full video, as its own last line, under fifteen words, casual
-  and punchy, the way a friend would say it. The viewer has no idea a longer video exists, so
-  the line has to tell them there is one, and where: on our channel, or our page. It takes one
-  of two shapes:
-  1. it sends them there: "Check out our page for the full explanation." "Go watch the full
-     video on our channel, it gets weirder." "The whole story's up on our channel.";
-  2. two or three short questions the film answers, then where: "Why is the sea salty? Where
-     does the salt go? This and more, explained on our channel."
-  Never assume they know about it: no bare "full video's got it", "watch the full video" or
-  "answered in the full video" with nowhere to go. Never a flat statement that something "is
-  in the full video", and nothing tepid or formal ("that's exactly where the full video goes
-  next", "the full video walks through how it works"). Word it freshly every time: never the
-  same line twice, here or in the recent teasers below. Never "the documentary". Never "like
-  and subscribe", "link in bio" or "smash that button".
+1. It hooks in the first line: a surprising true fact, or a question the viewer can't answer
+   but wants to. Never a line that only sets the scene.
+2. It makes the film's question plain, so the viewer knows what the full video is about.
+3. It gives one real, interesting piece of the film, explained clearly, so the short is worth
+   watching on its own.
+4. It stops before the film's main answer and ends by telling the viewer where to find it.
 
-These are examples, not a template. Make the teasers differ from each other in which part of
-the story they take, how they hook and how they end, and don't repeat the shapes this
-channel's recent teasers used (listed below, when there are any).
+How it sounds: like the film's own narrator. Clear, warm, curious, plain words, each sentence
+making complete literal sense to someone who hasn't seen the film. Clarity beats cleverness.
+No slang, no hype words ("wild", "insane", "crazy", "mind-blowing", "here's a weird one"),
+no forced casualness, no metaphor the film doesn't use, and nothing that only sounds
+impressive. If a line could confuse a first-time viewer, write it plainer.
 
-Facts: the narration below has been fact-checked and is right; where the outline or angle
-says more (a "complete" where the narration says "near-complete"), the narration wins. Claim
+Facts: the narration below has been fact-checked. Use its figures and comparisons exactly as
+it states them, and add no comparisons of your own: a new comparison is where teasers go
+wrong ("about the length of a half marathon" for twelve kilometres; a half marathon is
+twenty one). Restating one of the narration's comparisons in new words garbles it too, so
+keep its shape (Everest dropped into the deepest trench sits more than two kilometres under
+water). Where the outline or angle says more than the narration, the narration wins. Claim
 nothing the narration doesn't.
 
-Words: new. Never copy a sentence from the documentary's narration. Narration is read by a
-voice engine exactly as written: no dashes, no stage directions, numbers said as words.
+The last line tells the viewer, simply, that there's a full video and where it is, as an
+invitation. Shapes that work:
+- "Check out our channel for the full explanation."
+- "Find out in the full video on our channel."
+- Two or three short questions the film answers, then: "This and more, explained on our
+  channel."
+Keep it one plain sentence (or short questions plus one), never slangy, never "the
+documentary", never the same wording as another teaser here or the recent ones below, and
+never "like and subscribe" or "link in bio".
 
-Pictures: the documentary's own. Each teaser has 3 to 6 scenes. Each scene is `narration`
-(spoken over it), `picture` (the number of the documentary picture shown meanwhile, from the
-list: one that shows what the line says, each used at most once in a teaser) and `camera`.
+The teasers must differ from each other in which part of the film they take and how they
+hook.
 
-`title`: a short, honest title for the short. `description`: one or two sentences that pose
-the question without answering it.
+Words: write each sentence fresh rather than copying the narration's sentences (copied
+sentences read as reused content), but keep its facts and comparisons as they are. Narration
+is read by a voice engine exactly as written: no dashes, no stage directions, numbers said
+as words.
+
+Pictures: the film's own. Each teaser has 3 to 6 scenes. Each scene is `narration` (spoken
+over it), `picture` (the number of the film's picture shown meanwhile, from the list: one that
+shows what the line says, each used at most once in a teaser) and `camera`.
+
+`title`: a short, honest title for the short (nothing the film doesn't support).
+`description`: one or two sentences that pose the question without answering it.
 """.strip()
 
 
@@ -201,27 +201,54 @@ def _from_the_film(data: dict, scenes: list, production_folder: Path, folder: Pa
             for i, (src, (left, right)) in enumerate(zip(sources, found))}
 
 
-def checked(teasers_: list) -> list:
-    """The teasers' lines through the same fact check as the film's
-    (decision 106): the first ocean teaser claimed "a complete map of
-    Mars", which the film had corrected. One call for all of them; a
-    failed check keeps them as written (logged)."""
-    from pipeline.documentary import editor
-    flat = [s for t in teasers_ for s in t["scenes"]]
-    if not flat:
+EDIT = """
+You edit teaser shorts for a film, against the film's own narration (below), before they're
+voiced. For every teaser line, fix it if:
+- it states a fact, figure or comparison the narration doesn't, or states one differently
+  (a comparison reworded until it's wrong or garbled counts);
+- it wouldn't make complete literal sense to someone who hasn't seen the film, or reads
+  clumsily aloud;
+- it uses slang, hype ("wild", "insane", "crazy") or a strained metaphor.
+Check every figure and every comparison ("deeper than", "the size of", "like a...") against
+the narration's own words: a comparison the narration doesn't make is cut, never swapped for
+another one, and one it does make is put back the way the narration says it. A fix keeps the
+line's job, in the same clear, warm voice, using only what the narration says; a line can get
+shorter. Most lines are fine: leave them out. The last line of each teaser invites the
+viewer to the full video on the channel; leave it unless it breaks the rules above. Give each
+fix as the teaser's number (from 0), the line's number in it (from 0), the problem in a few
+words and the rewritten line, with numbers said as words and no dashes.
+""".strip()
+
+
+def checked(teasers_: list, script: dict = None) -> list:
+    """The teasers edited against the film's narration (decision 110): the
+    first fact check saw only the teasers' own lines, so a comparison the
+    writer invented ("about the length of a half marathon" for twelve
+    kilometres) or garbled went through. One call for all of them; a
+    failed edit keeps them as written (logged)."""
+    if not teasers_:
         return teasers_
+    narration = "\n".join(s["narration"] for s in (script or {}).get("scenes") or [])
+    listed = "\n\n".join(f"Teaser {n}:\n" + "\n".join(f"{k}. {s['narration']}" for k, s in enumerate(t["scenes"]))
+                           for n, t in enumerate(teasers_))
+    schema = {"type": "object", "properties": {"fixes": {"type": "array", "items": {
+        "type": "object", "properties": {"teaser": {"type": "integer"}, "line": {"type": "integer"},
+                                         "problem": {"type": "string"}, "narration": {"type": "string"}},
+        "required": ["teaser", "line", "problem", "narration"], "additionalProperties": False}}},
+        "required": ["fixes"], "additionalProperties": False}
     try:
-        fixed, notes = editor.fact_check({"scenes": flat})
+        data = call_json(EDIT, f"The film's narration:\n{narration or '(not given)'}\n\nThe teasers:\n{listed}",
+                         schema, operation="documentary_teaser_edit", max_tokens=12000, effort="high")
     except PipelineError as exc:
-        log.warning(f"  [teasers] couldn't fact-check the teasers ({exc}); kept as written")
+        log.warning(f"  [teasers] couldn't edit the teasers ({exc}); kept as written")
         return teasers_
-    out, n = [], 0
-    for t in teasers_:
-        count = len(t["scenes"])
-        out.append({**t, "scenes": fixed["scenes"][n:n + count]})
-        n += count
-    for note in notes:
-        log.info(f"  [teasers] fact check: {note['problem'][:160]}")
+    out = [{**t, "scenes": [dict(s) for s in t["scenes"]]} for t in teasers_]
+    for fix in data.get("fixes") or []:
+        n, k = fix.get("teaser"), fix.get("line")
+        text = " ".join(str(fix.get("narration") or "").split())
+        if isinstance(n, int) and isinstance(k, int) and 0 <= n < len(out) and 0 <= k < len(out[n]["scenes"]) and text:
+            out[n]["scenes"][k]["narration"] = text
+            log.info(f"  [teasers] edited teaser {n + 1} line {k + 1}: {str(fix.get('problem'))[:120]}")
     return out
 
 

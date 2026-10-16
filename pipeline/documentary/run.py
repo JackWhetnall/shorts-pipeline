@@ -266,8 +266,7 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
                       if d["subtopic_id"] != sid]
             scripts = teasers.write(channel, title, data["outline"], data["script"], note, angle,
                                     stills=data.get("stills"), recent=teasers.recent_lines(others))
-            if getattr(channel.documentary, "kind", "story") == "explainer":
-                scripts = teasers.checked(scripts)
+            scripts = teasers.checked(scripts, data["script"])    # against the film's narration (decision 110)
             production.update(key, sid, lambda d: production.made(d, "teasers", {"scripts": scripts, "videos": []}))
             return done
         paths = teasers.make(channel, data, folder)

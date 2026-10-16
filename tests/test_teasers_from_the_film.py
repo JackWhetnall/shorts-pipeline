@@ -46,12 +46,18 @@ def test_a_failed_look_shows_every_picture_whole(tmp_path, monkeypatch):
     assert vertical.focus(paths) == [(0.0, 1.0), (0.0, 1.0)]
 
 
-def test_teasers_are_fact_checked_together_and_split_back(monkeypatch):
-    from pipeline.documentary import editor, teasers
-    two = [{"title": "A", "scenes": [{"narration": "a complete map"}, {"narration": "x"}]},
+def test_teasers_are_edited_against_the_films_narration(monkeypatch):
+    from pipeline.documentary import teasers
+    seen = {}
+    two = [{"title": "A", "scenes": [{"narration": "About a half marathon down."}, {"narration": "x"}]},
            {"title": "B", "scenes": [{"narration": "y"}]}]
-    monkeypatch.setattr(editor, "fact_check", lambda script: (
-        {"scenes": [{"narration": "a near-complete map"}, {"narration": "x"}, {"narration": "y"}]},
-        [{"scene": 0, "problem": "overstated"}]))
-    out = teasers.checked(two)
-    assert out[0]["scenes"][0]["narration"] == "a near-complete map" and out[1]["scenes"] == [{"narration": "y"}]
+
+    def fake(system, user, schema, **kw):
+        seen["user"] = user
+        return {"fixes": [{"teaser": 0, "line": 0, "problem": "invented comparison",
+                           "narration": "Twelve kilometres down."},
+                          {"teaser": 5, "line": 0, "problem": "no such teaser", "narration": "z"}]}
+    monkeypatch.setattr(teasers, "call_json", fake)
+    out = teasers.checked(two, {"scenes": [{"narration": "The hole is twelve kilometres deep."}]})
+    assert out[0]["scenes"][0]["narration"] == "Twelve kilometres down." and out[1] == two[1]
+    assert "twelve kilometres deep" in seen["user"] and two[0]["scenes"][0]["narration"].startswith("About")
