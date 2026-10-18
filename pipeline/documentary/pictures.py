@@ -61,7 +61,9 @@ ONE_OFF = "one-off"
 # At 25% and four in a row, a plan turned 29 scenes into generic one-offs
 # (a hand turning a screw, a straining cable); the looks' count does the
 # work against sameness, so balance only keeps one place from dominating.
-BALANCE = {"explainer": (0.35, 6), "story": (0.45, 8)}
+# Decision 113: six in a row pushed a cabin sequence out to an unrelated
+# cutaway; a run is now longer, and broken by other views of the place.
+BALANCE = {"explainer": (0.35, 9), "story": (0.45, 10)}
 # Pictures of their own one look (the same subject in the same place, any
 # framing) may have;
 # the rest of that group show one of them again or become something else.
@@ -112,6 +114,14 @@ through every scene's picture together and fix what a viewer would notice.
 
 3. Balance: {balance}
 
+4. Every picture shows what its line is about. While the narration stays in a place (a run of
+   lines inside the spacecraft cabin), its pictures stay there too; cutting away to a different
+   place mid-thought (the cabin, then a climbing harness in a gear shed, then the cabin) is a
+   fault the viewer feels, even if the cutaway is a fair metaphor. Break a long run in one place
+   with another view of it (a close-up of a hand or a detail there, a different angle, the same
+   place in different light), not by leaving it. A cutaway to a one-off belongs where the
+   narration itself turns to an idea the place can't show, and the cutaway must show that idea.
+
 Most scenes need nothing; list only the ones that do, at most {most} in this answer, the most
 important first (whatever is left is sent back to you). A redirect gives the new `direction` (one
 frozen, drawable moment, as concrete and careful as the others, with no text, charts or labels
@@ -123,8 +133,10 @@ says in a few words what was wrong.
 
 BALANCE_TEXT = ("no setting carries more than {share:.0%} of the film's pictures (shown-again ones "
                 "count), and no more than {run} pictures in a row are in one setting. Where a setting "
-                "is over, redirect some of its pictures, the ones whose narration is about an idea "
-                "rather than that place, to one-off pictures of the idea.")
+                "is over, redirect some of its pictures, only the ones whose narration is about an idea "
+                "rather than that place, to one-off pictures of that idea; a long run whose lines are all "
+                "about the place gets other views of the place instead (rule 4), never a cutaway that "
+                "doesn't show what's said.")
 
 
 def schema() -> dict:

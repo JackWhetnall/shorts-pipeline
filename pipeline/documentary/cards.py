@@ -57,8 +57,11 @@ def _number(card: dict, duration: float) -> tuple:
     if match and match.group(2).replace(",", "").replace(".", "").isdigit():
         number = float(match.group(2).replace(",", ""))
         decimals = len(match.group(2).split(".")[1]) if "." in match.group(2) else 0
+        # Counted as written: a year ("1913") or a number written without a
+        # comma keeps none while it counts (decision 113: "1,913").
+        grouping = " data-grouping='0'" if "," not in match.group(2) and number >= 1000 else ""
         counted = (f" data-count-to='{number}' data-count-from='0' data-decimals='{decimals}' "
-                   f"data-prefix='{esc(match.group(1))}' data-suffix='{esc(match.group(3))}'")
+                   f"data-prefix='{esc(match.group(1))}' data-suffix='{esc(match.group(3))}'{grouping}")
     body = (f"<div class='kicker' {_in(0.2)}>{esc(card.get('heading', ''))}</div>"
             f"<div class='hero big a1 accent-text' data-fit='120' {_in(0.45, 'pop', 0.7)}{counted}>"
             # The final value from the start, so the fit is measured on it, not
@@ -285,7 +288,22 @@ def build(card: dict, style: dict, duration: float, backdrop: Path = None) -> st
             f"<div class='bg-vignette'></div></div>"
             + (body if kind == "map" else f"<div class='stage'>{body}</div>")
             + f"<script>window.TEMPLATE_DURATION = {max(1.0, duration):.3f};</script>"
-            f"<script>{page.RUNTIME.read_text(encoding='utf-8')}</script></body></html>")
+            f"<script>{page.RUNTIME.read_text(encoding='utf-8')}</script>{UNGROUPED}</body></html>")
+
+
+# A number written without a comma ("1913") counts up without one
+# (decision 113: a year showed as "1,913"). Done here, after the shared
+# runtime has drawn each frame (its __seek exists once __start has run),
+# rather than in the runtime, which the frozen channels' pages carry byte
+# for byte.
+UNGROUPED = ("<script>(function () {"
+             " const strip = () => document.querySelectorAll(\"[data-grouping='0']\")"
+             ".forEach(el => { el.textContent = el.textContent.replace(/,/g, ''); });"
+             " const start = window.__start; if (!start) return;"
+             " window.__start = function () { const made = start.apply(this, arguments);"
+             " const seek = window.__seek;"
+             " window.__seek = function (t) { const out = seek(t); strip(); return out; };"
+             " strip(); return made; }; })();</script>")
 
 
 def style_for(channel) -> dict:

@@ -54,6 +54,16 @@ TAGGED_MODELS = ("eleven_v3", "eleven_v4", "eleven_v4_turbo")
 _DELIVERY_TAG = re.compile(r"\[[a-z][a-z \-']{1,30}\]\s*", re.IGNORECASE)
 
 
+# Cues read as softer instead (decision 113): a whispered line here and
+# there read as creepy, not quiet.
+SOFTENED = re.compile(r"\[(whispers?|whispering|whispered|in a whisper)\]", re.IGNORECASE)
+
+
+def soften(text: str) -> str:
+    """Whisper cues made [softly]."""
+    return SOFTENED.sub("[softly]", text or "")
+
+
 def strip_tags(text: str) -> str:
     """The words without their delivery cues."""
     return " ".join(_DELIVERY_TAG.sub("", text or "").split())
@@ -507,6 +517,8 @@ def synthesize_segment(text: str, voice_id: str, out_path: str, speed: float = 1
     model = model or ELEVENLABS_MODEL
     if model not in TAGGED_MODELS:
         text, previous_text, next_text = strip_tags(text), strip_tags(previous_text), strip_tags(next_text)
+    else:
+        text, previous_text, next_text = soften(text), soften(previous_text), soften(next_text)
     tts_text = speakable(text, say_as)
     # What Whisper should hear: the words as written, not the respellings
     # (or the delivery cues, which aren't said).

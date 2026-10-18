@@ -104,6 +104,15 @@ editor cuts several shots from it), so:
   For any other medium: kind "none", the rest empty and 0. The line
   spoken over a card is short (under about eighteen words): a card is
   one held frame, and a long line holds it past ten seconds.
+  What earns a card (decision 113): a number that is striking on its own
+  (big, tiny, precise, surprising), with its unit; or a versus of two
+  measured values of the same kind, where the gap is the point (Moon
+  "384,000 km" against deepest hole "12 km"; predicted "100°C" against
+  measured "180°C"). Never a count of 0 or 1, never something that isn't a
+  number on a number card ("by the mile"), never a versus of two
+  descriptions ("built and worked smoothly" against the same), never the
+  same figure twice in a film, and never a figure the title contradicts.
+  A year is written as it's said ("1913"), never "1,913".
 
 Every picture is one the viewer hasn't seen yet: never the same subject
 from the same viewpoint as an earlier picture (they're listed), even with
@@ -113,10 +122,12 @@ vary the framing and the light.
 The film's first scene speaks the chosen angle's first line (tightened if
 it needs to be) over the most striking picture in the film, and the
 opening chapter raises the open loops. Its last scene lands the promise,
-and its last line is the film's ending: short (under fifteen words),
-final when spoken, often a callback to the opening or the title; never a
-question, a summary, a moral or "so next time". Nothing follows it but
-the last picture, held.
+and its last line is the film's ending: it closes the film by carrying
+its answer, plainly enough to make sense on its own, often tied back to
+the viewer's own life, the title or the opening (decision 113); under
+twenty five words, final when spoken; never a cryptic image, an
+instruction without its why, a question or a moral. Nothing follows it
+but the last picture, held.
 
 {shape}
 
@@ -136,7 +147,7 @@ Write for the ear and for retention:
   more adjectives.
 - Vary the music of it: a long sentence that rolls, then a short one.
   Then a fragment. Questions the viewer would ask. Real dynamics, from
-  a whisper to urgency, so a voice has something to perform.
+  quiet to urgent, so a voice has something to perform.
 
 Narration is read by a voice engine exactly as written: no dashes, no
 stage directions in it, numbers and dates written the way they're said.
@@ -205,9 +216,9 @@ every other scene and never quotes a line a character has just said.
 
 DELIVERY = """
 The voice reads delivery cues. A line may begin with one cue in square
-brackets when it changes how the line is said: [whispers], [softly],
+brackets when it changes how the line is said: [softly], [quietly],
 [tense], [urgent], [warm], [wry], [sadly], [shocked], [sighs], [laughs
-softly], [shouting]. Use them where a good narrator would change gear,
+softly], [shouting]. Never a whisper: it reads as creepy (decision 113). Use them where a good narrator would change gear,
 about one scene in four, never two in a row, never anything but these.
 """.strip()
 

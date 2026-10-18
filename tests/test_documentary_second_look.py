@@ -76,10 +76,12 @@ def engine(monkeypatch):
 
 
 def test_a_tagged_model_gets_its_cues_and_others_never_do(engine, tmp_path):
-    tts.synthesize_segment("[whispers] Get up.", "v1", str(tmp_path / "a.mp3"), model="eleven_v4_turbo")
-    tts.synthesize_segment("[whispers] Get up.", "v1", str(tmp_path / "b.mp3"))
-    assert engine[0]["model_id"] == "eleven_v4_turbo" and engine[0]["text"].startswith("[whispers]")
+    tts.synthesize_segment("[tense] Get up.", "v1", str(tmp_path / "a.mp3"), model="eleven_v4_turbo")
+    tts.synthesize_segment("[tense] Get up.", "v1", str(tmp_path / "b.mp3"))
+    tts.synthesize_segment("[whispers] Get up.", "v1", str(tmp_path / "c.mp3"), model="eleven_v4_turbo")
+    assert engine[0]["model_id"] == "eleven_v4_turbo" and engine[0]["text"].startswith("[tense]")
     assert engine[1]["model_id"] == tts.ELEVENLABS_MODEL and engine[1]["text"] == "Get up."
+    assert engine[2]["text"].startswith("[softly]")                   # a whisper read as soft (decision 113)
 
 
 def test_the_shorts_voice_is_cached_exactly_as_before():

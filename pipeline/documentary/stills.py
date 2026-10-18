@@ -46,7 +46,10 @@ Each picture below is a frame from a cartoon. Look closely at each one for these
 - a face on something that isn't a character: look at every tool, machine, rock and planet in
   the picture; cartoon eyes or a smiling mouth drawn on one is a fault (round studs or bolts aren't);
 - the same character drawn twice in one picture when the description names them once;
-- several panels, a grid or a sheet of small studies instead of one single picture.
+- several panels, a grid or a sheet of small studies instead of one single picture;
+- something arranged in a way that's plainly wrong in real life: seats on a plane facing the
+  windows instead of in forward rows, a clock with its numbers out of order, a car driving on a
+  wall, a tool held by the wrong end (decision 113).
 Anything else is fine: don't judge style, colour or composition. Most pictures have no fault;
 `ok` is false only for a fault you can actually see, said in one short sentence.
 """.strip()

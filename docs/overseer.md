@@ -51,11 +51,20 @@ faults:
    "[chapter 3]".
 5. **The same point made again in new words**, where it adds nothing.
    One callback per chapter to the central question is fine.
-6. **The opening proves the title; the last line is an ending.** The
-   last line should be short and final: no question, no summary, no
-   moral.
-7. **Every word on a card agrees with the corrected script**: heading,
-   value, caption and items. A number card holds only a number.
+6. **The opening proves the title; the last line closes the film.** The
+   last line carries the film's answer, plainly enough to make sense on
+   its own: "Next time you see a Velcro shoe, remember it all started
+   with a burr on a dog." Not a cryptic image ("Look at your shoe. A weed
+   is still holding on."), not an instruction without its why ("Order
+   the tomato juice."), no question, no moral.
+7. **Every card earns its place** (decision 113). A number card holds a
+   striking figure with its unit, never a 0 or a 1 that states the
+   obvious ("Times it let go: 0"), never a non-number ("by the mile"). A
+   versus compares two measured values of the same kind ("Moon 384,000
+   km" against "Deepest hole 12 km"), never two descriptions. No figure
+   appears on two cards. Years have no comma ("1913"). Every word on a
+   card agrees with the corrected script, and the title and thumbnail
+   words agree with the cards.
 8. **The description and the thumbnail words agree with the corrected
    script.** The hook and promise are planning notes, never shown or
    spoken: leave them.
@@ -98,7 +107,10 @@ image files). Redraw only real faults:
 - panels, grids or a sheet of studies instead of one picture;
 - text or gibberish writing;
 - extra limbs, a face on an object;
-- a picture that plainly doesn't show what its line is about;
+- a picture that plainly doesn't show what its line is about, or a cut
+  away from a place while the narration is still there (the spacecraft
+  cabin, then a climbing harness, then the cabin again);
+- something plainly wrong in real life (plane seats facing the windows);
 - the same picture drawn again where it shouldn't be.
 
 Don't redraw for taste, small background figures or slight style drift.

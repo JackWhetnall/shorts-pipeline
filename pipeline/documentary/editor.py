@@ -220,7 +220,10 @@ any corrected line, no longer says is a fault too, and so is a caption or headin
 
 Then read the YouTube description the same way, against the script as you've corrected it: a
 number or claim the script no longer makes, or a stock phrase ("journey", "it turns out",
-"delve"), is a fault. Give it rewritten in `description`, or "" if it's fine.
+"delve"), is a fault. Give it rewritten in `description`, or "" if it's fine. Read the title and
+thumbnail words too, when given: one that states a figure or claim the corrected script
+contradicts goes in `title` (the title rewritten, as short and as gripping) or `thumbnail_words`
+(two to four words), each "" if it's fine.
 """.strip()
 
 
@@ -231,8 +234,9 @@ def _facts_schema() -> dict:
         "required": ["scene", "problem", "narration", "card", "card_heading", "card_caption"],
         "additionalProperties": False}
     return {"type": "object", "properties": {"fixes": {"type": "array", "items": row},
-                                             "description": {"type": "string"}},
-            "required": ["fixes", "description"], "additionalProperties": False}
+                                             "description": {"type": "string"},
+                                             "title": {"type": "string"}, "thumbnail_words": {"type": "string"}},
+            "required": ["fixes", "description", "title", "thumbnail_words"], "additionalProperties": False}
 
 
 def _card_text(card: dict) -> str:
@@ -247,7 +251,119 @@ def _card_text(card: dict) -> str:
     return ", ".join(b for b in bits if b)
 
 
-def fact_check(script: dict) -> tuple:
+CARDS = """
+You review a film's animated cards before anything is drawn. A card is one held frame over the
+picture before it, and it has to hit harder seen than heard. Each card is listed with the line
+spoken over it and the lines either side, and the film's title and thumbnail words are given.
+
+A card earns its place only as one of these:
+- number: a figure that is striking on its own (big, tiny, precise or surprising), with its
+  unit, that the line says;
+- versus: two parallel values of the same thing, in the same unit, where the difference is the
+  point: measured
+  ("Moon | 384,000 km" against "Deepest hole | 12 km"; "Predicted | 100°C" against "Measured |
+  180°C") or a clean either way ("North of the equator | clockwise" against "South of the
+  equator | counterclockwise");
+- timeline: two to five dated events the narration gives, in order;
+- list: three or four short, parallel items the narration around it names;
+- map or quote, as they are.
+
+Faults, each fixed or the card turned into a picture:
+- a count of 0 or 1, or any number that only states the obvious ("Times it let go: 0",
+  "What decided it: 1 hemisphere", "Altitude at tasting: 0 m");
+- something that isn't a number on a number card ("by the mile");
+- a versus of two vague descriptions, the same thing twice, or a thing against its absence
+  ("built and worked smoothly" against the same; "rich, balanced" against "flat, muted"; "red
+  octagon" against "no convention");
+- the same figure as another card (keep the better one);
+- a figure the narration around it doesn't say;
+- a figure the title or thumbnail words contradict: say so in `problem`, and leave the figure as
+  the narration says it. The narration is the authority; never change a card to match the
+  title (the title gets corrected elsewhere);
+- clunky, vague or cryptic wording (the heading is a few plain words; the caption one short
+  line saying what the number is of);
+- a year written with a thousands separator ("1,913").
+
+Prefer fixing to removing: when the lines around a weak card hold a striking figure or a real
+comparison, make that the card, giving its `kind`, `heading`, `value`, `caption` and `items`
+(versus items "label|value", timeline items "when|what"), all matching what's said. Only when no
+good card is there, set `picture` true: the scene shows its picture instead. A good card that
+breaks no rule is left alone. List only the cards that change, with the scene number and the
+problem in a few words.
+""".strip()
+
+
+def _cards_schema() -> dict:
+    fix = {"type": "object", "properties": {
+        "scene": {"type": "integer"}, "problem": {"type": "string"}, "picture": {"type": "boolean"},
+        "kind": {"type": "string", "enum": ["number", "versus", "timeline", "list", "map", "quote"]},
+        "heading": {"type": "string"}, "value": {"type": "string"}, "caption": {"type": "string"},
+        "items": {"type": "array", "items": {"type": "string"}}},
+        "required": ["scene", "problem", "picture", "kind", "heading", "value", "caption", "items"],
+        "additionalProperties": False}
+    return {"type": "object", "properties": {"fixes": {"type": "array", "items": fix}},
+            "required": ["fixes"], "additionalProperties": False}
+
+
+def _figure(card: dict) -> str:
+    """A card's figure, normalised, for spotting the same one twice."""
+    value = (card or {}).get("value") or ""
+    return " ".join(value.lower().replace(",", "").split())
+
+
+def review_cards(script: dict, packaging: dict = None) -> tuple:
+    """(the script with its cards fixed or made pictures, [{scene, problem}])
+    (decision 113): cards that showed 0s and 1s, a versus of two
+    descriptions, "by the mile" as a number, and the same figure twice. One
+    call for all of a film's cards; then, whatever it said, a figure shown
+    twice keeps only its first card."""
+    from pipeline.documentary import script as scripts
+    scenes = [dict(s) for s in script["scenes"]]
+    cards = [i for i, s in enumerate(scenes) if s.get("medium") == "card" and s.get("card")]
+    notes = []
+    if cards:
+        listed = []
+        for i in cards:
+            before = scenes[i - 1]["narration"] if i > 0 else ""
+            after = scenes[i + 1]["narration"] if i + 1 < len(scenes) else ""
+            listed.append(f"Scene {i}: [card: {_card_text(scenes[i]['card'])}]\n  said over it: {scenes[i]['narration']}"
+                          f"\n  before: {before}\n  after: {after}")
+        packaged = ""
+        if packaging:
+            packaged = (f"The title: {packaging.get('title', '')}\n"
+                        f"The thumbnail words: {(packaging.get('thumbnail') or {}).get('words', '')}\n\n")
+        data = call_json(CARDS, packaged + "The cards:\n\n" + "\n\n".join(listed), _cards_schema(),
+                         operation="documentary_cards", max_tokens=8000, effort="medium")
+        for row in data.get("fixes") or []:
+            i = row.get("scene")
+            if i not in cards:
+                continue
+            problem = " ".join(str(row.get("problem") or "").split())
+            if row.get("picture"):
+                scenes[i] = {**scenes[i], "medium": "picture", "card": {}}
+            else:
+                card = scripts.clean_card({k: row.get(k) for k in ("kind", "heading", "value", "caption", "items")}
+                                          | {"lat": scenes[i]["card"].get("lat", 0),
+                                             "lon": scenes[i]["card"].get("lon", 0)})
+                if not card:
+                    continue
+                scenes[i] = {**scenes[i], "card": card}
+            notes.append({"scene": i, "problem": problem})
+    # Whatever the review said: one figure, one card.
+    seen = set()
+    for i, s in enumerate(scenes):
+        if s.get("medium") != "card" or not s.get("card"):
+            continue
+        figure = _figure(s["card"])
+        if figure and figure in seen:
+            scenes[i] = {**s, "medium": "picture", "card": {}}
+            notes.append({"scene": i, "problem": "the same figure as an earlier card"})
+        elif figure:
+            seen.add(figure)
+    return {**script, "scenes": scenes}, notes
+
+
+def fact_check(script: dict, packaging: dict = None) -> tuple:
     """(the script with wrong lines rewritten, [{scene, problem}]): one
     call over the whole narration, for explainers (decision 091). The first
     explainer needed nine lines fixed by hand: sixty times closer said as
@@ -256,6 +372,10 @@ def fact_check(script: dict) -> tuple:
     lines = [f"{i}. {s['narration']}" + (f"  [card: {_card_text(s.get('card'))}]" if s.get("card") else "")
              for i, s in enumerate(scenes)]
     described = f"\n\nThe YouTube description:\n{script['description']}" if script.get("description") else ""
+    if packaging:
+        # A title said "ten thousand hooks per inch" over cards saying 300 (decision 113).
+        described += (f"\n\nThe title it goes out with: {packaging.get('title', '')}"
+                      f"\nIts thumbnail words: {(packaging.get('thumbnail') or {}).get('words', '')}")
     data = call_json(FACTS, "The script:\n" + "\n".join(lines) + described, _facts_schema(),
                      operation="documentary_fact_check", max_tokens=8000, effort="medium")
     fixed, notes = [dict(s) for s in scenes], []
@@ -290,17 +410,34 @@ def fact_check(script: dict) -> tuple:
     if better and script.get("description"):
         out["description"] = better
         notes.append({"scene": -1, "problem": "the description"})
+    retitle = {k: " ".join(str(data.get(k) or "").split()) for k in ("title", "thumbnail_words")}
+    retitle = {k: v for k, v in retitle.items() if v}
+    if packaging and retitle:
+        out["packaging_fix"] = retitle
+        notes.append({"scene": -2, "problem": "the title or thumbnail words: " + "; ".join(retitle.values())})
     return out, notes
 
 
 FINAL = """
-You decide a documentary's last line, the one the viewer leaves with. After it, the last picture
-is held in silence and the film fades out. A strong last line is short (under fifteen words),
-sounds final when spoken aloud, and lands the film's idea in a concrete image, often a callback to
-the opening or the title. It is never a question, a summary, a moral, a call to action ("so next
-time...", "subscribe") or "and that's why". Judge the current last line honestly: if it's strong,
-keep it. If not, write the line that should end this film, following straight on from the line
-before it, in the channel's voice, adding no new fact.
+You decide a film's last line, the one the viewer leaves with. After it, the last picture is
+held in silence and the film fades out. The last line has to close the film: someone who has
+just watched it should hear in it the film's answer, the thing they now know, said plainly
+enough to make sense on its own and to stay with them. It can tie that answer back to the
+viewer's own life ("Next time you see a Velcro shoe, remember it all started with a burr on a
+dog."), or turn the title's question into its answer, or call back to the opening. Short (under
+twenty five words) and final when spoken aloud.
+
+First write `answer`: the film's answer to the question in its title, in one plain sentence,
+as the narration gives it. Then the test: does the last line say that answer, so that from this
+line alone someone who just watched would know it? An image
+or a metaphor can be part of the line, but the answer has to be said in plain words too. A last
+line fails when it doesn't carry the answer: a cryptic image that only makes sense if you
+squint ("Look at your shoe. A weed is still holding on." "Every clock you check is still,
+quietly, a shadow."), an instruction without the why ("Order the tomato juice."), a riddle, a
+question, a "subscribe", or a pat moral. Judge the current last line honestly against that:
+keep it if it closes the film. If not, write the line that should end this film, following on
+from the line before it, in the channel's voice. Its answer is the film's, as the narration
+gives it: name only causes and facts the narration names, nothing new.
 """.strip()
 
 
@@ -316,10 +453,10 @@ def final_line(channel, title: str, script: dict) -> tuple:
                          for k, s in list(enumerate(scenes))[-6:])
     user = (f"The channel's brief: {channel.style_prompt}\n\nThe film: {title}\n\nHow it opens: {opening}"
             f"\n\nHow it ends:\n{closing}")
-    schema = {"type": "object", "properties": {"keep": {"type": "boolean"}, "line": {"type": "string"},
-                                               "why": {"type": "string"}},
-              "required": ["keep", "line", "why"], "additionalProperties": False}
-    data = call_json(FINAL, user, schema, operation="documentary_last_line", max_tokens=3000, effort="low")
+    schema = {"type": "object", "properties": {"answer": {"type": "string"}, "keep": {"type": "boolean"},
+                                               "line": {"type": "string"}, "why": {"type": "string"}},
+              "required": ["answer", "keep", "line", "why"], "additionalProperties": False}
+    data = call_json(FINAL, user, schema, operation="documentary_last_line", max_tokens=6000, effort="medium")
     line = " ".join(str(data.get("line") or "").split())
     if data.get("keep") or not line or line.endswith("?"):
         return script, ""
@@ -375,7 +512,7 @@ def restatements(script: dict) -> tuple:
     return {**script, "scenes": fixed}, notes
 
 
-def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -> dict:
+def edit(channel, title: str, outline: dict, script: dict, angle: dict = None, packaging: dict = None) -> dict:
     """The script with its weakest chapters written again, and `edits`
     saying which and why. A critic that can't be reached leaves the
     script as it is (the checks still count)."""
@@ -416,10 +553,17 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -
         log.warning(f"  [documentary] repeated points weren't looked for ({exc})")
     if restated:
         log.info(f"  [documentary] {len(restated)} line(s) that repeated an earlier point rewritten")
+    cards = []
+    try:
+        script, cards = review_cards(script, packaging or angle)
+    except PipelineError as exc:
+        log.warning(f"  [documentary] the cards weren't reviewed ({exc}); kept as written")
+    for c in cards:
+        log.info(f"  [documentary] card in scene {c['scene'] + 1}: {c['problem'][:160]}")
     facts = []
     if film_kinds.of(channel) == "explainer":
         try:
-            script, facts = fact_check(script)
+            script, facts = fact_check(script, packaging or angle)
         except PipelineError as exc:
             log.warning(f"  [documentary] the fact check failed ({exc}); the script is unchecked")
         for f in facts:
@@ -442,6 +586,6 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None) -
     except PipelineError as exc:
         log.warning(f"  [documentary] the picture editor failed ({exc}); the rules alone applied")
         script = {**script, "scenes": pictures.validate(outline, script["scenes"])}
-    script = {**script, "edits": edits, "facts": facts, "ending": ending, "restated": restated,
+    script = {**script, "edits": edits, "facts": facts, "ending": ending, "restated": restated, "cards": cards,
               "review": {str(n): reviews[n]["score"] for n in reviews}}
     return script

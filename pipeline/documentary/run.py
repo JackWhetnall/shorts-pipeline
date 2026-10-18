@@ -110,8 +110,21 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
         else:
             made = script.write(channel, title, data["outline"], note, angle)
             # The editor's read, and the weakest chapters written again (decision 086).
-            made = editor.edit(channel, title, data["outline"], made, angle)
-        production.update(key, sid, lambda d: production.made(d, "script", made))
+            made = editor.edit(channel, title, data["outline"], made, angle, production.packaging(data))
+        fix = made.pop("packaging_fix", None)
+
+        def store(d):
+            production.made(d, "script", made)
+            if fix:
+                # A title or thumbnail the corrected script contradicts (decision 113).
+                angle_now = production.packaging(d)
+                if fix.get("title"):
+                    angle_now["title"] = fix["title"]
+                if fix.get("thumbnail_words"):
+                    angle_now.setdefault("thumbnail", {})["words"] = fix["thumbnail_words"]
+                d["history"].append({"at": production._now(), "stage": "pitch",
+                                     "did": f"title corrected by the fact check: {fix}"})
+        production.update(key, sid, store)
         return done
 
     if stage == "stills":
