@@ -1,5 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{{ title }} &mdash; {{ channel.channel_display_name }}<style>
+{% block title %}{{ title }} &mdash; {{ channel.channel_display_name }}
+{% endblock %}
+{% block content %}
+<style>
   .thumb-variants { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); margin: var(--sp-2) 0; }
   .thumb-variants figure { margin: 0; }
   .thumb-variants img { width: 100%; border-radius: var(--radius-sm); border: 2px solid var(--border); }
@@ -7,8 +10,6 @@
   .thumb-variants figcaption { font-size: .8rem; color: var(--text-dim); }
   .thumb-winner { display: flex; gap: var(--sp-2); align-items: center; }
 </style>
-{% endblock %}
-{% block content %}
 <a class="back-link" href="{{ url_for('gallery.channel_gallery', key=key) }}">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
   {{ channel.channel_display_name }} videos
@@ -59,6 +60,8 @@
 
     <div class="video-actions">
       {% if links.youtube_url %}<a class="btn btn-ghost btn-small" href="{{ links.youtube_url }}" target="_blank" rel="noopener">YouTube ↗</a>{% endif %}
+      {% if studio %}<a class="btn btn-ghost btn-small" href="{{ studio.url }}" target="_blank" rel="noopener"
+         data-tooltip="Related video: {{ studio.film }}">Link its film ↗</a>{% endif %}
       {% if links.tiktok_url %}<a class="btn btn-ghost btn-small" href="{{ links.tiktok_url }}" target="_blank" rel="noopener">TikTok ↗</a>{% endif %}
       {% if links.instagram_url %}<a class="btn btn-ghost btn-small" href="{{ links.instagram_url }}" target="_blank" rel="noopener">Instagram ↗</a>{% endif %}
       {% if not discarded %}
@@ -67,6 +70,32 @@
       <a class="btn-ghost btn-quiet btn-small" href="#discard-form" data-open="discard-form">Discard</a>
       {% endif %}
     </div>
+
+    {% if retention %}
+    <section class="card retention">
+      <div class="card-head"><h2>Where viewers left</h2>
+        <span class="meta">{{ retention.kept_30s }}% still there at 0:30 &middot; {{ retention.end }}% at the end</span></div>
+      <div class="ol-plot" data-chart='{{ retention.chart|tojson }}' data-label="Share of viewers still watching through the film"></div>
+      {% if retention.drops %}<ol class="retention-drops">{% for d in retention.drops %}
+        <li><b>{{ (d.at // 60)|int }}:{{ '%02d'|format((d.at % 60)|int) }}</b> &minus;{{ d.lost }}% &middot; {{ d.line }}</li>{% endfor %}</ol>{% endif %}
+    </section>
+    {% endif %}
+
+    {% if ab %}
+    <details class="card ab-options">
+      <summary class="summary-heading">A/B test options</summary>
+      <div class="ab-grid">
+        {% for name in ab.thumbs %}
+        <a href="{{ url_for('gallery.serve_ab', relpath=relpath, name=name) }}" download="{{ relpath.split('/')[-1][:-4] }}_{{ name }}">
+          <img src="{{ url_for('gallery.serve_ab', relpath=relpath, name=name) }}" alt="Thumbnail {{ loop.index }}" loading="lazy"></a>
+        {% endfor %}
+      </div>
+      <ol class="ab-titles">{% for t in ab.titles %}<li><span>{{ t }}</span>
+        <button type="button" class="btn-ghost btn-small" onclick="navigator.clipboard.writeText({{ t|tojson }}); this.textContent='Copied'">Copy</button></li>{% endfor %}</ol>
+      {% if ab.studio %}<a class="btn btn-ghost btn-small" href="{{ ab.studio }}" target="_blank" rel="noopener"
+         data-tooltip="Title or thumbnail box: A/B testing">A/B test in Studio ↗</a>{% endif %}
+    </details>
+    {% endif %}
 
     {% if discarded %}
     <div class="info-banner discarded-banner">
@@ -191,4 +220,5 @@
     if (box) box.open = true;
   }));
 </script>
+{% if retention %}<script src="{{ asset('charts.js') }}"></script>{% endif %}
 {% endblock %}

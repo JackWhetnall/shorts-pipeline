@@ -168,6 +168,8 @@ def migrate(old: str, new: str, output_moved: bool = True) -> list:
     attempt("publishing state", lambda: _rekey_json(publish_queue.STATE_PATH, old, new, problems,
                                                     "publishing state"))
     attempt("schedule", lambda: _rekey_json(paths.SCHEDULE_PATH, old, new, problems, "schedule"))
+    from core import playlists
+    attempt("playlists", lambda: _rekey_json(playlists.PLACED_PATH, old, new, problems, "playlists"))
     attempt("audience figures", lambda: _rekey_json(audience.STATUS_PATH, old, new, problems,
                                                     "audience figures"))
     attempt("cost log", lambda: _rewrite_lines(costs.COST_LOG_PATH, old, new, "channel_key"))

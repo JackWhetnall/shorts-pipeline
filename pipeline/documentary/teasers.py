@@ -63,15 +63,7 @@ keep its shape (Everest dropped into the deepest trench sits more than two kilom
 water). Where the outline or angle says more than the narration, the narration wins. Claim
 nothing the narration doesn't.
 
-The last line tells the viewer, simply, that there's a full video and where it is, as an
-invitation. Shapes that work:
-- "Check out our channel for the full explanation."
-- "Find out in the full video on our channel."
-- Two or three short questions the film answers, then: "This and more, explained on our
-  channel."
-Keep it one plain sentence (or short questions plus one), never slangy, never "the
-documentary", never the same wording as another teaser here or the recent ones below, and
-never "like and subscribe" or "link in bio".
+{ending}
 
 The teasers must differ from each other in which part of the film they take and how they
 hook.
@@ -88,6 +80,35 @@ shows what the line says, each used at most once in a teaser) and `camera`.
 `title`: a short, honest title for the short (nothing the film doesn't support).
 `description`: one or two sentences that pose the question without answering it.
 """.strip()
+
+
+ENDING_CHANNEL = """The last line tells the viewer, simply, that there's a full video and where it is, as an
+invitation. Shapes that work:
+- "Check out our channel for the full explanation."
+- "Find out in the full video on our channel."
+- Two or three short questions the film answers, then: "This and more, explained on our
+  channel."
+Keep it one plain sentence (or short questions plus one), never slangy, never "the
+documentary", never the same wording as another teaser here or the recent ones below, and
+never "like and subscribe" or "link in bio"."""
+
+# Decision 114: with the film linked as the Short's "Related video", the
+# invitation is to tap that link, the step YouTube says to name.
+ENDING_LINK = """The last line tells the viewer, simply, that the full video is one tap away, as an
+invitation: the film is linked on this Short. Shapes that work:
+- "Tap the link below for the full video."
+- "The full explanation is in the link below."
+- Two or three short questions the film answers, then: "Tap the link to find out."
+Keep it one plain sentence (or short questions plus one), never slangy, never "the
+documentary", never the same wording as another teaser here or the recent ones below, and
+never "like and subscribe" or "link in bio"."""
+
+
+def system(channel) -> str:
+    """The teaser brief, with the ending that suits how this channel's
+    teasers reach their film."""
+    linked = bool(getattr(getattr(channel, "documentary", None), "teasers_linked", False))
+    return SYSTEM.replace("{ending}", ENDING_LINK if linked else ENDING_CHANNEL)
 
 
 def schema() -> dict:
@@ -127,7 +148,7 @@ def write(channel, title: str, outline: dict, script: dict, note: str = "", angl
     user += f"Write {count} teasers, each {WORDS[0]}-{WORDS[1]} words of narration."
     if note:
         user += f"\n\nThe owner asks: {note}"
-    data = call_json([SystemBlock(SYSTEM, cacheable=True),
+    data = call_json([SystemBlock(system(channel), cacheable=True),
                       SystemBlock(f"The channel's brief for its writers:\n\n{channel.style_prompt}")],
                      user, schema(), operation="documentary_teasers", max_tokens=MAX_TOKENS, effort=EFFORT)
     pictures = [i for i, s in enumerate(script["scenes"]) if i in shown and s.get("medium", "picture") == "picture"]

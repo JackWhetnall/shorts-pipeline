@@ -194,6 +194,62 @@ def render_variant(channel, video_path: Path, recipe: dict, out: Path) -> Path:
     return Path(out)
 
 
+AB_COUNT = 3                       # what YouTube's A/B test takes: three of each
+
+
+def ab_folder(video_path: Path) -> Path:
+    return Path(video_path).with_name(f"{Path(video_path).stem}_ab")
+
+
+def ab_variants(channel, data: dict, video_path: Path) -> dict:
+    """Three titles and three thumbnails to A/B test in Studio (decision
+    114): the film's own, then the pitch's next best angles. The second
+    thumbnail puts the next angle's words on the film's picture (free);
+    the third draws that angle's own picture (about three cents). Kept in
+    `<stem>_ab/` beside the video, with ab.json listing them."""
+    from core import production
+    own = production.packaging(data)
+    angles = [a for a in (data.get("pitch") or {}).get("angles") or [] if a.get("title") and a is not own
+              and a.get("title") != own.get("title")]
+    angles.sort(key=lambda a: -(a.get("score") or 0))
+    pick = [own] + angles[:AB_COUNT - 1]
+    folder = ab_folder(video_path)
+    folder.mkdir(parents=True, exist_ok=True)
+    art = dict(channel.scenes.art or {})
+    production_folder = production.folder(channel.key, data["subtopic_id"])
+    stills = {int(k): production_folder / v for k, v in (data.get("stills") or {}).items()}
+    own_art = production_folder / ART_NAME if (production_folder / ART_NAME).exists() else stills[min(stills)]
+    thumbs = [Path(video_path).with_name(f"{Path(video_path).stem}_thumb.jpg")]
+    for n, angle in enumerate(pick[1:], start=2):
+        words = (angle.get("thumbnail") or {}).get("words", "")
+        out = folder / f"thumb_{n}.jpg"
+        picture_path = own_art
+        subject = (angle.get("thumbnail") or {}).get("subject", "")
+        if n == AB_COUNT and subject:
+            try:
+                from pipeline.documentary import stills as storyboard
+                drawn = storyboard.draw_one(channel, data["outline"], (
+                    f"A thumbnail picture: {subject}. One subject only, large and close, on the left two "
+                    f"thirds of the frame, strongly lit with clear contrast; the right third quiet and dark, "
+                    f"nothing important there."), [], folder / "art", "close-up")
+                picture_path = drawn
+            except PipelineError as exc:
+                log.warning(f"  [documentary] A/B thumbnail {n} picture couldn't be drawn ({exc}); the film's is used")
+        compose(picture_path, words, art).save(out, quality=90)
+        thumbs.append(out)
+    listed = {"titles": [a["title"] for a in pick], "thumbs": [str(t.name if t.parent != folder else
+                                                                    f"{folder.name}/{t.name}") for t in thumbs]}
+    (folder / "ab.json").write_text(json.dumps(listed, indent=1), encoding="utf-8")
+    return listed
+
+
+def load_ab(video_path: Path) -> dict:
+    try:
+        return json.loads((ab_folder(video_path) / "ab.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
 def is_documentary(video_path: Path) -> bool:
     sidecar = Path(video_path).with_name(f"{Path(video_path).stem}_production.json")
     try:

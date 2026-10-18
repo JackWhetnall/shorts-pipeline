@@ -148,6 +148,9 @@ def video_detail(key, relpath):
         out=gallery_core.is_out(links),
         post=_post_plan(channel, target, links),
         production=_production_of(target),
+        studio=_studio_link(channel, target, links),
+        ab=_ab_options(target, links),
+        retention=_retention(target),
         thumb_test=_studio_test(channel, target),
     )
 
@@ -195,6 +198,67 @@ def thumbnail_variant(key, relpath, label):
         abort(404)
     return send_from_directory(path.parent, path.name, as_attachment=request.args.get("download") == "1",
                                download_name=f"{target.stem}_{label}.jpg")
+
+
+def _retention(target):
+    """Where a film's viewers stopped watching (decision 114): the curve as
+    a chart, the share still there after thirty seconds and at the end, and
+    the scenes that lost the most, with what was said. None until YouTube
+    has the curve (a day or two after it's out)."""
+    import json as _json
+    from core import retention
+    from pipeline.documentary import thumbs
+    if not thumbs.is_documentary(target):
+        return None
+    stats = gallery_core.load_stats(target) or {}
+    seconds = float((gallery_core.load_report(target) or {}).get("video_seconds") or 0)
+    curve = stats.get("curve") or []
+    if not curve or not seconds:
+        return None
+    summary = retention.for_video(target)
+    sidecar = target.with_name(f"{target.stem}_production.json")
+    lines = {}
+    try:
+        info = _json.loads(sidecar.read_text(encoding="utf-8"))
+        from core import production
+        scenes = (production.load(info["channel"], info["subtopic_id"]).get("script") or {}).get("scenes") or []
+        lines = {i: s.get("narration", "") for i, s in enumerate(scenes)}
+    except (OSError, ValueError, KeyError):
+        pass
+    points = [[round(x * seconds, 1), round(100 * y, 1)] for x, y, *_ in curve]
+    chart = {"series": [{"name": "Still watching", "slot": 1, "points": points}], "refs": [], "markers": [],
+             "unit": "percent", "x": "seconds"}
+    drops = [{**d, "line": lines.get(d["scene"], "")} for d in summary.get("drops") or []]
+    return {"chart": chart, "kept_30s": summary.get("kept_30s"), "end": summary.get("end"), "drops": drops}
+
+
+def _ab_options(target, links):
+    """A film's three titles and thumbnails to A/B test in Studio, and
+    where (decision 114), or None."""
+    from core import audience
+    from pipeline.documentary import thumbs
+    if not thumbs.is_documentary(target):
+        return None
+    ab = thumbs.load_ab(target)
+    if not ab.get("titles"):
+        return None
+    vid = audience.video_id(links.get("youtube_url") or "")
+    return {"titles": ab["titles"], "thumbs": [f"thumb_{n}.jpg" for n in range(1, len(ab.get("thumbs") or []) + 1)],
+            "studio": f"https://studio.youtube.com/video/{vid}/edit" if vid else ""}
+
+
+def _studio_link(channel, target, links):
+    """{"url", "film"} for a teaser out on YouTube: its page in Studio,
+    where its film is set as the Short's Related video by hand (the API
+    can't), and the film's title to pick (decision 114). None otherwise."""
+    from core import audience
+    report = gallery_core.load_report(target) or {}
+    vid = audience.video_id(links.get("youtube_url") or "")
+    if not report.get("teaser") or not vid:
+        return None
+    film = publish_queue.film_of_teaser(channel, target)
+    film_title = gallery_core.load_publish_info(film).get("title") if film is not None and film.exists() else ""
+    return {"url": f"https://studio.youtube.com/video/{vid}/edit", "film": film_title or report.get("teaser_of", "")}
 
 
 def _production_of(target):
@@ -302,6 +366,24 @@ def delete_all_discarded(key):
     if failed:
         log.warning(f"{key}: deleted {removed} discarded videos, {failed} could not be removed")
     return redirect(url_for("gallery.channel_gallery", key=key))
+
+
+@bp.route("/videos/<path:relpath>/ab/<name>")
+def serve_ab(relpath, name):
+    """One of a film's A/B test thumbnails (decision 114)."""
+    from core.paths import PathTraversalError, safe_join
+    from pipeline.documentary import thumbs
+    video = video_or_404(relpath)
+    try:
+        if name == "thumb_1.jpg":
+            target = video.with_name(f"{video.stem}_thumb.jpg")
+        else:
+            target = safe_join(thumbs.ab_folder(video), name)
+    except PathTraversalError:
+        abort(404)
+    if not target.exists():
+        abort(404)
+    return send_from_directory(target.parent, target.name)
 
 
 @bp.route("/videos/<path:relpath>")

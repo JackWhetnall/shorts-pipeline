@@ -86,11 +86,12 @@ def connect(key):
     channel key: an attacker who could guess the state could otherwise
     finish an authorization against a channel of their choosing.
     """
-    channel_or_404(key)
+    channel = channel_or_404(key)
     try:
         state = secrets.token_urlsafe(24)
         session[OAUTH_STATE_KEY] = {"state": state, "channel": key}
-        return redirect(youtube.authorize_url(redirect_uri(), state))
+        extra = (youtube.MANAGE_SCOPE,) if getattr(channel, "format", "") == "documentary" else ()
+        return redirect(youtube.authorize_url(redirect_uri(), state, extra))
     except PipelineError as exc:
         log.warning(f"Cannot start YouTube authorization: {exc}")
         return redirect(url_for("youtube.setup"))

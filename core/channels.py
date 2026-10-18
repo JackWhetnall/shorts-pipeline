@@ -505,6 +505,10 @@ class Documentary(_MappingLike):
     # the films it makes at once. A film takes a day or so, three days when
     # the picture batches are slow, so a few go in parallel.
     parallel: int = 2
+    # Decision 114. Each teaser gets its film as its Shorts "Related video"
+    # (in Studio, by hand: the API can't set it), so a teaser ends by
+    # telling viewers to tap that link rather than to find the channel.
+    teasers_linked: bool = False
     # Decision 087. The ElevenLabs model it's voiced with ("": the shorts'
     # model); a v3/v4 model reads delivery cues the script writes.
     voice_model: str = ""

@@ -322,6 +322,9 @@ def _refresh_audience(channels: dict) -> None:
     # most every audience.REFRESH_HOURS.
     from core import audience
     audience.refresh(channels)
+    # Films into playlists, and the channel's keywords (decision 114).
+    from core import playlists
+    playlists.catch_up(channels)
 
 
 _thread = None

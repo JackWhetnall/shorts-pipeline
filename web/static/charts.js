@@ -14,12 +14,16 @@
     return node;
   }
 
-  const day = s => new Date(s + "T00:00:00").getTime();
+  // x is a day ("2026-10-18") or, for a chart in seconds, a number.
+  let SECONDS = false;
+  const day = s => SECONDS ? Number(s) * 1000 : new Date(s + "T00:00:00").getTime();
+  const clock = ms => { const s = Math.round(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
 
   function fmt(unit, v) {
     if (v === null || v === undefined) return "—";
     if (unit === "usd") return "$" + v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     if (unit === "hours") return v.toLocaleString(undefined, {maximumFractionDigits: 1}) + " h";
+    if (unit === "percent") return Math.round(v) + "%";
     return Math.round(v).toLocaleString();
   }
 
@@ -32,6 +36,7 @@
 
   function render(box) {
     const spec = JSON.parse(box.dataset.chart);
+    SECONDS = spec.x === "seconds";
     box.innerHTML = "";
     const width = Math.max(280, box.clientWidth), height = 220;
     const svg = el("svg", {viewBox: `0 0 ${width} ${height}`, width: "100%", height, role: "img",
@@ -40,9 +45,10 @@
     const refs = spec.refs || [];
     if (!all.length) { box.innerHTML = '<p class="meta">No figures yet.</p>'; return; }
     const xs = all.map(p => day(p[0])).concat(refs.flatMap(r => r.segments.flatMap(s => [day(s[0]), day(s[1])])));
-    const x0 = Math.min(...xs), x1 = Math.max(...xs, x0 + 86400000);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs, x0 + (SECONDS ? 1000 : 86400000));
     let yTop = niceMax(Math.max(...all.map(p => p[1]), ...refs.flatMap(r => r.segments.map(s => s[2])), 0) * 1.05);
     if (spec.unit === "int") yTop = Math.max(4, yTop);      // whole numbers: four whole steps at least
+    if (spec.unit === "percent" && Math.max(...all.map(p => p[1])) <= 100) yTop = 100;
     const W = width - M.left - M.right, H = height - M.top - M.bottom;
     const X = t => M.left + (t - x0) / (x1 - x0) * W;
     const Y = v => M.top + H - v / yTop * H;
@@ -53,15 +59,21 @@
       el("line", {x1: M.left, x2: M.left + W, y1: y, y2: y, class: "viz-grid"}, svg);
       el("text", {x: M.left - 6, y: y + 4, "text-anchor": "end", class: "viz-axis"}, svg).textContent = fmt(spec.unit, v);
     }
-    const months = [];
-    const start = new Date(x0); start.setDate(1);
-    for (let d = new Date(start); d.getTime() <= x1; d.setMonth(d.getMonth() + 1)) months.push(new Date(d));
-    const every = Math.ceil(months.length / Math.max(2, Math.floor(W / 70)));
-    months.forEach((d, i) => {
-      if (d.getTime() < x0 || i % every) return;
-      el("text", {x: X(d.getTime()), y: height - 8, "text-anchor": "middle", class: "viz-axis"}, svg)
-        .textContent = d.toLocaleDateString(undefined, {month: "short", year: d.getMonth() === 0 ? "2-digit" : undefined});
-    });
+    if (SECONDS) {
+      const step = [30, 60, 120, 300].find(s => (x1 - x0) / 1000 / s <= 8) || 600;
+      for (let s = 0; s * 1000 <= x1; s += step)
+        el("text", {x: X(s * 1000), y: height - 8, "text-anchor": "middle", class: "viz-axis"}, svg).textContent = clock(s * 1000);
+    } else {
+      const months = [];
+      const start = new Date(x0); start.setDate(1);
+      for (let d = new Date(start); d.getTime() <= x1; d.setMonth(d.getMonth() + 1)) months.push(new Date(d));
+      const every = Math.ceil(months.length / Math.max(2, Math.floor(W / 70)));
+      months.forEach((d, i) => {
+        if (d.getTime() < x0 || i % every) return;
+        el("text", {x: X(d.getTime()), y: height - 8, "text-anchor": "middle", class: "viz-axis"}, svg)
+          .textContent = d.toLocaleDateString(undefined, {month: "short", year: d.getMonth() === 0 ? "2-digit" : undefined});
+      });
+    }
 
     // Targets and markers.
     for (const r of refs) for (const s of r.segments) {
@@ -109,7 +121,8 @@
         dots[i].setAttribute("visibility", "visible");
         lines.push(`<span class="viz-key viz-s${s.slot}${s.dashed ? " viz-dashed" : ""}"></span>${s.name}: <b>${fmt(spec.unit, best[1])}</b>`);
       });
-      tip.innerHTML = `<div class="viz-tip-day">${new Date(t).toLocaleDateString(undefined, {day: "numeric", month: "short", year: "numeric"})}</div>` + lines.join("<br>");
+      const when = SECONDS ? clock(t) : new Date(t).toLocaleDateString(undefined, {day: "numeric", month: "short", year: "numeric"});
+      tip.innerHTML = `<div class="viz-tip-day">${when}</div>` + lines.join("<br>");
       tip.hidden = !lines.length;
       const px = (ev.clientX - rect.left);
       tip.style.left = Math.min(px + 12, rect.width - 190) + "px";

@@ -12,6 +12,37 @@ app has a new look (decision 068): restart it (step E) to see it.*
 
 ---
 
+## Growing Why, Though? (18 Oct)
+
+### G1. Verify with ID (5 minutes, before the next film goes out)
+**YouTube Studio → Settings → Channel → Feature eligibility → Advanced
+features → Verify.** This unlocks the Shorts "Related video" link,
+chapters, clickable links in descriptions, pinned comments and A/B
+testing.
+
+### G2. Reconnect Why, Though? to YouTube (1 minute)
+**Why, Though? → Settings → Publishing → Reconnect.** The new consent
+screen also lets the app manage the channel. From then on it puts each
+film into a themed playlist and writes the channel's keywords by itself,
+twice a day.
+
+### G3. Link each teaser to its film (30 seconds a Short)
+On each teaser's page, **Link its film ↗** opens it in Studio. Under
+**Related video**, pick the film named in the button's tooltip, then
+Save. Once you're doing this, tick **Settings → Teasers link to their
+film**, so new teasers end on "tap the link below".
+
+### G4. An end screen on every film (30 seconds a film)
+**Studio → Content →** the film **→ Editor → End screen → Import from
+video** (any film that has one), or add **Best for viewer** and
+**Subscribe**. The last ten seconds are held for it.
+
+### G5. A/B test each film's title and thumbnail (1 minute a film, after G1)
+On each film's page, open **A/B test options**: three thumbnails (click
+to download) and three titles. Then **A/B test in Studio ↗**, choose
+"Title and thumbnail", and upload them. YouTube keeps whichever earns
+the most watch time.
+
 ## Thumbnails that won't set (14 Oct)
 
 ### A1. Why, Though?: verify with another number (5 minutes)

@@ -82,6 +82,10 @@ UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
 READ_SCOPE = "https://www.googleapis.com/auth/youtube.readonly"
 ANALYTICS_SCOPE = "https://www.googleapis.com/auth/yt-analytics.readonly"
 SCOPES = ("openid", "email", UPLOAD_SCOPE, READ_SCOPE, ANALYTICS_SCOPE)
+# Decision 114. Managing the channel (playlists, its keywords), asked for
+# only by a documentary channel (core.playlists); other channels' consent
+# screens are as they were.
+MANAGE_SCOPE = "https://www.googleapis.com/auth/youtube"
 
 # 8 MB chunks. Big enough that the per-chunk overhead is irrelevant, small
 # enough that a dropped connection loses seconds rather than the upload.
@@ -215,12 +219,13 @@ def connection(channel_key: str) -> dict:
         # Google refused its refresh token: nothing goes up until it's
         # reconnected (Today says so; core.today).
         "expired": bool(tokens.get("rejected_at")),
+        "manage": MANAGE_SCOPE in granted,
     }
 
 
 # --- the OAuth dance --------------------------------------------------
 
-def authorize_url(redirect_uri: str, state: str) -> str:
+def authorize_url(redirect_uri: str, state: str, extra_scopes: tuple = ()) -> str:
     """Where to send the browser to grant access.
 
     `access_type=offline` with `prompt=consent` is what produces a refresh
@@ -234,7 +239,7 @@ def authorize_url(redirect_uri: str, state: str) -> str:
         "client_id": config["client_id"],
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": " ".join(SCOPES),
+        "scope": " ".join(SCOPES + tuple(extra_scopes)),
         "access_type": "offline",
         "prompt": "consent",
         "include_granted_scopes": "true",

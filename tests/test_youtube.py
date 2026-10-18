@@ -86,7 +86,8 @@ class TestCredentials:
 class TestTokens:
     def test_unknown_channel_is_simply_not_connected(self, isolated):
         assert youtube.connection("nobody") == {
-            "connected": False, "account": "", "connected_at": "", "stats": False, "expired": False}
+            "connected": False, "account": "", "connected_at": "", "stats": False, "expired": False,
+            "manage": False}
 
     def test_statistics_need_both_read_scopes_actually_granted(self, isolated):
         """A token from before the statistics scopes existed has no scope
