@@ -149,24 +149,32 @@ def video_detail(key, relpath):
         post=_post_plan(channel, target, links),
         production=_production_of(target),
         studio=_studio_link(channel, target, links),
-        ab=_ab_options(target, links),
         retention=_retention(target),
         thumb_test=_studio_test(channel, target),
     )
 
 
 def _studio_test(channel, target):
-    """A long quiz's thumbnail test for Studio (decision 083): None when the
-    channel doesn't test, {"round": None} before the three are made."""
+    """A long video's thumbnail test for Studio (decisions 083, 115): a long
+    quiz on a channel that tests, or any film. None otherwise;
+    {"round": None} before the three are made."""
     from pipeline import quiz
-    if not (channel.publishing.thumbnail_tests and gallery_core.is_long(target)
-            and channel.format == "quiz" and quiz.round_sidecar(target).exists()):
+    from pipeline.documentary import thumbs
+    film = thumbs.is_documentary(target)
+    if not film and not (channel.publishing.thumbnail_tests and gallery_core.is_long(target)
+                         and channel.format == "quiz" and quiz.round_sidecar(target).exists()):
         return None
-    from core import thumbnail_tests
+    from core import audience, thumbnail_tests
     data = thumbnail_tests.load(channel.key)
     round_ = next((r for r in data["rounds"] if r["kind"] == "studio"
                    and any(v["stem"] == target.stem for v in r["videos"])), None)
-    return {"round": thumbnail_tests.for_page(round_) if round_ else None}
+    out = {"round": thumbnail_tests.for_page(round_) if round_ else None, "film": film}
+    if film:
+        phase = (round_ or {}).get("phase") or thumbnail_tests.program(data)["phase"]
+        vid = audience.video_id(gallery_core.load_publish_info(target).get("youtube_url") or "")
+        out.update(phase=phase, studio=f"https://studio.youtube.com/video/{vid}/edit" if vid else "",
+                   mode="Title and thumbnail" if phase == "content" else "Thumbnail")
+    return out
 
 
 @bp.route("/channels/<key>/videos/<path:relpath>/thumbnail-test", methods=["POST"])
@@ -230,21 +238,6 @@ def _retention(target):
              "unit": "percent", "x": "seconds"}
     drops = [{**d, "line": lines.get(d["scene"], "")} for d in summary.get("drops") or []]
     return {"chart": chart, "kept_30s": summary.get("kept_30s"), "end": summary.get("end"), "drops": drops}
-
-
-def _ab_options(target, links):
-    """A film's three titles and thumbnails to A/B test in Studio, and
-    where (decision 114), or None."""
-    from core import audience
-    from pipeline.documentary import thumbs
-    if not thumbs.is_documentary(target):
-        return None
-    ab = thumbs.load_ab(target)
-    if not ab.get("titles"):
-        return None
-    vid = audience.video_id(links.get("youtube_url") or "")
-    return {"titles": ab["titles"], "thumbs": [f"thumb_{n}.jpg" for n in range(1, len(ab.get("thumbs") or []) + 1)],
-            "studio": f"https://studio.youtube.com/video/{vid}/edit" if vid else ""}
 
 
 def _studio_link(channel, target, links):
@@ -366,24 +359,6 @@ def delete_all_discarded(key):
     if failed:
         log.warning(f"{key}: deleted {removed} discarded videos, {failed} could not be removed")
     return redirect(url_for("gallery.channel_gallery", key=key))
-
-
-@bp.route("/videos/<path:relpath>/ab/<name>")
-def serve_ab(relpath, name):
-    """One of a film's A/B test thumbnails (decision 114)."""
-    from core.paths import PathTraversalError, safe_join
-    from pipeline.documentary import thumbs
-    video = video_or_404(relpath)
-    try:
-        if name == "thumb_1.jpg":
-            target = video.with_name(f"{video.stem}_thumb.jpg")
-        else:
-            target = safe_join(thumbs.ab_folder(video), name)
-    except PathTraversalError:
-        abort(404)
-    if not target.exists():
-        abort(404)
-    return send_from_directory(target.parent, target.name)
 
 
 @bp.route("/videos/<path:relpath>")

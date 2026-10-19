@@ -265,10 +265,10 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
         made = render.make(channel, data, folder)
         relpath = str(made.video_path.relative_to(_root(channel))).replace("\\", "/")
         try:
-            from pipeline.documentary import thumbs
-            thumbs.ab_variants(channel, production.load(key, sid), made.video_path)   # decision 114
+            from core import thumbnail_tests
+            thumbnail_tests.studio_round(channel, made.video_path)   # its thumbnail test, ready (decision 115)
         except Exception as exc:  # noqa: BLE001 - extras for a test; the film is made
-            log.warning(f"  [documentary] the A/B test options weren't made ({exc})")
+            log.warning(f"  [documentary] the thumbnail test wasn't made ({exc})")
         retire_video(channel, sid, keep=relpath)
         production.update(key, sid, lambda d: production.made(d, "video", {"path": relpath}))
         # The plan entry is made now: the scheduler moves on from it.

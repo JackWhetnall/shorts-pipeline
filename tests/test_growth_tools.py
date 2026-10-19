@@ -83,13 +83,3 @@ def test_where_viewers_left_reads_youtubes_three_value_curve(monkeypatch, tmp_pa
     r = page._retention(video)
     assert r["chart"]["series"][0]["points"][1] == [270.0, 25.0] and r["chart"]["x"] == "seconds"
     assert r["kept_30s"] == 60 and r["drops"][0]["at"] == 8
-
-
-def test_ab_options_are_listed_with_their_studio_page(monkeypatch, tmp_path):
-    from web.blueprints import gallery as page
-    monkeypatch.setattr("pipeline.documentary.thumbs.is_documentary", lambda v: True)
-    monkeypatch.setattr("pipeline.documentary.thumbs.load_ab", lambda v: {"titles": ["A", "B", "C"],
-                                                                         "thumbs": ["x", "y", "z"]})
-    ab = page._ab_options(tmp_path / "film.mp4", {"youtube_url": "https://www.youtube.com/watch?v=abcdefghijk"})
-    assert ab["titles"] == ["A", "B", "C"] and ab["thumbs"] == ["thumb_1.jpg", "thumb_2.jpg", "thumb_3.jpg"]
-    assert ab["studio"] == "https://studio.youtube.com/video/abcdefghijk/edit"

@@ -420,24 +420,24 @@ def fact_check(script: dict, packaging: dict = None) -> tuple:
 
 FINAL = """
 You decide a film's last line, the one the viewer leaves with. After it, the last picture is
-held in silence and the film fades out. The last line has to close the film: someone who has
-just watched it should hear in it the film's answer, the thing they now know, said plainly
-enough to make sense on its own and to stay with them. It can tie that answer back to the
-viewer's own life ("Next time you see a Velcro shoe, remember it all started with a burr on a
-dog."), or turn the title's question into its answer, or call back to the opening. Short (under
-twenty five words) and final when spoken aloud.
+held in silence and the film fades out. The last line has to close the film well: it makes sense
+on its own to someone who has just watched, and leaves them with something from the film. It
+doesn't have to repeat the title's question or its answer. Good closers include:
+- the film's answer, said plainly ("Clocks turn clockwise because that's the way shadows fell
+  on sundials north of the equator.");
+- a "now you know": one more interesting thing the film has set up, landing it;
+- a "next time you..." that turns what the film taught into something the viewer can notice or
+  try ("Next time you're on a plane, try the tomato juice and see if you can taste the
+  difference." "Next time you see a Velcro shoe, remember it all started with a burr on a dog.").
+Short (under twenty five words) and final when spoken aloud.
 
-First write `answer`: the film's answer to the question in its title, in one plain sentence,
-as the narration gives it. Then the test: does the last line say that answer, so that from this
-line alone someone who just watched would know it? An image
-or a metaphor can be part of the line, but the answer has to be said in plain words too. A last
-line fails when it doesn't carry the answer: a cryptic image that only makes sense if you
-squint ("Look at your shoe. A weed is still holding on." "Every clock you check is still,
-quietly, a shadow."), an instruction without the why ("Order the tomato juice."), a riddle, a
-question, a "subscribe", or a pat moral. Judge the current last line honestly against that:
-keep it if it closes the film. If not, write the line that should end this film, following on
-from the line before it, in the channel's voice. Its answer is the film's, as the narration
-gives it: name only causes and facts the narration names, nothing new.
+A last line fails when it's cryptic, an image that only makes sense if you squint ("Look at your
+shoe. A weed is still holding on."); an instruction without the context that makes it make sense
+("Order the tomato juice."); a riddle, a question, a pat moral or a "subscribe"; or a "next time
+on this channel" pointing at another video. First write `takeaway`: what this viewer should leave
+with, in one plain sentence. Then judge the current last line honestly against the above: keep it
+if it closes the film well. If not, write the line that should end this film, following on from
+the line before it, in the channel's voice, using only facts and causes the narration gives.
 """.strip()
 
 
@@ -453,9 +453,9 @@ def final_line(channel, title: str, script: dict) -> tuple:
                          for k, s in list(enumerate(scenes))[-6:])
     user = (f"The channel's brief: {channel.style_prompt}\n\nThe film: {title}\n\nHow it opens: {opening}"
             f"\n\nHow it ends:\n{closing}")
-    schema = {"type": "object", "properties": {"answer": {"type": "string"}, "keep": {"type": "boolean"},
+    schema = {"type": "object", "properties": {"takeaway": {"type": "string"}, "keep": {"type": "boolean"},
                                                "line": {"type": "string"}, "why": {"type": "string"}},
-              "required": ["answer", "keep", "line", "why"], "additionalProperties": False}
+              "required": ["takeaway", "keep", "line", "why"], "additionalProperties": False}
     data = call_json(FINAL, user, schema, operation="documentary_last_line", max_tokens=6000, effort="medium")
     line = " ".join(str(data.get("line") or "").split())
     if data.get("keep") or not line or line.endswith("?"):

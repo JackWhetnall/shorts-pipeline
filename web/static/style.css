@@ -3111,12 +3111,6 @@ tr.sub-row td { color: var(--text-dim); font-size: 0.92em; }
   border-radius: 999px; color: var(--accent); background: var(--accent-soft); }
 .update-pending:hover { background: var(--accent); color: var(--accent-contrast); }
 
-/* A film's A/B test options (decision 114). */
-.ab-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); margin: var(--sp-2) 0; }
-.ab-grid img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); }
-.ab-titles { margin: var(--sp-2) 0; padding-left: 1.2rem; }
-.ab-titles li { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); margin: .25rem 0; }
-
 /* Charts (web/static/charts.js; decisions 107, 114): the reference palette's dark slots. */
 .ol-plot { position: relative; }
 :root { --viz-1: #3987e5; --viz-2: #d95926; }
@@ -3139,3 +3133,5 @@ font-size: .8rem; color: var(--text); box-shadow: var(--shadow-sm); }
 .viz-tip-day { color: var(--text-dim); margin-bottom: .2rem; }
 .retention-drops { margin: var(--sp-2) 0 0; padding-left: 1.2rem; color: var(--text-dim); font-size: .88rem; }
 .retention-drops b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.thumb-title { color: var(--text); }

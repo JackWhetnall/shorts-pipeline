@@ -122,12 +122,13 @@ vary the framing and the light.
 The film's first scene speaks the chosen angle's first line (tightened if
 it needs to be) over the most striking picture in the film, and the
 opening chapter raises the open loops. Its last scene lands the promise,
-and its last line is the film's ending: it closes the film by carrying
-its answer, plainly enough to make sense on its own, often tied back to
-the viewer's own life, the title or the opening (decision 113); under
-twenty five words, final when spoken; never a cryptic image, an
-instruction without its why, a question or a moral. Nothing follows it
-but the last picture, held.
+and its last line is the film's ending: it closes the film well, makes
+sense on its own and leaves the viewer with something from the film:
+the answer said plainly, a last "now you know", or a "next time you..."
+the viewer can notice or try (decisions 113, 115); under twenty five
+words, final when spoken; never a cryptic image, an instruction without
+its context, a question, a moral or a "next time on this channel".
+Nothing follows it but the last picture, held.
 
 {shape}
 

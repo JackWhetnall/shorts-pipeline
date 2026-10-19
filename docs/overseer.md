@@ -51,12 +51,15 @@ faults:
    "[chapter 3]".
 5. **The same point made again in new words**, where it adds nothing.
    One callback per chapter to the central question is fine.
-6. **The opening proves the title; the last line closes the film.** The
-   last line carries the film's answer, plainly enough to make sense on
-   its own: "Next time you see a Velcro shoe, remember it all started
-   with a burr on a dog." Not a cryptic image ("Look at your shoe. A weed
-   is still holding on."), not an instruction without its why ("Order
-   the tomato juice."), no question, no moral.
+6. **The opening proves the title; the last line closes the film.** It
+   makes sense on its own and leaves the viewer with something from the
+   film: the answer said plainly, a last "now you know", or a "next time
+   you..." they can notice or try ("Next time you're on a plane, try the
+   tomato juice and see if you can taste the difference."). It needn't
+   repeat the title's question. Not a cryptic image ("Look at your shoe.
+   A weed is still holding on."), not an instruction without its context
+   ("Order the tomato juice."), no question, no moral, never "next time
+   on this channel".
 7. **Every card earns its place** (decision 113). A number card holds a
    striking figure with its unit, never a 0 or a 1 that states the
    obvious ("Times it let go: 0"), never a non-number ("by the mile"). A

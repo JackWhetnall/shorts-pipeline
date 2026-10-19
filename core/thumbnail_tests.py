@@ -299,12 +299,22 @@ def studio_round(channel, video_path) -> dict:
     from pipeline import thumbnail_variants as tv
     video_path = Path(video_path)
 
+    from pipeline.documentary import thumbs
+    documentary = thumbs.is_documentary(video_path)
+
     def change(data):
         existing = next((r for r in data["rounds"] if r["kind"] == "studio"
                          and any(v["stem"] == video_path.stem for v in r["videos"])), None)
         if existing:
             return existing
-        round_ = start_round(data, "studio")
+        if documentary:
+            # Decision 115: style, then refine, then content.
+            round_ = {"id": uuid.uuid4().hex[:8], "kind": "studio", "status": "running", "doc": True,
+                      "phase": program(data)["phase"], "started_at": time.time(),
+                      "variants": doc_variants(data, thumbs.other_angles(video_path)), "videos": [], "result": {}}
+            data["rounds"].append(round_)
+        else:
+            round_ = start_round(data, "studio")
         for v in round_["variants"]:
             tv.render_long(channel, video_path, v["recipe"], tv.variant_path(video_path, v["label"]))
         round_["videos"].append({"stem": video_path.stem, "path": str(video_path), "joined": time.time()})
@@ -323,14 +333,181 @@ def studio_result(channel_key: str, round_id: str, winner: str) -> dict:
             raise PipelineError("no round", user_message="That test is no longer here.")
         round_["status"] = "done"
         round_["finished_at"] = time.time()
-        learn(data, round_, winner)
+        if round_.get("doc"):
+            doc_learn(data, round_, winner)
+        else:
+            learn(data, round_, winner)
         return round_
     return update(channel_key, change)
 
 
 
+# --- a documentary channel's thumbnail styles (decision 115) ------------------------------
+#
+# The owner: find the style first (layout, font, colours, picture, angled
+# or straight text), then refine it, then test each film's own words and
+# picture. Three phases, kept in data["program"]:
+# - style: the champion style (A) against the two least-tried others;
+# - refine: the champion with one setting changed (B, C), as above;
+# - content: the house style, each film's words, picture and title.
+
+STYLE_DEFENCES = 2           # a champion that has seen off challengers twice in a row is the style
+REFINE_ROUNDS = 4            # then this many rounds of single changes before testing content
+
+
+def program(data: dict) -> dict:
+    from pipeline.documentary import thumb_styles as ts
+    p = data.setdefault("program", {})
+    p.setdefault("phase", "style")
+    p.setdefault("champion", "panel")
+    p.setdefault("families", {})
+    p.setdefault("defences", 0)
+    p.setdefault("refined", 0)
+    data.setdefault("doc_recipe", {"family": p["champion"]})
+    data.setdefault("doc_steps", {name: spec[1] for name, spec in ts.PARAMS.items() if spec[1]})
+    data.setdefault("doc_tried", {})
+    return p
+
+
+def house_style(channel_key: str) -> dict:
+    """The recipe a documentary channel's films are drawn in now: its
+    champion style, refined as far as the tests have got."""
+    data = load(channel_key)
+    p = program(data)
+    return dict(data["doc_recipe"]) if p["phase"] != "style" else {"family": p["champion"]}
+
+
+def _doc_changed(recipe: dict, name: str, data: dict, direction: int = 1):
+    from pipeline.documentary import thumb_styles as ts
+    options, step = ts.PARAMS[name]
+    value = ts.full(recipe)[name]
+    if step:
+        low, high = options
+        step = data["doc_steps"].get(name, step)
+        new = round(min(high, max(low, float(value) + direction * step)), 3)
+        return None if abs(new - float(value)) < 1e-6 else {**recipe, name: new}
+    lost = set(data["doc_tried"].get(name, []))
+    for option in options:
+        if option != value and option not in lost:
+            return {**recipe, name: option}
+    return None
+
+
+def doc_variants(data: dict, angles: list = ()) -> list:
+    """The three variants of a new round for a film, as the phase asks:
+    [{"label", "recipe", "change", "title"?}]. `angles`: the film's other
+    angles, best first ({"title", "words", "subject"}), for content rounds."""
+    from pipeline.documentary import thumb_styles as ts
+    p = program(data)
+    if p["phase"] == "style":
+        champion = p["champion"]
+        # Rounds still running count, so films tested side by side try different styles.
+        seen = {f: p["families"].get(f, {}).get("rounds", 0) for f in ts.FAMILIES}
+        for r in data["rounds"]:
+            if r["kind"] == "studio" and r["status"] == "running" and r.get("doc"):
+                for v in r["variants"]:
+                    family = v["recipe"].get("family")
+                    if family in seen:
+                        seen[family] += 1
+        names = list(ts.FAMILIES)
+        others = sorted((f for f in names if f != champion), key=lambda f: (seen[f], names.index(f)))
+        return [{"label": "A", "recipe": {"family": champion}, "change": None}] + [
+            {"label": label, "recipe": {"family": f}, "change": ["style", champion, f]}
+            for label, f in zip("BC", others[:2])]
+    base = dict(data["doc_recipe"])
+    if p["phase"] == "refine":
+        variants = [{"label": "A", "recipe": base, "change": None}]
+        last = next((r for r in reversed(data["rounds"]) if r.get("doc") and r.get("phase") == "refine"
+                     and r.get("result", {}).get("winner")), None)
+        won = (last or {}).get("result", {}).get("winner_change")
+        names = list(ts.PARAMS)
+        start = p["refined"] % len(names)
+        order = names[start:] + names[:start]          # the settings come round in turn
+        if won and won[0] in ts.PARAMS:
+            order = [won[0]] + [n for n in order if n != won[0]]   # a change that won is pushed further
+        for name in order:
+            if len(variants) == 3:
+                break
+            direction = 1
+            if won and won[0] == name and isinstance(won[2], (int, float)) and isinstance(won[1], (int, float)):
+                direction = 1 if won[2] > won[1] else -1
+            moved = _doc_changed(base, name, data, direction) or _doc_changed(base, name, data, -direction)
+            if moved:
+                variants.append({"label": "ABC"[len(variants)], "recipe": moved,
+                                 "change": [name, ts.full(base)[name], ts.full(moved)[name]]})
+        return variants
+    # content: the house style throughout; each film's own words, picture and title vary.
+    variants = [{"label": "A", "recipe": base, "change": None}]
+    for label, angle in zip("BC", angles):
+        recipe = {**base, "words": angle.get("words", "")}
+        change = ["words", None, angle.get("words", "")]
+        if label == "C" and angle.get("subject"):
+            recipe["draw_subject"] = angle["subject"]
+            change = ["words and picture", None, angle.get("words", "")]
+        variants.append({"label": label, "recipe": recipe, "change": change, "title": angle.get("title", "")})
+    return variants
+
+
+def doc_learn(data: dict, round_: dict, winner: str) -> None:
+    """A documentary round's result into the program."""
+    from pipeline.documentary import thumb_styles as ts
+    p = program(data)
+    chosen = next(v for v in round_["variants"] if v["label"] == winner)
+    round_["result"]["winner"] = winner
+    round_["result"]["winner_change"] = chosen.get("change")
+    phase = round_.get("phase", p["phase"])
+    if phase == "style":
+        for v in round_["variants"]:
+            family = v["recipe"].get("family")
+            stats = p["families"].setdefault(family, {"rounds": 0, "wins": 0})
+            stats["rounds"] += 1
+            if v["label"] == winner:
+                stats["wins"] += 1
+        family = chosen["recipe"].get("family")
+        if family == p["champion"]:
+            p["defences"] += 1
+        else:
+            p["champion"], p["defences"] = family, 0
+        tried_all = all(p["families"].get(f, {}).get("rounds") for f in ts.FAMILIES)
+        if p["phase"] == "style" and (p["defences"] >= STYLE_DEFENCES or
+                                      (tried_all and p["families"][p["champion"]]["wins"] >= 2)):
+            p["phase"] = "refine"
+            data["doc_recipe"] = {"family": p["champion"]}
+        return
+    if phase == "refine":
+        if chosen.get("change"):
+            data["doc_recipe"] = dict(chosen["recipe"])
+        else:
+            for v in round_["variants"]:
+                if not v.get("change"):
+                    continue
+                name = v["change"][0]
+                step = ts.PARAMS.get(name, (None, None))[1]
+                if step:
+                    data["doc_steps"][name] = max(step / 4, data["doc_steps"].get(name, step) / 2)
+                else:
+                    data["doc_tried"].setdefault(name, []).append(v["change"][2])
+        p["refined"] += 1
+        if p["phase"] == "refine" and p["refined"] >= REFINE_ROUNDS:
+            p["phase"] = "content"
+
+
+def doc_change_text(variant: dict) -> str:
+    """What a documentary variant tries, in a few words."""
+    from pipeline.documentary import thumb_styles as ts
+    change = variant.get("change")
+    if not change or change[0] == "style":
+        return ts.describe(variant["recipe"])
+    name, _before, after = change
+    if name in ("words", "words and picture"):
+        return f"{name}: {after}"
+    return f"{ts.SETTING_NAMES.get(name, name)}: {str(after).replace('_', ' ')}"
+
+
 def for_page(round_: dict) -> dict:
     """A round with each variant's change in words."""
     from pipeline import thumbnail_variants as tv
+    if round_.get("doc"):
+        return {**round_, "variants": [{**v, "change_text": doc_change_text(v)} for v in round_["variants"]]}
     return {**round_, "variants": [{**v, "change_text": tv.describe_change(v.get("change"))}
                                    for v in round_["variants"]]}

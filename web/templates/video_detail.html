@@ -20,11 +20,11 @@
     <h1 class="video-title">{{ title }}</h1>
     {% if thumb_test %}
     <div class="card thumb-test" id="thumb-test">
-      <h3>Thumbnail test</h3>
+      <h3>Thumbnail test{% if thumb_test.film %} <span class="prod-pill" data-tooltip="Style, then refine, then each film's own words and picture">{{ {'style': 'Finding the style', 'refine': 'Refining the style', 'content': 'Words and picture'}[thumb_test.phase] }}</span>{% endif %}</h3>
       {% if not thumb_test.round %}
       <form method="post" action="{{ url_for('gallery.thumbnail_test', key=key, relpath=relpath) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn-ghost btn-small" title="Then add all three to Test &amp; Compare in YouTube Studio">Make 3 thumbnails &middot; free</button>
+        <button type="submit" class="btn-ghost btn-small" title="Then add all three to A/B testing in YouTube Studio">Make 3 thumbnails &middot; {{ 'about 3¢' if thumb_test.film and thumb_test.phase == 'content' else 'free' }}</button>
       </form>
       {% else %}{% set r = thumb_test.round %}
       <div class="thumb-variants">
@@ -32,10 +32,15 @@
         <figure class="{{ 'won' if r.result.winner == v.label }}">
           <a href="{{ url_for('gallery.thumbnail_variant', key=key, relpath=relpath, label=v.label, download=1) }}" title="Download for Studio">
             <img src="{{ url_for('gallery.thumbnail_variant', key=key, relpath=relpath, label=v.label) }}" alt="Variant {{ v.label }}"></a>
-          <figcaption>{{ v.label }} &middot; {{ v.change_text }}</figcaption>
+          <figcaption>{{ v.label }} &middot; {{ v.change_text }}{% if v.title %}<br><span class="thumb-title">{{ v.title }}</span>
+            <button type="button" class="btn-ghost btn-small" onclick="navigator.clipboard.writeText({{ v.title|tojson }}); this.textContent='Copied'">Copy title</button>{% endif %}</figcaption>
         </figure>
         {% endfor %}
       </div>
+      {% if r.status == 'running' and thumb_test.film and thumb_test.studio %}
+      <p><a class="btn btn-ghost btn-small" href="{{ thumb_test.studio }}" target="_blank" rel="noopener"
+            data-tooltip="A/B testing: {{ thumb_test.mode }}">Test in Studio ↗</a></p>
+      {% endif %}
       {% if r.status == 'running' %}
       <form method="post" action="{{ url_for('gallery.thumbnail_test', key=key, relpath=relpath) }}" class="thumb-winner">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -81,21 +86,7 @@
     </section>
     {% endif %}
 
-    {% if ab %}
-    <details class="card ab-options">
-      <summary class="summary-heading">A/B test options</summary>
-      <div class="ab-grid">
-        {% for name in ab.thumbs %}
-        <a href="{{ url_for('gallery.serve_ab', relpath=relpath, name=name) }}" download="{{ relpath.split('/')[-1][:-4] }}_{{ name }}">
-          <img src="{{ url_for('gallery.serve_ab', relpath=relpath, name=name) }}" alt="Thumbnail {{ loop.index }}" loading="lazy"></a>
-        {% endfor %}
-      </div>
-      <ol class="ab-titles">{% for t in ab.titles %}<li><span>{{ t }}</span>
-        <button type="button" class="btn-ghost btn-small" onclick="navigator.clipboard.writeText({{ t|tojson }}); this.textContent='Copied'">Copy</button></li>{% endfor %}</ol>
-      {% if ab.studio %}<a class="btn btn-ghost btn-small" href="{{ ab.studio }}" target="_blank" rel="noopener"
-         data-tooltip="Title or thumbnail box: A/B testing">A/B test in Studio ↗</a>{% endif %}
-    </details>
-    {% endif %}
+
 
     {% if discarded %}
     <div class="info-banner discarded-banner">

@@ -156,7 +156,8 @@ def make(channel, data: dict, pictures: dict, title: str, video_path: Path, art:
     try:
         art_path, note = picture(channel, data, folder, pictures)
         words = (production.packaging(data).get("thumbnail") or {}).get("words", "")
-        compose(art_path, words, art).save(out, quality=90)
+        from core import thumbnail_tests
+        styled(channel, data, folder, art_path, words, thumbnail_tests.house_style(channel.key)).save(out, quality=90)
         return note
     except Exception as exc:  # noqa: BLE001 - a plainer thumbnail beats none
         log.warning(f"  [documentary] designed thumbnail failed ({exc}); the opening still is used")
@@ -176,78 +177,65 @@ def retitled(channel, data: dict, video_path: Path) -> None:
     stills = {int(k): folder / v for k, v in (data.get("stills") or {}).items()}
     art_path = folder / ART_NAME if (folder / ART_NAME).exists() else stills[min(stills)]
     out = Path(video_path).with_name(f"{Path(video_path).stem}_thumb.jpg")
-    compose(art_path, (angle.get("thumbnail") or {}).get("words", ""), dict(channel.scenes.art or {})).save(
-        out, quality=90)
+    from core import thumbnail_tests
+    styled(channel, data, folder, art_path, (angle.get("thumbnail") or {}).get("words", ""),
+           thumbnail_tests.house_style(channel.key)).save(out, quality=90)
 
 
 def render_variant(channel, video_path: Path, recipe: dict, out: Path) -> Path:
-    """One Test & Compare variant of a documentary's thumbnail."""
+    """One A/B variant of a film's thumbnail, in its recipe's style
+    (decision 115). A content round's third variant draws its angle's own
+    picture first (about three cents)."""
     from core import production
-    sidecar = Path(video_path).with_name(f"{Path(video_path).stem}_production.json")
-    info = json.loads(sidecar.read_text(encoding="utf-8"))
-    data = production.load(info["channel"], info["subtopic_id"])
-    folder = production.folder(info["channel"], info["subtopic_id"])
+    _, data, folder = _film(video_path)
     stills = {int(k): folder / v for k, v in (data.get("stills") or {}).items()}
     art_path = folder / ART_NAME if (folder / ART_NAME).exists() else stills[min(stills)]
     words = (production.packaging(data).get("thumbnail") or {}).get("words", "")
-    compose(art_path, words, dict(channel.scenes.art or {}), recipe).save(out, quality=90)
+    if recipe.get("draw_subject"):
+        try:
+            from pipeline.documentary import stills as storyboard
+            art_path = storyboard.draw_one(channel, data["outline"], (
+                f"A thumbnail picture: {recipe['draw_subject']}. One subject only, large and close, on the left "
+                f"two thirds of the frame, strongly lit with clear contrast; the right third quiet and dark."),
+                [], Path(out).parent / f"{Path(out).stem}_art", "close-up")
+        except PipelineError as exc:
+            log.warning(f"  [documentary] the variant's own picture couldn't be drawn ({exc}); the film's is used")
+    styled(channel, data, folder, art_path, words, recipe).save(out, quality=90)
     return Path(out)
 
 
-AB_COUNT = 3                       # what YouTube's A/B test takes: three of each
-
-
-def ab_folder(video_path: Path) -> Path:
-    return Path(video_path).with_name(f"{Path(video_path).stem}_ab")
-
-
-def ab_variants(channel, data: dict, video_path: Path) -> dict:
-    """Three titles and three thumbnails to A/B test in Studio (decision
-    114): the film's own, then the pitch's next best angles. The second
-    thumbnail puts the next angle's words on the film's picture (free);
-    the third draws that angle's own picture (about three cents). Kept in
-    `<stem>_ab/` beside the video, with ab.json listing them."""
+def _film(video_path: Path):
+    """(channel key, production data, production folder) for a film's video."""
     from core import production
-    own = production.packaging(data)
-    angles = [a for a in (data.get("pitch") or {}).get("angles") or [] if a.get("title") and a is not own
-              and a.get("title") != own.get("title")]
-    angles.sort(key=lambda a: -(a.get("score") or 0))
-    pick = [own] + angles[:AB_COUNT - 1]
-    folder = ab_folder(video_path)
-    folder.mkdir(parents=True, exist_ok=True)
-    art = dict(channel.scenes.art or {})
-    production_folder = production.folder(channel.key, data["subtopic_id"])
-    stills = {int(k): production_folder / v for k, v in (data.get("stills") or {}).items()}
-    own_art = production_folder / ART_NAME if (production_folder / ART_NAME).exists() else stills[min(stills)]
-    thumbs = [Path(video_path).with_name(f"{Path(video_path).stem}_thumb.jpg")]
-    for n, angle in enumerate(pick[1:], start=2):
-        words = (angle.get("thumbnail") or {}).get("words", "")
-        out = folder / f"thumb_{n}.jpg"
-        picture_path = own_art
-        subject = (angle.get("thumbnail") or {}).get("subject", "")
-        if n == AB_COUNT and subject:
-            try:
-                from pipeline.documentary import stills as storyboard
-                drawn = storyboard.draw_one(channel, data["outline"], (
-                    f"A thumbnail picture: {subject}. One subject only, large and close, on the left two "
-                    f"thirds of the frame, strongly lit with clear contrast; the right third quiet and dark, "
-                    f"nothing important there."), [], folder / "art", "close-up")
-                picture_path = drawn
-            except PipelineError as exc:
-                log.warning(f"  [documentary] A/B thumbnail {n} picture couldn't be drawn ({exc}); the film's is used")
-        compose(picture_path, words, art).save(out, quality=90)
-        thumbs.append(out)
-    listed = {"titles": [a["title"] for a in pick], "thumbs": [str(t.name if t.parent != folder else
-                                                                    f"{folder.name}/{t.name}") for t in thumbs]}
-    (folder / "ab.json").write_text(json.dumps(listed, indent=1), encoding="utf-8")
-    return listed
+    sidecar = Path(video_path).with_name(f"{Path(video_path).stem}_production.json")
+    info = json.loads(sidecar.read_text(encoding="utf-8"))
+    return info["channel"], production.load(info["channel"], info["subtopic_id"]), \
+        production.folder(info["channel"], info["subtopic_id"])
 
 
-def load_ab(video_path: Path) -> dict:
+def other_angles(video_path: Path) -> list:
+    """The film's other angles, best first, as content rounds use them
+    (decision 115): [{"title", "words", "subject"}]."""
+    from core import production
     try:
-        return json.loads((ab_folder(video_path) / "ab.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
+        _, data, _ = _film(video_path)
+    except (OSError, ValueError, KeyError):
+        return []
+    own = production.packaging(data)
+    angles = [a for a in (data.get("pitch") or {}).get("angles") or []
+              if a.get("title") and a.get("title") != own.get("title")]
+    angles.sort(key=lambda a: -(a.get("score") or 0))
+    return [{"title": a["title"], "words": (a.get("thumbnail") or {}).get("words", ""),
+             "subject": (a.get("thumbnail") or {}).get("subject", "")} for a in angles[:2]]
+
+
+def styled(channel, data: dict, folder: Path, art_path: Path, words: str, recipe: dict) -> Image.Image:
+    """A film thumbnail in a style recipe (decision 115): its words (or the
+    recipe's own, in a content round) on its art or a storyboard scene."""
+    from pipeline.documentary import thumb_styles as ts
+    stills = {int(k): Path(folder) / v for k, v in (data.get("stills") or {}).items()}
+    scene = stills.get(0) or (stills[min(stills)] if stills else None)
+    return ts.draw(art_path, scene, recipe.get("words") or words, dict(channel.scenes.art or {}), recipe)
 
 
 def is_documentary(video_path: Path) -> bool:

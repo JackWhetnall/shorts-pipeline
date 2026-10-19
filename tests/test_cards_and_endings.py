@@ -75,10 +75,14 @@ def test_a_whisper_is_voiced_softly():
     assert "[whispers]" not in open("pipeline/documentary/script.py", encoding="utf-8").read().split("DELIVERY")[1][:400]
 
 
-def test_the_ending_has_to_carry_the_films_answer():
+def test_the_ending_closes_the_film_without_having_to_restate_its_answer():
+    # Decision 115: an answer, a "now you know" or a "next time you..." all
+    # close a film; a cryptic image, a bare instruction or a next episode don't.
     final = " ".join(editor.FINAL.split())
-    assert "carry the answer" in final or "carries" in final or "film's answer" in final
-    assert "A weed is still holding on" in final and "Order the tomato juice" in final
+    assert "doesn't have to repeat the title's question" in final
+    assert "try the tomato juice and see if you can taste the difference" in final
+    assert "A weed is still holding on" in final and "Order the tomato juice." in final
+    assert "next time on this channel" in final
 
 
 def test_pictures_stay_with_their_place_and_wrong_layouts_are_flaws():
