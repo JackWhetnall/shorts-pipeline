@@ -77,6 +77,7 @@
         {% endif %}
         {% if v.per_day %}<dt>Pace lately</dt><dd>{{ '{:,}'.format(v.per_day|round|int) }} a day</dd>{% endif %}
       </dl>
+      <p><a class="btn btn-ghost btn-small" href="{{ url_for('money.voice') }}">Where it goes &rarr;</a></p>
       {% if f.settings.spare_voice %}<p class="hint">Spare voice: {{ spare.summary() }}</p>{% endif %}
       {% else %}<p class="meta">ElevenLabs isn't saying: the key needs the user_read permission.</p>{% endif %}
     </div>

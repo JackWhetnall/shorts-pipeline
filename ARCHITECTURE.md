@@ -875,6 +875,12 @@ pitches angles ahead for the next videos (`storyboard.outline_ahead`),
 and makes a documentary itself only on a channel set to make its own
 films.
 
+## The voice allowance
+
+`core/voice_budget.py` (decision [120](docs/decisions/120-where-the-voice-goes.md)) lays the ElevenLabs
+month out as one block per output, spent and still to come, for the Voice
+page (`/money/voice`), with suggestions that close a shortfall.
+
 ## Thumbnails
 
 A quiz short's thumbnail is its opening screen once the stamp has

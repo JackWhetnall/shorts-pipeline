@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Voice{% endblock %}
+{% block content %}
+{# Where the ElevenLabs allowance goes (core.voice_budget, decision 120). #}
+<div class="page-head">
+  <div>
+    <h1>Voice</h1>
+    <p class="page-sub">ElevenLabs credits this month{% if v %} &middot; resets {{ v.resets_label }}, in {{ v.days_left }} day{{ 's' if v.days_left != 1 }}{% endif %}</p>
+  </div>
+  <div class="page-actions"><a class="btn btn-ghost" href="{{ url_for('money.page') }}">Money</a></div>
+</div>
+{% if note %}<p class="info-banner">{{ note }}</p>{% endif %}
+
+{% if not v %}
+<p class="meta">ElevenLabs isn't saying: the key needs the user_read permission.</p>
+{% else %}
+{% set total = [v.limit, v.used + v.need]|max %}
+<div class="stat-row">
+  <div class="stat-tile"><div class="stat-value">{{ '{:,}'.format(v.used) }}</div><div class="stat-label">used</div></div>
+  <div class="stat-tile"><div class="stat-value">{{ '{:,}'.format(v.remaining) }}</div><div class="stat-label">left</div></div>
+  <div class="stat-tile"><div class="stat-value">{{ '{:,}'.format(v.need) }}</div><div class="stat-label">still to come
+    <button type="button" class="info-dot" data-tooltip="Estimated: each channel's slots before the reset, less what's made ahead">?</button></div></div>
+  <div class="stat-tile"><div class="stat-value {{ 'money-bad' if v.gap }}">{{ '{:,}'.format(v.gap) if v.gap else '{:,}'.format(v.remaining - v.need) }}</div>
+    <div class="stat-label">{{ 'short by' if v.gap else 'to spare' }}</div></div>
+</div>
+
+<section class="card vb-card" aria-labelledby="vb-where">
+  <div class="vb-head">
+    <h2 id="vb-where">Where it goes</h2>
+    <div class="vb-sort" role="group" aria-label="Order">
+      <button type="button" class="btn-ghost btn-small is-on" data-sort="date">By date</button>
+      <button type="button" class="btn-ghost btn-small" data-sort="channel">By channel</button>
+    </div>
+  </div>
+  <div class="vb-bar" role="img" aria-label="{{ '{:,}'.format(v.used) }} credits spent and {{ '{:,}'.format(v.need) }} still to come, against an allowance of {{ '{:,}'.format(v.limit) }}">
+    <div class="vb-blocks" id="vb-blocks">
+      {% for b in v.spent + v.coming %}
+      <span class="vb-block {{ 'is-spent' if b.spent else 'is-coming' }}{{ ' is-wasted' if b.state in ('discarded', 'no video') }}"
+            style="flex-grow: {{ b.credits }}; --c: {{ b.colour }}"
+            data-spent="{{ 1 if b.spent else 0 }}" data-when="{{ b.when|int }}" data-order="{{ b.order }}"
+            data-tip="{{ b.label }}|{{ b.name }} &middot; {{ '{:,}'.format(b.credits) }}{{ ' (est.)' if b.estimate }}{% if b.teasers %}, {{ '{:,}'.format(b.teasers) }} of it teasers{% endif %}|{{ b.state }} &middot; {{ b.when_label }}"></span>
+      {% endfor %}
+      {% if total > v.used + v.need %}<span class="vb-block vb-spare" style="flex-grow: {{ total - v.used - v.need }}" data-spent="2" data-when="0" data-order="99" data-tip="Left over|{{ '{:,}'.format(total - v.used - v.need) }}|kept into next month"></span>{% endif %}
+    </div>
+    <span class="vb-limit" style="left: {{ (100 * v.limit / total)|round(2) }}%"><span>Allowance {{ '{:,}'.format(v.limit) }}</span></span>
+  </div>
+  <div class="vb-key">
+    {% for r in v.rows %}<span class="vb-key-item"><span class="vb-swatch" style="--c: {{ r.colour }}"></span>{{ r.name }}</span>{% endfor %}
+    <span class="vb-key-item"><span class="vb-swatch vb-swatch-plain"></span>spent</span>
+    <span class="vb-key-item"><span class="vb-swatch vb-swatch-plain is-coming"></span>still to come</span>
+    <span class="vb-key-item"><span class="vb-swatch vb-swatch-plain is-wasted"></span>discarded or no video</span>
+  </div>
+  <div class="vb-tip" id="vb-tip" hidden></div>
+</section>
+
+<section class="card" aria-labelledby="vb-channels">
+  <h2 id="vb-channels">By channel</h2>
+  <div class="tablewrap">
+  <table class="voice-table">
+    <thead><tr><th>Channel</th><th>Spent</th><th>Of it wasted</th><th>Still to come</th><th>A video takes</th><th>Made ahead</th></tr></thead>
+    <tbody>
+    {% for r in v.rows %}
+    <tr>
+      <td><span class="vb-swatch" style="--c: {{ r.colour }}"></span> {{ r.name }}</td>
+      <td>{{ '{:,}'.format(r.spent) }}</td>
+      <td>{{ '{:,}'.format(r.wasted) if r.wasted else '' }}</td>
+      <td>{{ '{:,}'.format(r.coming) }} <span class="hint">{{ r.videos_coming }} video{{ 's' if r.videos_coming != 1 }}</span></td>
+      <td>{% set t = r.typical %}{% if r.slots is defined and r.slots is not none %}{{ '{:,}'.format(t.film + t.teasers) }} a film <span class="hint">{{ '{:,}'.format(t.teasers) }} teasers</span>{% elif t %}{{ '{:,}'.format(t.short) }} a short{% if t.long != t.short %} <span class="hint">{{ '{:,}'.format(t.long) }} a long one</span>{% endif %}{% endif %}</td>
+      <td>{{ r.made_ahead }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% if v.gap %}
+<section class="card" aria-labelledby="vb-fix">
+  <h2 id="vb-fix">To fit by {{ v.resets_label }}</h2>
+  <ul class="vb-suggestions">
+    {% for s in v.suggestions %}
+    <li class="{{ 'is-pick' if s.pick }}">
+      <span class="vb-sug-text">{{ s.text }}{% if s.pick %} <span class="vb-pill">Suggested</span>{% endif %}</span>
+      <span class="vb-sug-figs">saves {{ '{:,}'.format(s.saves) }} &middot; {{ '{:,}'.format(s.views) ~ ' views' if s.views else 'no views lost' }}
+        <button type="button" class="info-dot" data-tooltip="Views: what the channel's recent videos have averaged">?</button></span>
+      <form method="post" action="{{ url_for('money.voice_apply') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="channel" value="{{ s.channel }}">
+        <input type="hidden" name="change" value="{{ s.apply|tojson|forceescape }}">
+        <button type="submit" class="btn-ghost btn-small">Apply &middot; free</button>
+      </form>
+    </li>
+    {% endfor %}
+    {% set saved = v.suggestions|sum(attribute='saves') %}
+    <li class="{{ 'is-pick' if saved < v.gap }}">
+      <span class="vb-sug-text">Upgrade to {{ v.upgrade.name }}{% if saved < v.gap %} <span class="vb-pill">Suggested</span>{% endif %}</span>
+      <span class="vb-sug-figs">about {{ '{:,}'.format(v.upgrade.credits) }} a month &middot; ${{ '%.0f'|format(v.upgrade.usd) }} a month</span>
+      <a class="btn-ghost btn-small" href="{{ v.upgrade.url }}" target="_blank" rel="noopener">ElevenLabs ↗</a>
+    </li>
+  </ul>
+</section>
+{% endif %}
+
+<details class="card">
+  <summary><h2 class="vb-inline">Every video</h2></summary>
+  <div class="tablewrap">
+  <table class="voice-table" id="vb-table">
+    <thead><tr><th>Channel</th><th>Video</th><th>State</th><th>When</th><th>Credits</th></tr></thead>
+    <tbody>
+    {% for b in v.spent + v.coming %}
+    <tr data-spent="{{ 1 if b.spent else 0 }}" data-when="{{ b.when|int }}" data-order="{{ b.order }}">
+      <td><span class="vb-swatch {{ 'is-coming' if not b.spent }}" style="--c: {{ b.colour }}"></span> {{ b.name }}</td>
+      <td>{{ b.label }}</td><td>{{ b.state }}</td><td>{{ b.when_label }}</td>
+      <td>{{ '{:,}'.format(b.credits) }}{{ ' est.' if b.estimate }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
+
+<script>
+(function () {
+  const blocks = document.getElementById("vb-blocks");
+  if (!blocks) return;
+  const table = document.querySelector("#vb-table tbody");
+  // Spent first, then still to come, then any left over: the order within
+  // each is the chosen one.
+  function sort(by) {
+    const key = el => [Number(el.dataset.spent === "1" ? 0 : el.dataset.spent === "0" ? 1 : 2),
+                       by === "channel" ? Number(el.dataset.order) : 0, Number(el.dataset.when)];
+    const cmp = (a, b) => { const x = key(a), y = key(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; };
+    [...blocks.children].sort(cmp).forEach(el => blocks.appendChild(el));
+    if (table) [...table.children].sort(cmp).forEach(el => table.appendChild(el));
+    document.querySelectorAll(".vb-sort button").forEach(b => b.classList.toggle("is-on", b.dataset.sort === by));
+    try { localStorage.setItem("voice-sort", by); } catch (e) { /* remembered only where it can be */ }
+  }
+  document.querySelectorAll(".vb-sort button").forEach(b => b.addEventListener("click", () => sort(b.dataset.sort)));
+  let saved = "date";
+  try { saved = localStorage.getItem("voice-sort") || "date"; } catch (e) { /* as above */ }
+  sort(saved);
+  const tip = document.getElementById("vb-tip");
+  blocks.addEventListener("mousemove", event => {
+    const block = event.target.closest(".vb-block");
+    if (!block) { tip.hidden = true; return; }
+    const [title, figure, state] = block.dataset.tip.split("|");
+    tip.innerHTML = "";
+    const strong = document.createElement("strong"); strong.textContent = title; tip.appendChild(strong);
+    for (const line of [figure, state]) { const d = document.createElement("div"); d.textContent = line; tip.appendChild(d); }
+    const box = blocks.getBoundingClientRect();
+    tip.hidden = false;
+    tip.style.left = Math.min(event.clientX - box.left + 12, box.width - tip.offsetWidth) + "px";
+  });
+  blocks.addEventListener("mouseleave", () => { tip.hidden = true; });
+})();
+</script>
+{% endblock %}

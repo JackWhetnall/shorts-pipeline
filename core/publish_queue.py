@@ -177,7 +177,10 @@ def upcoming_slots(publishing, after: datetime, count: int) -> list:
     for _ in range(0, 400):
         if day.weekday() in publishing.weekdays:
             for hour, minute in times:
-                slot = day.replace(hour=hour, minute=minute)
+                # Local wall-clock time on that day, with that day's offset:
+                # replacing the hour kept today's, so after the clocks went
+                # back every slot read an hour early.
+                slot = datetime(day.year, day.month, day.day, hour, minute).astimezone()
                 if slot > after:
                     out.append(slot)
                     if len(out) >= count:

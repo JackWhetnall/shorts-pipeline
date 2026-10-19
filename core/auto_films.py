@@ -57,13 +57,14 @@ def _in_hand(channel) -> tuple:
     making = banked = 0
     for data in production.all_for(channel.key):
         video = production.state(data, "video")
-        if video == "approved":
+        if video in ("approved", "ready"):
             made = production.video_file(channel, data)
             info = gallery.load_publish_info(made) if made is not None and made.exists() else None
-            if info and not info["discarded"] and not gallery.is_out(info):
+            # A film discarded while it waited for a look holds no place (decision 120).
+            if info is None and video == "ready":
                 banked += 1
-        elif video == "ready":
-            banked += 1
+            elif info and not info["discarded"] and not gallery.is_out(info):
+                banked += 1
         elif production.state(data, "outline") != "todo":
             making += 1
     return making, banked

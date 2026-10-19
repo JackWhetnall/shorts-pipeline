@@ -4,7 +4,7 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 19 Oct 2026. Start with G7 tomorrow and T1, and keep G6
+*Last updated: 19 Oct 2026. Start with V1, then G7 tomorrow and T1, and keep G6
 going for each new film. Everything below those is older and mostly done or on hold. The
 app's home page, **Today**, lists what needs you as it happens; this
 file is for steps outside the app.*
@@ -12,6 +12,15 @@ file is for steps outside the app.*
 ---
 
 ## Growing Why, Though? (18 Oct)
+
+### V1. Fit the voice to the allowance (2 minutes, now)
+**Money → Where it goes** (the Voice page). This month is about 16,000
+credits short of what the schedule would voice before 7 Nov, almost all
+of it Why, Though?'s films (about 1,500 each with their teasers). Under
+**To fit by Sat 7 Nov**, apply the suggestions you agree with (free); if
+they don't close the gap, the page offers ElevenLabs Creator ($22 a
+month). Without a change, voiceovers stop when the credits run out, and
+each channel goes quiet once its made-ahead videos are used up.
 
 ### G7. Look at the overseer's first new topic (2 minutes, tomorrow morning)
 Why, Though?'s topic bank is low (22 films waiting), so tonight the

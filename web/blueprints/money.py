@@ -79,3 +79,26 @@ def outlook():
         return redirect(url_for("money.page", note="No channel publishes yet."))
     return render_template("outlook.html", o=ahead.picture(channels[key], money.forecast(channels)),
                            choices=choices)
+
+
+@bp.route("/money/voice")
+def voice():
+    """Where the ElevenLabs allowance goes this month, film by film and
+    short by short, and what to change if it won't last (core.voice_budget,
+    decision 120)."""
+    from core import voice_budget
+    return render_template("voice_budget.html", v=voice_budget.picture(), note=request.args.get("note", ""))
+
+
+@bp.route("/money/voice/apply", methods=["POST"])
+def voice_apply():
+    """One suggestion's settings change, saved."""
+    import json
+    from core import voice_budget
+    from core.errors import PipelineError
+    try:
+        voice_budget.apply(request.form.get("channel", ""), json.loads(request.form.get("change") or "{}"))
+    except (PipelineError, ValueError) as exc:
+        message = exc.user_message if isinstance(exc, PipelineError) else "That change can't be made here."
+        return redirect(url_for("money.voice", note=message))
+    return redirect(url_for("money.voice", note="Changed."))
