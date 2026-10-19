@@ -49,7 +49,8 @@ For each angle:
 - `title`: at most 55 characters, the tension or the subject's name in
   the first words. A specific promise, never a label: not "Lincoln and
   the Gettysburg Address: The Speech Nobody Expected" but "Why Lincoln's
-  2-Minute Speech Beat a 2-Hour One". No clickbait it can't pay off.
+  2-Minute Speech Beat a 2-Hour One". No clickbait it can't pay off,
+  and never a claim the film's own answer contradicts or walks back.
   The title, or failing that the thumbnail's words, names the familiar
   subject (the person, place, era or event: "plague", "Rome", "1665")
   so a stranger knows at a glance what it's about.

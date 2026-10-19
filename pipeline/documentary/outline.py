@@ -81,9 +81,12 @@ The plan:
     the facts, names, numbers and dates it needs;
   - `turn`: the reveal, reversal or new question it ends on, in a line;
   - `shows`: what is on screen, as scenes a painter could draw: places,
-    people, actions, framings. Be concrete and visual. Show, don't
-    caption: the picture adds what the words can't. Mix in, where they
-    help, a real painting of the period (if the channel allows them) and
+    people, actions, framings. Be concrete and visual, but the pictures
+    illustrate and set the mood: the narration carries every step, so
+    nothing depends on a picture being exact (a position, an angle, a
+    direction, a count, a stage, a mechanism or a layout), which an
+    image model can't be trusted to draw right. Mix in, where they help,
+    a real painting of the period (if the channel allows them) and
     animated cards: a big number, a comparison, a quote on screen, a
     timeline, a map of where we are;
   - `sound`: what's heard behind the narration there, one of: none,

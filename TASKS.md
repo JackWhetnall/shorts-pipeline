@@ -4,8 +4,8 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 19 Oct 2026. Start with G2 and G5 (a minute each), then
-T1. Everything below those is older and mostly done or on hold. The
+*Last updated: 19 Oct 2026. Start with G7 tomorrow and T1, and keep G6
+going for each new film. Everything below those is older and mostly done or on hold. The
 app's home page, **Today**, lists what needs you as it happens; this
 file is for steps outside the app.*
 
@@ -13,22 +13,12 @@ file is for steps outside the app.*
 
 ## Growing Why, Though? (18 Oct)
 
-### G2. Reconnect Why, Though? to YouTube (1 minute)
-It looks connected, and uploads work, but it was connected before the
-app asked to manage the channel, and that permission is missing.
-Without it the app can't put films into playlists, write the channel's
-keywords, or test titles (only thumbnails). **Why, Though? → Settings →
-Publishing → YouTube → Reconnect this channel**, pick Why, Though?, and
-allow everything on Google's screen.
-
-### G5. Switch on the YouTube Reporting API (1 minute)
-The app now runs each film's thumbnail test by itself, so there's
-nothing to do in Studio. It needs click-through figures, which come
-from this API, and it's off in your Google Cloud project.
-<https://console.cloud.google.com/apis/library/youtubereporting.googleapis.com?project=467764320362>
-→ **Enable** (signed in as the account that made the YouTube
-connection). Free. Within a few hours each film's page shows **Testing
-by itself**; the first figures arrive two days later.
+### G7. Look at the overseer's first new topic (2 minutes, tomorrow morning)
+Why, Though?'s topic bank is low (22 films waiting), so tonight the
+overseer adds a topic of eight to twelve films, by the channel's new
+rules: answers that work by ear, pictures that only illustrate, honest
+titles. **Why, Though? → Plan**: skip any you wouldn't make. Its summary
+of what it added is in the "Overnight film overseer" task's last run.
 
 ### G6. End screens stay by hand (30 seconds a film)
 YouTube's API can't add end screens, so each new film still needs one:
@@ -49,10 +39,11 @@ each.
 
 Why TikTok can't post by itself (Instagram can, when you want it: see
 "Later" near the end): TikTok only lets an app it hasn't audited post
-privately, and only to an account that is itself set to private. Its rules also say it won't audit a tool for posting to
-your own accounts. The only automatic route is a paid posting service
-that has passed the audit (around $16–30 a month); worth it only once
-TikTok brings real views.
+privately, and only to an account that is itself set to private. Its
+rules also say it won't audit a tool for posting to your own accounts.
+The only automatic route is a paid posting service that has passed the
+audit (around $16–30 a month); worth it only once TikTok brings real
+views.
 
 ## Thumbnails that won't set (14 Oct)
 
@@ -1043,6 +1034,9 @@ there's no flood of 30 at once: each has **Post it for me**.
 
 ## Done
 
+- 19 Oct: Why, Though? reconnected to YouTube (G2): its films are in
+  playlists now. YouTube Reporting API switched on (G5): film thumbnail
+  tests start rotating once the app restarts onto the new code.
 - 19 Oct: G1 (ID verification), G3 (teasers linked to their films) and G4
   (end screens on the published films) done.
 - 18 Oct: Why, Though? verified with another phone number (A1), so its

@@ -838,7 +838,11 @@ mode; `core.film_budget` caps a film's spend (cost records carry
 `production`); `documentary.hours` and `documentary.overseen` let the
 autopilot work overnight and leave the script and storyboard to
 `core.overseer`, driven by the scheduled `film-overseer` task
-(`docs/overseer.md`).
+(`docs/overseer.md`). The overseer also keeps a documentary channel's
+topic bank (`overseer topics`, `add-topic`, `add-subtopics`,
+`skip-subtopic`) when it runs low, by the channel's rules for what it can
+make well (`kinds.TOPIC_FIT`), which the plan's writer is given too
+(decision [118](docs/decisions/118-films-that-work-by-ear.md)).
 
 Decision [096](docs/decisions/096-one-reference-sheet-per-picture.md):
 `keyframes.combine` sends a still's references as one sheet of numbered

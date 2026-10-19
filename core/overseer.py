@@ -21,6 +21,14 @@ the API.
     python -m core.overseer approve <channel> <id> <script|stills|teasers>
     python -m core.overseer note <channel> <id> "what you did and why"
 
+And the channel's topic bank (decision 118), which it keeps stocked with
+films the channel can make well:
+
+    python -m core.overseer topics <channel>
+    python -m core.overseer add-topic <channel> "Title" "What it covers"
+    python -m core.overseer add-subtopics <channel> <topic> "Question? :: angle" ...
+    python -m core.overseer skip-subtopic <channel> <id> "why"
+
 How to review is in docs/overseer.md. Every change is recorded in the
 production's history as the overseer's.
 """
@@ -232,6 +240,108 @@ def note(key: str, sid: str, text: str) -> None:
     production.update(key, sid, lambda d: d.setdefault("overseer", []).append({"at": _now(), "text": text}))
 
 
+# --- the topic bank (decision 118) ---------------------------------------------------
+
+def _plan_channel(key: str):
+    """A documentary channel with a plan, or an error that says so: the
+    overseer never touches another channel's plan."""
+    channel = channel_config.load_channels().get(key)
+    if channel is None or channel.format != "documentary" or not curriculum.exists(key):
+        raise SystemExit(f"{key} isn't a documentary channel with a topic plan.")
+    return channel
+
+
+def bank(key: str) -> dict:
+    """{"waiting", "low"} for a channel's plan."""
+    p = curriculum.progress(key)
+    return {"waiting": p["pending"], "low": p["running_low"]}
+
+
+def _stats_of(out_dir: Path, stem: str):
+    from core import gallery
+    if not stem:
+        return None
+    found = next(iter(sorted(out_dir.rglob(f"{stem}.mp4"))), None)
+    return gallery.load_stats(found) if found else None
+
+
+def topics_sheet(key: str) -> str:
+    """A channel's plan as the overseer reviews it: what the channel can
+    make well, its topics, every subtopic waiting in order, the films made
+    with how the published ones are doing, what was skipped and why, and
+    whether it's running low."""
+    from collections import Counter
+    from core import gallery
+    from pipeline.documentary import kinds
+    channel = _plan_channel(key)
+    data = curriculum.load(key)
+    level = bank(key)
+    lines = [f"PLAN {key}: {data.get('subject', '')}",
+             f"{level['waiting']} films waiting to be made; the bank runs low below {curriculum.LOW_WATER_MARK}."
+             + (" RUNNING LOW: add one topic (docs/overseer.md, The topic bank)." if level["low"] else ""),
+             "", kinds.TOPIC_FIT[kinds.of(channel)], "", "TOPICS:"]
+    for t in data["topics"]:
+        counts = Counter(s["status"] for s in data["subtopics"] if s["topic"] == t["id"])
+        made = counts.get(curriculum.USED, 0) + counts.get(curriculum.PUBLISHED, 0)
+        lines.append(f"  {t['id']} {t['title']}: {t.get('summary', '')} ({counts.get(curriculum.PENDING, 0)} "
+                     f"waiting, {made} made, {counts.get(curriculum.SKIPPED, 0)} skipped)")
+    lines += ["", "WAITING TO BE MADE, in plan order:"]
+    lines += [f"  {s['id']} [{s['topic']}] {s['title']}" + (f" :: {s['angle']}" if s.get("angle") else "")
+              for s in data["subtopics"] if s["status"] == curriculum.PENDING]
+    lines += ["", "MADE, with how the published ones are doing:"]
+    out_dir = gallery.resolve_output_dir(channel.output_dir)
+    for s in data["subtopics"]:
+        if s["status"] not in (curriculum.USED, curriculum.PUBLISHED):
+            continue
+        stats = _stats_of(out_dir, s.get("video_stem")) or {}
+        how = ""
+        if stats.get("views") is not None:
+            how = f": {stats['views']} views"
+            if stats.get("avg_view_percent") is not None:
+                how += f", {round(float(stats['avg_view_percent']))}% of it watched on average"
+        lines.append(f"  {s['id']} {s['title']}" + (how or ": not out yet"))
+    skipped = [s for s in data["subtopics"] if s["status"] == curriculum.SKIPPED]
+    if skipped:
+        lines += ["", "SKIPPED:"] + [f"  {s['id']} {s['title']}" + (f" ({s['note']})" if s.get("note") else "")
+                                     for s in skipped]
+    return "\n".join(lines)
+
+
+def add_topic(key: str, title: str, summary: str) -> dict:
+    """A new topic at the end of the plan, at the level of the last one."""
+    _plan_channel(key)
+    topics = curriculum.load(key)["topics"]
+    level = topics[-1].get("level", "foundation") if topics else "foundation"
+    return curriculum.add_topic(key, title, summary, level=level)
+
+
+def add_subtopics(key: str, topic_id: str, rows: list) -> list:
+    """Subtopics for a topic, each "Question? :: one-line angle", in the
+    order given. A title already in the plan is dropped. Returns what was
+    added."""
+    _plan_channel(key)
+    parsed = []
+    for row in rows:
+        title, _, angle = str(row).partition("::")
+        if " ".join(title.split()):
+            parsed.append({"title": " ".join(title.split()), "angle": " ".join(angle.split())})
+    before = {s["id"] for s in curriculum.subtopics(key)}
+    curriculum.add_subtopics(key, topic_id, parsed)
+    return [s for s in curriculum.subtopics(key) if s["id"] not in before]
+
+
+def skip_subtopic(key: str, sid: str, why: str) -> dict:
+    """A waiting subtopic taken out of the plan, with why. Only a waiting
+    one: a film already being made is the owner's to stop."""
+    _plan_channel(key)
+    row = curriculum.find(key, sid)
+    if row is None:
+        raise SystemExit(f"No subtopic {sid} in {key}'s plan.")
+    if row["status"] != curriculum.PENDING:
+        raise SystemExit(f"{sid} is {row['status']}, not waiting: only a waiting subtopic can be skipped.")
+    return curriculum.skip(key, sid, f"overseer: {why}")
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="python -m core.overseer")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -267,6 +377,20 @@ def main(argv=None) -> int:
     p.add_argument("channel")
     p.add_argument("id")
     p.add_argument("text")
+    p = sub.add_parser("topics")
+    p.add_argument("channel")
+    p = sub.add_parser("add-topic")
+    p.add_argument("channel")
+    p.add_argument("title")
+    p.add_argument("summary")
+    p = sub.add_parser("add-subtopics")
+    p.add_argument("channel")
+    p.add_argument("topic")
+    p.add_argument("subtopics", nargs="+", help='each "Question? :: one-line angle"')
+    p = sub.add_parser("skip-subtopic")
+    p.add_argument("channel")
+    p.add_argument("id")
+    p.add_argument("why")
     args = parser.parse_args(argv)
     if args.command == "status":
         found = status()
@@ -275,6 +399,11 @@ def main(argv=None) -> int:
         for f in found:
             print(f"{f['channel']}/{f['id']} {f['title']}: waiting for review: {', '.join(f['waiting']) or 'nothing'}; "
                   f"stages {f['stages']}; spent ${f['spent']:.2f} of ${f['ceiling']:.2f}")
+        for key in overseen():
+            if curriculum.exists(key):
+                level = bank(key)
+                print(f"{key} topic bank: {level['waiting']} films waiting to be made"
+                      + ("; RUNNING LOW: see docs/overseer.md, The topic bank" if level["low"] else ""))
     elif args.command == "script":
         sys.stdout.reconfigure(encoding="utf-8")
         print(script_sheet(args.channel, args.id))
@@ -299,6 +428,22 @@ def main(argv=None) -> int:
     elif args.command == "note":
         note(args.channel, args.id, args.text)
         print("noted")
+    elif args.command == "topics":
+        sys.stdout.reconfigure(encoding="utf-8")
+        print(topics_sheet(args.channel))
+    elif args.command == "add-topic":
+        topic = add_topic(args.channel, args.title, args.summary)
+        print(f"added topic {topic['id']}: {topic['title']}")
+    elif args.command == "add-subtopics":
+        sys.stdout.reconfigure(encoding="utf-8")
+        added = add_subtopics(args.channel, args.topic, args.subtopics)
+        for s in added:
+            print(f"added {s['id']}: {s['title']}")
+        if len(added) < len(args.subtopics):
+            print(f"{len(args.subtopics) - len(added)} left out: already in the plan")
+    elif args.command == "skip-subtopic":
+        skip_subtopic(args.channel, args.id, args.why)
+        print(f"skipped {args.id}")
     return 0
 
 

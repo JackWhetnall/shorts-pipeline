@@ -49,7 +49,10 @@ Each picture below is a frame from a cartoon. Look closely at each one for these
 - several panels, a grid or a sheet of small studies instead of one single picture;
 - something arranged in a way that's plainly wrong in real life: seats on a plane facing the
   windows instead of in forward rows, a clock with its numbers out of order, a car driving on a
-  wall, a tool held by the wrong end (decision 113).
+  wall, a tool held by the wrong end (decision 113);
+- a detail its description states, drawn differently: a position, direction, orientation,
+  count, shape or colour it names (a cap described lodged sideways, drawn upright; a sign
+  described as a diamond, drawn round) (decision 118).
 Anything else is fine: don't judge style, colour or composition. Most pictures have no fault;
 `ok` is false only for a fault you can actually see, said in one short sentence.
 """.strip()

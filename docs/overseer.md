@@ -13,9 +13,11 @@ Work from `C:\Users\JackW\Documents\YT` with the tool:
 python -m core.overseer status
 ```
 
-It lists each film in progress and what is waiting for review. If nothing
-is waiting, say so and stop. Don't start stages yourself: the autopilot
-does that, in the channel's hours.
+It lists each film in progress and what is waiting for review, and each
+channel's topic bank. Review what's waiting; then, if a topic bank says
+RUNNING LOW, look after it (the last section). If neither, say so and
+stop. Don't start stages yourself: the autopilot does that, in the
+channel's hours.
 
 ## Your budget
 
@@ -73,6 +75,16 @@ faults:
    spoken: leave them.
 9. **Pictures:** each in one setting, nothing where it can't be. No
    "sequence" or "slowly … until" (those are drawn as panels).
+10. **Nothing depends on a picture being exact** (decision 118). The
+    pictures come from an image model that gets exact detail wrong, and
+    one wrong picture makes the viewer doubt the whole channel. The
+    narration must work with your eyes shut: no "look at", "see how",
+    "notice", and no line that needs the viewer to see an exact shape,
+    position, direction, count or stage ("if the cap lodges sideways").
+    Say it in words instead, with a comparison. And no picture direction
+    asks for such a detail: point it at something that stays true however
+    it's drawn (the object whole and at rest, the person, their face, the
+    place).
 
 Fix a line, a picture's direction or a card:
 
@@ -114,6 +126,11 @@ image files). Redraw only real faults:
   away from a place while the narration is still there (the spacecraft
   cabin, then a climbing harness, then the cabin again);
 - something plainly wrong in real life (plane seats facing the windows);
+- a detail the line states, drawn differently: a position, direction,
+  count, shape or colour (a cap "lodged sideways" drawn upright). Redraw
+  it pointed at something that doesn't depend on the detail; if the line
+  itself needs the detail to make sense, fix the line too (`edit
+  --narration`);
 - the same picture drawn again where it shouldn't be.
 
 Don't redraw for taste, small background figures or slight style drift.
@@ -192,10 +209,67 @@ python -m core.overseer approve <channel> <id> teasers
 python -m core.overseer note <channel> <id> "Teasers: teaser 1 line 3 plainer; ending of teaser 0 named the channel. Approved."
 ```
 
+## The topic bank (when it's running low)
+
+Each overseen channel makes its films from a plan of topics and
+subtopics (one subtopic, one film). When too few are waiting, you add
+more, and you take out ones the channel can't make well.
+
+```
+python -m core.overseer topics <channel>
+```
+
+It prints the channel's rules for what it can make well, its topics,
+every subtopic waiting (in the order they'll be made), the films made
+and how the published ones are doing, and what's been skipped and why.
+
+**1. Prune.** Skip any waiting subtopic that breaks the channel's rules,
+above all one whose explanation needs the viewer to see an exact shape,
+position, direction, count, stage, layout, text or diagram, and one
+whose honest answer contradicts its own question:
+
+```
+python -m core.overseer skip-subtopic <channel> <id> "why, in a few words"
+```
+
+Skip only clear cases. A subject that can be told by ear, with pictures
+only illustrating it, stays.
+
+**2. Top it up.** Add one new topic and eight to twelve subtopics for
+it, no more than one topic a night:
+
+```
+python -m core.overseer add-topic <channel> "Kitchen Mysteries" "Why food and cooking behave the way they do."
+python -m core.overseer add-subtopics <channel> u04 "Why Does Bread Go Stale? :: It isn't drying out: its starch is slowly turning back into crystals." "Why Does Popcorn Pop? :: ..."
+```
+
+What makes a good subtopic, for this channel:
+- **It follows the channel's rules** printed at the top of `topics`,
+  every one of them.
+- **It's a question a curious person really asks or would search for**,
+  in their words, never a heading ("Why Does Bread Go Stale?", not
+  "Bread chemistry").
+- **Its true answer is surprising and can be told in full**, with a
+  story, a cause or a comparison from ordinary life.
+- **It's new.** Not already in the plan or made, nor a near-repeat in
+  other words (the tool drops exact repeats only).
+- **It learns from the films so far.** Lean towards the kind of question
+  that did well; the topic sheet shows each film's views and how much
+  of it was watched.
+- **The angle is one line**: what the film turns on, never a picture to
+  draw.
+
+The new topic sits beside the others: broad enough for a dozen films,
+clearly different from the existing topics, and familiar to everyone.
+
+**3. Say what you did** in your closing summary: the topic added and its
+subtopics' titles, and anything skipped and why.
+
 ## Always
 
 - **Every change goes through the tool.** That way it's recorded as
   yours.
-- **Don't change code, settings, channels or plans.** If something needs
-  that, write it in a note.
+- **Don't change code, settings or channels, and change plans only with
+  the topic bank's commands.** If something else needs changing, write
+  it in a note.
 - **End with one short summary of what you did,** in plain words.

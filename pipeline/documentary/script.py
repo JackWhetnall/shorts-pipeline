@@ -53,10 +53,19 @@ Each scene is one picture held while its narration is spoken (the
 editor cuts several shots from it), so:
 - `narration`: what is said over this picture: one to three spoken
   sentences, written for the ear. The words of consecutive scenes read
-  as one continuous narration; never restart or summarise.
+  as one continuous narration; never restart or summarise. They carry
+  the whole film by themselves: someone listening with their eyes shut
+  follows every step. Never point at the picture ("look at", "see how",
+  "notice", "here") or need it to show an exact shape, position, angle,
+  direction, order of stages, count, text or diagram: say it in words,
+  with a comparison from ordinary life (decision 118).
 - `direction`: the stage direction for the painter: where we are, who
   is there and what they're doing, the moment caught, the time of day
-  and its light. {direction} One frozen moment, never a process
+  and its light. {direction} The picture is drawn by an image model that
+  can't be trusted with exact detail: show what stays true however it's
+  drawn (the object whole and at rest, the person it happens to, their
+  face, the place), never a precise position, angle, orientation, count,
+  stage or mechanism the line describes. One frozen moment, never a process
   ("tighter and tighter", "until it vanishes" is drawn as a strip of
   panels). No text, signs or writing in the picture. Daylight scenes are
   bright and clear; darkness only when it really is night or a closed

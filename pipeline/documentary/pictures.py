@@ -122,6 +122,13 @@ through every scene's picture together and fix what a viewer would notice.
    place in different light), not by leaving it. A cutaway to a one-off belongs where the
    narration itself turns to an idea the place can't show, and the cutaway must show that idea.
 
+5. A picture stays right however it's drawn: an image model can't be trusted with exact detail
+   (decision 118). Where a picture's point is a precise position, angle, direction, orientation,
+   count, sequence of stages, shape's outline, reflection, text, map or diagram (a cap lodged
+   sideways, a sign's shape changing step by step, which way a shadow moves), redirect it to one
+   that doesn't depend on that detail: the object whole and at rest, the person it happens to,
+   their face, the place. The narration says the detail; the picture never has to show it.
+
 Most scenes need nothing; list only the ones that do, at most {most} in this answer, the most
 important first (whatever is left is sent back to you). A redirect gives the new `direction` (one
 frozen, drawable moment, as concrete and careful as the others, with no text, charts or labels

@@ -211,6 +211,16 @@ def plan_outline(channel, topic_count: int = DEFAULT_TOPIC_COUNT,
     return data
 
 
+def _fit(channel) -> list:
+    """For a documentary channel, what it can make well (decision 118), as
+    a system block for whoever chooses its films; [] for any other."""
+    if getattr(channel, "format", "") != "documentary":
+        return []
+    from pipeline.documentary import kinds
+    return [SystemBlock(kinds.TOPIC_FIT[kinds.of(channel)] + "\n\nEvery video you choose must follow "
+                        "these rules. A subject that breaks one is left out, however good it sounds.")]
+
+
 def write_subtopics(channel, curriculum: dict, topic: dict,
                     count: int = None) -> list:
     """One topic's subtopics, in the order they should be made.
@@ -247,6 +257,7 @@ def write_subtopics(channel, curriculum: dict, topic: dict,
             cacheable=True),
         SystemBlock(f"This channel's own description of what it makes:\n\n"
                     f"{channel.style_prompt}", cacheable=True),
+        *_fit(channel),
         SystemBlock(f"The full syllabus, in order:\n\n{outline}"),
     ]
 
@@ -318,7 +329,8 @@ def extend_outline(channel, curriculum: dict, count: int) -> list:
         system = [SystemBlock(
             "You extend syllabuses for short-form video channels: the running order a "
             "channel covers its subject in.\n\n" + ORDERING_RULES, cacheable=True),
-            SystemBlock(f"This channel's own description of what it makes:\n\n{channel.style_prompt}")]
+            SystemBlock(f"This channel's own description of what it makes:\n\n{channel.style_prompt}"),
+            *_fit(channel)]
         user = (f"The syllabus so far, in order:\n{existing}\n\n"
                 f"Write exactly {count} more topics that continue it after its last topic: "
                 f"none may repeat or overlap an existing one, and they should carry the arc "

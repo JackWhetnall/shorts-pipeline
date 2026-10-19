@@ -21,6 +21,46 @@ def of(channel) -> str:
     return kind if kind in KINDS else "story"
 
 
+# What each kind of channel can make well (decision 118), for whoever
+# chooses its films: the plan's writer (pipeline.curriculum_gen) and the
+# overseer (core.overseer topics). The owner, on 19 Oct: a film about how
+# mirrors flip an image can't be trusted to its pictures, and "visual
+# errors like this kill the validity and trustworthiness of the whole
+# channel".
+TOPIC_FIT = {
+    "explainer": """
+What this channel can make well, and what it can't (the owner's rules):
+- The answer works by ear. Someone listening with their eyes shut can
+  follow every step: a cause, a history, how a body, a planet or an
+  everyday thing behaves, made concrete with comparisons from ordinary
+  life. "Why is the sea salty but rivers aren't?" and "Why can't you
+  tickle yourself?" are the kind.
+- The pictures only illustrate. They're drawn by an image model that
+  can't be trusted with exact shapes, positions, angles, directions,
+  stages, layouts, counts, letters, text, maps or diagrams, so a subject
+  is out if explaining it means showing one of those: how a mirror flips
+  an image, a sign's shape and colours changing stage by stage, where a
+  pen cap lodges in a throat, how toast turns as it falls, the Earth's
+  tilt through the seasons, the two bulges of the tides, which letters
+  sit where on a keyboard.
+- The question has an honest answer the film can give in full, and the
+  title never contradicts it ("The Pen Cap Hole That Isn't There to Save
+  Your Life" was wrong: it is there to, by making choking survivable).
+- Plenty of people know the thing and have wondered, and the true answer
+  surprises them.
+""".strip(),
+    "story": """
+What this channel can make well, and what it can't:
+- A day someone lived through, told by voice: what they wanted and what
+  stood in their way. Someone listening with their eyes shut follows it.
+- The pictures only illustrate people and places. They're drawn by an
+  image model that can't be trusted with exact maps, documents, text,
+  insignia, how a machine works, or a precise sequence of events, so a
+  story that turns on showing one of those is out.
+- The title promises what the film delivers.
+""".strip(),
+}
+
 PITCH = {
     "story": "",
     "explainer": """
@@ -38,6 +78,13 @@ film has (so nobody thinks it's bait), then gives the viewer a personal
 reason to need the answer, then names the mystery the film will solve.
 `open_loop` is that mystery, and the film answers it in its last
 minute, not before.
+
+Every angle works by ear: its proof, its clues and its answer are
+things the narration can say, never something the viewer has to see
+drawn exactly (a shape, a position, a direction, stages of a design),
+since the pictures only illustrate. And the title's claim must be true
+by the film's own answer: never a title the answer contradicts or has to
+walk back.
 """.strip(),
 }
 
@@ -52,7 +99,7 @@ OUTLINE_WANT = {
   plainly; the cold open must deliver them.
   The film is built like a detective story about an idea:
   - the cold open (under 45 seconds): proof that the title is real (the
-    strangest true fact or sight in the film, shown, not asked about),
+    strangest true fact in the film, said plainly, not asked about),
     the stakes for the viewer, and the mystery stated as a promise;
   - the obvious answer, taken seriously, and the evidence that kills it;
   - clues: each chapter solves part of the mystery and uncovers a deeper
@@ -61,9 +108,12 @@ OUTLINE_WANT = {
     far (the re-hook);
   - every minute or so, a callback to the mystery that shows how close
     we are, so the payoff is clearly coming, never forgotten;
-  - the payoff in the final fifth: the mystery solved in one clear
-    picture, then one consequence that changes how the viewer sees
-    something ordinary, then the end. No summary.""",
+  - the payoff in the final fifth: the mystery solved in plain words,
+    then one consequence that changes how the viewer sees something
+    ordinary, then the end. No summary.
+  Every step works by ear: the narration carries the whole explanation,
+  and no chapter depends on a picture showing an exact shape, position,
+  direction, count or stage.""",
 }
 
 OUTLINE_START = {
@@ -104,7 +154,7 @@ SCRIPT_SHAPE = {
 - The first three scenes prove the title, give the viewer a personal
   reason to care, and state the mystery as a promise, in that order,
   within about forty seconds. Prove, don't ask: open on the strangest
-  concrete fact or sight in the film, said plainly ("In 1984, a drill in
+  concrete fact in the film, said plainly ("In 1984, a drill in
   the Arctic pulled up rock that bent like warm toffee."), never on a
   question, a greeting, "you'd think" or "this is the story of".
 - Then the obvious answer, taken seriously, and what breaks it.
@@ -116,8 +166,8 @@ SCRIPT_SHAPE = {
   ("That's the first clue. The second is stranger."), so the payoff is
   clearly coming. Don't give it away early: partial answers only.
 - The twist chapter reframes what came before. The last chapter solves
-  the mystery in one clear picture, then one consequence that changes
-  how the viewer sees something ordinary, and stops.
+  the mystery in plain words, then one consequence that changes how the
+  viewer sees something ordinary, and stops.
 - Talk to the viewer ("you") about things they know. Every idea made
   concrete: an analogy from ordinary life, a number at human scale (not
   "12 kilometres" alone but "taller than Everest, upside down"), a quick
@@ -125,18 +175,19 @@ SCRIPT_SHAPE = {
   time; a word they won't know is explained the moment it's used.
 - Be funny where it's natural: a dry aside, an absurd comparison. Wonder
   over solemnity.
-- Each picture shows the idea being said: a visual metaphor, a cutaway,
-  someone trying it, things side by side at their real scale. The film's
-  settings anchor it; most ideas get a one-off picture of their own, from
-  the film's own world where possible. One picture per idea: when the
-  narration comes back to an idea, so does its picture.""",
+- Each picture illustrates the idea being said: a visual metaphor, a
+  cutaway, someone trying it. The words carry the explanation; the
+  picture never has to, because it can't be trusted with exact detail.
+  The film's settings anchor it; most ideas get a one-off picture of
+  their own, from the film's own world where possible. One picture per
+  idea: when the narration comes back to an idea, so does its picture.""",
 }
 
 SCRIPT_DIRECTION = {
     "story": "One concrete, drawable moment, never a montage or a\n  diagram.",
     "explainer": ("One clear, drawable picture of the idea being said: a character doing something, a "
-                  "cutaway, a visual metaphor, two things side by side at scale. Never a chart, a "
-                  "labelled diagram or a montage."),
+                  "cutaway, a visual metaphor. Never a chart, a labelled diagram, a montage, or a picture "
+                  "whose point is an exact position, angle, direction, count, scale or stage."),
 }
 
 SCRIPT_CARDS = {
