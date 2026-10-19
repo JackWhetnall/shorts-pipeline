@@ -2617,6 +2617,8 @@ td.actions > * + * { margin-left: var(--sp-2); }
 .post-done { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; margin-top: var(--sp-3); }
 .post-done input[type="url"] { min-width: 18rem; margin-top: var(--sp-2); }
 .post-file { word-break: break-all; }
+.post-copy.is-copied { border-color: var(--success); color: var(--success); background: var(--success-bg); }
+.post-done input[type="url"] { margin-top: 0; flex: 1 1 18rem; }
 .handoff-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; }
 .handoff-form { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .handoff-form input[type="url"] { flex: 1; min-width: 12rem; }

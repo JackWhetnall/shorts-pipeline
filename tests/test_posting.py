@@ -100,8 +100,9 @@ def test_the_steps_show_whats_left_to_post(world):
     gallery.save_queue_state(video, handoff={"tiktok": {"at": "x", "posted_at": "y"},
                                              "instagram": {"at": "x", "posted_at": None}})
     plan = posting.plan(channel, video)
-    assert [(p["key"], p["posted"]) for p in plan["platforms"]] == [("tiktok", True), ("instagram", False)]
-    assert plan["file"].endswith(".mp4") and "Ctrl+V" in plan["platforms"][1]["steps"][1]
+    # Instagram first (decision 119).
+    assert [(p["key"], p["posted"]) for p in plan["platforms"]] == [("instagram", False), ("tiktok", True)]
+    assert plan["file"].endswith(".mp4") and "Ctrl+V" in plan["platforms"][0]["steps"][0]
     assert plan["where"] == "your default browser"
 
 
@@ -258,3 +259,29 @@ def test_the_captions_file_belongs_to_the_video(world, writer):
     channel, video = world
     posting.write_social(channel, video)
     assert posting.social_path(video) in gallery.sidecars_of(video)
+
+
+def test_to_post_opens_each_platform_once_and_copies_the_thumbnail_too(world, tmp_path, monkeypatch):
+    # Decision 120, the owner: the open buttons once at the top, then per
+    # video its location, thumbnail and caption; the link box always there.
+    from core.channels import channel_to_sparse_dict, write_raw
+    from web import create_app
+    channel, video = world
+    channel.output_dir = str(video.parent.parent)
+    channel.publishing.post_tiktok = channel.publishing.post_instagram = True
+    path = tmp_path / "channels.json"
+    monkeypatch.setattr("core.channels.CHANNELS_JSON_PATH", path)
+    write_raw({channel.key: channel_to_sparse_dict(channel)}, path)
+    video.with_name("countries_tricky_cover.jpg").write_bytes(b"jpg")
+    gallery.save_queue_state(video, handoff={"tiktok": {"at": "x", "posted_at": None},
+                                             "instagram": {"at": "x", "posted_at": None}})
+    assert posting.plan(channel, video)["thumb"].endswith("countries_tricky_cover.jpg")
+    app = create_app()
+    app.config.update(TESTING=True)
+    with app.test_client() as client:
+        page = client.get("/to-post").get_data(as_text=True)
+    assert page.count("Open Instagram") == 1 and page.count("Open TikTok") == 1
+    assert page.index("Open Instagram") < page.index("Open TikTok")
+    assert page.index('data-platform="instagram"') < page.index('data-platform="tiktok"')
+    assert "Copy thumbnail" in page and "location again" not in page and "The video is" not in page
+    assert 'placeholder="Instagram link (optional)"' in page and "Add the post" not in page

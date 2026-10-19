@@ -2948,40 +2948,119 @@ document.addEventListener("DOMContentLoaded", initScriptNotebook);
 // --- The posting steps (_post_steps.html) -----------------------------
 // Each button writes the clipboard on the click itself, before anything
 // async: a browser only allows that while it still counts as the click.
+// A copy button turns green once used, remembered in this browser per
+// video and platform, so a post half done isn't done twice; leaving the
+// page with one half done asks first (decision 119).
+
+const POST_KEY = "posting:";
+let postLeaving = false;          // set when the page reloads itself
 
 function postParts(el) {
   const steps = el.closest(".post-steps");
   const platform = el.closest(".post-platform");
   return {steps, platform, relpath: steps.dataset.relpath, file: steps.dataset.file,
+          thumb: steps.dataset.thumb || "",
           key: platform ? platform.dataset.platform : "",
           status: platform ? platform.querySelector(".post-status") : null,
           caption: platform ? platform.querySelector(".post-caption-text").value : ""};
 }
 
+function postStore(relpath, platform) {
+  try { return JSON.parse(localStorage.getItem(POST_KEY + relpath + "|" + platform) || "{}"); }
+  catch (e) { return {}; }
+}
+
+function postRemember(relpath, platform, what) {
+  try {
+    const kept = postStore(relpath, platform);
+    kept[what] = Date.now();
+    localStorage.setItem(POST_KEY + relpath + "|" + platform, JSON.stringify(kept));
+  } catch (e) { /* private window: the button still turns green for now */ }
+}
+
+function postForget(relpath, platform) {
+  try { localStorage.removeItem(POST_KEY + relpath + "|" + platform); } catch (e) { /* as above */ }
+}
+
+function postMarkCopied(button) {
+  button.classList.add("is-copied");
+}
+
+// Posts started (something copied) but not marked posted, on this page.
+function postsInProgress() {
+  let n = 0;
+  document.querySelectorAll(".post-steps").forEach(steps => {
+    steps.querySelectorAll(".post-platform:not(.is-posted)").forEach(platform => {
+      if (platform.querySelector(".post-copy.is-copied")) n += 1;
+    });
+  });
+  return n;
+}
+
+function postLeaveMessage(n) {
+  return `${n} manual video upload${n === 1 ? "" : "s"} in progress, are you sure you want to leave?`;
+}
+
+function postReload() {
+  postLeaving = true;
+  location.reload();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (!document.querySelector(".post-steps")) return;
+  document.querySelectorAll(".post-steps").forEach(steps => {
+    steps.querySelectorAll(".post-platform").forEach(platform => {
+      const relpath = steps.dataset.relpath, key = platform.dataset.platform;
+      if (platform.classList.contains("is-posted")) { postForget(relpath, key); return; }
+      const kept = postStore(relpath, key);
+      platform.querySelectorAll(".post-copy").forEach(button => {
+        if (kept[button.dataset.copy]) postMarkCopied(button);
+      });
+    });
+  });
+  // Tab closed or reloaded: the browser shows its own words.
+  window.addEventListener("beforeunload", event => {
+    if (postLeaving || !postsInProgress()) return;
+    event.preventDefault();
+    event.returnValue = postLeaveMessage(postsInProgress());
+  });
+  // A link inside the app: our own words, with the count.
+  document.addEventListener("click", event => {
+    const link = event.target.closest("a[href]");
+    if (!link || link.target === "_blank" || event.defaultPrevented) return;
+    const n = postsInProgress();
+    if (!n) return;
+    if (confirm(postLeaveMessage(n))) { postLeaving = true; } else { event.preventDefault(); }
+  }, true);
+});
+
+async function postOpenUpload(button, channelKey, platform) {
+  const status = document.querySelector(".post-open-status");
+  const res = await apiFetch(`/api/channels/${channelKey}/open-upload`, {
+    method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({platform})});
+  const data = await res.json().catch(() => ({}));
+  if (status) status.textContent = res.ok ? `Opened in ${data.where}` : (data.error || "Couldn't open it.");
+}
+
 async function postOpen(button) {
   const p = postParts(button);
-  let copied = true;
-  try { await navigator.clipboard.writeText(p.file); } catch (e) { copied = false; }
   const res = await apiFetch(`/api/videos/${p.relpath}/start-post`, {
     method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({platform: p.key})});
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) { p.status.textContent = data.error || "Couldn't open it."; return; }
-  p.status.textContent = copied
-    ? `Opened in ${data.where}. The video's location is copied: on ${data.platform}, choose the video, then Ctrl+V and Enter.`
-    : `Opened in ${data.where}. Copy the video's location with the button, then on ${data.platform} choose the video, Ctrl+V and Enter.`;
+  p.status.textContent = res.ok ? `Opened in ${data.where}` : (data.error || "Couldn't open it.");
 }
 
 async function postCopy(button, what) {
   const p = postParts(button);
-  const text = what === "file" ? p.file : p.caption;
+  const text = what === "file" ? p.file : what === "thumb" ? p.thumb : p.caption;
   try {
     await navigator.clipboard.writeText(text);
+    postMarkCopied(button);
+    postRemember(p.relpath, p.key, what);
     const original = button.textContent;
     button.textContent = "Copied";
     setTimeout(() => { button.textContent = original; }, 1500);
-    if (p.status) p.status.textContent = what === "file"
-      ? "The video's location is copied: Ctrl+V into the file box, then Enter."
-      : "The caption is copied: paste it into the caption box.";
+    if (p.status) p.status.textContent = "";
   } catch (e) {
     if (p.status) p.status.textContent = "Couldn't copy. Select the text and copy it by hand: " + text;
   }
@@ -2993,7 +3072,7 @@ async function postRewrite(button) {
     const res = await apiFetch(`/api/videos/${p.relpath}/write-captions`, {method: "POST"});
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { p.status.textContent = data.error || "Couldn't write them."; return; }
-    location.reload();
+    postReload();
   });
 }
 
@@ -3005,7 +3084,7 @@ async function postInstagramNow(button) {
     const res = await apiFetch(`/api/videos/${p.relpath}/instagram-now`, {method: "POST"});
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { p.status.textContent = data.error || "Couldn't start it."; return; }
-    setTimeout(() => location.reload(), 1500);
+    setTimeout(postReload, 1500);
   });
 }
 
@@ -3021,7 +3100,9 @@ async function postDone(event, form) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { p.status.textContent = data.error || "Couldn't save that."; return; }
-    location.reload();
+    postForget(p.relpath, p.key);
+    p.platform.classList.add("is-posted");
+    postReload();
   });
 }
 

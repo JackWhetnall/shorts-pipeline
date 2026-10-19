@@ -358,7 +358,31 @@ def handoff_page():
     for row in rows:
         row["relpath"] = str(row["video_path"].relative_to(gallery.OUTPUT_DIR)).replace("\\", "/")
         row["post"] = posting.plan(channels[row["channel_key"]], row["video_path"])
-    return render_template("handoff.html", rows=rows, labels=posting.LABELS)
+    # The upload pages, once per channel at the top (decision 119).
+    opens = []
+    for key in dict.fromkeys(r["channel_key"] for r in rows):
+        wanted = {p for r in rows if r["channel_key"] == key for p in r["platforms"]}
+        opens += [{"key": key, "channel": channels[key].channel_display_name or key, "platform": p,
+                   "label": posting.LABELS[p]} for p in posting.ORDER if p in wanted]
+    return render_template("handoff.html", rows=rows, labels=posting.LABELS, opens=opens,
+                           several=len({o["key"] for o in opens}) > 1)
+
+
+@bp.route("/api/channels/<key>/open-upload", methods=["POST"])
+def open_upload(key):
+    """A platform's upload page, once, in the channel's browser profile."""
+    channel = load_channels(validate=False).get(key)
+    if channel is None:
+        return jsonify({"error": "No such channel."}), 404
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        where = posting.open_upload(channel, data.get("platform", ""))
+    except PipelineError as exc:
+        return jsonify({"error": exc.user_message}), 400
+    except OSError as exc:
+        log.warning(f"Couldn't open the browser: {exc}")
+        return jsonify({"error": "Couldn't open the browser on this PC."}), 500
+    return jsonify({"ok": True, "where": where})
 
 
 @bp.route("/api/videos/<path:relpath>/start-post", methods=["POST"])

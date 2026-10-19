@@ -1,12 +1,16 @@
 {# The posting steps for one video (core.posting.plan): `post` is the plan,
-   `relpath` the video. Used by the To post page and a published video's page. #}
-<div class="post-steps" data-relpath="{{ relpath }}" data-file="{{ post.file }}">
+   `relpath` the video. Used by the To post page, which opens each platform
+   once at its top (`opened_above`), and by a published video's page.
+   Copy buttons turn green once used, remembered in this browser, and
+   leaving with a post half done asks first (decision 119). #}
+<div class="post-steps" data-relpath="{{ relpath }}" data-file="{{ post.file }}" data-thumb="{{ post.thumb }}">
   {% if post.youtube_url %}
   <p class="meta post-done-line">&#10003; On YouTube: <a href="{{ post.youtube_url }}" target="_blank" rel="noopener">{{ post.youtube_url }}</a></p>
   {% endif %}
+  {% if not opened_above %}
   <p class="meta">Opens in <strong>{{ post.where }}</strong>{% if channel_key %} &middot;
-    <a href="{{ url_for('channels.settings', key=channel_key, _anchor='section-publishing') }}">change</a>{% endif %}.
-    Sign in to the channel's own TikTok and Instagram there once, and it stays signed in.</p>
+    <a href="{{ url_for('channels.settings', key=channel_key, _anchor='section-publishing') }}">change</a>{% endif %}</p>
+  {% endif %}
   {% for p in post.platforms %}
   <div class="post-platform {{ 'is-posted' if p.posted }}" data-platform="{{ p.key }}">
     {% set by_itself = p.auto.auto and p.auto.status in ('queued', 'processing') %}
@@ -30,9 +34,10 @@
       {% for step in p.steps %}<li>{{ step|safe }}</li>{% endfor %}
     </ol>
     <div class="actions">
-      <button type="button" class="btn btn-primary" onclick="postOpen(this)">Open {{ p.label }}</button>
-      <button type="button" class="btn-ghost" onclick="postCopy(this, 'caption')">Copy caption</button>
-      <button type="button" class="btn-ghost" onclick="postCopy(this, 'file')" title="{{ post.file }}">Copy the video's location again</button>
+      {% if not opened_above %}<button type="button" class="btn btn-primary" onclick="postOpen(this)">Open {{ p.label }}</button>{% endif %}
+      <button type="button" class="btn-ghost post-copy" data-copy="file" onclick="postCopy(this, 'file')" title="{{ post.file }}">Copy video location</button>
+      {% if post.thumb %}<button type="button" class="btn-ghost post-copy" data-copy="thumb" onclick="postCopy(this, 'thumb')" title="{{ post.thumb }}">Copy thumbnail</button>{% endif %}
+      <button type="button" class="btn-ghost post-copy" data-copy="caption" onclick="postCopy(this, 'caption')">Copy caption</button>
     </div>
     <details class="post-caption">
       <summary class="hint">See or change the caption</summary>
@@ -41,16 +46,11 @@
               data-tooltip="Both platforms' captions, written for search">{{ 'Rewrite' if p.for_search else 'Write for search' }} &middot; $0.003</button>
     </details>
     <form class="post-done" onsubmit="postDone(event, this)">
+      <input type="url" name="url" placeholder="{{ p.label }} link (optional)" aria-label="{{ p.label }} post's link">
       <button type="submit" class="btn-ghost">I've posted it</button>
-      <details>
-        <summary class="hint">Add the post's link (optional)</summary>
-        <input type="url" name="url" placeholder="Paste the {{ p.label }} post's address, so this page links to it">
-      </details>
     </form>
     <p class="hint post-status" role="status"></p>
     {% endif %}
   </div>
   {% endfor %}
-  <p class="hint">The video is <code class="post-file">{{ post.file }}</code>, in a folder that only ever holds videos
-    waiting to be posted. It's taken out once it's posted everywhere.</p>
 </div>

@@ -5,8 +5,16 @@
 <div class="page-head">
   <div>
     <h1>To post</h1>
-    <p class="page-sub">Out on YouTube, still to go on TikTok or Instagram. The video and caption are copied as you go.</p>
+    <p class="page-sub">Out on YouTube, still to go on Instagram or TikTok</p>
   </div>
+  {% if opens %}
+  <div class="page-actions">
+    {% for o in opens %}
+    <button type="button" class="btn {{ 'btn-primary' if loop.first else 'btn-ghost' }}" onclick="postOpenUpload(this, {{ o.key|tojson }}, {{ o.platform|tojson }})">Open {{ o.label }}{% if several %} &middot; {{ o.channel }}{% endif %}</button>
+    {% endfor %}
+    <p class="hint post-open-status" role="status"></p>
+  </div>
+  {% endif %}
 </div>
 
 
@@ -27,7 +35,7 @@
       <p class="hint"><a href="{{ url_for('gallery.video_detail', key=row.channel_key, relpath=row.relpath) }}">Watch it</a></p>
     </div>
   </div>
-  {% with post=row.post, relpath=row.relpath, channel_key=row.channel_key %}{% include "_post_steps.html" %}{% endwith %}
+  {% with post=row.post, relpath=row.relpath, channel_key=row.channel_key, opened_above=True %}{% include "_post_steps.html" %}{% endwith %}
 </div>
 {% endfor %}
 {% endif %}

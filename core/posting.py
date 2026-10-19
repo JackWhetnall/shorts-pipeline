@@ -391,19 +391,34 @@ def unstage(video_path: Path) -> None:
 
 # --- the steps, per platform ------------------------------------------------
 
+# The To post page's buttons (decision 119): open the platform once, at
+# the top; then per video, its location, its thumbnail's, its caption.
 STEPS = {
-    "tiktok": ["Click <strong>Open TikTok</strong>. The upload page opens, and the video's location is copied.",
-               "On TikTok, click <strong>Select video</strong>. In the box that opens, press "
-               "<strong>Ctrl+V</strong> then <strong>Enter</strong>: that picks the video.",
-               "Click <strong>Copy caption</strong> here and paste it into TikTok's description.",
-               "Post it on TikTok, then click <strong>I've posted it</strong> here."],
-    "instagram": ["Click <strong>Open Instagram</strong>. Instagram opens, and the video's location is copied.",
-                  "On Instagram, click <strong>Create</strong> (the +), then <strong>Post</strong>, then "
-                  "<strong>Select from computer</strong>. Press <strong>Ctrl+V</strong> then "
-                  "<strong>Enter</strong>: that picks the video.",
-                  "Click <strong>Copy caption</strong> here and paste it into the caption box.",
-                  "Share it on Instagram, then click <strong>I've posted it</strong> here."],
+    "tiktok": ["<strong>Select video</strong> → <strong>Ctrl+V</strong>, <strong>Enter</strong>",
+               "Cover: <strong>Edit cover</strong> → <strong>Upload</strong> → <strong>Ctrl+V</strong>, "
+               "<strong>Enter</strong>",
+               "Caption: paste into the description",
+               "<strong>Post</strong>, then <strong>I've posted it</strong>"],
+    "instagram": ["<strong>Create</strong> → <strong>Post</strong> → <strong>Select from computer</strong> → "
+                  "<strong>Ctrl+V</strong>, <strong>Enter</strong>",
+                  "Cover: <strong>Cover photo</strong> → <strong>Select from computer</strong> → "
+                  "<strong>Ctrl+V</strong>, <strong>Enter</strong>",
+                  "Caption: paste into the caption box",
+                  "<strong>Share</strong>, then <strong>I've posted it</strong>"],
 }
+# Instagram first: it's the one posted first (the owner, 19 Oct).
+ORDER = ("instagram", "tiktok")
+
+
+def thumbnail_of(video_path: Path) -> str:
+    """The picture to give the platform as the cover: a quiz short's cover,
+    else the video's thumbnail. "" when it has neither."""
+    video_path = Path(video_path)
+    for suffix in ("_cover.jpg", "_thumb.jpg"):
+        path = video_path.with_name(f"{video_path.stem}{suffix}")
+        if path.exists():
+            return str(path.resolve())
+    return ""
 
 
 def plan(channel, video_path: Path) -> dict:
@@ -418,6 +433,7 @@ def plan(channel, video_path: Path) -> dict:
     auto = instagram.state(channel, video_path) if "instagram" in handoff else {"auto": False}
     return {
         "file": file,
+        "thumb": thumbnail_of(video_path) if pending else "",
         "where": profile_label(channel),
         "has_profile": bool(channel.publishing.posting_browser and channel.publishing.posting_profile),
         "youtube_url": info["youtube_url"],
@@ -426,7 +442,7 @@ def plan(channel, video_path: Path) -> dict:
                        "steps": STEPS[p], "posted": bool(handoff[p].get("posted_at")),
                        "url": info.get(f"{p}_url") or "",
                        "auto": auto if p == "instagram" else {"auto": False}}
-                      for p in PLATFORMS if p in handoff],
+                      for p in ORDER if p in handoff],
     }
 
 
@@ -438,6 +454,16 @@ def start_post(channel, video_path: Path, platform: str) -> dict:
     where = open_pages(channel, [UPLOAD_URLS[platform]])
     log.info(f"{channel.key}: opened {LABELS[platform]} upload in {where} for {Path(video_path).name}")
     return {"where": where, "platform": LABELS[platform], "file": str(stage(channel, video_path))}
+
+
+def open_upload(channel, platform: str) -> str:
+    """One platform's upload page in the channel's browser profile, for
+    the top of To post (not per video). Returns where it opened."""
+    if platform not in PLATFORMS:
+        raise PipelineError(f"unknown platform {platform}", user_message="Unknown platform.")
+    where = open_pages(channel, [UPLOAD_URLS[platform]])
+    log.info(f"{channel.key}: opened {LABELS[platform]} upload in {where}")
+    return where
 
 
 def set_up_profile(channel) -> str:
