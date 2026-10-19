@@ -370,22 +370,37 @@ shown you a week or two of verdicts you agree with.
 
 ### TikTok and Instagram
 
-Posted from this PC, in as few moves as the platforms allow. Neither lets
-an unreviewed app post for you, and scripting their upload pages breaks
-their terms.
+**Instagram posts by itself** once it's set up (decision 116): a Meta app
+left in development mode may post to its developer's own accounts with
+no review. Each channel's Instagram must be a professional account
+linked to a Facebook Page. Then:
 
-1. Once per channel: dashboard → Publishing plan → **Make a profile for
-   this channel and sign in**. A Chrome window opens in the channel's own
-   profile, on TikTok's and Instagram's login pages. Sign in to that
-   channel's accounts; the profile remembers them.
-2. Tick **Also post each one to TikTok / Instagram from this PC**.
+1. **More → Instagram setup**: the Meta app's ID and secret, then one
+   token from Meta's Graph API Explorer with the permissions the page
+   lists. It finds every Instagram account linked to your Pages and
+   keeps each Page's token, which doesn't expire.
+2. Each channel: Settings → Publishing → **Instagram posts by itself
+   as** its account.
+
+From then on each Short or teaser goes up as a Reel within a scheduler
+pass or two of going out on YouTube, and is marked posted with its link.
+Shorts handed off more than two days before don't go by themselves (so
+connecting doesn't post a backlog): each has **Post it for me** on To
+post. TASKS.md has the click-by-click setup.
+
+**TikTok is posted by hand**, from this PC, in as few moves as it allows.
+An unaudited app may only post privately, from a private account, and
+scripting its upload page breaks its terms.
+
+1. Once per channel: Settings → Publishing → **Make a profile for this
+   channel and sign in**. A Chrome window opens in the channel's own
+   profile, on TikTok's login page. Sign in to that channel's account;
+   the profile remembers it.
+2. Tick **Also post each one to TikTok from this PC**.
 3. As videos go out they appear under **To post** in the top bar.
-   **Post to TikTok** opens that profile at the upload page, shows the
-   video selected in Explorer and puts the caption on your clipboard:
-   drag it in, paste, Post, then **Done** (a link is optional).
-
-The same **Post to…** buttons are in the review queue for posting a video
-before it's queued.
+   **Open TikTok** opens that profile at the upload page with the
+   video's location copied: **Select video**, Ctrl+V, Enter, then **Copy
+   caption**, paste, Post, and **I've posted it** (a link is optional).
 
 ## Housekeeping
 

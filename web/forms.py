@@ -133,6 +133,13 @@ def _apply_publishing_plan(plan, form) -> None:
         plan.thumbnail_tests = form.get("thumbnail_tests") == "on"
     plan.post_tiktok = form.get("post_tiktok") == "on"
     plan.post_instagram = form.get("post_instagram") == "on"
+    # The Instagram account it posts to by itself (core.instagram): one
+    # the page offered, or "" for posting by hand.
+    if "instagram_account" in form:
+        from core import instagram
+        account = form.get("instagram_account", "")
+        if account == "" or account in instagram.accounts():
+            plan.instagram_account = account
     # "browser|profile folder", or "" for the default browser. Only values
     # the page offered are kept: a profile that doesn't exist yet is made
     # by the setup button, not typed.

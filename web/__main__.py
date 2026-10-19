@@ -21,7 +21,7 @@ from core import code_freshness
 # restarted it by hand.
 _CODE_AT_START = code_freshness.fingerprint()
 
-from core import jobs, scheduler                    # noqa: E402
+from core import instagram, jobs, scheduler         # noqa: E402
 from core.logging_setup import get_logger           # noqa: E402
 from web import create_app                          # noqa: E402
 
@@ -88,7 +88,7 @@ def main() -> None:
     # Restart onto new code after an update, once nothing is running.
     if not args.debug:
         code_freshness.remember(_CODE_AT_START)
-        code_freshness.watch(lambda: jobs.busy_for_restart() or scheduler.busy())
+        code_freshness.watch(lambda: jobs.busy_for_restart() or scheduler.busy() or instagram.busy())
 
     log.info(f"Open http://{probe}:{args.port}/")
     if args.host == "0.0.0.0":

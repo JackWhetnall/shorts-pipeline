@@ -9,11 +9,23 @@
     Sign in to the channel's own TikTok and Instagram there once, and it stays signed in.</p>
   {% for p in post.platforms %}
   <div class="post-platform {{ 'is-posted' if p.posted }}" data-platform="{{ p.key }}">
+    {% set by_itself = p.auto.auto and p.auto.status in ('queued', 'processing') %}
     <h3>{{ p.label }}{% if p.posted %} <span class="service-ok">&#10003; Posted</span>
+      {%- elif by_itself %} <span class="prod-pill" data-tooltip="As {{ p.auto.account }}">Posting by itself</span>
+      {%- elif p.auto.auto and p.auto.status == 'failed' %} <span class="tag-plain">Didn't post</span>
       {%- elif not p.for_search %} <span class="tag-plain" data-tooltip="Title and description only: not written for search">plain caption</span>{% endif %}</h3>
     {% if p.posted %}
       {% if p.url %}<p class="meta"><a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.url }}</a></p>{% endif %}
+    {% elif by_itself %}
+    <p class="meta">{{ 'Instagram is processing it' if p.auto.status == 'processing' else 'Within 5 minutes' }} &middot; {{ p.auto.account }}</p>
+    {% if p.auto.error %}<p class="hint">{{ p.auto.error }}</p>{% endif %}
     {% else %}
+    {% if p.auto.auto %}
+    {% if p.auto.error %}<p class="error">{{ p.auto.error }}</p>{% endif %}
+    <div class="actions">
+      <button type="button" class="btn btn-primary" onclick="postInstagramNow(this)" data-tooltip="As {{ p.auto.account }}">{{ 'Try again' if p.auto.status == 'failed' else 'Post it for me' }}</button>
+    </div>
+    {% endif %}
     <ol class="post-step-list">
       {% for step in p.steps %}<li>{{ step|safe }}</li>{% endfor %}
     </ol>

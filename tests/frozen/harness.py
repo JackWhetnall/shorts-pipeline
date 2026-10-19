@@ -43,6 +43,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -308,16 +309,22 @@ class Media:
         self.folder = folder
         folder.mkdir(parents=True, exist_ok=True)
         self._tones = {}
+        # Segments are voiced in parallel (tts.generate_voiceover). Two of
+        # one length both wrote this tone's file, and one could read it
+        # while the other was rewriting it: a half-written mp3 that failed
+        # the run at random.
+        self._lock = threading.Lock()
 
     def tone(self, seconds: float) -> bytes:
         """A voiced line: a steady tone of exactly this length, as mp3."""
         seconds = round(seconds, 2)
-        if seconds not in self._tones:
-            path = self.folder / f"tone_{seconds:.2f}.mp3"
-            _run(["-f", "lavfi", "-i", f"sine=frequency=220:sample_rate=44100:duration={seconds}",
-                  "-ac", "1", "-b:a", "64k", str(path)])
-            self._tones[seconds] = path.read_bytes()
-        return self._tones[seconds]
+        with self._lock:
+            if seconds not in self._tones:
+                path = self.folder / f"tone_{seconds:.2f}.mp3"
+                _run(["-f", "lavfi", "-i", f"sine=frequency=220:sample_rate=44100:duration={seconds}",
+                      "-ac", "1", "-b:a", "64k", str(path)])
+                self._tones[seconds] = path.read_bytes()
+            return self._tones[seconds]
 
     def music(self) -> Path:
         path = self.folder / "music.mp3"
@@ -749,6 +756,21 @@ def write_golden(key: str, data: dict) -> None:
     GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
     golden_path(key).write_text(json.dumps(data, indent=1, ensure_ascii=False, sort_keys=True) + "\n",
                                 encoding="utf-8")
+
+
+def steady(fingerprint):
+    """A fingerprint with its voice requests in one fixed order. Segments
+    are voiced in parallel, so the order the requests arrive in is the
+    threads' and changes with timing: what each one asks for is compared,
+    not when it was made."""
+    def walk(value):
+        if isinstance(value, dict):
+            return {k: sorted((walk(v) for v in x), key=lambda r: json.dumps(r, sort_keys=True, ensure_ascii=False))
+                    if k == "voice" and isinstance(x, list) else walk(x) for k, x in value.items()}
+        if isinstance(value, list):
+            return [walk(v) for v in value]
+        return value
+    return walk(fingerprint)
 
 
 def differences(expected, actual, where: str = "", limit: int = 25, allow_new: tuple = ()) -> list:

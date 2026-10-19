@@ -604,12 +604,16 @@ def mark_posted(video_path: Path, platform: str, url: str = "") -> dict:
 
 def awaiting_posts(channels: dict) -> list:
     """Handed-off videos not yet marked posted, oldest first:
-    [{"channel", "video_path", "title", "platforms": [...], "file"}]."""
+    [{"channel", "video_path", "title", "platforms": [...], "by_itself":
+    [...], "file"}]. `by_itself`: the platforms the app is posting to
+    on its own (Instagram, decision 116), which need nobody."""
+    from core import instagram
     rows = []
     for key, channel in channels.items():
         directory = gallery.resolve_output_dir(channel.output_dir)
         if not directory.exists():
             continue
+        auto = instagram.posts_by_itself(channel)
         for path in gallery.videos_in(directory):
             info = gallery.load_publish_info(path)
             pending = [p for p, h in info["handoff"].items() if not h.get("posted_at")]
@@ -619,6 +623,8 @@ def awaiting_posts(channels: dict) -> list:
                     "video_path": path, "title": info["title"] or path.stem,
                     "description": info["description"],
                     "platforms": pending, "since": min(info["handoff"][p]["at"] or "" for p in pending),
+                    "by_itself": ["instagram"] if auto and "instagram" in pending
+                    and instagram.on_its_way(info["handoff"]["instagram"]) else [],
                 })
     return sorted(rows, key=lambda r: r["since"])
 

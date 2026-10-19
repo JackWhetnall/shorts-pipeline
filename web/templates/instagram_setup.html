@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Instagram setup{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Instagram setup</h1>
+    <p class="page-sub">Shorts and teasers posted as Reels by themselves &middot; free</p>
+  </div>
+</div>
+
+{% if message %}<p class="info-banner">{{ message }}</p>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if problem and not error %}<p class="error">{{ problem }}</p>{% endif %}
+
+<h2>1. Meta app</h2>
+<form method="post" class="channel-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>App ID
+    <input type="text" name="app_id" spellcheck="false" autocomplete="off"
+           placeholder="{{ 'Saved. Paste again to replace.' if configured else '1234567890123456' }}">
+  </label>
+  <label>App secret
+    <input type="password" name="app_secret" autocomplete="off"
+           placeholder="{{ 'Saved. Paste again to replace.' if configured else '' }}">
+  </label>
+  <div class="actions">
+    <button type="submit" name="action" value="app" class="btn btn-primary">Save</button>
+    <a class="btn-ghost" href="{{ apps_url }}" target="_blank" rel="noopener">Your Meta apps ↗</a>
+  </div>
+</form>
+
+<h2>2. Connect</h2>
+{% if not configured %}
+<p class="meta">Save the app first.</p>
+{% else %}
+<form method="post" class="channel-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <p class="meta">Permissions <code id="ig-permissions">{{ permissions }}</code>
+    <button type="button" class="btn-ghost btn-small"
+            onclick="navigator.clipboard.writeText(document.getElementById('ig-permissions').textContent); this.textContent='Copied'">Copy</button></p>
+  <label>Token from the Graph API Explorer
+    <input type="password" name="token" autocomplete="off" spellcheck="false">
+  </label>
+  <div class="actions">
+    <button type="submit" name="action" value="connect" class="btn btn-primary">Connect</button>
+    <a class="btn-ghost" href="{{ explorer_url }}" target="_blank" rel="noopener">Graph API Explorer ↗</a>
+  </div>
+</form>
+{% endif %}
+
+<h2>3. Accounts</h2>
+{% if not rows %}
+<p class="meta">None yet.</p>
+{% else %}
+<div class="tablewrap">
+<table class="voice-table">
+  <thead><tr><th>Instagram</th><th>Facebook Page</th><th>Posts for</th></tr></thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>@{{ row.username }}</td>
+      <td>{{ row.page }}</td>
+      <td>{% for key, name in row.channels %}<a href="{{ url_for('channels.settings', key=key, _anchor='section-publishing') }}">{{ name }}</a>{{ ', ' if not loop.last }}{% else %}<span class="meta">No channel: choose it in a channel's Settings</span>{% endfor %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" name="action" value="forget" class="btn-ghost danger-text"
+          onclick="return confirm('Forget the Meta app and every account? Instagram goes back to posting by hand.');">Forget the app and accounts</button>
+</form>
+{% endif %}
+{% endblock %}

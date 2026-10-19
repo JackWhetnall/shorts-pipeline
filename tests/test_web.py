@@ -73,6 +73,7 @@ class TestPagesRender:
         "/voice-lab",
         "/activity",
         "/apis",
+        "/instagram/setup",
         "/to-post",
         "/review?channel=test_channel",
     ])

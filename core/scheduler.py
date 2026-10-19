@@ -291,6 +291,7 @@ def tick() -> None:
     failed upload must not stop generation, nor either stop the stats."""
     channels = load_channels(validate=False)
     for name, duty in (("publishing", lambda: publish_queue.publish_due(channels)),
+                       ("instagram", lambda: _instagram(channels)),
                        ("topic plans", lambda: top_up_plans(channels)),
                        ("generation", lambda: fill_buffers(channels)),
                        ("long quizzes", lambda: fill_long_quizzes(channels)),
@@ -306,6 +307,14 @@ def tick() -> None:
             duty()
         except Exception as exc:  # noqa: BLE001 - the ticker must never die
             log.warning(f"Scheduler {name} step failed: {exc}")
+
+
+def _instagram(channels: dict) -> None:
+    """Shorts that just went out, posted to Instagram as Reels on channels
+    that post there by themselves (core.instagram, decision 116)."""
+    from core import instagram
+    for line in instagram.post_due(channels):
+        log.info(line)
 
 
 def _sweep_kits(channels: dict) -> None:

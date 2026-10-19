@@ -4,11 +4,11 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 13 Oct 2026. Start with W to Y: films are now made overnight. Then U and V: a new explainer channel, Why, Though?, has its first film. Then P to S: a new channel, One Day In History, has its first film waiting for you. The project is pivoting to long-form: Phase 0 is built and step 0 has your part. History Unmystified has its own, shorter settings page and is ready for its first film: see F to H. Pub Quiz Buzz and Minute Pastor both publish
-by themselves. Do the "Now" section first. The app's new home page,
-**Today**, now lists what needs you as it happens, and **Money** shows
-costs, runway and payback; this file is for steps outside the app. The
-app has a new look (decision 068): restart it (step E) to see it.*
+*Last updated: 19 Oct 2026. Start with G1 to G5 (growing Why, Though?),
+then I1 to I6 (Instagram posting by itself) and T1 (TikTok). Everything
+below those is older and mostly done or on hold. The app's home page,
+**Today**, lists what needs you as it happens; this file is for steps
+outside the app.*
 
 ---
 
@@ -37,24 +37,120 @@ film**, so new teasers end on "tap the link below".
 video** (any film that has one), or add **Best for viewer** and
 **Subscribe**. The last ten seconds are held for it.
 
-### G5. A/B test each film's title and thumbnail (1 minute a film, after G1)
-On each film's page, open **A/B test options**: three thumbnails (click
-to download) and three titles. Then **A/B test in Studio ↗**, choose
-"Title and thumbnail", and upload them. YouTube keeps whichever earns
-the most watch time.
+### G5. Test each film's thumbnail in Studio (1 minute a film, after G1)
+The app is finding the channel's best thumbnail **style** first (layout,
+font, colours, straight or tilted text, which picture), then refining
+it, and only then testing each film's own words and picture. Each
+film's page has a **Thumbnail test** card with three thumbnails, and a
+pill saying which stage it's at.
+1. Click each of the three thumbnails to download it.
+2. **Test in Studio ↗** opens the film in YouTube Studio. Under
+   **Thumbnail**, choose **A/B testing** (Studio may call it "Test &
+   compare"), pick **Thumbnail** (or **Title and thumbnail** when the pill
+   says "Words and picture": then use each one's **Copy title** too),
+   upload the three, and Save.
+3. When Studio names a winner (usually within two weeks), tick that
+   letter under **Studio's winner** on the card. The app learns from it
+   and makes the next films' tests from what won.
+Published films 1 to 4 already have theirs waiting.
+
+## Posting to Instagram by itself (19 Oct)
+
+Once these are done, every Short and teaser goes to Instagram as a Reel
+by itself, a few minutes after it goes out on YouTube, with its
+caption, and its page links to it. It's free. Instagram allows this
+without any review because the app only posts to your own accounts. It
+works through a Facebook Page linked to each Instagram account, which is
+the only way Instagram takes a video straight from this PC.
+
+Do I1 and I2 for each channel that posts to Instagram: Why, Though?, and
+Pub Quiz Buzz and Minute Pastor if you want theirs automatic too (only
+their posting changes, not their videos).
+
+### I1. Make the channel's Instagram a professional account (2 minutes a channel)
+In the Instagram app, signed in as the channel: **Profile → ☰ → Account
+type and tools → Switch to professional account → Creator**, pick a
+category (e.g. *Education*), **Done**. Skip it if the profile already
+shows a **Professional dashboard**. Creator rather than Business keeps
+the full music library.
+
+### I2. Give it a Facebook Page and link them (5 minutes a channel)
+1. On Facebook (your own account is fine; the Page is separate from
+   your profile): <https://www.facebook.com/pages/create> → Page name
+   "Why, Though?", category *Education website* (or similar) →
+   **Create Page**. Skip the optional steps.
+2. Switch into the Page (your profile picture, top right → the Page),
+   then **Settings & privacy → Settings → Linked accounts → Instagram →
+   Connect account**, and sign in as the channel's Instagram.
+3. If that menu isn't there, do the same from
+   <https://business.facebook.com>: **Settings → Accounts → Instagram
+   accounts → Add**.
+
+### I3. Make the Meta app (10 minutes, once for every channel)
+1. <https://developers.facebook.com> → **Log in** with Facebook →
+   **Get started**, and confirm your email or phone if asked.
+2. **My Apps → Create app**. App name "Shorts Pipeline", your email →
+   **Next**. Use case: **Other** → **Next**. App type: **Business** →
+   **Next/Create app** (it may ask for your Facebook password). Don't
+   connect a business portfolio.
+3. On the app's dashboard: **Add product** (or **Add use case**) →
+   **Instagram → Set up**. In the left menu, open **Instagram → API setup
+   with Facebook login**; nothing there needs changing.
+4. **App settings → Basic**: copy the **App ID**, and click **Show** next
+   to **App secret** and copy that.
+5. In the app here: the top bar's **More → Instagram setup** (under
+   Setup), paste both under **1. Meta app**, **Save**.
+Leave the Meta app in **Development** mode. Publishing it would need
+Meta's review, and posting to your own accounts doesn't.
+
+### I4. Connect (2 minutes, once for every channel)
+1. On **Instagram setup**, **Copy** the permissions line, then open
+   **Graph API Explorer ↗**.
+2. In the Explorer, on the right: **Meta App** = Shorts Pipeline, **User
+   or Page** = User Token. Under **Permissions**, add each of the five
+   you copied: `instagram_basic`, `instagram_content_publish`,
+   `pages_show_list`, `pages_read_engagement`, `business_management`.
+3. **Generate Access Token**. In the Facebook window, choose every
+   channel's Page and every channel's Instagram account, then
+   **Continue/Save**.
+4. Copy the token from the **Access Token** box, paste it on Instagram
+   setup under **2. Connect**, and press **Connect** within the hour. It
+   lists the accounts it found, e.g. "Connected: @whythough". The app
+   keeps a token that doesn't expire, so this is once, unless you change
+   your Facebook password or remove the app.
+
+### I5. Choose each channel's account (30 seconds a channel)
+**Channel → Settings → Publishing → TikTok and Instagram**: keep **Also
+post … to Instagram** ticked, set **Instagram posts by itself as** to
+its account, **Save changes**.
+
+### I6. Check the first one (2 minutes)
+After the channel's next Short or teaser goes out, its Instagram block on
+**To post** (or the video's own page) says **Posting by itself**, then
+**Posted** with a link.
+Open the link in a private window: the Reel should play for someone not
+signed in. Tell me if it doesn't, or if it says **Didn't post**.
+Older Shorts already waiting in To post don't go by themselves, so
+there's no flood of 30 at once: each has **Post it for me**.
+
+## TikTok in a few clicks (19 Oct)
+
+### T1. A browser profile for Why, Though? (2 minutes)
+**Why, Though? → Settings → Publishing → TikTok and Instagram → Make a
+browser profile for this channel**. In the Chrome window that opens,
+sign in to the channel's TikTok (create it there first if it doesn't
+exist). From then on each teaser on **To post** is: **Open TikTok** →
+**Select video** → **Ctrl+V**, **Enter** → **Copy caption** → paste →
+**Post** → **I've posted it**. About 30 seconds.
+
+Why TikTok isn't automatic like Instagram: TikTok only lets an app it
+hasn't audited post privately, and only to an account that is itself
+set to private. Its rules also say it won't audit a tool for posting to
+your own accounts. The only automatic route is a paid posting service
+that has passed the audit (around $16–30 a month); worth it only once
+TikTok brings real views.
 
 ## Thumbnails that won't set (14 Oct)
-
-### A1. Why, Though?: verify with another number (5 minutes)
-A number verifies at most 2 channels a year, and yours is used up.
-Verification can't be moved or removed. Use any other number you can get
-a code on, for example a family member's mobile, a cheap pay-as-you-go
-SIM, or a landline (choose **Voice call**). The number isn't attached to
-your account beyond the code.
-**YouTube Studio** (signed in as Why, Though?) → **Settings → Channel →
-Feature eligibility → Intermediate features → Verify phone number**.
-Then, in the app, **Why, Though? → Videos → Set thumbnails** sends the
-two published films' thumbnails.
 
 ### A2. Pub Quiz Buzz Shorts: set each cover by hand (1 minute a Short)
 YouTube picks its own frame for the Shorts shelf and the subscription
@@ -962,6 +1058,8 @@ tune.
 
 ## Done
 
+- 18 Oct: Why, Though? verified with another phone number (A1), so its
+  films' thumbnails set.
 - 7 Oct: Pub Quiz Buzz's "General Knowledge: Hard Round" missed its 6 Oct upload (a
   temporary YouTube error); it's back in its queue and goes out at 18:00. Uploads now
   retry such errors (decision 077). Its topic plan file was damaged overnight and is

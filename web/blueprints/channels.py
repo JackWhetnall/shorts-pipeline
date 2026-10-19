@@ -12,8 +12,8 @@ from flask import (
 )
 
 from core import (
-    caption_preview, card_preview, channel_admin, curriculum, drafts, fonts, gallery, jobs,
-    launch, posting, publish_queue, scheduler, today, voice_quota, youtube,
+    caption_preview, card_preview, channel_admin, curriculum, drafts, fonts, gallery, instagram,
+    jobs, launch, posting, publish_queue, scheduler, today, voice_quota, youtube,
 )
 from core.assets import has_logo
 from core.channels import (
@@ -298,6 +298,8 @@ def _settings_context(channel, error: str = None) -> dict:
         "quiz_levels": [(label, f"{level:g}") for label, level in _quiz_levels(channel)],
         "clock_labels": _clock_labels(),
         "posting_choices": posting.profile_choices(),
+        "instagram_choices": instagram.choices(),
+        "instagram_problem": instagram.problem(),
         "posting_error": request.args.get("posting_error"),
         "posting_ready": request.args.get("posting_ready"),
         "plan_estimate": _plan_estimate(channel.key, channel),

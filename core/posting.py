@@ -309,7 +309,16 @@ def caption(video_path: Path, platform: str = "", channel=None) -> str:
         text = "\n\n".join(p for p in (title, about) if p)
         tags = plain
     licence = " ".join(credits(video_path))
-    return "\n\n".join(p for p in (text, " ".join(tags), licence) if p)
+    return "\n\n".join(p for p in (text, full_video_line(channel, video_path), " ".join(tags), licence) if p)
+
+
+def full_video_line(channel, video_path: Path) -> str:
+    """Where a teaser's film is (decision 116): its spoken ending sends
+    viewers to "our channel", and on TikTok or Instagram that's YouTube.
+    "" for anything that isn't a teaser."""
+    if not (gallery.load_report(video_path) or {}).get("teaser"):
+        return ""
+    return f"Full video on YouTube: {channel.channel_display_name or channel.key}"
 
 
 def with_youtube_hashtags(channel, video_path: Path, description: str) -> str:
@@ -401,10 +410,12 @@ def plan(channel, video_path: Path) -> dict:
     """Everything the posting steps show for one video: the file to pick,
     where it opens, and per platform its caption, steps and whether it's
     done."""
+    from core import instagram
     info = gallery.load_publish_info(video_path)
     handoff = info["handoff"] or {}
     pending = [p for p in PLATFORMS if p in handoff and not handoff[p].get("posted_at")]
     file = str(stage(channel, video_path)) if pending else ""
+    auto = instagram.state(channel, video_path) if "instagram" in handoff else {"auto": False}
     return {
         "file": file,
         "where": profile_label(channel),
@@ -413,7 +424,8 @@ def plan(channel, video_path: Path) -> dict:
         "platforms": [{"key": p, "label": LABELS[p], "caption": caption(video_path, p, channel),
                        "for_search": bool(social(video_path).get(p)),
                        "steps": STEPS[p], "posted": bool(handoff[p].get("posted_at")),
-                       "url": info.get(f"{p}_url") or ""}
+                       "url": info.get(f"{p}_url") or "",
+                       "auto": auto if p == "instagram" else {"auto": False}}
                       for p in PLATFORMS if p in handoff],
     }
 

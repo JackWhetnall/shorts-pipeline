@@ -2997,6 +2997,18 @@ async function postRewrite(button) {
   });
 }
 
+// Instagram, by the app (core.instagram, decision 116): it starts in the
+// background; the page shows its progress once reloaded.
+async function postInstagramNow(button) {
+  const p = postParts(button);
+  await withButtonLoading(button, "Starting…", async () => {
+    const res = await apiFetch(`/api/videos/${p.relpath}/instagram-now`, {method: "POST"});
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { p.status.textContent = data.error || "Couldn't start it."; return; }
+    setTimeout(() => location.reload(), 1500);
+  });
+}
+
 async function postDone(event, form) {
   event.preventDefault();
   const p = postParts(form);

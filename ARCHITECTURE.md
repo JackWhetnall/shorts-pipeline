@@ -82,6 +82,9 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
                 restarts the app once idle (decision 039).
   posting       Posting to TikTok/Instagram from this PC: the channel's own
                 browser profile at the upload page, the video in Explorer.
+  instagram     Reels posted by themselves through a Meta app in development
+                mode: one Explorer token, each Page's lasting token, a step
+                a scheduler pass (decision 116).
   launch        Each channel's launch pipeline: ordered stages from idea to
                 publishing on its own, computed from real state.
   long_form     A long-form channel's setup steps: done, next, blocked (076).
@@ -487,6 +490,17 @@ paste into the file picker, and each platform has its own caption and
 hashtags (`posting.hashtags`). Videos waiting are hard-linked into
 `Videos\Shorts to post` (`posting.stage`) and removed once posted. See
 decision [059](docs/decisions/059-posting-steps.md).
+
+Instagram is posted to by itself on a channel with a
+`publishing.instagram_account` (`core.instagram`, decision
+[116](docs/decisions/116-instagram-posts-by-itself.md)). Each scheduler
+pass moves every Short handed off in the last two days a step on: a copy
+with its index first, a container with the file uploaded into it, then
+published once Instagram has processed it, and marked posted with its
+link. The state is in the publish sidecar's `handoff.instagram.auto`, so
+a restart carries on without posting twice. The Meta app and each
+account's Page token are in `config/instagram.json`, outside version
+control. TikTok has no such route for an unaudited app and stays by hand.
 
 The captions are written for each platform's search when a video is
 handed off (`posting.write_social`, kept in `<stem>_social.json` for the

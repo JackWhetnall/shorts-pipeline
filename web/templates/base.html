@@ -15,7 +15,7 @@
   {% set ep = request.endpoint or '' %}
   {% set channel_pages = ('channels.', 'gallery.', 'curriculum.', 'profile.', 'logos.', 'setup.', 'style_setup.', 'music.') %}
   {% set library = [('footage.browse', 'Footage'), ('facts.page', 'Facts and questions'), ('voice_lab.page', 'Voice Lab')] %}
-  {% set setup = [('services.page', 'APIs and keys'), ('phone.setup', 'Phone'), ('youtube.setup', 'YouTube setup')] %}
+  {% set setup = [('services.page', 'APIs and keys'), ('phone.setup', 'Phone'), ('youtube.setup', 'YouTube setup'), ('instagram.setup', 'Instagram setup')] %}
   <header class="site-header">
     <a href="{{ url_for('today.page') }}" class="brand">
       <span class="brand-mark" aria-hidden="true">

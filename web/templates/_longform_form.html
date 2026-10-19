@@ -268,7 +268,7 @@
     <fieldset>
       <legend>Schedule</legend>
       <input type="hidden" name="publishing_plan_present" value="1">
-      {# Kept as they are: the posting profile is set up from the shorts page. #}
+      {# Kept as it is: it's changed with the button under TikTok and Instagram. #}
       <input type="hidden" name="posting_profile"
              value="{{ channel.publishing.posting_browser ~ '|' ~ channel.publishing.posting_profile if channel.publishing.posting_profile else '' }}">
       <label class="checkbox-label">
@@ -300,14 +300,26 @@
         </label>
         {% endfor %}
       </fieldset>
+    </fieldset>
+
+    <fieldset>
+      <legend>TikTok and Instagram</legend>
       <label class="checkbox-label">
         <input type="checkbox" name="post_tiktok" {% if channel.publishing.post_tiktok %}checked{% endif %}>
         Also post teasers to TikTok (by hand, from To post)
       </label>
       <label class="checkbox-label">
         <input type="checkbox" name="post_instagram" {% if channel.publishing.post_instagram %}checked{% endif %}>
-        Also post teasers to Instagram (by hand, from To post)
+        Also post teasers to Instagram
       </label>
+      {% include "_instagram_account.html" %}
+      {% if posting_error %}<p class="error">{{ posting_error }}</p>{% endif %}
+      {% if posting_ready %}<p class="meta info-banner">Sign in to this channel's TikTok in the new window.</p>{% endif %}
+      <p class="meta">TikTok opens in <strong>{{ channel.publishing.posting_browser|capitalize ~ ': ' ~ channel.publishing.posting_profile if channel.publishing.posting_profile else 'your default browser' }}</strong></p>
+      <button type="submit" class="btn-ghost"
+              formaction="{{ url_for('channels.set_up_posting_profile', key=channel.key) }}">
+        {{ 'Open its login pages again' if channel.publishing.posting_profile else 'Make a browser profile for this channel' }}
+      </button>
     </fieldset>
 
     <fieldset>

@@ -56,6 +56,8 @@ channels/*/background.json
 # OAuth client secret and per-channel refresh tokens. Real credentials.
 config/youtube_client.json
 config/youtube_tokens/
+# The Meta app and each Instagram account's token (core.instagram).
+config/instagram.json
 config/schedule.json
 config/channels.json.v1.bak
 

@@ -1027,7 +1027,7 @@
 
     <fieldset>
       <legend>TikTok and Instagram
-        <button type="button" class="info-dot" data-tooltip="As each video goes out it's listed under To post: one click opens this channel's browser profile at the upload page, with the video ready to drag in and the caption on your clipboard. They only let reviewed apps post for you.">?</button>
+        <button type="button" class="info-dot" data-tooltip="Each video goes to To post as it goes out. Instagram posts by itself once an account is chosen.">?</button>
       </legend>
       <label class="checkbox-label">
         <input type="checkbox" name="post_tiktok" {% if channel.publishing.post_tiktok %}checked{% endif %}>
@@ -1035,8 +1035,9 @@
       </label>
       <label class="checkbox-label">
         <input type="checkbox" name="post_instagram" {% if channel.publishing.post_instagram %}checked{% endif %}>
-        Also post each one to Instagram from this PC
+        Also post each one to Instagram
       </label>
+      {% include "_instagram_account.html" %}
       <label>Post from
         <select name="posting_profile">
           <option value="" {% if not channel.publishing.posting_profile %}selected{% endif %}>Your default browser, as it is</option>

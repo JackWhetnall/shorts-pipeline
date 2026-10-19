@@ -1,0 +1,14 @@
+{# The Instagram account a channel posts to by itself (core.instagram, decision 116).
+   Without a connected account there's nothing to choose: it posts by hand. #}
+{% if instagram_choices %}
+<label>Instagram posts by itself as
+  <select name="instagram_account">
+    <option value="" {% if not channel.publishing.instagram_account %}selected{% endif %}>No one: I post by hand</option>
+    {% for choice in instagram_choices %}
+    <option value="{{ choice.value }}" {% if choice.value == channel.publishing.instagram_account %}selected{% endif %}>{{ choice.label }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% if instagram_problem and channel.publishing.instagram_account %}<p class="error">{{ instagram_problem }}</p>{% endif %}
+{% endif %}
+<p class="hint"><a href="{{ url_for('instagram.setup') }}">Instagram setup</a></p>

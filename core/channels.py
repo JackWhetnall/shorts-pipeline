@@ -561,7 +561,9 @@ class Publishing(_MappingLike):
     `post_tiktok` / `post_instagram`: when a video goes out, it's also
     listed under "To post" for posting to that platform from this PC
     (core.posting), in `posting_browser`'s profile `posting_profile`,
-    where the channel's accounts stay logged in.
+    where the channel's accounts stay logged in. With an
+    `instagram_account` (an Instagram account id from core.instagram),
+    Instagram is posted to by itself instead (decision 116).
     """
 
     enabled: bool = False
@@ -572,6 +574,7 @@ class Publishing(_MappingLike):
     post_instagram: bool = False
     posting_browser: str = ""      # "chrome" | "edge" | "" for the default browser
     posting_profile: str = ""      # the browser's profile folder, e.g. "Shorts minute_pastor"
+    instagram_account: str = ""    # core.instagram's account id; "" posts to Instagram by hand
     # Long videos (pipeline.longform) go out in their own slots, YouTube only.
     long_slots: list = field(default_factory=lambda: ["19:00"])
     long_weekdays: list = field(default_factory=lambda: [5])

@@ -206,7 +206,7 @@ def create_app(debug: bool = False) -> Flask:
         return render_template("error.html", message=message), 500
 
     from web.blueprints import (
-        animation, backgrounds, channels, curriculum, facts, footage, gallery, jobs as jobs_bp,
+        animation, backgrounds, channels, curriculum, facts, footage, gallery, instagram, jobs as jobs_bp,
         logos, money, music, phone, pitch, profile, quiz_review, remake, review, scenes, services, setup,
         productions, storyboard, style_setup, today, voice_lab, youtube,
     )
@@ -236,6 +236,7 @@ def create_app(debug: bool = False) -> Flask:
     app.register_blueprint(setup.bp)
     app.register_blueprint(voice_lab.bp)
     app.register_blueprint(youtube.bp)
+    app.register_blueprint(instagram.bp)
 
     return app
 
@@ -266,6 +267,6 @@ def nav_counts(channels: dict, key: str = "") -> dict:
     for k, channel in channels.items():
         if not key or k == key:
             waiting += gallery.video_state_counts(channel.output_dir)["waiting"]
-    to_post = sum(len(r["platforms"]) for r in publish_queue.awaiting_posts(channels)
+    to_post = sum(len(set(r["platforms"]) - set(r["by_itself"])) for r in publish_queue.awaiting_posts(channels)
                   if not key or r["channel_key"] == key)
     return {"review_waiting": waiting, "to_post": to_post, "active_job_count": len(jobs.active_jobs())}

@@ -90,3 +90,14 @@ def _isolated_ready_to_post(tmp_path, monkeypatch):
     (core.posting.stage); no test may touch the real one."""
     monkeypatch.setattr("core.posting.READY_DIR", tmp_path / "ready_to_post")
     monkeypatch.setattr("core.posting.STAGED_INDEX", tmp_path / "staged_posts.json")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_instagram(tmp_path, monkeypatch):
+    """Instagram's Meta app and account tokens (core.instagram) are real
+    credentials: no test reads or writes the real ones, and none sees an
+    account the owner connected."""
+    monkeypatch.setattr("core.instagram.PATH", tmp_path / "instagram.json")
+    monkeypatch.setattr("core.instagram.READY_DIR", tmp_path / "instagram_ready")
+    monkeypatch.delenv("META_APP_ID", raising=False)
+    monkeypatch.delenv("META_APP_SECRET", raising=False)

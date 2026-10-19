@@ -54,7 +54,7 @@ def test_a_frozen_channel_makes_exactly_what_it_did(key, tmp_path, monkeypatch):
 
     assert path.exists(), (f"No golden for {key}. Write it with: python -m tests.frozen.regenerate")
     expected = harness.read_golden(key)
-    changed = harness.differences(expected, actual, allow_new=("/config",))
+    changed = harness.differences(harness.steady(expected), harness.steady(actual), allow_new=("/config",))
     if changed:
         saved = tmp_path / "actual.json"
         saved.write_text(json.dumps(actual, indent=1, ensure_ascii=False, sort_keys=True), encoding="utf-8")
@@ -71,3 +71,13 @@ def test_the_snapshot_is_of_the_two_frozen_channels():
     assert set(harness.FROZEN) == {"minute_pastor", "pub_quiz_buzz"}
     assert harness.CHANNELS["pub_quiz_buzz"]["format"] == "quiz"
     assert harness.CHANNELS["minute_pastor"]["source"] == "bible"
+
+
+def test_voice_requests_are_compared_in_a_steady_order_but_still_compared():
+    """Segments are voiced in parallel, so their requests arrive in the
+    threads' order: that's ignored, and what they ask for still counts."""
+    one = {"short": {"voice": [{"text": "first"}, {"text": "second"}]}}
+    swapped = {"short": {"voice": [{"text": "second"}, {"text": "first"}]}}
+    changed = {"short": {"voice": [{"text": "second"}, {"text": "third"}]}}
+    assert harness.differences(harness.steady(one), harness.steady(swapped)) == []
+    assert harness.differences(harness.steady(one), harness.steady(changed))
