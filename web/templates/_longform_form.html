@@ -324,6 +324,12 @@
 
     <fieldset>
       <legend>YouTube</legend>
+      <input type="hidden" name="thumbnail_tests_present" value="1">
+      <label class="checkbox-label">
+        <input type="checkbox" name="thumbnail_tests" {% if channel.publishing.thumbnail_tests %}checked{% endif %}>
+        Test thumbnails by itself
+        <button type="button" class="info-dot" data-tooltip="Each film's three take turns once it's out; click-through picks the winner. Free.">?</button>
+      </label>
       {% if youtube_upload.connected %}
         <p class="meta">Connected as <strong>{{ youtube_upload.account or 'a Google account' }}</strong>.</p>
       {% elif youtube_upload.configured %}

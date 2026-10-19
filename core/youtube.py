@@ -416,6 +416,28 @@ def set_thumbnail(channel_key: str, video_id: str, image_path: Path) -> None:
     _json_or_raise(response, "setting the thumbnail")
 
 
+VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
+# Read-only parts of a video's snippet: the rest goes back as it came.
+_SNIPPET_READ_ONLY = ("publishedAt", "channelId", "channelTitle", "thumbnails", "liveBroadcastContent",
+                      "localized")
+
+
+def set_title(channel_key: str, video_id: str, title: str) -> None:
+    """A published video's title changed, the rest of its snippet kept as
+    it is (an update replaces the whole snippet). Needs MANAGE_SCOPE: the
+    upload permission alone can't change a video once it's up."""
+    token = access_token(channel_key)
+    headers = {"Authorization": f"Bearer {token}"}
+    items = _json_or_raise(requests.get(VIDEOS_URL, params={"part": "snippet", "id": video_id},
+                                        headers=headers, timeout=30), "read the video's title").get("items") or []
+    if not items:
+        raise YouTubeError(f"no video {video_id}", user_message="YouTube doesn't have that video any more.")
+    snippet = {k: v for k, v in items[0]["snippet"].items() if k not in _SNIPPET_READ_ONLY}
+    snippet["title"] = " ".join(title.replace("<", "").replace(">", "").split())[:100]
+    _json_or_raise(requests.put(VIDEOS_URL, params={"part": "snippet"}, headers=headers,
+                                json={"id": video_id, "snippet": snippet}, timeout=30), "change the video's title")
+
+
 def _start_session(token: str, metadata: dict, size: int) -> str:
     response = requests.post(
         UPLOAD_URL,

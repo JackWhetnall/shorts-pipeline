@@ -164,16 +164,24 @@ def _studio_test(channel, target):
     if not film and not (channel.publishing.thumbnail_tests and gallery_core.is_long(target)
                          and channel.format == "quiz" and quiz.round_sidecar(target).exists()):
         return None
-    from core import audience, thumbnail_tests
+    from core import audience, reach, thumbnail_tests, youtube
     data = thumbnail_tests.load(channel.key)
-    round_ = next((r for r in data["rounds"] if r["kind"] == "studio"
+    round_ = next((r for r in data["rounds"] if r["kind"] in ("studio", "film")
                    and any(v["stem"] == target.stem for v in r["videos"])), None)
     out = {"round": thumbnail_tests.for_page(round_) if round_ else None, "film": film}
     if film:
         phase = (round_ or {}).get("phase") or thumbnail_tests.program(data)["phase"]
         vid = audience.video_id(gallery_core.load_publish_info(target).get("youtube_url") or "")
         out.update(phase=phase, studio=f"https://studio.youtube.com/video/{vid}/edit" if vid else "",
-                   mode="Title and thumbnail" if phase == "content" else "Thumbnail")
+                   mode="Title and thumbnail" if phase == "content" else "Thumbnail",
+                   # Decision 117: the app runs the test itself on a channel that tests thumbnails.
+                   auto=channel.publishing.thumbnail_tests)
+        if round_ and round_["kind"] == "film":
+            figures = reach.load(channel.key)
+            out.update(status=thumbnail_tests.film_status(channel.key, round_, target.stem),
+                       reach="error" if figures.get("error") else ("" if figures.get("job_id") else "starting"),
+                       titles_held=any(v.get("title") for v in round_["variants"])
+                       and not youtube.connection(channel.key).get("manage"))
     return out
 
 

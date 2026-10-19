@@ -21,7 +21,7 @@ def test_style_rounds_pit_the_champion_against_untried_styles_and_side_by_side_r
     data = _data()
     first = tt.doc_variants(data)
     assert [v["recipe"]["family"] for v in first] == ["panel", "band", "sticker"]
-    data["rounds"].append({"kind": "studio", "status": "running", "doc": True, "phase": "style", "variants": first})
+    data["rounds"].append({"kind": "film", "status": "running", "doc": True, "phase": "style", "variants": first})
     second = tt.doc_variants(data)
     assert [v["recipe"]["family"] for v in second] == ["panel", "overlay", "pop"]     # not band and sticker again
 

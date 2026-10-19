@@ -209,12 +209,19 @@ def _thumbnail_tests(channels: dict) -> list:
         for r in reversed(data["rounds"][-8:]):
             r = thumbnail_tests.for_page(r)
             counts = r.get("result", {}).get("tally") or (
-                thumbnail_tests.tally(key, r) if r["kind"] == "rotation" else {})
+                thumbnail_tests.tally(key, r) if r["kind"] in ("rotation", "film") else {})
             r["counts"] = counts
             rounds.append(r)
-        changed = [f"{tv.describe_change([n, tv.DEFAULT[n], v])}" for n, v in data["recipe"].items() if v != tv.DEFAULT[n]]
-        out.append({"name": channel.channel_display_name or key, "recipe": ", ".join(changed) or "as made",
-                    "rounds": rounds})
+        if channel.format == "documentary":
+            # A film channel's best is its house style (decision 115).
+            from pipeline.documentary import thumb_styles
+            phase = thumbnail_tests.program(data)["phase"]
+            recipe = f"{thumb_styles.describe(thumbnail_tests.house_style(key))} ({phase})"
+        else:
+            changed = [f"{tv.describe_change([n, tv.DEFAULT[n], v])}" for n, v in data["recipe"].items()
+                       if v != tv.DEFAULT[n]]
+            recipe = ", ".join(changed) or "as made"
+        out.append({"name": channel.channel_display_name or key, "recipe": recipe, "rounds": rounds})
     return out
 
 

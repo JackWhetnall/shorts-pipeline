@@ -4,148 +4,52 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 19 Oct 2026. Start with G1 to G5 (growing Why, Though?),
-then I1 to I6 (Instagram posting by itself) and T1 (TikTok). Everything
-below those is older and mostly done or on hold. The app's home page,
-**Today**, lists what needs you as it happens; this file is for steps
-outside the app.*
+*Last updated: 19 Oct 2026. Start with G2 and G5 (a minute each), then
+T1. Everything below those is older and mostly done or on hold. The
+app's home page, **Today**, lists what needs you as it happens; this
+file is for steps outside the app.*
 
 ---
 
 ## Growing Why, Though? (18 Oct)
 
-### G1. Verify with ID (5 minutes, before the next film goes out)
-**YouTube Studio → Settings → Channel → Feature eligibility → Advanced
-features → Verify.** This unlocks the Shorts "Related video" link,
-chapters, clickable links in descriptions, pinned comments and A/B
-testing.
-
 ### G2. Reconnect Why, Though? to YouTube (1 minute)
-**Why, Though? → Settings → Publishing → Reconnect.** The new consent
-screen also lets the app manage the channel. From then on it puts each
-film into a themed playlist and writes the channel's keywords by itself,
-twice a day.
+It looks connected, and uploads work, but it was connected before the
+app asked to manage the channel, and that permission is missing.
+Without it the app can't put films into playlists, write the channel's
+keywords, or test titles (only thumbnails). **Why, Though? → Settings →
+Publishing → YouTube → Reconnect this channel**, pick Why, Though?, and
+allow everything on Google's screen.
 
-### G3. Link each teaser to its film (30 seconds a Short)
-On each teaser's page, **Link its film ↗** opens it in Studio. Under
-**Related video**, pick the film named in the button's tooltip, then
-Save. Once you're doing this, tick **Settings → Teasers link to their
-film**, so new teasers end on "tap the link below".
+### G5. Switch on the YouTube Reporting API (1 minute)
+The app now runs each film's thumbnail test by itself, so there's
+nothing to do in Studio. It needs click-through figures, which come
+from this API, and it's off in your Google Cloud project.
+<https://console.cloud.google.com/apis/library/youtubereporting.googleapis.com?project=467764320362>
+→ **Enable** (signed in as the account that made the YouTube
+connection). Free. Within a few hours each film's page shows **Testing
+by itself**; the first figures arrive two days later.
 
-### G4. An end screen on every film (30 seconds a film)
+### G6. End screens stay by hand (30 seconds a film)
+YouTube's API can't add end screens, so each new film still needs one:
 **Studio → Content →** the film **→ Editor → End screen → Import from
-video** (any film that has one), or add **Best for viewer** and
-**Subscribe**. The last ten seconds are held for it.
+video**. There's no way round this that keeps within YouTube's rules.
 
-### G5. Test each film's thumbnail in Studio (1 minute a film, after G1)
-The app is finding the channel's best thumbnail **style** first (layout,
-font, colours, straight or tilted text, which picture), then refining
-it, and only then testing each film's own words and picture. Each
-film's page has a **Thumbnail test** card with three thumbnails, and a
-pill saying which stage it's at.
-1. Click each of the three thumbnails to download it.
-2. **Test in Studio ↗** opens the film in YouTube Studio. Under
-   **Thumbnail**, choose **A/B testing** (Studio may call it "Test &
-   compare"), pick **Thumbnail** (or **Title and thumbnail** when the pill
-   says "Words and picture": then use each one's **Copy title** too),
-   upload the three, and Save.
-3. When Studio names a winner (usually within two weeks), tick that
-   letter under **Studio's winner** on the card. The app learns from it
-   and makes the next films' tests from what won.
-Published films 1 to 4 already have theirs waiting.
-
-## Posting to Instagram by itself (19 Oct)
-
-Once these are done, every Short and teaser goes to Instagram as a Reel
-by itself, a few minutes after it goes out on YouTube, with its
-caption, and its page links to it. It's free. Instagram allows this
-without any review because the app only posts to your own accounts. It
-works through a Facebook Page linked to each Instagram account, which is
-the only way Instagram takes a video straight from this PC.
-
-Do I1 and I2 for each channel that posts to Instagram: Why, Though?, and
-Pub Quiz Buzz and Minute Pastor if you want theirs automatic too (only
-their posting changes, not their videos).
-
-### I1. Make the channel's Instagram a professional account (2 minutes a channel)
-In the Instagram app, signed in as the channel: **Profile → ☰ → Account
-type and tools → Switch to professional account → Creator**, pick a
-category (e.g. *Education*), **Done**. Skip it if the profile already
-shows a **Professional dashboard**. Creator rather than Business keeps
-the full music library.
-
-### I2. Give it a Facebook Page and link them (5 minutes a channel)
-1. On Facebook (your own account is fine; the Page is separate from
-   your profile): <https://www.facebook.com/pages/create> → Page name
-   "Why, Though?", category *Education website* (or similar) →
-   **Create Page**. Skip the optional steps.
-2. Switch into the Page (your profile picture, top right → the Page),
-   then **Settings & privacy → Settings → Linked accounts → Instagram →
-   Connect account**, and sign in as the channel's Instagram.
-3. If that menu isn't there, do the same from
-   <https://business.facebook.com>: **Settings → Accounts → Instagram
-   accounts → Add**.
-
-### I3. Make the Meta app (10 minutes, once for every channel)
-1. <https://developers.facebook.com> → **Log in** with Facebook →
-   **Get started**, and confirm your email or phone if asked.
-2. **My Apps → Create app**. App name "Shorts Pipeline", your email →
-   **Next**. Use case: **Other** → **Next**. App type: **Business** →
-   **Next/Create app** (it may ask for your Facebook password). Don't
-   connect a business portfolio.
-3. On the app's dashboard: **Add product** (or **Add use case**) →
-   **Instagram → Set up**. In the left menu, open **Instagram → API setup
-   with Facebook login**; nothing there needs changing.
-4. **App settings → Basic**: copy the **App ID**, and click **Show** next
-   to **App secret** and copy that.
-5. In the app here: the top bar's **More → Instagram setup** (under
-   Setup), paste both under **1. Meta app**, **Save**.
-Leave the Meta app in **Development** mode. Publishing it would need
-Meta's review, and posting to your own accounts doesn't.
-
-### I4. Connect (2 minutes, once for every channel)
-1. On **Instagram setup**, **Copy** the permissions line, then open
-   **Graph API Explorer ↗**.
-2. In the Explorer, on the right: **Meta App** = Shorts Pipeline, **User
-   or Page** = User Token. Under **Permissions**, add each of the five
-   you copied: `instagram_basic`, `instagram_content_publish`,
-   `pages_show_list`, `pages_read_engagement`, `business_management`.
-3. **Generate Access Token**. In the Facebook window, choose every
-   channel's Page and every channel's Instagram account, then
-   **Continue/Save**.
-4. Copy the token from the **Access Token** box, paste it on Instagram
-   setup under **2. Connect**, and press **Connect** within the hour. It
-   lists the accounts it found, e.g. "Connected: @whythough". The app
-   keeps a token that doesn't expire, so this is once, unless you change
-   your Facebook password or remove the app.
-
-### I5. Choose each channel's account (30 seconds a channel)
-**Channel → Settings → Publishing → TikTok and Instagram**: keep **Also
-post … to Instagram** ticked, set **Instagram posts by itself as** to
-its account, **Save changes**.
-
-### I6. Check the first one (2 minutes)
-After the channel's next Short or teaser goes out, its Instagram block on
-**To post** (or the video's own page) says **Posting by itself**, then
-**Posted** with a link.
-Open the link in a private window: the Reel should play for someone not
-signed in. Tell me if it doesn't, or if it says **Didn't post**.
-Older Shorts already waiting in To post don't go by themselves, so
-there's no flood of 30 at once: each has **Post it for me**.
-
-## TikTok in a few clicks (19 Oct)
+## TikTok and Instagram by hand (19 Oct)
 
 ### T1. A browser profile for Why, Though? (2 minutes)
 **Why, Though? → Settings → Publishing → TikTok and Instagram → Make a
 browser profile for this channel**. In the Chrome window that opens,
-sign in to the channel's TikTok (create it there first if it doesn't
-exist). From then on each teaser on **To post** is: **Open TikTok** →
-**Select video** → **Ctrl+V**, **Enter** → **Copy caption** → paste →
-**Post** → **I've posted it**. About 30 seconds.
+sign in to the channel's TikTok and Instagram (create them there first
+if they don't exist). From then on each teaser on **To post** is, per
+platform: **Open TikTok** (or Instagram) → **Select video** (Instagram:
+Create, Post, Select from computer) → **Ctrl+V**, **Enter** → **Copy
+caption** → paste → **Post** → **I've posted it**. About 30 seconds
+each.
 
-Why TikTok isn't automatic like Instagram: TikTok only lets an app it
-hasn't audited post privately, and only to an account that is itself
-set to private. Its rules also say it won't audit a tool for posting to
+Why TikTok can't post by itself (Instagram can, when you want it: see
+"Later" near the end): TikTok only lets an app it hasn't audited post
+privately, and only to an account that is itself set to private. Its rules also say it won't audit a tool for posting to
 your own accounts. The only automatic route is a paid posting service
 that has passed the audit (around $16–30 a month); worth it only once
 TikTok brings real views.
@@ -1045,6 +949,87 @@ curious teenagers"*, proposed as **Why Nobody Told You**. It cost 9 cents.
 Tell me what the draft got wrong. The drafting prompt is the thing to
 tune.
 
+## Later: Instagram posting by itself (built 19 Oct, not set up)
+
+On hold: you're posting Instagram by hand alongside TikTok for now.
+The app is ready for this whenever you want it. Once these are done,
+every Short and teaser goes to Instagram as a Reel
+by itself, a few minutes after it goes out on YouTube, with its
+caption, and its page links to it. It's free. Instagram allows this
+without any review because the app only posts to your own accounts. It
+works through a Facebook Page linked to each Instagram account, which is
+the only way Instagram takes a video straight from this PC.
+
+Do I1 and I2 for each channel that posts to Instagram: Why, Though?, and
+Pub Quiz Buzz and Minute Pastor if you want theirs automatic too (only
+their posting changes, not their videos).
+
+### I1. Make the channel's Instagram a professional account (2 minutes a channel)
+In the Instagram app, signed in as the channel: **Profile → ☰ → Account
+type and tools → Switch to professional account → Creator**, pick a
+category (e.g. *Education*), **Done**. Skip it if the profile already
+shows a **Professional dashboard**. Creator rather than Business keeps
+the full music library.
+
+### I2. Give it a Facebook Page and link them (5 minutes a channel)
+1. On Facebook (your own account is fine; the Page is separate from
+   your profile): <https://www.facebook.com/pages/create> → Page name
+   "Why, Though?", category *Education website* (or similar) →
+   **Create Page**. Skip the optional steps.
+2. Switch into the Page (your profile picture, top right → the Page),
+   then **Settings & privacy → Settings → Linked accounts → Instagram →
+   Connect account**, and sign in as the channel's Instagram.
+3. If that menu isn't there, do the same from
+   <https://business.facebook.com>: **Settings → Accounts → Instagram
+   accounts → Add**.
+
+### I3. Make the Meta app (10 minutes, once for every channel)
+1. <https://developers.facebook.com> → **Log in** with Facebook →
+   **Get started**, and confirm your email or phone if asked.
+2. **My Apps → Create app**. App name "Shorts Pipeline", your email →
+   **Next**. Use case: **Other** → **Next**. App type: **Business** →
+   **Next/Create app** (it may ask for your Facebook password). Don't
+   connect a business portfolio.
+3. On the app's dashboard: **Add product** (or **Add use case**) →
+   **Instagram → Set up**. In the left menu, open **Instagram → API setup
+   with Facebook login**; nothing there needs changing.
+4. **App settings → Basic**: copy the **App ID**, and click **Show** next
+   to **App secret** and copy that.
+5. In the app here: the top bar's **More → Instagram setup** (under
+   Setup), paste both under **1. Meta app**, **Save**.
+Leave the Meta app in **Development** mode. Publishing it would need
+Meta's review, and posting to your own accounts doesn't.
+
+### I4. Connect (2 minutes, once for every channel)
+1. On **Instagram setup**, **Copy** the permissions line, then open
+   **Graph API Explorer ↗**.
+2. In the Explorer, on the right: **Meta App** = Shorts Pipeline, **User
+   or Page** = User Token. Under **Permissions**, add each of the five
+   you copied: `instagram_basic`, `instagram_content_publish`,
+   `pages_show_list`, `pages_read_engagement`, `business_management`.
+3. **Generate Access Token**. In the Facebook window, choose every
+   channel's Page and every channel's Instagram account, then
+   **Continue/Save**.
+4. Copy the token from the **Access Token** box, paste it on Instagram
+   setup under **2. Connect**, and press **Connect** within the hour. It
+   lists the accounts it found, e.g. "Connected: @whythough". The app
+   keeps a token that doesn't expire, so this is once, unless you change
+   your Facebook password or remove the app.
+
+### I5. Choose each channel's account (30 seconds a channel)
+**Channel → Settings → Publishing → TikTok and Instagram**: keep **Also
+post … to Instagram** ticked, set **Instagram posts by itself as** to
+its account, **Save changes**.
+
+### I6. Check the first one (2 minutes)
+After the channel's next Short or teaser goes out, its Instagram block on
+**To post** (or the video's own page) says **Posting by itself**, then
+**Posted** with a link.
+Open the link in a private window: the Reel should play for someone not
+signed in. Tell me if it doesn't, or if it says **Didn't post**.
+Older Shorts already waiting in To post don't go by themselves, so
+there's no flood of 30 at once: each has **Post it for me**.
+
 ## Decisions for later (no rush)
 
 - **Which channel next?** Minute Pastor is connected and its numbers are
@@ -1058,6 +1043,8 @@ tune.
 
 ## Done
 
+- 19 Oct: G1 (ID verification), G3 (teasers linked to their films) and G4
+  (end screens on the published films) done.
 - 18 Oct: Why, Though? verified with another phone number (A1), so its
   films' thumbnails set.
 - 7 Oct: Pub Quiz Buzz's "General Knowledge: Hard Round" missed its 6 Oct upload (a

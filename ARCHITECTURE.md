@@ -881,7 +881,11 @@ With "Test thumbnails" on, a channel learns a thumbnail recipe
 three variants and are judged on click-through from the Reporting API
 (`core/reach.py`); long quizzes use Studio's Test & Compare with the
 winner ticked on the video's page
-([083](docs/decisions/083-thumbnail-tests.md)).
+([083](docs/decisions/083-thumbnail-tests.md)). Films are rotated by the
+app too, once they're out and the reach reports work: style and refine
+rounds shared by up to four films, a content round per film with its
+titles rotated as well when the channel may be managed
+([117](docs/decisions/117-film-tests-run-by-the-app.md)).
 
 ## How long a video runs
 

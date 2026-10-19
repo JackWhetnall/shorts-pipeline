@@ -153,7 +153,7 @@
     <tbody>
     {% for r in t.rounds %}
     <tr>
-      <td>{{ 'Shorts, rotated' if r.kind == 'rotation' else 'Long, Studio' }} <span class="hint">{{ r.videos|length }}</span></td>
+      <td>{{ {'rotation': 'Shorts, rotated', 'film': 'Films, rotated'}.get(r.kind, 'Long, Studio') }} <span class="hint">{{ r.videos|length }}</span></td>
       {% for v in r.variants %}
       {% set c = r.counts.get(v.label) if r.counts else None %}
       <td class="{{ 'good-text' if r.result.winner == v.label }}">{{ v.change_text }}{% if c and c.ctr is not none %}<br><span class="hint">{{ '%.1f'|format(100 * c.ctr) }}% of {{ '{:,}'.format(c.impressions) }}</span>{% endif %}</td>
