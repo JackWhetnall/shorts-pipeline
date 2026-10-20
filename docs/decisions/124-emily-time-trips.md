@@ -97,3 +97,21 @@ Soft & Sweet". They added:
 **Working rule, from the owner:** no picture is removed or toned down
 unless the owner asks or the image model refuses it. A change to what
 they asked for is raised before any money is spent.
+
+## Found on the first storyboard
+
+- **The ceiling.** The film's $7 ceiling stopped it after 23 pictures,
+  because all three versions of this film shared one plan entry. It was
+  raised once.
+- **One outfit.** A full-length character sheet gave Emily one outfit, a
+  green cardigan and jeans, and the picture prompt told every keyframe to
+  copy a character's clothes from their sheet. She wore it in the sea, in
+  Rio and in Roman Sicily, about twenty pictures. A recurring star's sheet
+  is now her face and hair only (`bible.SHEET["star"]`), and the prompt
+  dresses her as each frame says.
+- **A stranger.** Two pictures whose direction named Emily but whose cast
+  didn't drew a stranger. A shot now carries any recurring star its
+  direction names (`stills.shots`).
+- **Collages.** A setting written as several beaches across the decades
+  drew as a collage, and its scenes copied the panels. They now have
+  settings of their own.

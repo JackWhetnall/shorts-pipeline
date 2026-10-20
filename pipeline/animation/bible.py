@@ -242,11 +242,20 @@ SHEET = {
     "place": ("An establishing view of a place in an animated series: {name}: {description}. "
               "A clear, wide, uncluttered view with no people in it, showing the layout, the "
               "materials and the light that every later shot of this place must keep."),
+    # Decision 124: a channel's recurring star wears something different in
+    # every scene, and a full-length sheet gave her one outfit (a cardigan
+    # and jeans) that every picture copied, at a Roman villa and in Rio.
+    "star": ("A character face sheet for an animated series. The character: {name}: {description}. "
+             "Three head-and-shoulders portraits side by side on a plain, softly lit background: "
+             "front view, three-quarter view, side view, with a relaxed, warm expression. Shown from "
+             "the collarbones up, with no clothing in view, so that only her face, hair and colouring "
+             "are the design: in every picture she wears whatever that scene says."),
     "object": ("A reference drawing of an object in an animated series: {name}: {description}. "
                "The object alone, with no person holding or wearing it, shown whole and "
                "clearly, three-quarter view, centred on a plain background."),
 }
-SHEET_SIZE = {"character": images.LANDSCAPE, "place": images.PORTRAIT, "object": (1024, 1024)}
+SHEET_SIZE = {"character": images.LANDSCAPE, "star": images.LANDSCAPE, "place": images.PORTRAIT,
+              "object": (1024, 1024)}
 
 
 def sheet_prompt(kind: str, name: str, description: str, look: dict) -> str:

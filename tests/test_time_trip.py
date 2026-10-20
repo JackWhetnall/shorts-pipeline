@@ -84,3 +84,27 @@ def test_shortlisted_library_voices_are_listed_and_need_adding_before_a_test(tmp
         refused = client.post("/api/voice-lab/test", json={"voice_id": "lib1", "preset": "natural", "speed": 1},
                               headers={"X-CSRF-Token": csrf(client)})
     assert refused.status_code == 400 and "Add this voice in ElevenLabs first" in refused.get_json()["error"]
+
+
+def test_a_star_is_drawn_from_her_face_and_dressed_as_each_picture_says():
+    # Found on 20 Oct: a full-length sheet gave Emily a cardigan and jeans,
+    # copied into a Roman villa and a Rio beach; and two pictures whose
+    # direction named her, but whose cast didn't, drew a stranger.
+    from pipeline.animation import bible, keyframes
+    from pipeline.documentary import stills
+    from core.channels import Animation
+    from pipeline.animation import style
+    look = style.compile(Animation(enabled=True, style={"approach": "acted", "stage": "animated_film",
+                                                        "material": "cel_2d", "people": "cartoon"}), frame="wide")[1]
+    sheet = bible.sheet_prompt("star", "Emily", "a woman with chestnut hair", look)
+    assert "head-and-shoulders" in sheet and "no clothing in view" in sheet
+    board = {"elements": {"emily": {"kind": "character", "name": "Emily", "description": "d", "star": True},
+                          "reard": {"kind": "character", "name": "Louis Réard", "description": "d"}}}
+    shot = {"framing": "medium", "image": "Emily in a string bikini", "elements": ["emily", "reard"]}
+    prompt = keyframes.prompt_for(shot, board, look, [("emily", board["elements"]["emily"]),
+                                                      ("reard", board["elements"]["reard"])])
+    assert "Emily: the same face, hair, colouring and figure, dressed as this frame says" in prompt
+    assert "Louis Réard: draw them exactly as shown there, with the same face, hair, clothes" in prompt
+    found = stills.shots([{"direction": "Emily in a neon swimsuit on the sand", "cast": []},
+                          {"direction": "A drawer glowing", "cast": []}], ["Emily"])
+    assert found[0]["elements"] == ["emily"] and found[1]["elements"] == []

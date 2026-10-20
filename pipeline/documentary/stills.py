@@ -85,11 +85,23 @@ def board(outline: dict, channel_key: str) -> dict:
     return {"elements": elements, "colour_script": ""}
 
 
-def shots(scenes: list) -> list:
-    return [{"index": i, "framing": s.get("framing", "medium"), "image": s["direction"],
-             "elements": [library.key_of(n) for n in s.get("cast") or []]
-             + ([library.key_of(s["setting"])] if s.get("setting") not in (None, "", "one-off") else [])}
-            for i, s in enumerate(scenes)]
+def shots(scenes: list, stars: list = ()) -> list:
+    """`stars`: the channel's recurring cast, put in any shot whose
+    direction names them even when the scene's cast forgot to (decision
+    124: two pictures of "Emily" drew a stranger)."""
+    out = []
+    for i, s in enumerate(scenes):
+        cast = list(s.get("cast") or [])
+        cast += [n for n in stars if n not in cast and re.search(rf"\b{re.escape(n)}\b", s.get("direction") or "")]
+        out.append({"index": i, "framing": s.get("framing", "medium"), "image": s["direction"],
+                    "elements": [library.key_of(n) for n in cast]
+                    + ([library.key_of(s["setting"])] if s.get("setting") not in (None, "", "one-off") else [])})
+    return out
+
+
+def stars_of(channel) -> list:
+    """The names of the channel's recurring cast (decision 124)."""
+    return [m["name"] for m in (getattr(channel.animation, "cast", None) or []) if m.get("name") and m.get("description")]
 
 
 def _sheets(channel, look, the_board, the_shots, style_ref) -> dict:
@@ -103,6 +115,9 @@ def _sheets(channel, look, the_board, the_shots, style_ref) -> dict:
     for key, element in the_board["elements"].items():
         if key not in uses or (element["kind"] != "character" and uses[key] < 2):
             continue
+        # A recurring star's sheet is her face only (decision 124).
+        if element["kind"] == "character" and element["name"] in stars_of(channel):
+            element = {**element, "kind": "star"}
         try:
             sheets[key] = library.sheet(channel, look, element, style_ref)
         except PipelineError as exc:
@@ -122,7 +137,10 @@ def draw(channel, outline: dict, scenes: list, folder: Path, frame: str = "wide"
     style_ref = bible.reference(channel, look, film=True)
     the_board = board(outline, channel.key)
     the_board["never"] = list(channel.avoid_imagery or [])
-    the_shots = shots(scenes)
+    for element in the_board["elements"].values():
+        if element["kind"] == "character" and element["name"] in stars_of(channel):
+            element["star"] = True
+    the_shots = shots(scenes, stars_of(channel))
     wanted = [s for s in the_shots if only is None or s["index"] in only]
     sheets = _sheets(channel, look, the_board, wanted, style_ref)
     model = models.image_model(channel.animation.image_model)

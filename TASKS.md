@@ -25,19 +25,18 @@ Bottom Drawer → Productions → the bikini**. Redraw any picture with a
 note. Each look has two other style frames to choose from in **Settings →
 Animation** if you prefer one.
 
-### N2. Listen to the two voices (2 minutes, free)
-Neither is in your ElevenLabs account yet, and nothing has spent a
-credit. In ElevenLabs, **Voices → Voice Library**, search each name and
-play its sample:
-- Clocking In: **Tom - Light Northern British** (dry, Alan Bennett-ish).
-  Runner-up: **Kubz - Warm Northern British Narrator**.
-- History's Bottom Drawer: **Katie - Relatable & Humorous** (witty,
-  sarcastic). Runner-up: **Canny** (a Geordie gossip).
+### N2. Listen to the voices (2 minutes, free)
+**Voice Lab** (or the channel's **Settings → Voice**) now lists them with
+ElevenLabs' own free samples, under "Voice Library":
+- Clocking In: **Tom - Light Northern British** (runner-up **Kubz**).
+- History's Bottom Drawer: **Emily - Soft & Sweet** is Emily's voice;
+  **Katie - Relatable & Humorous** narrates. Also shortlisted: **Cleo**,
+  **Zibby**, **Canny**.
 
-Add the ones you like with **Add to my voices** (free; uses 2 of your 10
-voice slots). If you pick a runner-up, change the voice in the channel's
-**Settings → Voice** (paste its ID: Kubz `q6yHKBAKIOAAW8dwPWhO`, Canny
-`lYz97gZSO1IVncLkczs4`).
+Nothing has spent a credit. Before anything is voiced, add the ones you
+keep in ElevenLabs (**Voices → Voice Library**, search the name, **Add to
+my voices**: free, two or three of your ten slots), then **Refresh voice
+list** in Voice Lab. Tell me if you'd rather a different one for any part.
 
 ### N3. Make the two YouTube channels (5 minutes each), when you're ready
 Only you can: **YouTube → your account → Settings → Add or manage your

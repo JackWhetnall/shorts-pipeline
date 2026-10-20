@@ -105,7 +105,11 @@ def prompt_for(shot: dict, board: dict, look: dict, refs: list, fix: list = None
              "rendering, line, texture, palette and light exactly, and copy none of its studies "
              "into the frame."]
     for n, (key, element) in enumerate(refs, start=2):
-        if element["kind"] == "character":
+        if element["kind"] == "character" and element.get("star"):
+            # A recurring star changes clothes every scene (decision 124).
+            lines.append(f"Image {n} is {element['name']}: the same face, hair, colouring and figure, "
+                         f"dressed as this frame says.")
+        elif element["kind"] == "character":
             lines.append(f"Image {n} is {element['name']}: draw them exactly as shown there, "
                          f"with the same face, hair, clothes, colours and proportions.")
         elif element["kind"] == "place":
