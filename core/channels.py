@@ -532,9 +532,10 @@ class Documentary(_MappingLike):
     # channel's accent colour, top left; or "none" (decision 090). Each
     # channel picks its own, so the same label isn't on every channel.
     captions: str = "corner"
-    # "story" (someone wants something; things in the way) or "explainer"
-    # (a viewer's question answered, one next question at a time):
-    # pipeline.documentary.kinds, decision 089.
+    # "story" (someone wants something; things in the way), "explainer"
+    # (a viewer's question answered, one next question at a time), and
+    # two explainers of their own shape, "working_day" and "expose":
+    # pipeline.documentary.kinds, decisions 089 and 122.
     kind: str = "story"
     # Decision 094. The hours the autopilot may start a stage in, as
     # "start-end" in local 24-hour time ("23-7": overnight, when batch
@@ -712,9 +713,10 @@ class ChannelConfig:
             if self.documentary.captions not in ("corner", "tag", "none"):
                 raise ConfigError(f"{where} has an unknown kind of label ({self.documentary.captions!r}). "
                                   f"Pick corner, tag or none.")
-            if self.documentary.kind not in ("story", "explainer"):
+            from pipeline.documentary import kinds
+            if self.documentary.kind not in kinds.KINDS:
                 raise ConfigError(f"{where} makes an unknown kind of film ({self.documentary.kind!r}). "
-                                  f"Pick story or explainer.")
+                                  f"Pick {', '.join(kinds.KINDS[:-1])} or {kinds.KINDS[-1]}.")
             if not 5 <= self.documentary.scene_seconds <= 40:
                 raise ConfigError(f"{where} holds each scene {self.documentary.scene_seconds} "
                                   f"seconds. Pick 5 to 40.")

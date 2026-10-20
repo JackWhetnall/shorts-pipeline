@@ -120,8 +120,9 @@
       </label>
       <label class="field-row"><span class="field-label">Kind of film</span>
         <select name="documentary_kind">
-          <option value="story" {% if channel.documentary.kind == 'story' %}selected{% endif %}>Story</option>
-          <option value="explainer" {% if channel.documentary.kind == 'explainer' %}selected{% endif %}>Explainer</option>
+          {% for key, label in film_kinds.items() %}
+          <option value="{{ key }}" {% if channel.documentary.kind == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         </select>
       </label>
       <label class="field-row"><span class="field-label">Place and name labels</span>

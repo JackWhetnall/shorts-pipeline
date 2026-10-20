@@ -140,7 +140,8 @@ def checks(script: dict, outline: dict, angle: dict = None, kind: str = "story")
         if want and len(want & have) < 0.4 * len(want):
             found.setdefault(scenes[0]["chapter"], []).append(
                 f"The film must open with the chosen first line (or close to it): {hook}")
-    if kind == "explainer":
+    from pipeline.documentary import kinds
+    if kinds.family(kind) == "explainer":
         for chapter, problems in explainer_checks(scenes).items():
             found.setdefault(chapter, []).extend(problems)
     return found
@@ -561,7 +562,7 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None, p
     for c in cards:
         log.info(f"  [documentary] card in scene {c['scene'] + 1}: {c['problem'][:160]}")
     facts = []
-    if film_kinds.of(channel) == "explainer":
+    if film_kinds.family(film_kinds.of(channel)) == "explainer":
         try:
             script, facts = fact_check(script, packaging or angle)
         except PipelineError as exc:
@@ -579,7 +580,7 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None, p
     # Every picture looked at together (decision 092).
     from pipeline.documentary import pictures
     try:
-        script = pictures.plan(outline, script, film_kinds.of(channel))
+        script = pictures.plan(outline, script, film_kinds.family(film_kinds.of(channel)))
         planned = script["pictures"]
         log.info(f"  [documentary] pictures planned: {len(planned['changes'])} changed, "
                  f"{planned['shown_again']} shown again")

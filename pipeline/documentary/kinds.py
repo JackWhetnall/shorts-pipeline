@@ -13,12 +13,20 @@ differ, slotted into the pitch, outline, script and editor prompts.
 
 from __future__ import annotations
 
-KINDS = ("story", "explainer")
+KINDS = ("story", "explainer", "working_day", "expose")
+LABELS = {"story": "Story", "explainer": "Explainer", "working_day": "Working day", "expose": "Exposé"}
 
 
 def of(channel) -> str:
     kind = getattr(getattr(channel, "documentary", None), "kind", "story")
     return kind if kind in KINDS else "story"
+
+
+def family(kind: str) -> str:
+    """"story" or "explainer": a working day and an exposé (decision 122)
+    are explainers with shapes of their own, so they're fact-checked,
+    held to an explainer's opening and given its pictures."""
+    return "story" if kind not in KINDS or kind == "story" else "explainer"
 
 
 # What each kind of channel can make well (decision 118), for whoever
@@ -59,6 +67,53 @@ What this channel can make well, and what it can't:
   story that turns on showing one of those is out.
 - The title promises what the film delivers.
 """.strip(),
+    "working_day": """
+What this channel can make well, and what it can't (the owner's rules):
+- One ordinary job or role from the past, explained across one working
+  day: what they actually did from waking to sleeping, how, for what
+  pay, and how we know. A pirate, a Roman soldier, a caveman are the kind.
+  Prefer the roles and eras other channels haven't done to death (a
+  lighthouse keeper, a falconer, a rat-catcher, a samurai in peacetime,
+  a tomb-builder at Deir el-Medina, a Viking trader, a telephone
+  operator); the crowded three (Roman soldier, pirate, medieval peasant)
+  only with an angle nobody else has.
+- There's real evidence for the day: letters, rotas, accounts, diaries,
+  laws, digs or a careful reconstruction, so the film can say how we
+  know. A role nobody recorded is out.
+- The day works by ear: tasks, tools, food, pay, danger and boredom, all
+  said, with numbers at human scale. The pictures only illustrate someone
+  at work. They're drawn by an image model that can't be trusted with
+  exact layouts, maps, text, insignia, rigging or how a machine works, so
+  a role is out if explaining it means showing one of those.
+- The true day surprises: most of it isn't what films show. The title
+  promises what the film delivers.
+- The job, not its cruelty: no role whose day is mainly killing,
+  torture or punishment.
+""".strip(),
+    "expose": """
+What this channel can make well, and what it can't (the owner's rules):
+- One cheeky, slightly scandalous corner of everyday life in the past:
+  bathing, toilets, what people wore underneath, getting dressed, beauty,
+  courtship and etiquette, scandalous inventions (the bikini, the
+  corset, bloomers, the waltz). "How a medieval princess was bathed and
+  dressed for her wedding" and "the invention of the bikini" are the kind.
+- Never sex itself. Out: sex acts, wedding nights and bedding ceremonies,
+  brothels and sex work, fetishes, sex toys, contraception, abuse,
+  anything explicit, and nudity as the subject. Anyone bathing,
+  undressing or courting in a film is an adult. YouTube limits ads on
+  intimate topics and sexualised titles, so the cheek is in the
+  absurdity, the etiquette and the outrage at the time.
+- The title is cheeky and specific, never sexualised or misleading: a
+  scandal, an absurdity or a number, never "naughty", "sexy", "18+",
+  innuendo about bodies, or emojis.
+- It works by ear. The pictures only illustrate fully clothed people in
+  comic scenes; they can't be trusted with how a garment is built, text
+  or diagrams, so a subject is out if explaining it means showing one.
+- There are receipts: household accounts, etiquette books, sermons,
+  court cases, newspapers' outrage, surviving garments. Busting a myth
+  is welcome.
+- Plenty of people have wondered, and the truth surprises them.
+""".strip(),
 }
 
 PITCH = {
@@ -85,6 +140,46 @@ drawn exactly (a shape, a position, a direction, stages of a design),
 since the pictures only illustrate. And the title's claim must be true
 by the film's own answer: never a title the answer contradicts or has to
 walk back.
+""".strip(),
+    "working_day": """
+This channel explains one job from the past by walking through its
+working day. Every angle is the question people really ask about the
+role ("What did pirates actually do all day?"), answered with evidence.
+Dozens of channels use that exact title: its title is instead the most
+surprising true claim about the day, with the role named ("Roman
+Soldiers Dug More Than They Fought"), specific and checkable, never a
+vague tease.
+
+The hook: in its first fifteen seconds it proves the title with the
+strangest true detail of the day, then says what everyone assumes
+instead, then promises the whole shift, from the first bell to lights
+out. `open_loop` is the job's biggest surprise, saved for the middle of
+the film.
+
+Every angle works by ear: its tasks, numbers and evidence are things
+the narration can say, never something the viewer has to see drawn
+exactly (a layout, a map, how a machine works).
+""".strip(),
+    "expose": """
+This channel tells history's cheeky, slightly scandalous bits: what
+polite history leaves in the bottom drawer. Every angle is something
+people are curious about but rarely hear the truth of (how people
+bathed, what they wore underneath, how a bride was got ready, why a
+swimsuit caused an outcry), framed as the polite version against what
+really happened. Its title is cheeky and specific (a scandal, an
+absurdity or a number) and never sexualised or misleading: "The
+Swimsuit So Shocking It Was Named After a Nuclear Test" beats "The
+Naughty Truth About Swimwear". Never "naughty", "sexy", "18+",
+innuendo about bodies, or emojis.
+
+The hook: in its first fifteen seconds it proves the title with the most
+eyebrow-raising true detail the film has, said with a straight face,
+then the polite version, then the promise of what happened behind the
+closed door. `open_loop` is what the film reveals in its last minute.
+
+Every angle stays inside YouTube's rules: no sex acts, no nudity as the
+subject, and nobody under eighteen in anything about bodies, undressing
+or romance.
 """.strip(),
 }
 
@@ -114,6 +209,49 @@ OUTLINE_WANT = {
   Every step works by ear: the narration carries the whole explanation,
   and no chapter depends on a picture showing an exact shape, position,
   direction, count or stage.""",
+    "working_day": """- `want`: what this day shows about the job that films get wrong, and
+  why the viewer should care (it was a real person's job, and it explains
+  something about how things are now). Say both plainly; the cold open
+  must deliver them.
+  The film is built like a shift:
+  - the cold open (under 45 seconds): the strangest true detail of the
+    day said plainly, what everyone assumes instead, and the promise of
+    the whole shift;
+  - the job advert, in a minute: who did this job, why they took it,
+    and what it paid;
+  - then the day in order, one chapter per stretch of it, each titled
+    with the time of day and the task, like a time sheet ("5 a.m.:
+    Muster"). Each covers the task; how it was done (tools, method, who
+    gave the orders); the number it turns on (hours, weight, pay,
+    calories); how we know (a letter, a rota, a dig, said aloud); and
+    one human detail. It ends on what's coming next in the day: the
+    worse part, or a surprise;
+  - between minutes three and six, the part nobody tells you: the job's
+    biggest surprise, which reframes it;
+  - the last chapter, off duty and pay day: what they kept, what they
+    spent, and how it ended for most of them, then one comparison that
+    lands it in the viewer's own working week. No summary.
+  Every step works by ear: the narration carries the whole day, and no
+  chapter depends on a picture showing an exact layout, map, count or
+  how a machine works.""",
+    "expose": """- `want`: the polite version everyone knows, the bottom-drawer truth,
+  and why the viewer should care (it's behind something they wear, use or
+  do today). Say all three plainly; the cold open must deliver them.
+  The film is built like gossip with receipts:
+  - the cold open (under 45 seconds): the most eyebrow-raising true
+    detail, said deadpan; the polite version; the promise;
+  - then behind the closed door, step by step, one chapter per stage
+    (the bath, the layers, the inspection, the outcry). Each gives the
+    absurd detail, who was in the room, and the receipts (an account
+    book, a sermon, a court case, a newspaper's outrage, said aloud).
+    It ends on a bigger scandal, or "and it gets worse";
+  - between minutes three and five, the twist that turns the joke
+    around (it was practical; the critics were wrong; the scandal was
+    invented);
+  - the last chapter: how it ended up in the viewer's own wardrobe,
+    bathroom or drawer today, then one cheeky consequence. No summary.
+  Every step works by ear, and the pictures keep everyone decently
+  dressed.""",
 }
 
 OUTLINE_START = {
@@ -128,12 +266,33 @@ OUTLINE_START = {
   - `open_loops`: the mystery last; before it, the smaller questions the
     clue chapters answer, in order. `turn`: the deeper problem each
     chapter ends on, or for the twist chapter, the reframe.""",
+    "working_day": """  - Every task made concrete: what they held, what it weighed, how long
+    it took, what it smelt like, what it cost in today's money, and the
+    modern job it most resembles.
+  - `open_loops`: the job's biggest surprise last; before it, what each
+    stretch of the day will reveal. `turn`: what comes next in the day,
+    which each chapter ends on, or for the surprise chapter, the reframe.""",
+    "expose": """  - Every detail concrete: what it was made of, how long it took, who
+    had to watch, what it cost, what the critics said in their own words.
+  - `open_loops`: the main mystery last; before it, the smaller "wait,
+    what?" each chapter answers. `turn`: the bigger scandal each chapter
+    ends on, or for the twist chapter, the turnaround.
+  - Innuendo only by implication, never sexual: the comedy is in the
+    etiquette, the absurdity and the outrage.""",
 }
 
 OUTLINE_SOUND = {
     "story": "",
     "explainer": "\n\nThis is an explainer: every chapter's `sound` is \"none\" unless the pictures "
                  "really are somewhere loud (a storm, the sea), and then only that chapter.",
+    "working_day": """
+
+This is an explainer: every chapter's `sound` is "none" unless the pictures really are somewhere loud (a storm, the sea), and then only that chapter.
+""".strip(),
+    "expose": """
+
+This is an explainer: every chapter's `sound` is "none" unless the pictures really are somewhere loud (a storm, the sea), and then only that chapter.
+""".strip(),
 }
 
 SCRIPT_SHAPE = {
@@ -181,6 +340,61 @@ SCRIPT_SHAPE = {
   The film's settings anchor it; most ideas get a one-off picture of
   their own, from the film's own world where possible. One picture per
   idea: when the narration comes back to an idea, so does its picture.""",
+    "working_day": """Make it a working day explained, not a lecture and not a story:
+- Third person, present tense: "a legionary", "the crew". The viewer is
+  never cast as the worker ("you are..."); speak to them only for a dry
+  aside or a comparison with their own job.
+- The first three scenes give the strangest true detail of the day,
+  said plainly ("A Roman legionary's most-used tool was a shovel."),
+  then what everyone assumes instead, then the promise of the whole
+  shift, in about forty seconds. Never open on a question, a greeting or
+  "imagine".
+- Then the day in order. For each stretch: the task, how it was done,
+  the number, how we know (the source in a few words: "a pay slip found
+  in Egypt", "a duty roster from Vindolanda"), and one human detail.
+  Link with "but" and "so". Keep the clock moving: say the time when the
+  day moves on.
+- The narrator is a dry, deadpan guide with a time-and-motion
+  inspector's eye: understatement, not jokes. The comedy is in true
+  facts said flatly ("Lunch was porridge. So was dinner."). Never
+  wacky, never shouting.
+- The surprise chapter reframes the job. The last chapter covers pay,
+  prospects and how it ended for most, then one comparison with the
+  viewer's own working week, and stops. Never end on the title's
+  question or a moral.
+- Every idea made concrete: a weight they can feel, an hour they know,
+  pay in today's money, a modern job it resembles. One idea at a time;
+  a word they won't know is explained the moment it's used.
+- Each picture shows someone at work on the task being said. The words
+  carry the explanation, because the picture can't be trusted with exact
+  detail. The film's settings anchor it; one picture per task, and when
+  the narration comes back to a task, so does its picture.""",
+    "expose": """Make it gossip with receipts, not a lecture and not a smutty joke:
+- The narrator is a knowing, cheeky friend telling the bit the history
+  books left out: conspiratorial asides ("Now. About the bath."),
+  raised-eyebrow understatement, quick comic timing. A wink, never a
+  leer. Talk to the viewer ("you") the way a friend shares gossip.
+- The first three scenes give the most eyebrow-raising true detail,
+  said deadpan, then the polite version, then the promise, in about
+  thirty seconds. Never open on a question, a greeting or "imagine".
+- Then behind the closed door, in order. Each chapter gives the absurd
+  detail, who was in the room, and the receipts, named in a few words
+  ("a 1907 police report", "the queen's own account book"). Short,
+  punchy sentences; a laugh every few scenes; link with "but" and "so".
+- The twist chapter turns the joke around. The last chapter lands it in
+  the viewer's own wardrobe, bathroom or drawer today, with one cheeky
+  consequence, and stops. Never end on the title's question or a moral.
+- Cheeky, never crude: no sex acts, nothing sexual about anyone's body,
+  no swearing, and nobody under eighteen in anything about bodies,
+  undressing or romance. Name a garment or a body part plainly when it's
+  needed (a chemise, a bottom) and move on.
+- Every detail concrete: what it was made of, how long it took, who
+  watched, what it cost. One idea at a time; a word they won't know is
+  explained the moment it's used.
+- Each picture is a comic illustration of the moment being said. The
+  words carry the explanation, because the picture can't be trusted with
+  exact detail. The film's settings anchor it; when the narration comes
+  back to a moment, so does its picture.""",
 }
 
 SCRIPT_DIRECTION = {
@@ -188,6 +402,15 @@ SCRIPT_DIRECTION = {
     "explainer": ("One clear, drawable picture of the idea being said: a character doing something, a "
                   "cutaway, a visual metaphor. Never a chart, a labelled diagram, a montage, or a picture "
                   "whose point is an exact position, angle, direction, count, scale or stage."),
+    "working_day": ("One clear, drawable picture of the task being said: someone at work, the tool in hand, "
+                    "the place it was done. Never a chart, a labelled diagram, a map, a montage, or a picture "
+                    "whose point is an exact layout, count, sequence or how a machine works."),
+    "expose": ("One clear, drawable comic picture of the moment being said: people in period dress reacting "
+               "(scandalised, smug, wide-eyed), the thing at the centre of the fuss, a sight gag. Everyone "
+               "decently dressed for where they are: swimwear only on a beach or at a pool and never posed to "
+               "show a body off; anyone bathing seen from the shoulders up, in a linen shift; never anyone "
+               "undressed, never people in a bed. Never a chart, a diagram, writing, or a picture whose point "
+               "is how a garment is built.")
 }
 
 SCRIPT_CARDS = {
@@ -195,6 +418,10 @@ SCRIPT_CARDS = {
              "  already gives",
     "explainer": "about one scene in eight, for the number or comparison the explanation turns on,\n"
                  "  never a list of rules or a summary",
+    "working_day": ("about one scene in eight, for the number the day turns on (hours, pay, weight,\n  "
+                    "calories) or a then-and-now comparison, never a list of rules, a timeline or a summary"),
+    "expose": ("about one scene in eight, for the number or the quote the scandal turns on (a\n  "
+               "newspaper's outrage, a rule from an etiquette book), never a list or a summary"),
 }
 
 CRITIC_MOMENTUM = {
@@ -209,4 +436,19 @@ CRITIC_MOMENTUM = {
   (score 4 or less if any is missing)? For the last: is the mystery
   solved clearly? Lecturing, listing facts, repeating and the same
   chapter-ending question shape twice score low.""",
+    "working_day": """- `momentum`: does every scene tell the viewer something new about the
+  day (a task, a number, how we know), does the clock keep moving, and
+  does the chapter end on what's coming next or a worse surprise? For the
+  first chapter: do its first three scenes give the strangest true
+  detail, what people assume, and the promise of the whole shift (score
+  4 or less if any is missing)? For the last: pay, prospects and the
+  landing comparison? Lecturing, listing facts, repeating and casting
+  the viewer as the worker score low.""",
+    "expose": """- `momentum`: does every scene reveal something new from behind the
+  closed door or raise the scandal, is there a laugh every few scenes,
+  and does the chapter end on a bigger scandal or the turnaround? For the
+  first chapter: the eyebrow-raising detail, the polite version and the
+  promise (score 4 or less if any is missing)? For the last: does it
+  land in the viewer's life today? Lecturing, listing and repeating score
+  low; anything sexual, crude or leering scores 1.""",
 }

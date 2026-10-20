@@ -802,8 +802,10 @@ rest; a shot's move gets depth parallax (`depth.py`, Depth Anything V2
 Small in `cache/models/`), finished by `finish.camera_shot(moving=)`.
 
 Decision [089](docs/decisions/089-explainers-gentler-depth-fitting-sound.md):
-`documentary.kind` is "story" or "explainer"; `kinds.py` holds the
-parts of the pitch, outline, script and critic prompts that differ.
+`documentary.kind` is "story" or "explainer" (or, decision 122, a
+"working_day" or an "expose", explainers underneath by `kinds.family`);
+`kinds.py` holds the parts of the pitch, outline, script and critic
+prompts that differ.
 Depth is used only where `depth.suits` (zooms; pans across a whole wide
 picture); a chapter's bed plays only under scenes `ambience.fits`.
 
@@ -817,7 +819,7 @@ come from, changed alone by `production.retitle`. Depth is off by default.
 Decision [091](docs/decisions/091-one-channel-a-creator-look-hook-hold-payoff.md):
 explainers are structured by `kinds.py` (proof, stakes, mystery, clues,
 twist, payoff); `editor.explainer_checks` and `editor.fact_check` run on
-explainer scripts only (corrections kept as `script.facts`).
+the explainer family's scripts only (corrections kept as `script.facts`).
 
 Decision [092](docs/decisions/092-pictures-planned-as-a-set.md):
 an outline has `settings` (each at a scale) and each cast member the

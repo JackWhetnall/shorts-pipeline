@@ -4,12 +4,46 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 19 Oct 2026. Start with V1, then G7 tomorrow and T1, and keep G6
-going for each new film. Everything below those is older and mostly done or on hold. The
-app's home page, **Today**, lists what needs you as it happens; this
+*Last updated: 20 Oct 2026. Start with N1 to N3 (the two new channels), then V1,
+G7 and T1, and keep G6 going for each new film. Everything below those is older and mostly
+done or on hold. The app's home page, **Today**, lists what needs you as it happens; this
 file is for steps outside the app.*
 
 ---
+
+## Two new channels: Clocking In and History's Bottom Drawer (20 Oct)
+
+Both are set up as proofs of concept (decision 122): publishing and the
+autopilot are off, and nothing has been voiced.
+
+### N1. Look at the two storyboards (10 minutes)
+**Clocking In → Productions → the lighthouse keeper**, and **History's
+Bottom Drawer → Productions → the bikini**. Read the angle, outline and
+script, and look through the storyboard. Redraw any picture with a note,
+or tell me what's off about the look before more films are planned.
+
+### N2. Listen to the two voices (2 minutes, free)
+Neither is in your ElevenLabs account yet, and nothing has spent a
+credit. In ElevenLabs, **Voices → Voice Library**, search each name and
+play its sample:
+- Clocking In: **Tom - Light Northern British** (dry, Alan Bennett-ish).
+  Runner-up: **Kubz - Warm Northern British Narrator**.
+- History's Bottom Drawer: **Katie - Relatable & Humorous** (witty,
+  sarcastic). Runner-up: **Canny** (a Geordie gossip).
+
+Add the ones you like with **Add to my voices** (free; uses 2 of your 10
+voice slots). If you pick a runner-up, change the voice in the channel's
+**Settings → Voice** (paste its ID: Kubz `q6yHKBAKIOAAW8dwPWhO`, Canny
+`lYz97gZSO1IVncLkczs4`).
+
+### N3. Make the two YouTube channels (5 minutes each), when you're ready
+Only you can: **YouTube → your account → Settings → Add or manage your
+channels → Create a channel**, named **Clocking In** and **History's
+Bottom Drawer**. Then connect each in its channel's **Settings →
+Publishing**. Making them early starts nothing on its own: the
+Partner Programme counts subscribers and watch hours, not how old a
+channel is, and only channels accepted before 1 Feb 2027 keep today's
+4,000-hour bar.
 
 ## Growing Why, Though? (18 Oct)
 
