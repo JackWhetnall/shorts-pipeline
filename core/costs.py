@@ -30,7 +30,7 @@ from pathlib import Path
 
 from core.paths import COST_LOG_PATH
 
-PRICES_CHECKED = "2026-10-05"
+PRICES_CHECKED = "2026-10-20"
 
 
 @dataclass(frozen=True)
@@ -57,8 +57,11 @@ class TokenPrice:
 # Anthropic first-party rates.
 CLAUDE_PRICES = {
     "claude-opus-5": TokenPrice(5.00, 25.00),
+    "claude-sonnet-5-5": TokenPrice(2.00, 10.00),
     "claude-sonnet-5": TokenPrice(2.00, 10.00),
     "claude-sonnet-4-6": TokenPrice(3.00, 15.00),
+    # Up to a 100K-token prompt, which every call here is; past it, 0.50/2.50.
+    "claude-haiku-5-5": TokenPrice(0.10, 0.50),
     "claude-haiku-4-5": TokenPrice(1.00, 5.00),
 }
 

@@ -143,6 +143,24 @@ CAMERA_MOVES = {
 CAMERA_SCALE = 1.5          # drawn larger than the frame first, so the move is smooth
 
 
+def stepped_filters(look: dict, w: int, h: int) -> list:
+    """A camera move shot like stop motion (decision 121): held on the
+    look's cadence (twos, threes) and nudged a pixel or two each step, as
+    if the paper were moved by hand between photographs. Only for a look
+    whose motion asks for a jitter (the stop-motion options); every other
+    look moves smoothly, as before."""
+    jitter = float(look.get("jitter") or 0)
+    step = looks.cadence_fps(look)
+    if jitter <= 0 or step >= FPS:
+        return []
+    j = max(1, round(jitter * 2))
+    # n counts the held frames, so each step lands somewhere new but the
+    # same render lands in the same places.
+    return [f"fps={step}",
+            f"crop={w - 2 * j}:{h - 2 * j}:'{j}+{j}*sin(n*12.9898)':'{j}+{j}*cos(n*78.233)'",
+            f"scale={w}:{h}:flags=lanczos", f"fps={FPS}"]
+
+
 def camera_shot(image: Path, out: Path, seconds: float, look: dict, move: str = "push_in",
                 overlay: Path = None, overlay_until: float = 0.0, adjust: list = None,
                 atmosphere: Path = None, atmosphere_strength: float = 0.6, moving: Path = None) -> Path:
@@ -168,7 +186,7 @@ def camera_shot(image: Path, out: Path, seconds: float, look: dict, move: str = 
         chain = [f"scale={w}:{h}:flags=lanczos"] + list(adjust or []) + ["setsar=1"]
     else:
         chain = [f"scale={big_w}:{big_h}:force_original_aspect_ratio=increase:flags=lanczos",
-                 f"crop={big_w}:{big_h}"] + list(adjust or []) + [zoom, "setsar=1"]
+                 f"crop={big_w}:{big_h}"] + list(adjust or []) + [zoom, "setsar=1"] + stepped_filters(look, w, h)
     chain += grade_filters(look) + texture_filters(look) + ["format=yuv420p"]
     out.parent.mkdir(parents=True, exist_ok=True)
     cmd = [_ffmpeg(), "-v", "error", "-y"] + (["-i", str(moving)] if moving is not None

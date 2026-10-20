@@ -1037,6 +1037,12 @@ def make(channel, seed: dict, out_dir: Path = None):
     {"type": "longform", "difficulty": a label or "rising", "rounds"}.
     Returns an object with video_path (answers as you go).
     `out_dir` is for trying one out without it reaching the review queue."""
+    from pipeline import llm
+    with llm.for_channel(channel.key):
+        return _make(channel, seed, out_dir)
+
+
+def _make(channel, seed: dict, out_dir: Path = None):
     from pipeline.scenes import art
 
     started = time.time()

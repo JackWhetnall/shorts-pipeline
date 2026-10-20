@@ -30,6 +30,7 @@ import json
 
 from core.logging_setup import get_logger
 from pipeline.llm import SystemBlock, call_json
+from pipeline import llm
 
 log = get_logger(__name__)
 
@@ -531,7 +532,7 @@ def too_small(boxes_over_time: list) -> list:
     return []
 
 
-PICTURE_MODEL = "claude-haiku-4-5"
+PICTURE_MODEL = llm.FAST_MODEL
 PICTURE_SYSTEM = """
 You check an animated explainer scene before it is rendered. You see
 stills from it, each with the words spoken up to that moment, and the

@@ -31,12 +31,13 @@ import requests
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from core.paths import FRAME_HEIGHT as H, FRAME_WIDTH as W
+from pipeline import llm
 
 log = get_logger(__name__)
 
 TIMEOUT = 25
 MAX_CANDIDATES = 6
-PICK_MODEL = "claude-haiku-4-5"
+PICK_MODEL = llm.FAST_MODEL
 AIC_SEARCH = "https://api.artic.edu/api/v1/artworks/search"
 AIC_IMAGE = "https://www.artic.edu/iiif/2/{id}/full/{w},/0/default.jpg"
 # v1 search was retired on 1 Oct 2026 (it now answers 410); v1.1 is paginated

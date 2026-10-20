@@ -65,9 +65,18 @@ log = get_logger(__name__)
 # One tier for every call this project makes. These are constrained tasks
 # with a schema - structured extraction and scoring - not open-ended
 # reasoning. Named here rather than at each call site so changing tier is
-# one edit.
-DEFAULT_MODEL = "claude-sonnet-5"
-VISION_MODEL = "claude-sonnet-5"
+# one edit. FAST_MODEL is for the cheap, high-volume judgements.
+DEFAULT_MODEL = "claude-sonnet-5-5"
+VISION_MODEL = "claude-sonnet-5-5"
+FAST_MODEL = "claude-haiku-5-5"
+
+# Decision 121. The frozen channels (decision 075) keep the models they
+# were made with: their work is sent to these instead, so they make
+# exactly what they made. By channel key while their work is being done
+# (job_context), and around their own pipelines (`legacy_models`).
+# A renamed frozen channel would lose this: rename it here too.
+LEGACY = {"claude-sonnet-5-5": "claude-sonnet-5", "claude-haiku-5-5": "claude-haiku-4-5"}
+LEGACY_CHANNELS = ("minute_pastor", "pub_quiz_buzz")
 
 # Thinking is billed out of max_tokens, so every budget here has to cover
 # reasoning AND the answer. These are deliberately generous: a large
@@ -116,6 +125,57 @@ TOGETHER_MAX = 8
 _client = None
 # None outside batch mode; inside it, the `unless` check batched() was given.
 _batch_mode = contextvars.ContextVar("llm_batch_mode", default=None)
+_legacy = contextvars.ContextVar("llm_legacy_models", default=None)
+
+
+@contextmanager
+def legacy_models(on: bool = True):
+    """Calls made inside go to the models the frozen channels were made
+    with (LEGACY, decision 121), or, `on=False`, to the newer ones whatever
+    channel the job is for."""
+    token = _legacy.set(bool(on))
+    try:
+        yield
+    finally:
+        _legacy.reset(token)
+
+
+def for_channel(channel_key: str):
+    """`legacy_models` for a frozen channel's work, a no-op for others."""
+    return legacy_models(channel_key in LEGACY_CHANNELS)
+
+
+def _on_legacy() -> bool:
+    from core import job_context
+    chosen = _legacy.get()
+    return job_context.get_channel_key() in LEGACY_CHANNELS if chosen is None else chosen
+
+
+def _pin(request: dict) -> dict:
+    """The request as it should be sent. A Haiku 5.5 call that sets no
+    effort runs at "low": it thinks by default where Haiku 4.5 didn't, and
+    these calls were written for a model that answered at once. On a frozen
+    channel's work, the model it was made with, and no effort for Haiku 4.5,
+    which refuses one."""
+    model = request.get("model")
+    if _on_legacy() and model in LEGACY:
+        request = {**request, "model": LEGACY[model]}
+        if request["model"] == "claude-haiku-4-5" and "output_config" in request:
+            config = {k: v for k, v in request["output_config"].items() if k != "effort"}
+            request = {k: v for k, v in request.items() if k != "output_config"}
+            if config:
+                request["output_config"] = config
+        return request
+    if model == FAST_MODEL:
+        # Its budgets were sized for Haiku 4.5's answer alone: room for the
+        # thinking too, and for a tokenizer that counts ~30% more. Only
+        # what's used is billed.
+        request = {**request, "max_tokens": round(request["max_tokens"] * 1.3) + 1500}
+        if not (request.get("output_config") or {}).get("effort"):
+            request["output_config"] = {**(request.get("output_config") or {}), "effort": "low"}
+    return request
+
+
 _journal_lock = threading.Lock()
 # The system prompt's length for the call being built: a message prefix is
 # worth caching when the two together pass the minimum.
@@ -447,8 +507,9 @@ def call_json(system, user_msg: str, schema: dict, *, operation: str,
             request["output_config"]["effort"] = effort
         if not request["output_config"]:
             del request["output_config"]
+        request = _pin(request)
 
-        response = _call(request, operation, model)
+        response = _call(request, operation, request["model"])
 
         try:
             _check_stop_reason(response, operation, budget)
@@ -543,12 +604,13 @@ def call_vision(prompt: str, images: list, *, operation: str,
     ]
     content.append({"type": "text", "text": prompt})
 
-    response = _call({
+    request = _pin({
         "model": model,
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": content}],
         "output_config": {"effort": DEFAULT_EFFORT},
-    }, operation, model)
+    })
+    response = _call(request, operation, request["model"])
     _check_stop_reason(response, operation, max_tokens)
 
     text = _text_of(response)

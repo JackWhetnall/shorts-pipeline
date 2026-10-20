@@ -125,7 +125,7 @@ def test_key(key: str) -> dict:
         return {"ok": False, "message": "ANTHROPIC_API_KEY isn't set for the app."}
     from pipeline import llm
     try:
-        llm.client().messages.create(model="claude-haiku-4-5-20251001", max_tokens=5,
+        llm.client().messages.create(model=llm.FAST_MODEL, max_tokens=5,
                                      messages=[{"role": "user", "content": "hi"}])
     except Exception as exc:  # noqa: BLE001 - whatever it was, say it in words
         return {"ok": False, "message": llm._as_service_error(exc).user_message}

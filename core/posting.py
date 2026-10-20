@@ -277,7 +277,9 @@ def write_social(channel, video_path: Path) -> dict:
         # A quiz's lines say its answers, so a quiz is told only its questions.
         spoken=[] if quiz else [s.get("text", "") for s in script.get("segments") or [] if s.get("text")],
         quiz=quiz or None)
-    written = social_caption.write(prompt, answers)
+    from pipeline import llm
+    with llm.for_channel(channel.key):
+        written = social_caption.write(prompt, answers)
     data = {"title": info["title"] or "", "made_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             **written}
     social_path(video_path).write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")

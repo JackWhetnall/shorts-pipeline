@@ -24,10 +24,11 @@ from pathlib import Path
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from pipeline.llm import call_json
+from pipeline import llm
 
 log = get_logger(__name__)
 
-MODEL = "claude-haiku-4-5"
+MODEL = llm.FAST_MODEL
 GROUP = 8
 SHOT_SECONDS = 4.8              # a scene is cut about this often
 MIN_SHOT = 2.6                  # but never into shots shorter than this

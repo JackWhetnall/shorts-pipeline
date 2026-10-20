@@ -236,7 +236,7 @@ def test_captions_are_written_for_search_and_never_give_an_answer_away(world, wr
     prompt = writer[0]["prompt"]
     assert prompt.startswith("Search phrase: Countries quiz") and "shaped like a boot" in prompt
     assert "Italy" not in prompt and "France" not in prompt
-    assert writer[0]["model"] == "claude-haiku-4-5" and writer[0]["operation"] == "social_caption"
+    assert writer[0]["model"] == "claude-haiku-5-5" and writer[0]["operation"] == "social_caption"
     tiktok = posting.caption(video, "tiktok", channel)
     assert tiktok == "Countries quiz, ten tricky outlines. geo\n\n#countriesquiz #geographytrivia #pubquizbuzz"
     plan = posting.plan(channel, video)

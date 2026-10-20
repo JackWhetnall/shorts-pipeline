@@ -25,6 +25,7 @@ from core.errors import PipelineError
 from core.logging_setup import get_logger
 from pipeline.animation import images, keyframes, models, style
 from pipeline.documentary import cast as library
+from pipeline import llm
 
 log = get_logger(__name__)
 
@@ -285,7 +286,7 @@ number. Leave every other scene out.
 """.strip()
 
 
-REPEAT_MODEL = "claude-haiku-4-5"     # a text judgement; a cent a film
+REPEAT_MODEL = llm.FAST_MODEL     # a text judgement; a cent a film
 
 
 def _repeats_schema() -> dict:

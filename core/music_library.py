@@ -32,6 +32,7 @@ import requests
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from core.paths import CHANNELS_DIR, PROJECT_ROOT
+from pipeline import llm
 
 log = get_logger(__name__)
 
@@ -46,7 +47,7 @@ BROADER = ["ambient instrumental", "cinematic ambient", "calm background music",
            "soft piano", "atmospheric pad"]
 REGISTRY = PROJECT_ROOT / "music" / "registry.json"
 CANDIDATES = PROJECT_ROOT / "cache" / "music_candidates"
-JUDGE_MODEL = "claude-haiku-4-5"
+JUDGE_MODEL = llm.FAST_MODEL
 _registry_lock = threading.Lock()
 
 

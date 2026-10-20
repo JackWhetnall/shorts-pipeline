@@ -20,12 +20,13 @@ import time
 from pathlib import Path
 
 from core.logging_setup import get_logger
+from pipeline import llm
 
 log = get_logger(__name__)
 
 LEARN_AFTER_DAYS = 7
 TOP_DROPS = 3
-LEARN_MODEL = "claude-haiku-4-5"
+LEARN_MODEL = llm.FAST_MODEL
 
 
 def _at(curve: list, ratio: float) -> float:

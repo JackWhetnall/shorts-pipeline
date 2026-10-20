@@ -43,6 +43,7 @@ import requests
 from core.errors import PipelineError
 from core.logging_setup import get_logger
 from core.paths import CACHE_DIR
+from pipeline import llm
 
 log = get_logger(__name__)
 
@@ -60,7 +61,7 @@ FOLDER = CACHE_DIR / "quiz_pictures"
 TIMEOUT = 25
 HEADERS = {"User-Agent": "ShortsPipeline/1.0 (personal quiz videos; https://example.invalid)"}
 MAX_SIDE = 1200
-CHECK_MODEL = "claude-haiku-4-5"
+CHECK_MODEL = llm.FAST_MODEL
 
 FLAG_CODES = "https://flagcdn.com/en/codes.json"
 FLAG_IMAGE = "https://flagcdn.com/w1280/{code}.png"

@@ -35,6 +35,7 @@ from core.errors import PipelineError
 from core.paths import PROJECT_ROOT
 from core.logging_setup import get_logger
 from pipeline.llm import SystemBlock, call_json
+from pipeline import llm
 from pipeline.plan import Script, Segment
 
 log = get_logger(__name__)
@@ -402,7 +403,8 @@ def top_up(channel, force: bool = False) -> int:
     pending = sum(1 for s in data["subtopics"] if s["status"] == curriculum.PENDING)
     if (pending >= curriculum.LOW_WATER_MARK and not force) or not data["topics"]:
         return 0
-    added = sum(next_round(channel, topic["id"]) for topic in data["topics"])
+    with llm.for_channel(channel.key):
+        added = sum(next_round(channel, topic["id"]) for topic in data["topics"])
     log.info(f"{channel.key}: added {added} quizzes, another round of every category")
     return added
 

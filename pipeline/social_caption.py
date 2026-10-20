@@ -24,7 +24,7 @@ from pipeline import llm
 
 log = get_logger(__name__)
 
-MODEL = "claude-haiku-4-5"
+MODEL = llm.FAST_MODEL
 MAX_TOKENS = 1500           # no thinking on this call: the answer alone is ~300 tokens
 PLATFORMS = ("tiktok", "instagram")
 MAX_TAGS = 4                # the channel's own tag makes five, Instagram's limit

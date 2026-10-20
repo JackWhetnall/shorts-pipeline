@@ -34,7 +34,7 @@ log = get_logger(__name__)
 
 # Haiku takes neither `effort` nor thinking by default, so both calls pass
 # effort=None. Structured output is supported.
-CHECK_MODEL = "claude-haiku-4-5"
+CHECK_MODEL = llm.FAST_MODEL
 CHECK_MAX_TOKENS = 2000
 
 # Frames sampled for the visual check. One per shot would be sixteen

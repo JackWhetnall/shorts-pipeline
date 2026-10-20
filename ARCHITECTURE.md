@@ -1019,6 +1019,9 @@ decision [025](docs/decisions/025-voice-quota.md).
   always `safe_join` anything user-supplied.
 - **Best-effort code** (checkpoints, cost logging) swallows its
   exceptions and says so in a comment. Nothing else does.
+- **Models:** Sonnet 5.5 (`DEFAULT_MODEL`) and Haiku 5.5 (`FAST_MODEL`),
+  except for the frozen channels, whose requests `llm._pin` sends to
+  the models they were made with (`LEGACY`, decision 121).
 - **Model calls** go through `pipeline.llm`, which checks `stop_reason`
   before trusting `content`, retries a truncated response once with a
   larger budget, and never retries a refusal. Budgets cover thinking as
