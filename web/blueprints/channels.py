@@ -253,7 +253,7 @@ def _settings_context(channel, error: str = None) -> dict:
     once something else has already gone wrong.
     """
     from core import backgrounds, corpus, voice_lab
-    from pipeline.documentary import kinds as film_kinds
+    from pipeline.documentary import card_designs, kinds as film_kinds
     from web.blueprints.setup import words_from_of
 
     voices, voice_error = [], None
@@ -286,6 +286,8 @@ def _settings_context(channel, error: str = None) -> dict:
         "voice_name": _voice_name(channel.voice),
         "presets": voice_lab.CADENCE_PRESETS,
         "film_kinds": film_kinds.LABELS,
+        "card_designs": card_designs.LABELS,
+        "card_design": card_designs.of(channel.scenes.art),
         "pacing_labels": PACING_LABELS,
         "background": backgrounds.info(channel.key),
         "has_background": backgrounds.has_background(channel.key),

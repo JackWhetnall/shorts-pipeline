@@ -21,7 +21,7 @@ bp = Blueprint("scenes", __name__)
 
 PREVIEW_DIR = CACHE_DIR / "art_previews"
 FIELDS = ("preset", "background", "pattern", "pattern_color", *art.COLOR_KEYS,
-          "font_display", "font_text", "stroke_width", "prop_style")
+          "font_display", "font_text", "stroke_width", "prop_style", "card_design")
 
 
 def art_from(values) -> dict:

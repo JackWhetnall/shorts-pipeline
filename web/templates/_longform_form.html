@@ -125,6 +125,13 @@
           {% endfor %}
         </select>
       </label>
+      <label class="field-row"><span class="field-label">Card design</span>
+        <select name="documentary_card_design">
+          {% for key, label in card_designs.items() %}
+          <option value="{{ key }}" {% if card_design == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
       <label class="field-row"><span class="field-label">Place and name labels</span>
         <select name="documentary_captions">
           <option value="corner" {% if channel.documentary.captions == 'corner' %}selected{% endif %}>Lower left</option>

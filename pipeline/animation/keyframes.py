@@ -74,9 +74,20 @@ def combine(references: list) -> Path:
         pen.rectangle((x0 + 6, y0 + 6, x0 + 70, y0 + 70), fill="black")
         pen.text((x0 + 22, y0 + 10), str(n), fill="white", font=font)
     out.parent.mkdir(parents=True, exist_ok=True)
-    partial = out.with_suffix(".part.png")
+    # Pictures drawn at once share a sheet, so two can make the same one at
+    # the same moment: each writes its own part file, and on Windows the
+    # second rename onto a sheet in use fails. Found on 20 Oct, drawing
+    # three pictures with the same references. The sheets are identical,
+    # so whichever landed is kept.
+    import uuid
+    partial = out.with_name(f"{key}.{uuid.uuid4().hex[:8]}.part.png")
     canvas.save(partial)
-    partial.replace(out)
+    try:
+        partial.replace(out)
+    except OSError:
+        if not out.exists():
+            raise
+        partial.unlink(missing_ok=True)
     return out
 
 

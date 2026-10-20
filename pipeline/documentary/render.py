@@ -165,6 +165,38 @@ def _font(size: int, face: str):
     return load_font(size, face)
 
 
+def _designed_title(draw, chapter: str, art: dict, design: str, left: int, top: int, font, band) -> None:
+    """A chapter's title in the channel's card design (decision 123): on a
+    clock card, its time stamped in red and the task typed beside it; on
+    a scandal sheet, a black ribbon with a pink edge."""
+    pad = int(font.size * 0.45)
+    if design == "time_card":
+        when, _, what = chapter.partition(":") if ":" in chapter[:12] else ("", "", chapter)
+        when, what = when.strip(), what.strip()
+        stamp_w = draw.textlength(when, font=font) if when else 0
+        gap = pad * 2 if when else 0
+        box = (left - pad * 2, top - pad, left + stamp_w + gap + draw.textlength(what, font=font) + pad * 2,
+               top + font.size + pad * 2)
+        band(box)
+        draw.rounded_rectangle(box, radius=6, fill="#EFE3C2")
+        x = left
+        if when:
+            red = art.get("accent1") or "#C8372D"
+            draw.rounded_rectangle((x - pad // 2, top - pad // 3, x + stamp_w + pad // 2, top + font.size + pad // 2),
+                                   radius=10, outline=red, width=max(3, font.size // 14))
+            draw.text((x, top), when, font=font, fill=red)
+            x += stamp_w + gap
+        draw.text((x, top), what, font=font, fill="#2B2620")
+    else:
+        text = chapter.upper()
+        box = (left - pad * 2, top - pad, left + draw.textlength(text, font=font) + pad * 2, top + font.size + pad * 2)
+        offset = max(6, font.size // 7)
+        draw.rectangle((box[0] + offset, box[1] + offset, box[2] + offset, box[3] + offset),
+                       fill=art.get("accent1") or "#FF3E8A")
+        draw.rectangle(box, fill="#111111")
+        draw.text((left, top), text, font=font, fill="white")
+
+
 def label_overlay(size: tuple, chapter: str = "", number: int = 0, caption: str = "",
                   art: dict = None, vertical: bool = False, style: str = "corner") -> Image.Image:
     """A transparent picture the frame's size with a chapter's title (top
@@ -184,6 +216,11 @@ def label_overlay(size: tuple, chapter: str = "", number: int = 0, caption: str 
         ImageDraw.Draw(shadow).rounded_rectangle(box, radius=int(h * 0.012), fill=(0, 0, 0, 150))
         image.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(int(h * 0.01))))
 
+    design = art.get("card_design")
+    if chapter and design in ("time_card", "scandal"):
+        _designed_title(draw, chapter, art, design, margin, int(h * (0.12 if vertical else 0.08)),
+                        _font(int(h * (0.04 if vertical else 0.055)), display), band)
+        chapter = ""
     if chapter:
         small, big = _font(int(h * (0.022 if vertical else 0.03)), text_face), \
             _font(int(h * (0.04 if vertical else 0.06)), display)

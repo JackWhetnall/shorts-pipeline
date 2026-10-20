@@ -92,27 +92,28 @@ What this channel can make well, and what it can't (the owner's rules):
 """.strip(),
     "expose": """
 What this channel can make well, and what it can't (the owner's rules):
-- One cheeky, slightly scandalous corner of everyday life in the past:
-  bathing, toilets, what people wore underneath, getting dressed, beauty,
-  courtship and etiquette, scandalous inventions (the bikini, the
-  corset, bloomers, the waltz). "How a medieval princess was bathed and
-  dressed for her wedding" and "the invention of the bikini" are the kind.
-- Never sex itself. Out: sex acts, wedding nights and bedding ceremonies,
-  brothels and sex work, fetishes, sex toys, contraception, abuse,
-  anything explicit, and nudity as the subject. Anyone bathing,
-  undressing or courting in a film is an adult. YouTube limits ads on
-  intimate topics and sexualised titles, so the cheek is in the
-  absurdity, the etiquette and the outrage at the time.
-- The title is cheeky and specific, never sexualised or misleading: a
-  scandal, an absurdity or a number, never "naughty", "sexy", "18+",
-  innuendo about bodies, or emojis.
-- It works by ear. The pictures only illustrate fully clothed people in
-  comic scenes; they can't be trusted with how a garment is built, text
-  or diagrams, so a subject is out if explaining it means showing one.
-- There are receipts: household accounts, etiquette books, sermons,
-  court cases, newspapers' outrage, surviving garments. Busting a myth
-  is welcome.
-- Plenty of people have wondered, and the truth surprises them.
+- One naughty, scandalous corner of life in the past that a bored
+  eighteen-year-old would click on sight and then stay for because the
+  story is genuinely good: bathing and bathhouses, what people wore and
+  didn't, seduction and flirtation, famous lovers and scandals, beauty,
+  scandalous inventions (the bikini, the corset, the waltz). "How a
+  medieval princess was bathed and dressed for her wedding" and "the
+  invention of the bikini" are the kind.
+- Suggestive, never explicit. Out: sex acts and how-to, sex work and
+  brothels, fetishes, sex toys, and anything about anyone under
+  eighteen. Everyone a film is about, and everyone it shows, is an
+  adult. YouTube age-restricts nudity, lingerie, sexual poses and
+  framing that centres on breasts or bottoms, and limits ads on vulgar
+  words, so the tease is the glamour, the flirtation and the scandal.
+- The title teases: a scandal, a seduction, an outrage or a number,
+  innuendo welcome, never a vulgar word, "sexy", "18+", "naked" or
+  emojis.
+- It works by ear. The pictures illustrate the film's good-looking cast
+  in the moment; they can't be trusted with how a garment is built,
+  text or diagrams, so a subject is out if explaining it means showing
+  one.
+- There are receipts: household accounts, letters, sermons, court cases,
+  newspapers' outrage, surviving garments. Busting a myth is welcome.
 """.strip(),
 }
 
@@ -161,25 +162,30 @@ the narration can say, never something the viewer has to see drawn
 exactly (a layout, a map, how a machine works).
 """.strip(),
     "expose": """
-This channel tells history's cheeky, slightly scandalous bits: what
-polite history leaves in the bottom drawer. Every angle is something
-people are curious about but rarely hear the truth of (how people
-bathed, what they wore underneath, how a bride was got ready, why a
-swimsuit caused an outcry), framed as the polite version against what
-really happened. Its title is cheeky and specific (a scandal, an
-absurdity or a number) and never sexualised or misleading: "The
-Swimsuit So Shocking It Was Named After a Nuclear Test" beats "The
-Naughty Truth About Swimwear". Never "naughty", "sexy", "18+",
-innuendo about bodies, or emojis.
+This channel tells history's naughty bits: what polite history leaves in
+the bottom drawer. The test for every angle: would a bored
+eighteen-year-old click it on sight, and would the film keep him because
+the story is genuinely surprising? Every angle is something people are
+curious about and rarely hear the truth of (how people bathed together,
+what they wore and didn't, how a bride was got ready, the seduction that
+caused a scandal), framed as the polite version against what really
+happened. Its title teases: a scandal, a seduction, an outrage or a
+number, with innuendo where it's funny ("The Swimsuit So Small It Was
+Sold in a Matchbox"), never a vulgar word, "sexy", "18+", "naked" or
+emojis, and never a promise the film doesn't keep.
+
+The thumbnail is one of the film's good-looking characters, close and
+confident (a smirk, a wink, a scandalised glance), with the thing at the
+centre of the fuss; framed on the face and figure, never on breasts or
+bottoms, which YouTube age-restricts.
 
 The hook: in its first fifteen seconds it proves the title with the most
-eyebrow-raising true detail the film has, said with a straight face,
-then the polite version, then the promise of what happened behind the
-closed door. `open_loop` is what the film reveals in its last minute.
+eyebrow-raising true detail the film has, said with a smirk, then the
+polite version, then the promise of what happened behind the closed
+door. `open_loop` is what the film reveals in its last minute.
 
-Every angle stays inside YouTube's rules: no sex acts, no nudity as the
-subject, and nobody under eighteen in anything about bodies, undressing
-or romance.
+Suggestive, never explicit: no sex acts, and nobody under eighteen in
+anything about bodies, undressing or romance.
 """.strip(),
 }
 
@@ -235,23 +241,23 @@ OUTLINE_WANT = {
   chapter depends on a picture showing an exact layout, map, count or
   how a machine works.""",
     "expose": """- `want`: the polite version everyone knows, the bottom-drawer truth,
-  and why the viewer should care (it's behind something they wear, use or
-  do today). Say all three plainly; the cold open must deliver them.
+  and why the viewer should care (it's behind something they wear, do or
+  fancy today). Say all three plainly; the cold open must deliver them.
   The film is built like gossip with receipts:
   - the cold open (under 45 seconds): the most eyebrow-raising true
-    detail, said deadpan; the polite version; the promise;
+    detail, said with a smirk; the polite version; the promise;
   - then behind the closed door, step by step, one chapter per stage
-    (the bath, the layers, the inspection, the outcry). Each gives the
-    absurd detail, who was in the room, and the receipts (an account
-    book, a sermon, a court case, a newspaper's outrage, said aloud).
-    It ends on a bigger scandal, or "and it gets worse";
-  - between minutes three and five, the twist that turns the joke
-    around (it was practical; the critics were wrong; the scandal was
-    invented);
+    (the bath, the dressing, the seduction, the outcry). Each gives the
+    naughty detail, who was in the room, and the receipts (an account
+    book, a letter, a sermon, a newspaper's outrage, said aloud). It
+    ends on a bigger scandal, or "and it gets better";
+  - between minutes three and five, the twist that turns it around (it
+    was practical; the prudes were wrong; the scandal was invented; the
+    ancients were naughtier);
   - the last chapter: how it ended up in the viewer's own wardrobe,
-    bathroom or drawer today, then one cheeky consequence. No summary.
-  Every step works by ear, and the pictures keep everyone decently
-  dressed.""",
+    bathroom or love life today, then one cheeky consequence. No summary.
+  Every step works by ear; the pictures show the film's good-looking
+  cast dressed as the setting allows.""",
 }
 
 OUTLINE_START = {
@@ -272,13 +278,15 @@ OUTLINE_START = {
   - `open_loops`: the job's biggest surprise last; before it, what each
     stretch of the day will reveal. `turn`: what comes next in the day,
     which each chapter ends on, or for the surprise chapter, the reframe.""",
-    "expose": """  - Every detail concrete: what it was made of, how long it took, who
-    had to watch, what it cost, what the critics said in their own words.
+    "expose": """  - Every detail concrete: what they wore and didn't, what it was made
+    of, how long it took, who had to watch, what it cost, what the
+    critics said in their own words.
   - `open_loops`: the main mystery last; before it, the smaller "wait,
     what?" each chapter answers. `turn`: the bigger scandal each chapter
     ends on, or for the twist chapter, the turnaround.
-  - Innuendo only by implication, never sexual: the comedy is in the
-    etiquette, the absurdity and the outrage.""",
+  - The cast: the real people the film is about, told straight, and a
+    good-looking invented cast of the time (bathers, courtiers, beach
+    crowds, dressers) who carry the glamour. Every one of them an adult.""",
 }
 
 OUTLINE_SOUND = {
@@ -369,32 +377,32 @@ SCRIPT_SHAPE = {
   carry the explanation, because the picture can't be trusted with exact
   detail. The film's settings anchor it; one picture per task, and when
   the narration comes back to a task, so does its picture.""",
-    "expose": """Make it gossip with receipts, not a lecture and not a smutty joke:
-- The narrator is a knowing, cheeky friend telling the bit the history
-  books left out: conspiratorial asides ("Now. About the bath."),
-  raised-eyebrow understatement, quick comic timing. A wink, never a
-  leer. Talk to the viewer ("you") the way a friend shares gossip.
+    "expose": """Make it gossip with receipts, flirtatious and fun, never a lecture:
+- The narrator is a knowing, flirtatious friend telling the naughty bit
+  the history books left out: teasing asides ("Now. About the bath."),
+  innuendo where it's funny, quick comic timing, a wink in every other
+  line. Talk to the viewer ("you") like a friend sharing gossip.
 - The first three scenes give the most eyebrow-raising true detail,
-  said deadpan, then the polite version, then the promise, in about
+  said with a smirk, then the polite version, then the promise, in about
   thirty seconds. Never open on a question, a greeting or "imagine".
-- Then behind the closed door, in order. Each chapter gives the absurd
+- Then behind the closed door, in order. Each chapter gives the naughty
   detail, who was in the room, and the receipts, named in a few words
   ("a 1907 police report", "the queen's own account book"). Short,
-  punchy sentences; a laugh every few scenes; link with "but" and "so".
-- The twist chapter turns the joke around. The last chapter lands it in
-  the viewer's own wardrobe, bathroom or drawer today, with one cheeky
+  punchy sentences; a laugh or a tease every few scenes; link with "but"
+  and "so".
+- The twist chapter turns it around. The last chapter lands it in the
+  viewer's own wardrobe, bathroom or love life today, with one cheeky
   consequence, and stops. Never end on the title's question or a moral.
-- Cheeky, never crude: no sex acts, nothing sexual about anyone's body,
-  no swearing, and nobody under eighteen in anything about bodies,
-  undressing or romance. Name a garment or a body part plainly when it's
-  needed (a chemise, a bottom) and move on.
-- Every detail concrete: what it was made of, how long it took, who
-  watched, what it cost. One idea at a time; a word they won't know is
-  explained the moment it's used.
-- Each picture is a comic illustration of the moment being said. The
-  words carry the explanation, because the picture can't be trusted with
-  exact detail. The film's settings anchor it; when the narration comes
-  back to a moment, so does its picture.""",
+- Suggestive, never explicit: no sex acts, no vulgar words, and nobody
+  under eighteen in anything about bodies, undressing or romance.
+  Innuendo carries it; a body part is named plainly when it's needed.
+- Every detail concrete: what they wore and didn't, what it cost, who
+  watched. One idea at a time; a word they won't know is explained the
+  moment it's used.
+- Each picture shows the moment being said with the film's good-looking
+  cast. The words carry the explanation, because the picture can't be
+  trusted with exact detail. The film's settings anchor it; when the
+  narration comes back to a moment, so does its picture.""",
 }
 
 SCRIPT_DIRECTION = {
@@ -405,12 +413,12 @@ SCRIPT_DIRECTION = {
     "working_day": ("One clear, drawable picture of the task being said: someone at work, the tool in hand, "
                     "the place it was done. Never a chart, a labelled diagram, a map, a montage, or a picture "
                     "whose point is an exact layout, count, sequence or how a machine works."),
-    "expose": ("One clear, drawable comic picture of the moment being said: people in period dress reacting "
-               "(scandalised, smug, wide-eyed), the thing at the centre of the fuss, a sight gag. Everyone "
-               "decently dressed for where they are: swimwear only on a beach or at a pool and never posed to "
-               "show a body off; anyone bathing seen from the shoulders up, in a linen shift; never anyone "
-               "undressed, never people in a bed. Never a chart, a diagram, writing, or a picture whose point "
-               "is how a garment is built.")
+    "expose": ("One clear, drawable picture of the moment being said, with the film's good-looking grown-ups: "
+               "confident, flirtatious, reacting (a smirk, a wink, a scandalised glance), dressed on the revealing "
+               "side of what the setting allows (swimwear on a beach, a draped toga, bare shoulders, a shirtless man "
+               "at the baths). Framed on faces and whole figures, never on breasts or bottoms; anyone bathing seen "
+               "from the shoulders up; no underwear worn on a body, no nudity, never people in bed. Never a chart, "
+               "a diagram, writing, or a picture whose point is how a garment is built."),
 }
 
 SCRIPT_CARDS = {
@@ -445,10 +453,10 @@ CRITIC_MOMENTUM = {
   landing comparison? Lecturing, listing facts, repeating and casting
   the viewer as the worker score low.""",
     "expose": """- `momentum`: does every scene reveal something new from behind the
-  closed door or raise the scandal, is there a laugh every few scenes,
-  and does the chapter end on a bigger scandal or the turnaround? For the
-  first chapter: the eyebrow-raising detail, the polite version and the
-  promise (score 4 or less if any is missing)? For the last: does it
-  land in the viewer's life today? Lecturing, listing and repeating score
-  low; anything sexual, crude or leering scores 1.""",
+  closed door or raise the scandal, is there a laugh or a tease every few
+  scenes, and does the chapter end on a bigger scandal or the turnaround?
+  For the first chapter: the eyebrow-raising detail, the polite version
+  and the promise (score 4 or less if any is missing)? For the last: does
+  it land in the viewer's life today? Lecturing, listing, repeating and
+  prudishness score low; anything explicit or vulgar scores 1.""",
 }

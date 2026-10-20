@@ -79,7 +79,7 @@ def resolve(settings: dict) -> dict:
         style["background"]["pattern"] = settings["pattern"]
     if "pattern_color" in settings:
         style["background"]["pattern_color"] = settings["pattern_color"]
-    for key in ("font_display", "font_text", "stroke_width", "prop_style"):
+    for key in ("font_display", "font_text", "stroke_width", "prop_style", "card_design"):
         if key in settings:
             style[key] = settings[key]
     return style
@@ -106,6 +106,10 @@ def clean(raw: dict) -> dict:
     prop_style = " ".join(str(raw.get("prop_style") or "").split())[:PROP_STYLE_MAX]
     if prop_style:
         out["prop_style"] = prop_style
+    # A film channel's cards (decision 123): kept only when it isn't the default.
+    from pipeline.documentary import card_designs
+    if raw.get("card_design") in card_designs.DESIGNS[1:]:
+        out["card_design"] = raw["card_design"]
     return out
 
 

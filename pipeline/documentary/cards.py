@@ -267,17 +267,21 @@ OVER_PICTURE = """
 def build(card: dict, style: dict, duration: float, backdrop: Path = None) -> str:
     """The card as one self-contained seekable page; over `backdrop` (a
     picture, blurred and darkened) when given."""
+    from pipeline.documentary import card_designs
     from pipeline.templates import page, theme
     kind = card.get("kind")
     if kind not in BUILDERS:
         raise ValueError(f"no card kind {kind!r}")
-    css, body = BUILDERS[kind](card, max(1.0, duration))
+    # The channel's own design (decision 123); glass, as every channel had, otherwise.
+    design = card_designs.of(style)
+    css, body = card_designs.BUILDERS.get(design, BUILDERS)[kind](card, max(1.0, duration))
+    css = card_designs.SHARED.get(design, "") + css
     photo = ""
     if backdrop is not None and Path(backdrop).exists():
         import base64
         data = base64.b64encode(Path(backdrop).read_bytes()).decode("ascii")
         photo = f"<div class='bg-photo' style=\"background-image:url(data:image/jpeg;base64,{data})\"></div>"
-        css += OVER_PICTURE
+        css += card_designs.OVER.get(design, OVER_PICTURE)
     return ("<!doctype html><html><head><meta charset='utf-8'><style>"
             f"{theme.css(style)}"
             f"html, body {{ width: {SIZE[0]}px; height: {SIZE[1]}px; }}"

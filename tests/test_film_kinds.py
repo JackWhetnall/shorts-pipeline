@@ -1,8 +1,8 @@
 """
 Two more kinds of film (decision 122), so two new channels don't share
 Why, Though?'s mystery-and-payoff shape: a working day (a job from the
-past, shift by shift) and an exposé (history's cheeky bits, the polite
-version against the truth).
+past, shift by shift) and an exposé (history's naughty bits, the polite
+version against the truth: suggestive, never explicit, decision 123).
 
 - every writer's table has both;
 - each reaches the plan, script and editor prompts of a channel that
@@ -37,8 +37,8 @@ def test_each_kind_reaches_its_writers():
     day, expose = _channel("working_day"), _channel("expose")
     assert "time sheet" in outline.system_text(day) and "deadpan guide" in script.system_text(day)
     assert "gossip with receipts" in outline.system_text(expose)
-    assert "never a\n  leer" in script.system_text(expose).replace("never a leer", "never a\n  leer")
-    assert "anything sexual" in editor.critic_text("expose")
+    assert "flirtatious friend" in " ".join(script.system_text(expose).split())
+    assert "anything explicit or vulgar scores 1" in " ".join(editor.critic_text("expose").split())
     # The two kinds there were are untouched.
     assert "detective story about an idea" in outline.system_text(_channel("explainer"))
     assert "time sheet" not in outline.system_text(_channel("story"))
