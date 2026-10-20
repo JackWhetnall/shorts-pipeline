@@ -123,6 +123,27 @@ offer all four kinds.
 - Each has a hand-written opening plan of 14 to 17 films in 3 or 4
   series, kept clear of the flooded titles.
 
+## Found on the first storyboards
+
+Both films came to about $2.90 each to the storyboard (Claude about
+$0.62, pictures about $2.25), with nothing spent on voice or fal. The
+fact checks made 14 and 16 corrections. Before approving, three outline
+lines and a dozen script lines were fixed by hand:
+- a wrong keeper rota;
+- "nude dancer", made "showgirl";
+- a misattributed quote;
+- a [wry] cue on the Bikini islanders' exile;
+- an ending that repeated the title.
+
+The pictures needed redraws with notes:
+- **Clocking In:** rock lighthouses drawn as castles with no lantern
+  room; women on a Victorian rock station; the 1801 Smalls light drawn as
+  stone when it was a hut on oak stilts.
+- **History's Bottom Drawer:** the image model drifted to glamour despite
+  "never sexualised", drawing a curvy bikini statue and crop-topped
+  athletes with a leering tourist. "Pin-up or glamour poses", "low-cut or
+  cropped tops" and "leering onlookers" joined its avoid list.
+
 ## Not done
 
 - No voice, no video, no teasers. The storyboards stop at the stills.
