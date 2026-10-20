@@ -514,6 +514,10 @@ class Documentary(_MappingLike):
     voice_model: str = ""
     # Characters speak their own lines, each in a voice of their own.
     dialogue: bool = False
+    # Decision 124. {cast name: ElevenLabs voice id} for characters who
+    # recur (a channel's star): the same voice in every film. Everyone
+    # else gets one of the app's voices for that film.
+    voices: dict = field(default_factory=dict)
     # Embers, dust, rain or snow drifting over the pictures where a scene
     # has them, so a still breathes.
     atmosphere: bool = True

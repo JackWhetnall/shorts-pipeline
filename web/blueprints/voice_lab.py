@@ -57,6 +57,10 @@ def test_combo():
     except (TypeError, ValueError):
         return jsonify({"error": "That speed isn't a number."}), 400
 
+    # A shortlisted library voice speaks only once it's in the account.
+    added = {v["voice_id"] for v in lab.get_cached_voices(library=False)}
+    if voice_id in {v["voice_id"] for v in lab.library_voices()} - added:
+        return jsonify({"error": "Add this voice in ElevenLabs first (free), then Refresh voice list."}), 400
     sample = lab.get_or_create_snippet(voice_id, preset, speed)
     return jsonify({"sample_url": url_for("voice_lab.serve_sample", filename=sample.name)})
 

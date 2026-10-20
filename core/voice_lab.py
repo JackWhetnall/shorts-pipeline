@@ -3,8 +3,13 @@ Auditioning voice x cadence x speed combinations without repeatedly
 spending ElevenLabs quota.
 
 Two caches, both under cache/:
-  voice_lab_voices.json                          the premade voice list
+  voice_lab_voices.json                          the account's voices
   voice_lab_samples/<voice>_<preset>_<speed>.mp3  one snippet per combo
+
+And a shortlist, config/voice_library.json: voices from ElevenLabs' Voice
+Library chosen for a channel but not yet added to the account. Listed
+with their own free preview clips, so they can be heard before anyone
+adds one (decision 124). They can't be test-voiced until they're added.
 
 Each voice row plays ElevenLabs' own preview clip, which is free and
 needs no synthesis. Only "test this combo" generates anything, and it's
@@ -26,11 +31,13 @@ import requests
 
 from core.channels import Pacing
 from core.errors import ExternalServiceError, MissingCredentialError
-from core.paths import CACHE_DIR
+from core.paths import CACHE_DIR, PROJECT_ROOT
 
 VOICES_CACHE_PATH = CACHE_DIR / "voice_lab_voices.json"
 SAMPLES_DIR = CACHE_DIR / "voice_lab_samples"
 VOICES_URL = "https://api.elevenlabs.io/v2/voices"
+LIBRARY_PATH = PROJECT_ROOT / "config" / "voice_library.json"
+LIBRARY = "Voice Library"           # the category a shortlisted voice is listed under
 
 CADENCE_PRESETS = {
     "tight": {"label": "Tight",
@@ -61,14 +68,15 @@ TEST_LINES = [
 
 
 def refresh_voices() -> list:
-    """Fetch the premade voice list. Doesn't consume TTS character quota."""
+    """Fetch the account's voices: the premade ones and its own (generated,
+    cloned, added from the library). Doesn't consume TTS character quota."""
     key = os.environ.get("ELEVENLABS_API_KEY")
     if not key:
         raise MissingCredentialError("ELEVENLABS_API_KEY", "the voice list")
 
     response = requests.get(
         VOICES_URL, headers={"xi-api-key": key},
-        params={"category": "premade", "page_size": 100}, timeout=20,
+        params={"page_size": 100}, timeout=20,
     )
     if not response.ok:
         # ElevenLabs' own error body ("missing the permission voices_read")
@@ -94,21 +102,57 @@ def refresh_voices() -> list:
          "preview_url": v.get("preview_url")}
         for v in response.json().get("voices", [])
     ]
+    # The account's own first: they're the ones a channel was set up with.
+    voices.sort(key=lambda v: v["category"] == "premade")
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     with open(VOICES_CACHE_PATH, "w", encoding="utf-8") as f:
         json.dump(voices, f, indent=2)
     return voices
 
 
-def get_cached_voices() -> list:
-    """Cached list, fetched once if absent. Never refreshes on its own."""
+def get_cached_voices(library: bool = True) -> list:
+    """Cached list, fetched once if absent. Never refreshes on its own.
+    `library`: the shortlisted Voice Library voices after the account's,
+    those not in it yet; off where only a voice that can speak will do."""
+    voices = None
     if VOICES_CACHE_PATH.exists():
         try:
             with open(VOICES_CACHE_PATH, "r", encoding="utf-8") as f:
-                return json.load(f)
+                voices = json.load(f)
         except (json.JSONDecodeError, OSError):
             pass
-    return refresh_voices()
+    if voices is None:
+        voices = refresh_voices()
+    if not library:
+        return voices
+    have = {v["voice_id"] for v in voices}
+    return voices + [v for v in library_voices() if v["voice_id"] not in have]
+
+
+def library_voices() -> list:
+    """The shortlisted Voice Library voices, as the voice list has them."""
+    try:
+        rows = json.loads(LIBRARY_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [{"voice_id": r["voice_id"], "name": r["name"], "category": LIBRARY,
+             "description": r.get("description") or "", "preview_url": r.get("preview_url")}
+            for r in rows if r.get("voice_id") and r.get("name")]
+
+
+def shortlist(entries: list) -> list:
+    """Add Voice Library voices to the shortlist ({voice_id, name,
+    description, preview_url, public_owner_id}), replacing any with the
+    same id. Returns the shortlist."""
+    try:
+        rows = json.loads(LIBRARY_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        rows = []
+    new = {e["voice_id"]: e for e in entries if e.get("voice_id")}
+    rows = [r for r in rows if r.get("voice_id") not in new] + list(new.values())
+    LIBRARY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LIBRARY_PATH.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
+    return rows
 
 
 def sample_path(voice_id: str, preset_key: str, speed: float):

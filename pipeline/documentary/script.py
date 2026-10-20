@@ -247,7 +247,8 @@ def _system(channel) -> list:
     extra = "" if artwork.allowed(channel) else ("\n\nThis channel doesn't show paintings: never use "
                                                  "the painting medium.")
     if getattr(channel.documentary, "dialogue", False):
-        extra += "\n\n" + DIALOGUE
+        from pipeline.documentary import kinds
+        extra += "\n\n" + kinds.DIALOGUE.get(kinds.of(channel), DIALOGUE)
     else:
         extra += "\n\nThis channel doesn't use dialogue: `speaker` is always \"\"."
     if voice_model(channel) in tts.TAGGED_MODELS:

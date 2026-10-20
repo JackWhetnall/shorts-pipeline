@@ -45,7 +45,8 @@ def create(pitch: str, note: str = "", previous: dict = None, kind: str = None) 
     from pipeline import channel_draft
 
     kind = kind or (previous or {}).get("kind") or "shorts"
-    voices = voice_lab.get_cached_voices()
+    # Only voices that can speak now: a draft's channel is voiced as soon as it's made.
+    voices = [v for v in voice_lab.get_cached_voices() if v.get("category") != voice_lab.LIBRARY]
     body = channel_draft.draft(pitch, voices, note=note,
                                previous=(previous or {}).get("channel"), kind=kind)
     topics = []

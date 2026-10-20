@@ -13,8 +13,9 @@ differ, slotted into the pitch, outline, script and editor prompts.
 
 from __future__ import annotations
 
-KINDS = ("story", "explainer", "working_day", "expose")
-LABELS = {"story": "Story", "explainer": "Explainer", "working_day": "Working day", "expose": "Exposé"}
+KINDS = ("story", "explainer", "working_day", "expose", "time_trip")
+LABELS = {"story": "Story", "explainer": "Explainer", "working_day": "Working day", "expose": "Exposé",
+          "time_trip": "Time trip"}
 
 
 def of(channel) -> str:
@@ -24,9 +25,32 @@ def of(channel) -> str:
 
 def family(kind: str) -> str:
     """"story" or "explainer": a working day and an exposé (decision 122)
-    are explainers with shapes of their own, so they're fact-checked,
-    held to an explainer's opening and given its pictures."""
-    return "story" if kind not in KINDS or kind == "story" else "explainer"
+    are explainers with shapes of their own, held to an explainer's
+    opening and given its pictures; a time trip (decision 124) is a
+    story, its pictures staying with its star in each place."""
+    return "story" if kind not in KINDS or kind in ("story", "time_trip") else "explainer"
+
+
+def fact_checked(kind: str) -> bool:
+    """Whether the editor checks the script's facts: every kind that
+    teaches, a time trip included; a story's facts are its own."""
+    return kind in KINDS and kind != "story"
+
+
+# How a channel's films use dialogue, where the kind has its own way
+# (pipeline.documentary.script.DIALOGUE otherwise). A time trip's star
+# talks all the way through (decision 124).
+DIALOGUE = {
+    "time_trip": """
+This channel's films use dialogue, and the star talks all the way
+through. A scene she speaks has `speaker` her exact cast name and
+`narration` only what she says: a reaction, a question, a nervous joke,
+a moment of delight, in one or two short, natural sentences. A real
+person of the time speaks the same way, only where they truly matter.
+The narrator speaks every other scene and never repeats a line just
+said. About a third of the scenes are hers.
+""".strip(),
+}
 
 
 # What each kind of channel can make well (decision 118), for whoever
@@ -115,6 +139,23 @@ What this channel can make well, and what it can't (the owner's rules):
 - There are receipts: household accounts, letters, sermons, court cases,
   newspapers' outrage, surviving garments. Busting a myth is welcome.
 """.strip(),
+    "time_trip": """
+What this channel can make well, and what it can't (the owner's rules):
+- One journey for the channel's star: a question about something
+  intimate, cheeky or a little risqué in everyday life that she explores
+  by travelling through time and around the world and trying it herself.
+  Bathing, saunas, hot springs and bathhouses; swimwear and beaches;
+  beauty and dressing up; flirting, dating, kissing and dancing;
+  festivals; love and wedding customs. Never only clothes.
+- Three to six real times and places, each with real evidence, where she
+  can join in: bathe, dance, get dressed up, be flirted with.
+- Titillating, never explicit. Where people really bathed or swam with
+  little or nothing on, it's shown that way, tastefully hidden by steam,
+  water, towels or framing. No sex acts, and everyone is an adult.
+- A question plenty of people are curious about, whose true answer
+  surprises; a title she could say ("I Tried Every Swimsuit in
+  History"), never a vulgar word.
+""".strip(),
 }
 
 PITCH = {
@@ -187,6 +228,26 @@ door. `open_loop` is what the film reveals in its last minute.
 Suggestive, never explicit: no sex acts, and nobody under eighteen in
 anything about bodies, undressing or romance.
 """.strip(),
+    "time_trip": """
+This channel follows its star on a journey through time to answer one
+cheeky question by living it: she travels to the times and places that
+hold the answer and tries it herself. The test for every angle: would a
+bored eighteen-year-old click it on sight, and would the journey keep
+him because it's genuinely fun and surprising? Every angle is her
+question and the journey it takes her on. Its title is hers, first
+person and teasing ("I Tried Every Swimsuit in History (The Last One Was
+Tiny)", "I Bathed Like a Roman for a Day"), never a vulgar word and never
+a promise the film doesn't keep.
+
+The thumbnail is her, close, at the film's most tempting moment (in the
+swimsuit, in the steam, mid-dance), flustered or delighted, with the
+thing at the centre of it.
+
+The hook: within fifteen seconds she's in today's awkward moment that
+raises the question, she asks it aloud, and the bottom drawer of an old
+chest of drawers pulls her into the past. `open_loop` is her question,
+answered when she's home.
+""".strip(),
 }
 
 OUTLINE_WANT = {
@@ -258,6 +319,25 @@ OUTLINE_WANT = {
     bathroom or love life today, then one cheeky consequence. No summary.
   Every step works by ear; the pictures show the film's good-looking
   cast dressed as the setting allows.""",
+    "time_trip": """- `want`: her question, why she personally wants to know (the moment
+  today that raised it), and what she'll discover. Say all three plainly;
+  the opening must deliver them.
+  The film is built like a journey:
+  - the opening (under 45 seconds): her today, in the moment that raises
+    the question; the question aloud; the bottom drawer of an old chest
+    of drawers pulls her into the past;
+  - then three to six stops in an order that makes sense (usually
+    forward through time, sometimes around the world), one chapter
+    each. Where and when (the narrator); what people did, wore and
+    thought; her joining in or trying it; a real person of the time only
+    where they matter (the inventor, the rule-maker, the famous bather);
+    and the fact that surprises her. Each chapter ends as she's pulled
+    on to the next stop;
+  - home: back in the present, changed by what she found, she sums up
+    what she learned in her own words, then one last cheeky moment.
+  No forced twist and no forced moment of peak embarrassment: let each
+  journey find its own turns. Every step works by ear: the narrator and
+  she carry the facts.""",
 }
 
 OUTLINE_START = {
@@ -287,6 +367,14 @@ OUTLINE_START = {
   - The cast: the real people the film is about, told straight, and a
     good-looking invented cast of the time (bathers, courtiers, beach
     crowds, dressers) who carry the glamour. Every one of them an adult.""",
+    "time_trip": """  - She's in every chapter. Each stop is concrete: what it looked,
+    sounded and smelt like, what it cost, what people wore or didn't,
+    what they said about it in their own words.
+  - `open_loops`: her main question last; before it, the smaller ones
+    each stop answers. `turn`: how each stop ends and pulls her on.
+  - The cast: the channel's star, exactly as the channel describes her,
+    and only real people who matter to the story. Crowds and locals are
+    drawn as each picture needs, never cast.""",
 }
 
 OUTLINE_SOUND = {
@@ -301,6 +389,7 @@ This is an explainer: every chapter's `sound` is "none" unless the pictures real
 
 This is an explainer: every chapter's `sound` is "none" unless the pictures really are somewhere loud (a storm, the sea), and then only that chapter.
 """.strip(),
+    "time_trip": "",
 }
 
 SCRIPT_SHAPE = {
@@ -403,6 +492,31 @@ SCRIPT_SHAPE = {
   cast. The words carry the explanation, because the picture can't be
   trusted with exact detail. The film's settings anchor it; when the
   narration comes back to a moment, so does its picture.""",
+    "time_trip": """Make it her journey: a story with real history in it, never a lecture:
+- The star is the heart of it: shy, curious, easily flustered and funny
+  about it, a little braver as she goes. She speaks often: reactions,
+  questions, nerves, delight, in short, natural lines.
+- The narrator (playful, warm, teasing) says where and when we are,
+  gives the facts she can't know, and gently teases her; never repeats
+  what she's just said.
+- A real person of the time speaks only when they matter to the story.
+  Never a throwaway line from a passer-by.
+- The opening: her today, the moment that raises the question, the
+  question aloud, the bottom drawer pulling her in, all within about
+  forty seconds.
+- Each stop: the narrator sets the time and place; she sees, asks, joins
+  in or tries it; one surprising true fact lands; she's pulled on. Keep
+  the facts real and specific (dates, places, what it cost, who said
+  what), the receipts named in a few words.
+- Titillating, never explicit: the fun is her nerves and delight in the
+  moment and the glamour of it: the steam, the swimwear, the flirting.
+  Nothing sexual, no vulgar words.
+- Home: back in the present, she sums up what she found in her own
+  words, changed by it, then one last cheeky moment. Never end on the
+  title's question or a moral.
+- Each picture shows the moment being said, with her in it wherever she
+  is. The words carry the explanation; the picture can't be trusted
+  with exact detail.""",
 }
 
 SCRIPT_DIRECTION = {
@@ -419,6 +533,11 @@ SCRIPT_DIRECTION = {
                "at the baths). Framed on faces and whole figures, never on breasts or bottoms; anyone bathing seen "
                "from the shoulders up; no underwear worn on a body, no nudity, never people in bed. Never a chart, "
                "a diagram, writing, or a picture whose point is how a garment is built."),
+    "time_trip": ("One clear, drawable picture of the moment: the star in it, exactly as the channel draws "
+                  "her, in that time and place, doing or reacting (blushing, delighted, curious, flustered) "
+                  "and dressed as she is at that stop. Where people really bathed or swam with little or "
+                  "nothing on, anything not covered is hidden by water, steam, a towel or the framing. "
+                  "Never a chart, a diagram or writing."),
 }
 
 SCRIPT_CARDS = {
@@ -430,6 +549,8 @@ SCRIPT_CARDS = {
                     "calories) or a then-and-now comparison, never a list of rules, a timeline or a summary"),
     "expose": ("about one scene in eight, for the number or the quote the scandal turns on (a\n  "
                "newspaper's outrage, a rule from an etiquette book), never a list or a summary"),
+    "time_trip": ("about one scene in ten, for the date and place she lands in or a number that surprises "
+                  "her, never a list\n  or a summary"),
 }
 
 CRITIC_MOMENTUM = {
@@ -459,4 +580,11 @@ CRITIC_MOMENTUM = {
   and the promise (score 4 or less if any is missing)? For the last: does
   it land in the viewer's life today? Lecturing, listing, repeating and
   prudishness score low; anything explicit or vulgar scores 1.""",
+    "time_trip": """- `momentum`: does every scene move her journey on (something seen, tried
+  or learned), is there a reaction or a laugh every few scenes, and does
+  each chapter end pulling her on? For the first chapter: the moment
+  today, the question aloud, the drawer (score 4 or less if any is
+  missing)? For the last: home, changed, her own summing-up? Lecturing,
+  throwaway characters and repeating score low; anything explicit or
+  vulgar scores 1.""",
 }

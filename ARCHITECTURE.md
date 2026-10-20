@@ -803,7 +803,9 @@ Small in `cache/models/`), finished by `finish.camera_shot(moving=)`.
 
 Decision [089](docs/decisions/089-explainers-gentler-depth-fitting-sound.md):
 `documentary.kind` is "story" or "explainer" (or, decision 122, a
-"working_day" or an "expose", explainers underneath by `kinds.family`);
+"working_day" or an "expose", explainers underneath by `kinds.family`;
+or, decision 124, a "time_trip": a recurring star's journey, a story
+underneath but fact-checked, with its own dialogue rules);
 `kinds.py` holds the parts of the pitch, outline, script and critic
 prompts that differ.
 Depth is used only where `depth.suits` (zooms; pans across a whole wide

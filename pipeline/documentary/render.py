@@ -105,9 +105,13 @@ def voices_for(channel, outline: dict, scenes: list) -> dict:
     for s in scenes:
         if s.get("speaker") and s["speaker"] not in order:
             order.append(s["speaker"])
-    taken = {channel.voice}
-    out = {}
+    fixed = {name: voice for name, voice in (getattr(channel.documentary, "voices", None) or {}).items()
+             if name in order and voice}
+    taken = {channel.voice, *fixed.values()}
+    out = dict(fixed)
     for name in order:
+        if name in fixed:
+            continue
         pool = FEMALE_VOICES if FEMININE.search(f"{name} {described.get(name, '')}") else MALE_VOICES
         choice = next((v for v in pool if v not in taken), pool[0])
         out[name] = choice

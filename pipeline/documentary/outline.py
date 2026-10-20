@@ -247,6 +247,10 @@ def write(channel, row: dict, note: str = "", angle: dict = None) -> dict:
              f"The channel's drawn style: {look}" if look else "",
              "Real paintings of the period may be shown." if _paintings(channel) else "",
              lessons.for_prompt(channel.key)]
+    stars = recurring(channel)
+    if stars:
+        parts.append("The channel's recurring cast, in every film and in this one's cast exactly as described:\n"
+                     + "\n".join(f"- {m['name']}: {m['description']}" for m in stars))
     known = library.for_prompt(channel.key)
     if known:
         parts.append("The channel's cast library (reuse a member's exact name and description "
@@ -273,7 +277,26 @@ def write(channel, row: dict, note: str = "", angle: dict = None) -> dict:
             data = again
     if angle and angle.get("title"):
         data["title_options"] = [angle["title"]] + [t for t in data["title_options"] if t != angle["title"]][:2]
-    return data
+    return with_recurring(data, stars)
+
+
+def recurring(channel) -> list:
+    """The characters in every one of the channel's films (decision 124):
+    its animation cast, [{"name", "description"}]."""
+    return [m for m in (getattr(channel.animation, "cast", None) or []) if m.get("name") and m.get("description")]
+
+
+def with_recurring(data: dict, stars: list) -> dict:
+    """`data` with each recurring character in its cast, first, in the
+    channel's own words and in every setting: whatever the writer made of
+    them, they're drawn the same in every film."""
+    if not stars:
+        return data
+    names = {m["name"].lower() for m in stars}
+    everywhere = [s["name"] for s in data.get("settings") or []]
+    fixed = [{"name": m["name"], "kind": "character", "description": " ".join(m["description"].split()),
+              **({"settings": everywhere} if everywhere else {})} for m in stars]
+    return {**data, "cast": fixed + [m for m in data.get("cast") or [] if m["name"].lower() not in names]}
 
 
 def _paintings(channel) -> bool:

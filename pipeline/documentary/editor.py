@@ -562,7 +562,7 @@ def edit(channel, title: str, outline: dict, script: dict, angle: dict = None, p
     for c in cards:
         log.info(f"  [documentary] card in scene {c['scene'] + 1}: {c['problem'][:160]}")
     facts = []
-    if film_kinds.family(film_kinds.of(channel)) == "explainer":
+    if film_kinds.fact_checked(film_kinds.of(channel)):
         try:
             script, facts = fact_check(script, packaging or angle)
         except PipelineError as exc:
