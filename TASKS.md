@@ -17,10 +17,13 @@ Both are set up as proofs of concept (decision 122): publishing and the
 autopilot are off, and nothing has been voiced.
 
 ### N1. Look at the two storyboards (10 minutes)
+Redone on 20 Oct to your notes (decision 123): Clocking In as a cute, flat
+paper cartoon, History's Bottom Drawer as a glossy Western animated series
+with a flirtier script, and both with cards of their own.
 **Clocking In → Productions → the lighthouse keeper**, and **History's
-Bottom Drawer → Productions → the bikini**. Read the angle, outline and
-script, and look through the storyboard. Redraw any picture with a note,
-or tell me what's off about the look before more films are planned.
+Bottom Drawer → Productions → the bikini**. Redraw any picture with a
+note. Each look has two other style frames to choose from in **Settings →
+Animation** if you prefer one.
 
 ### N2. Listen to the two voices (2 minutes, free)
 Neither is in your ElevenLabs account yet, and nothing has spent a
