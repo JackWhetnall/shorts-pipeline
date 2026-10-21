@@ -11,6 +11,11 @@ Library chosen for a channel but not yet added to the account. Listed
 with their own free preview clips, so they can be heard before anyone
 adds one (decision 124). They can't be test-voiced until they're added.
 
+Every voice carries ElevenLabs' gender, accent and age labels, so the
+page can be filtered by them (21 Oct: "it is hard to browse"), and
+`search_library` finds more in the Voice Library by the same labels,
+free, to shortlist.
+
 Each voice row plays ElevenLabs' own preview clip, which is free and
 needs no synthesis. Only "test this combo" generates anything, and it's
 keyed on the exact combination so testing the same one twice never hits
@@ -36,6 +41,8 @@ from core.paths import CACHE_DIR, PROJECT_ROOT
 VOICES_CACHE_PATH = CACHE_DIR / "voice_lab_voices.json"
 SAMPLES_DIR = CACHE_DIR / "voice_lab_samples"
 VOICES_URL = "https://api.elevenlabs.io/v2/voices"
+SHARED_URL = "https://api.elevenlabs.io/v1/shared-voices"
+LABELS = ("gender", "accent", "age", "use_case")
 LIBRARY_PATH = PROJECT_ROOT / "config" / "voice_library.json"
 LIBRARY = "Voice Library"           # the category a shortlisted voice is listed under
 
@@ -99,7 +106,7 @@ def refresh_voices() -> list:
     voices = [
         {"voice_id": v["voice_id"], "name": v["name"],
          "category": v.get("category", ""), "description": v.get("description") or "",
-         "preview_url": v.get("preview_url")}
+         "preview_url": v.get("preview_url"), **labels_of(v.get("labels") or {})}
         for v in response.json().get("voices", [])
     ]
     # The account's own first: they're the ones a channel was set up with.
@@ -108,6 +115,33 @@ def refresh_voices() -> list:
     with open(VOICES_CACHE_PATH, "w", encoding="utf-8") as f:
         json.dump(voices, f, indent=2)
     return voices
+
+
+def labels_of(row: dict) -> dict:
+    """{gender, accent, age, use_case}, lower case, from ElevenLabs'
+    labels (an account voice's `labels`, or a library voice's own fields)."""
+    return {k: " ".join(str(row.get(k) or "").replace("_", " ").split()).lower() for k in LABELS}
+
+
+def search_library(gender: str = "", accent: str = "", use_case: str = "", search: str = "",
+                   page_size: int = 30) -> list:
+    """Voice Library voices matching the labels, most used first, as the
+    shortlist takes them. A free listing: no characters are spent."""
+    key = os.environ.get("ELEVENLABS_API_KEY")
+    if not key:
+        raise MissingCredentialError("ELEVENLABS_API_KEY", "the Voice Library")
+    params = {k: v for k, v in {"gender": gender, "accent": accent, "use_cases": use_case, "search": search,
+                                "language": "en", "page_size": page_size,
+                                "sort": "usage_character_count_1y"}.items() if v}
+    response = requests.get(SHARED_URL, headers={"xi-api-key": key}, params=params, timeout=20)
+    if not response.ok:
+        raise ExternalServiceError("The voice service (ElevenLabs)", f"HTTP {response.status_code}",
+                                   status=response.status_code,
+                                   user_message=f"Couldn't search the Voice Library ({response.status_code}).")
+    return [{"voice_id": v["voice_id"], "name": v["name"], "category": "library",
+             "description": v.get("description") or "", "preview_url": v.get("preview_url"),
+             "public_owner_id": v.get("public_owner_id"), **labels_of(v)}
+            for v in response.json().get("voices", []) if v.get("voice_id")]
 
 
 def get_cached_voices(library: bool = True) -> list:
@@ -136,7 +170,8 @@ def library_voices() -> list:
     except (OSError, ValueError):
         return []
     return [{"voice_id": r["voice_id"], "name": r["name"], "category": LIBRARY,
-             "description": r.get("description") or "", "preview_url": r.get("preview_url")}
+             "description": r.get("description") or "", "preview_url": r.get("preview_url"),
+             **labels_of(r)}
             for r in rows if r.get("voice_id") and r.get("name")]
 
 

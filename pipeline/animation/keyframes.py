@@ -202,6 +202,12 @@ Small imperfections are fine. ok is false only for the problems above; say each 
 sentence the artist can act on.
 """.strip()
 
+# Decision 126: a recurring star's sheet is her face only, so what she
+# wears is the shot's to say, and a frame that forgets it drifts (togas at
+# a Roman stop that was about two-pieces).
+STAR_CHECK = ("\n- a recurring star (her sheet shows only her face and hair) wears something other than what "
+              "the shot says she's wearing, or anyone wears clothes the shot rules out.")
+
 
 def _check_schema() -> dict:
     return {"type": "object", "properties": {"shots": {"type": "array", "items": {
@@ -225,7 +231,8 @@ def check(shots: list, frames: dict, board: dict, style_ref: Path, sheets: dict)
     for s in todo:
         pictures += [("text", f"Shot {s['index']} should show ({s['framing']}): {s['image']}"),
                      thumbnail(frames[s["index"]])]
-    data = call_json(CHECK, "Check every shot above.", _check_schema(), images=pictures,
+    starred = any(board["elements"][k].get("star") for k in used)
+    data = call_json(CHECK + (STAR_CHECK if starred else ""), "Check every shot above.", _check_schema(), images=pictures,
                      operation="animation_keyframe_check", max_tokens=6000)
     wanted = {s["index"] for s in todo}
     return {r["index"]: [p for p in r.get("problems") or [] if p]

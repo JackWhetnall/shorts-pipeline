@@ -12,17 +12,32 @@
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
 
+{% set genders = voices|map(attribute='gender')|select|unique|sort|list %}
+{% set accents = voices|map(attribute='accent')|select|unique|sort|list %}
+{% set kinds = voices|map(attribute='category')|select|unique|sort|list %}
+<div class="voice-filters" id="voice-filters">
+  <label>Gender <select data-filter="gender"><option value="">All</option>
+    {% for g in genders %}<option value="{{ g }}">{{ g|capitalize }}</option>{% endfor %}</select></label>
+  <label>Accent <select data-filter="accent"><option value="">All</option>
+    {% for a in accents %}<option value="{{ a }}">{{ a|capitalize }}</option>{% endfor %}</select></label>
+  <label>Category <select data-filter="category"><option value="">All</option>
+    {% for c in kinds %}<option value="{{ c }}">{{ c|capitalize }}</option>{% endfor %}</select></label>
+  <span class="hint" id="voice-count">{{ voices|length }}</span>
+</div>
+
 <div class="tablewrap">
 <table class="voice-table">
   <thead>
-    <tr><th></th><th>Name</th><th>Category</th><th>Description</th><th>Preview</th></tr>
+    <tr><th></th><th>Name</th><th>Gender</th><th>Accent</th><th>Category</th><th>Description</th><th>Preview</th></tr>
   </thead>
   <tbody id="voice-table-body">
     {% for v in voices %}
-    <tr>
+    <tr data-gender="{{ v.gender }}" data-accent="{{ v.accent }}" data-category="{{ v.category }}">
       <td><input type="radio" name="voice_id" value="{{ v.voice_id }}" id="voice-{{ v.voice_id }}"
                   {% if loop.first %}checked{% endif %}></td>
       <td><label for="voice-{{ v.voice_id }}">{{ v.name }}</label></td>
+      <td>{{ v.gender|capitalize }}</td>
+      <td>{{ v.accent|capitalize }}</td>
       <td>{{ v.category }}</td>
       <td class="meta">{{ v.description }}</td>
       <td>{% if v.preview_url %}<audio controls src="{{ v.preview_url }}"></audio>{% endif %}</td>

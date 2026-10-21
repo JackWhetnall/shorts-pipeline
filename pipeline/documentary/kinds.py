@@ -535,7 +535,11 @@ SCRIPT_DIRECTION = {
                "a diagram, writing, or a picture whose point is how a garment is built."),
     "time_trip": ("One clear, drawable picture of the moment: the star in it, exactly as the channel draws "
                   "her, in that time and place, doing or reacting (blushing, delighted, curious, flustered) "
-                  "and dressed as she is at that stop. Where people really bathed or swam with little or "
+                  "and dressed as she is at that stop. Each picture is drawn on its own, remembering none "
+                  "of the others, so every direction she's in says what she's wearing, in the same words "
+                  "all through the stop, and so does every direction showing people whose clothes the "
+                  "story is about (the Roman athletes' two-pieces, say); left unsaid, a picture dresses "
+                  "everyone in the era's usual clothes. Where people really bathed or swam with little or "
                   "nothing on, anything not covered is hidden by water, steam, a towel or the framing. "
                   "Never a chart, a diagram or writing."),
 }

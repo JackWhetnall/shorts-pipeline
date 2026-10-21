@@ -3137,6 +3137,8 @@ font-size: .8rem; color: var(--text); box-shadow: var(--shadow-sm); }
 .retention-drops b { color: var(--text); font-variant-numeric: tabular-nums; }
 
 .thumb-title { color: var(--text); }
+.voice-filters { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; margin-bottom: var(--sp-3); }
+.voice-filters label { display: flex; gap: .4rem; align-items: center; font-size: .9rem; color: var(--text-dim); }
 .thumb-titles { list-style: none; margin: var(--sp-2) 0; padding: 0; font-size: .88rem; color: var(--text-dim); }
 .thumb-titles li { padding: 2px 6px; border-left: 2px solid transparent; }
 .thumb-titles li b { color: var(--text-faint); margin-right: .3rem; }

@@ -108,3 +108,19 @@ def test_a_star_is_drawn_from_her_face_and_dressed_as_each_picture_says():
     found = stills.shots([{"direction": "Emily in a neon swimsuit on the sand", "cast": []},
                           {"direction": "A drawer glowing", "cast": []}], ["Emily"])
     assert found[0]["elements"] == ["emily"] and found[1]["elements"] == []
+
+
+def test_a_stars_clothes_are_said_in_every_picture_and_checked(tmp_path, monkeypatch):
+    # Found on 21 Oct: pictures whose directions didn't say what Emily wore
+    # dressed her in the era's usual clothes, togas at a Roman stop about
+    # two-pieces, and the picture check didn't look for it.
+    from pipeline.animation import keyframes
+    assert "says what she's wearing" in kinds.SCRIPT_DIRECTION["time_trip"]
+    asked = []
+    monkeypatch.setattr(keyframes, "thumbnail", lambda path, size=None: ("image/jpeg", ""))
+    monkeypatch.setattr(keyframes, "call_json", lambda system, *a, **k: asked.append(system) or {"shots": []})
+    shot = {"index": 0, "framing": "wide", "image": "Emily in a two-piece", "elements": ["emily"]}
+    for star in (True, False):
+        board = {"elements": {"emily": {"kind": "character", "name": "Emily", "star": star}}}
+        keyframes.check([shot], {0: tmp_path / "f.jpg"}, board, tmp_path / "s.jpg", {"emily": tmp_path / "e.jpg"})
+    assert keyframes.STAR_CHECK in asked[0] and asked[1] == keyframes.CHECK

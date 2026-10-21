@@ -245,11 +245,15 @@ def start_stage(key, subtopic_id, stage):
         data = production.load(key, subtopic_id)
         extra["only"] = [i for i in range(len((data.get("script") or {}).get("scenes") or []))
                          if str(i) not in (data.get("stills") or {})]
-    if form.get("scene") not in (None, ""):
-        index = int(form["scene"])
-        extra["only"] = [index]
-        if extra["note"]:
-            extra["notes"] = {str(index): extra["note"]}
+    scenes = [s for s in form.getlist("scene") if s not in (None, "")]
+    if scenes:
+        # Several scenes, each with its note, go as one job: one check for
+        # all of them rather than one each (a continuity pass, 21 Oct).
+        notes = [" ".join(n.split()) for n in form.getlist("note")]
+        extra["only"] = [int(s) for s in scenes]
+        extra["notes"] = {str(int(s)): n for s, n in zip(scenes, notes) if n}
+        if len(scenes) > 1:
+            extra["note"] = ""
     try:
         start(channel, row, stage, now=form.get("now") == "on", **extra)
     except PipelineError as exc:

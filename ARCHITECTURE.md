@@ -52,7 +52,8 @@ core/         Domain concepts, usable from the CLI, the web app and the schedule
   caption_preview  One real caption frame, for the Look settings.
   card_preview  One real title/outro card frame, likewise.
   logos         Logo generation via the image API.
-  voice_lab     Voice/cadence/speed auditioning.
+  voice_lab     Voice/cadence/speed auditioning; voices filtered by gender
+                and accent, and a free Voice Library search (decision 126).
   costs         What every API call cost.
   voice_quota   The ElevenLabs allowance in credits (a character of the voiceover
                 model costs 0.2, measured from ElevenLabs' own history): read,
@@ -805,7 +806,9 @@ Decision [089](docs/decisions/089-explainers-gentler-depth-fitting-sound.md):
 `documentary.kind` is "story" or "explainer" (or, decision 122, a
 "working_day" or an "expose", explainers underneath by `kinds.family`;
 or, decision 124, a "time_trip": a recurring star's journey, a story
-underneath but fact-checked, with its own dialogue rules);
+underneath but fact-checked, with its own dialogue rules, and, decision
+126, directions that say what she wears in every picture, which the
+picture check holds them to);
 `kinds.py` holds the parts of the pitch, outline, script and critic
 prompts that differ.
 Depth is used only where `depth.suits` (zooms; pans across a whole wide

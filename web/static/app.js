@@ -499,6 +499,24 @@ function pollJob(jobId) {
 
 // --- Voice Lab ---
 
+// Voice Lab filters (21 Oct): each row carries its labels; a row shows
+// when it matches every filter set.
+function filterVoices() {
+  const wanted = {};
+  document.querySelectorAll("#voice-filters select").forEach((s) => { wanted[s.dataset.filter] = s.value; });
+  let shown = 0;
+  document.querySelectorAll("#voice-table-body tr").forEach((row) => {
+    const ok = Object.entries(wanted).every(([k, v]) => !v || row.dataset[k] === v);
+    row.classList.toggle("hidden", !ok);
+    shown += ok ? 1 : 0;
+  });
+  const count = document.getElementById("voice-count");
+  if (count) count.textContent = shown;
+}
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("#voice-filters select").forEach((s) => s.addEventListener("change", filterVoices));
+});
+
 async function refreshVoiceList() {
   await withButtonLoading(event.target.closest("button"), "Refreshing…", async () => {
     const res = await apiFetch("/api/voice-lab/refresh-voices", {method: "POST"});

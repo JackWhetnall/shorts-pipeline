@@ -162,6 +162,27 @@ def test_the_page_offers_to_draw_just_the_missing_ones(world, monkeypatch):
     assert started and started[0]["only"] == [1]
 
 
+def test_several_pictures_are_redrawn_with_their_notes_as_one_job(world, monkeypatch):
+    channel, row = world
+    from web import create_app
+    _made(channel, row, [_scene("Gaius sweeps"), _scene("Gaius eats"), _scene("Gaius sleeps")])
+    monkeypatch.setattr("web.blueprints.productions._channel", lambda key: channel)
+    monkeypatch.setattr("web.blueprints.productions.curriculum.find", lambda key, sid: row)
+    channel.animation.style = {"approach": "acted"}
+    started = []
+    monkeypatch.setattr("core.jobs.start_job", lambda key, seed, ahead=True, behind=False: started.append(seed) or "j")
+    client = create_app().test_client()
+    client.get("/m/sign-in")
+    with client.session_transaction() as s:
+        token = s["_csrf_token"]
+    url = f"/channels/doc/productions/{row['id']}/start/stills"
+    client.post(url, data={"scene": ["0", "2"], "note": ["In his red tunic", ""]}, headers={"X-CSRF-Token": token})
+    assert started[0]["only"] == [0, 2] and started[0]["notes"] == {"0": "In his red tunic"}
+    assert "note" not in started[0]
+    client.post(url, data={"scene": "1", "note": "Indoors"}, headers={"X-CSRF-Token": token})
+    assert started[1]["only"] == [1] and started[1]["notes"] == {"1": "Indoors"}
+
+
 # --- depth --------------------------------------------------------------------------------
 
 def test_near_things_move_more_than_far_ones(tmp_path, monkeypatch):
