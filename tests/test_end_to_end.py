@@ -154,7 +154,7 @@ def fake_services(monkeypatch, world):
     monkeypatch.setattr(llm, "client", lambda: client)
 
     def fake_segment(text, voice_id, out_path, speed=1.0, max_attempts=3,
-                     previous_text="", next_text=""):
+                     previous_text="", next_text="", say_as=None, model=None):
         """Silence of a plausible length, with word timings to match."""
         words = text.split()
         per_word = 0.3
@@ -343,7 +343,16 @@ class TestNoRouteReturnsFiveHundred:
 
     @pytest.fixture
     def client(self, world, monkeypatch):
+        from pipeline.scenes import iconlib
         from web import create_app
+        from web.blueprints import scenes
+
+        # The template sheet looks its icons up online when it isn't cached;
+        # "no match" draws a lettered badge instead. Its previews go to the
+        # test's folder so a badge sheet never lands in the real cache.
+        monkeypatch.setattr(iconlib, "find", lambda name, icon_set: "")
+        monkeypatch.setattr(scenes, "CACHE_DIR", world["tmp"] / "cache")
+        monkeypatch.setattr(scenes, "PREVIEW_DIR", world["tmp"] / "cache" / "art_previews")
         app = create_app()
         app.config.update(TESTING=True)
         with app.test_client() as c:
