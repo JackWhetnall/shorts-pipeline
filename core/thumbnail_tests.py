@@ -24,13 +24,22 @@ the three, the owner starts the test there and ticks the winner here.
 
 Films are rotated by the app too (decision 117): the owner wanted the
 tests done for them, and Studio's test can't be driven through the API.
-A film's three are made with it, and it starts rotating when it's out:
-A for two days, then A, B and C three days each, twice. Films planned
-within a week share a style or refine round (FILM_ROUND_SIZE), so a
-round has more impressions to judge by; a content round is one film's,
-and rotates its titles as well when the channel may be managed. Nothing
-starts until the reach reports work, since a rotation nobody can
+A film's three are made with it, and it starts rotating when it's out.
+Films planned within a week share a style or refine round
+(FILM_ROUND_SIZE), so a round has more impressions to judge by; a
+content round is one film's, and rotates its titles with its thumbnails.
+Nothing starts until the reach reports work, since a rotation nobody can
 measure would be twenty days for nothing.
+
+Decision 125. A film goes straight to its own variant when it's out (the
+channel's films start on A, B and C in turn), with no days on A first:
+every film had shown A, so the channel looked untested. And outside a
+content round each film's title is tested too, on its own schedule: A as
+it went out, B a statement, C spoken to the viewer
+(pipeline.documentary.title_variants). The title's turn is offset from
+the thumbnail's by one or two segments, alternately by film, so which
+title and which thumbnail clicked can be told apart. Titles change only
+when the channel may be managed.
 
 Kept in channels/<key>/thumbnail_tests.json, which moves with a renamed
 channel.
@@ -61,7 +70,7 @@ MIN_LEAD = 0.08             # the winner's click-through, at least this much (re
 DATA_LAG_DAYS = 3
 FILM_ROUND_SIZE = 4         # films sharing one style or refine round (decision 117)
 FILM_ROUND_DAYS = 7         # ...planned within this many days of its first
-FILM_DAYS = SETTLE_DAYS + SEGMENT_DAYS * 3 * CYCLES
+FILM_DAYS = SEGMENT_DAYS * 3 * CYCLES      # no settling: a film starts on its own variant (decision 125)
 
 _lock = threading.Lock()
 
@@ -217,6 +226,45 @@ def scheduled_label(video: dict, now: float) -> str:
     return LABELS[(segment + video["offset"]) % 3]
 
 
+def film_label(video: dict, now: float, shift: int = 0):
+    """The variant a film in rotation is due now (its thumbnail, or with
+    `shift` its title), or None once its rotation has ended."""
+    segment = int(((now - video["joined"]) / 86400) // SEGMENT_DAYS)
+    if segment >= 3 * CYCLES:
+        return None
+    return LABELS[(segment + video.get("offset", 0) + shift) % 3]
+
+
+def _write_titles(channel) -> None:
+    """Two other titles for each film in a running round that has none
+    yet (decision 125): written outside the round's lock, since it's a
+    model call. A film whose titles can't be written is tested on its
+    thumbnails alone."""
+    from core import gallery
+    from core.errors import PipelineError
+    from pipeline.documentary import title_variants
+    wanted = [(r["id"], v["stem"], v["path"]) for r in load(channel.key)["rounds"]
+              if r["kind"] == "film" and r["status"] == "running" and not any(x.get("title") for x in r["variants"])
+              for v in r["videos"] if v.get("video_id") and "titles" not in v and not v.get("dropped")]
+    for round_id, stem, path in wanted:
+        title = gallery.load_publish_info(Path(path)).get("title") or ""
+        if not title:
+            continue
+        try:
+            titles = title_variants.write(title, title_variants.about_film(path))
+        except PipelineError as exc:
+            log.warning(f"{channel.key}: no title options for {stem}: {exc}")
+            titles = {}
+
+        def keep(data, round_id=round_id, stem=stem, titles=titles):
+            for r in data["rounds"]:
+                if r["id"] == round_id:
+                    for v in r["videos"]:
+                        if v["stem"] == stem and "titles" not in v:
+                            v["titles"] = titles
+        update(channel.key, keep)
+
+
 def rotate(channel, now: float = None) -> int:
     """Put each short and film in rotation on the variant it's due
     (core.scheduler, every pass). Returns how many were changed."""
@@ -224,12 +272,17 @@ def rotate(channel, now: float = None) -> int:
     from pipeline import thumbnail_variants as tv
     now = now or time.time()
     films = _reach_ready(channel.key)
+    if films:
+        _write_titles(channel)
 
     def change(data):
         moved = 0
+        # Films start on A, B and C in turn across the channel, not each
+        # round: three rounds had each started its first film on A.
+        out = [sum(1 for r in data["rounds"] if r["kind"] == "film" for v in r["videos"] if v.get("video_id"))]
         for round_ in data["rounds"]:
             if round_["kind"] == "film" and films:
-                moved += _rotate_films(channel, round_, now)
+                moved += _rotate_films(channel, round_, now, out)
         return moved
     changed = update(channel.key, change)
     data = load(channel.key)
@@ -267,18 +320,21 @@ def _reach_ready(channel_key: str) -> bool:
     return bool(data.get("job_id")) and not data.get("error")
 
 
-def _rotate_films(channel, round_: dict, now: float) -> int:
+def _rotate_films(channel, round_: dict, now: float, out: list = None) -> int:
     """Each film of a film round on the variant it's due. A film starts
-    once it's out, on A (the thumbnail it went out with), and keeps the
+    once it's out, on its own variant (decision 125), and keeps the
     winner, or A, once the round is judged. A content round's titles
-    change with its thumbnails when the channel may be managed; the
-    winning title becomes the film's own."""
+    change with its thumbnails; any other round's films have titles of
+    their own on their own schedule. Titles change only when the channel
+    may be managed; the winning title becomes the film's own. `out`: [how
+    many of the channel's films are out so far], counted on as they join."""
     from core import audience, gallery, youtube
     from pipeline import thumbnail_variants as tv
     running = round_["status"] == "running"
-    winner = round_.get("result", {}).get("winner")
-    titled = any(v.get("title") for v in round_["variants"])
-    can_title = titled and youtube.connection(channel.key).get("manage")
+    result = round_.get("result", {})
+    winner = result.get("winner")
+    packaged = any(v.get("title") for v in round_["variants"])
+    may_title = youtube.connection(channel.key).get("manage")
     moved = 0
     for video in round_["videos"]:
         path = Path(video["path"])
@@ -295,33 +351,53 @@ def _rotate_films(channel, round_: dict, now: float) -> int:
             vid = audience.video_id(info.get("youtube_url") or "")
             if not vid:
                 continue
-            started = sum(1 for v in round_["videos"] if v.get("video_id"))
-            video.update(video_id=vid, joined=now, offset=started % 3, log=[[now, "A"]],
-                         title_a=info.get("title") or "")
+            if out is None:
+                out = [sum(1 for v in round_["videos"] if v.get("video_id"))]
+            started = out[0]
+            out[0] += 1
+            # Out on A; its own variant follows straight away, below.
+            video.update(video_id=vid, joined=now, offset=started % 3, title_shift=1 + started % 2,
+                         log=[[now, "A"]], title_log=[[now, "A"]], title_a=info.get("title") or "")
             moved += 1
-            continue
-        label = (scheduled_label(video, now) if running else None) or winner or "A"
+        label = (film_label(video, now) if running else None) or winner or "A"
         current = video["log"][-1][1] if video["log"] else "A"
-        if label == current:
+        if label != current:
+            variant = next((v for v in round_["variants"] if v["label"] == label), None)
+            if variant is not None:
+                image = tv.variant_path(path, label)
+                title = (variant.get("title") or video.get("title_a") or "") if packaged and may_title else ""
+                try:
+                    if not image.exists():
+                        tv.render_long(channel, path, variant["recipe"], image)
+                    youtube.set_thumbnail(channel.key, video["video_id"], image)
+                    if title:
+                        youtube.set_title(channel.key, video["video_id"], title)
+                except (PipelineError, OSError) as exc:
+                    log.warning(f"{channel.key}: couldn't rotate {video['stem']}'s thumbnail: {exc}")
+                    continue
+                video["log"].append([now, label])
+                if title and not running and label == winner:
+                    info = gallery.load_publish_info(path)
+                    gallery.save_title_and_description(path, title, info.get("description") or "")
+                moved += 1
+        titles = video.get("titles") or {}
+        if packaged or not may_title or not titles:
             continue
-        variant = next((v for v in round_["variants"] if v["label"] == label), None)
-        if variant is None:
+        titles = {"A": video.get("title_a") or "", **titles}
+        due = (film_label(video, now, video.get("title_shift", 1)) if running else None) \
+            or result.get("title_winner") or "A"
+        log_ = video.setdefault("title_log", [[video["joined"], "A"]])
+        if due == log_[-1][1] or not titles.get(due):
             continue
-        image = tv.variant_path(path, label)
-        title = (variant.get("title") or video.get("title_a") or "") if can_title else ""
         try:
-            if not image.exists():
-                tv.render_long(channel, path, variant["recipe"], image)
-            youtube.set_thumbnail(channel.key, video["video_id"], image)
-            if title:
-                youtube.set_title(channel.key, video["video_id"], title)
-        except (PipelineError, OSError) as exc:
-            log.warning(f"{channel.key}: couldn't rotate {video['stem']}'s thumbnail: {exc}")
+            youtube.set_title(channel.key, video["video_id"], titles[due])
+        except PipelineError as exc:
+            log.warning(f"{channel.key}: couldn't change {video['stem']}'s title: {exc}")
             continue
-        video["log"].append([now, label])
-        if title and not running and label == winner:
+        log_.append([now, due])
+        if not running:
             info = gallery.load_publish_info(path)
-            gallery.save_title_and_description(path, title, info.get("description") or "")
+            gallery.save_title_and_description(path, titles[due], info.get("description") or "")
         moved += 1
     return moved
 
@@ -330,21 +406,22 @@ def _day(ts: float) -> str:
     return datetime.fromtimestamp(ts, timezone.utc).date().isoformat()
 
 
-def tally(channel_key: str, round_: dict, now: float = None) -> dict:
+def tally(channel_key: str, round_: dict, now: float = None, log_key: str = "log") -> dict:
     """{label: {"impressions", "clicks", "ctr"}} for a rotation round so
-    far, from the days each variant was up all day."""
+    far, from the days each variant was up all day. `log_key`
+    "title_log": its films' titles instead (decision 125)."""
     from core import reach
     now = now or time.time()
     out = {l: {"impressions": 0, "clicks": 0.0} for l in LABELS}
     for video in round_["videos"]:
         if not video.get("video_id") or video.get("dropped"):
             continue
-        changes = {_day(ts) for ts, _ in video["log"]}
+        changes = {_day(ts) for ts, _ in video.get(log_key) or []}
         for day, (shown, ctr) in reach.days(channel_key, video["video_id"]).items():
             ts = datetime.fromisoformat(day).replace(tzinfo=timezone.utc).timestamp() + 43200
             if day in changes or ts < video["joined"]:
                 continue
-            live = [l for t, l in video["log"] if t <= ts]
+            live = [l for t, l in video.get(log_key) or [] if t <= ts]
             label = live[-1] if live else "A"
             rate = ctr / 100 if ctr > 1 else ctr
             out[label]["impressions"] += shown
@@ -378,6 +455,8 @@ def finish_rotations(channel, now: float = None) -> list:
                 continue
             counts = tally(channel.key, round_, now)
             round_["result"]["tally"] = counts
+            if round_["kind"] == "film" and any(v.get("titles") for v in films):
+                _judge_titles(channel.key, data, round_, now)
             rated = {l: c["ctr"] for l, c in counts.items() if c["impressions"] >= MIN_IMPRESSIONS and c["ctr"] is not None}
             round_["status"] = "done"
             round_["finished_at"] = now
@@ -398,6 +477,34 @@ def finish_rotations(channel, now: float = None) -> list:
             done.append(round_["id"])
     update(channel.key, change)
     return done
+
+
+def _judge_titles(channel_key: str, data: dict, round_: dict, now: float) -> None:
+    """A film round's titles judged like its thumbnails (decision 125): the
+    winning kind of title kept on each film, counted for the channel, and
+    a clear win written down for the channel's writers."""
+    from pipeline.documentary import title_variants
+    counts = tally(channel_key, round_, now, "title_log")
+    result = round_["result"]
+    result["title_tally"] = counts
+    rated = {l: c["ctr"] for l, c in counts.items() if c["impressions"] >= MIN_IMPRESSIONS and c["ctr"] is not None}
+    formats = data.setdefault("title_formats", {l: {"rounds": 0, "wins": 0} for l in LABELS})
+    for label in rated:
+        formats[label]["rounds"] += 1
+    if len(rated) < 3:
+        result["title_verdict"] = "too few impressions to tell"
+        return
+    best = max(rated, key=rated.get)
+    if rated[best] < (1 + MIN_LEAD) * max(c for l, c in rated.items() if l != best):
+        result["title_verdict"] = "no clear winner; keeping the titles they went out with"
+        return
+    result["title_winner"] = best
+    formats[best]["wins"] += 1
+    if best != "A":
+        from core import lessons
+        lessons.add(channel_key, [f"Titles worded as {title_variants.FORMATS[best]} clicked best in a test "
+                                  f"({100 * rated[best]:.1f}% against {100 * rated['A']:.1f}% for the titles "
+                                  f"as written)."], source="title test")
 
 
 # --- long videos: Studio's own test ----------------------------------------------------
@@ -637,21 +744,28 @@ def doc_change_text(variant: dict) -> str:
 def film_status(channel_key: str, round_: dict, stem: str, now: float = None) -> dict:
     """How far one film's test has got, for its page: {"state": "waiting"
     (not out yet), "rotating", "judging" (rotated, figures to come) or
-    "done"; "day" and "days" of its rotation; "showing", the variant up
-    now; "counts", the round's figures so far}."""
+    "done"; "day" and "days" of its rotation; "showing", the thumbnail up
+    now, and "title_showing" its title's turn when titles are tested;
+    "counts", the round's figures so far; "impressions" and "needed", how
+    far it is from enough to judge}."""
     now = now or time.time()
     video = next((v for v in round_["videos"] if v["stem"] == stem), None)
-    out = {"days": FILM_DAYS, "counts": round_.get("result", {}).get("tally") or {}}
+    out = {"days": FILM_DAYS, "counts": round_.get("result", {}).get("tally") or {}, "needed": 3 * MIN_IMPRESSIONS}
     if not out["counts"] and any(v.get("video_id") for v in round_["videos"]):
         out["counts"] = tally(channel_key, round_, now)
+    out["impressions"] = sum(c.get("impressions") or 0 for c in out["counts"].values())
     if round_["status"] != "running":
         out["state"] = "done"
     elif not video or not video.get("video_id"):
         out["state"] = "waiting"
     else:
-        out.update(state="rotating" if scheduled_label(video, now) else "judging",
+        out.update(state="rotating" if film_label(video, now) else "judging",
                    day=min(FILM_DAYS, int((now - video["joined"]) // 86400) + 1),
                    showing=video["log"][-1][1] if video["log"] else "A")
+        if video.get("titles") and video.get("title_log"):
+            out["title_showing"] = video["title_log"][-1][1]
+    if video and video.get("titles"):
+        out["titles"] = {"A": video.get("title_a") or "", **video["titles"]}
     return out
 
 

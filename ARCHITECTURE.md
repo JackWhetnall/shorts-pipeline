@@ -899,7 +899,12 @@ winner ticked on the video's page
 app too, once they're out and the reach reports work: style and refine
 rounds shared by up to four films, a content round per film with its
 titles rotated as well when the channel may be managed
-([117](docs/decisions/117-film-tests-run-by-the-app.md)).
+([117](docs/decisions/117-film-tests-run-by-the-app.md)). A film goes out
+on its own variant, A, B and C in turn across the channel, and outside a
+content round its title is tested beside its thumbnail: two more titles of
+other forms (`pipeline/documentary/title_variants.py`) on a schedule offset
+from the thumbnails, judged apart and the winner kept
+([125](docs/decisions/125-every-film-tested-from-day-one.md)).
 
 ## How long a video runs
 

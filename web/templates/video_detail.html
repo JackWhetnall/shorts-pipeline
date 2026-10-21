@@ -44,10 +44,19 @@
         {% if s.state == 'done' %}{% elif thumb_test.reach == 'error' %}<span class="tag-plain" data-tooltip="Google Cloud: enable the YouTube Reporting API">Needs the Reporting API</span>
         {% elif thumb_test.reach == 'starting' %}<span class="tag-plain">Starting</span>
         {% elif s.state == 'waiting' %}Starts when it goes out
-        {% elif s.state == 'rotating' %}<span class="prod-pill" data-tooltip="A, B and C take turns; compared on click-through">Testing by itself</span> Day {{ s.day }} of {{ s.days }} &middot; showing {{ s.showing }}
+        {% elif s.state == 'rotating' %}<span class="prod-pill" data-tooltip="A, B and C take turns; compared on click-through">Testing by itself</span> Day {{ s.day }} of {{ s.days }} &middot; thumbnail {{ s.showing }}{% if s.title_showing %} &middot; title {{ s.title_showing }}{% endif %}
         {% else %}Rotated &middot; figures due{% endif %}
+        {% if s.state in ('rotating', 'judging') %} &middot; <span data-tooltip="About {{ '{:,}'.format(s.needed) }} needed to judge">{{ '{:,}'.format(s.impressions) }} impressions</span>{% endif %}
         {% if thumb_test.titles_held and s.state != 'done' %} <span class="tag-plain" data-tooltip="Reconnect YouTube to test titles too">thumbnails only</span>{% endif %}
       </p>
+      {% endif %}
+      {% if thumb_test.auto and thumb_test.status and thumb_test.status.titles %}{% set s = thumb_test.status %}
+      <ul class="thumb-titles">
+        {% for l, t in s.titles.items() %}{% set c = r.result.title_tally.get(l) if r.result.title_tally else None %}
+        <li class="{{ 'is-live' if l == s.title_showing }}{{ ' won' if r.result.title_winner == l }}"><b>{{ l }}</b> {{ t }}{% if c and c.impressions %} <span class="hint">{{ '%.1f'|format(100 * c.ctr) }}%</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% if r.result.title_verdict %}<p class="hint">Titles: {{ r.result.title_verdict }}</p>{% endif %}
       {% endif %}
       {% if r.status == 'running' and thumb_test.film and thumb_test.studio and not thumb_test.auto %}
       <p><a class="btn btn-ghost btn-small" href="{{ thumb_test.studio }}" target="_blank" rel="noopener"

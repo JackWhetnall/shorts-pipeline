@@ -3137,6 +3137,11 @@ font-size: .8rem; color: var(--text); box-shadow: var(--shadow-sm); }
 .retention-drops b { color: var(--text); font-variant-numeric: tabular-nums; }
 
 .thumb-title { color: var(--text); }
+.thumb-titles { list-style: none; margin: var(--sp-2) 0; padding: 0; font-size: .88rem; color: var(--text-dim); }
+.thumb-titles li { padding: 2px 6px; border-left: 2px solid transparent; }
+.thumb-titles li b { color: var(--text-faint); margin-right: .3rem; }
+.thumb-titles li.is-live { border-left-color: var(--accent); color: var(--text); }
+.thumb-titles li.won { color: var(--text); font-weight: 600; }
 
 /* The Voice page (core.voice_budget, decision 120): one wide bar of the
    month's credits, a block per output, coloured by channel. Spent is

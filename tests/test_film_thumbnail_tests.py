@@ -8,9 +8,12 @@ can't be driven through the API, so films are rotated like shorts:
 - films planned within a week share a style or refine round, for more
   impressions; a content round is one film's own;
 - a film starts rotating once it's out, and only once click-through can
-  be measured;
+  be measured, on its own variant straight away (decision 125: every
+  film had shown A, so nothing looked tested);
 - a content round's titles change with its thumbnails, when the channel
   may be managed, and the winning title becomes the film's;
+- any other round's films have their titles tested on their own
+  schedule, offset from the thumbnails, and judged apart;
 - a round is judged when its films have rotated and the figures are in;
   a tie crowns no style;
 - a discarded film doesn't hold its round up.
@@ -45,6 +48,9 @@ def world(tmp_path, monkeypatch):
     monkeypatch.setattr(youtube, "set_thumbnail", lambda key, vid, path: sent["thumbs"].append((vid, path.name)))
     monkeypatch.setattr(youtube, "set_title", lambda key, vid, title: sent["titles"].append((vid, title)))
     monkeypatch.setattr(youtube, "connection", lambda key: {"connected": True, "manage": sent["manage"]})
+    monkeypatch.setattr("pipeline.documentary.title_variants.write", lambda title, about: {
+        "B": f"{title} statement", "C": f"{title} to you"})
+    monkeypatch.setattr("pipeline.documentary.title_variants.about_film", lambda path: "")
     channel = SimpleNamespace(key="why", publishing=SimpleNamespace(thumbnail_tests=True))
     films = []
     for n in range(5):
@@ -104,8 +110,8 @@ def test_a_film_starts_rotating_once_its_out_and_its_figures_can_be_read(world):
     tt.rotate(channel, 1_000.0)
     video = tt.load("why")["rounds"][0]["videos"][0]
     assert video["video_id"] == "vid00000000" and video["log"] == [[1_000.0, "A"]] and sent["thumbs"] == []
-    tt.rotate(channel, 1_000.0 + 6 * DAY)
-    assert sent["thumbs"] == [("vid00000000", "film_0_thumb_b.jpg")] and sent["titles"] == []   # a style round: no titles
+    tt.rotate(channel, 1_000.0 + 3 * DAY)
+    assert sent["thumbs"] == [("vid00000000", "film_0_thumb_b.jpg")]
 
 
 def test_a_content_round_changes_titles_with_thumbnails_when_it_may(world):
@@ -115,12 +121,12 @@ def test_a_content_round_changes_titles_with_thumbnails_when_it_may(world):
     _measurable()
     _out(films[0], 0)
     tt.rotate(channel, T0)
-    tt.rotate(channel, T0 + 6 * DAY)
-    assert sent["titles"] == [("vid00000000", "Second title")]
-    tt.rotate(channel, T0 + 12 * DAY)               # back to A: the title it went out with
+    tt.rotate(channel, T0 + 3 * DAY)
+    assert sent["titles"] == [("vid00000000", "Second title")]       # its own, not a written one
+    tt.rotate(channel, T0 + 9 * DAY)                # back to A: the title it went out with
     assert sent["titles"][-1] == ("vid00000000", "Film 0")
     sent["manage"] = False                          # without the permission, thumbnails only
-    tt.rotate(channel, T0 + 15 * DAY)
+    tt.rotate(channel, T0 + 12 * DAY)
     assert len(sent["titles"]) == 2 and sent["thumbs"][-1][1] == "film_0_thumb_b.jpg"
 
 
@@ -136,8 +142,8 @@ def test_a_round_is_judged_when_its_films_have_rotated_and_the_winner_kept(world
 
     def day(n):
         return datetime.fromtimestamp(joined + n * DAY, timezone.utc).date().isoformat()
-    # B (days 5 to 7 and 14 to 16 for an offset of 0) clicks best.
-    figures = {day(n): (150, 0.08 if n in (6, 7, 15, 16) else 0.03) for n in range(1, 21)}
+    # B (days 3 to 5 and 12 to 14 for an offset of 0, the first of each a change) clicks best.
+    figures = {day(n): (150, 0.08 if n in (4, 5, 13, 14) else 0.03) for n in range(1, 21)}
     monkeypatch.setattr(reach, "days", lambda key, vid: figures)
     for n in range(0, 22):
         tt.rotate(channel, joined + n * DAY + 3600)
@@ -147,6 +153,80 @@ def test_a_round_is_judged_when_its_films_have_rotated_and_the_winner_kept(world
     assert sent["thumbs"][-1] == ("vid00000000", "film_0_thumb_b.jpg")
     assert sent["titles"][-1] == ("vid00000000", "Second title")
     assert gallery.load_publish_info(films[0])["title"] == "Second title"   # the winner is its title now
+
+
+def test_a_rounds_films_start_on_a_b_and_c_in_turn(world):
+    channel, films, sent = world
+    for f in films[:3]:
+        tt.studio_round(channel, f)
+    _measurable()
+    for n in range(3):
+        _out(films[n], n)
+    tt.rotate(channel, T0)
+    videos = tt.load("why")["rounds"][0]["videos"]
+    assert [v["log"][-1][1] for v in videos[:3]] == ["A", "B", "C"]
+    assert sent["thumbs"] == [("vid00000001", "film_1_thumb_b.jpg"), ("vid00000002", "film_2_thumb_c.jpg")]
+
+
+def test_films_in_different_rounds_dont_all_start_on_a(world):
+    channel, films, sent = world
+    tt.update("why", lambda data: tt.program(data).update(phase="content"))     # a round each
+    for n in range(3):
+        tt.studio_round(channel, films[n])
+        _out(films[n], n)
+    _measurable()
+    tt.rotate(channel, T0)
+    assert [r["videos"][0]["log"][-1][1] for r in tt.load("why")["rounds"]] == ["A", "B", "C"]
+
+
+def test_titles_are_tested_on_their_own_schedule_outside_a_content_round(world):
+    channel, films, sent = world
+    for f in films[:2]:
+        tt.studio_round(channel, f)
+    _measurable()
+    _out(films[0], 0)
+    _out(films[1], 1)
+    tt.rotate(channel, T0)                          # out; their titles are written on the next pass
+    tt.rotate(channel, T0 + 60)
+    videos = tt.load("why")["rounds"][0]["videos"]
+    assert videos[0]["titles"] == {"B": "Film 0 statement", "C": "Film 0 to you"}
+    # One segment on from the thumbnail for the first film, two for the
+    # second, so a title doesn't always share its turn with one thumbnail.
+    assert [v["title_log"][-1][1] for v in videos[:2]] == ["B", "A"]
+    assert [v["log"][-1][1] for v in videos[:2]] == ["A", "B"]
+    assert sent["titles"] == [("vid00000000", "Film 0 statement")]
+    tt.rotate(channel, T0 + 3 * DAY)
+    assert sent["titles"][-1] == ("vid00000001", "Film 1 statement")
+    sent["manage"] = False                          # without the permission, no title changes
+    tt.rotate(channel, T0 + 6 * DAY)
+    assert len(sent["titles"]) == 3
+
+
+def test_a_title_that_clicks_clearly_better_is_kept_and_learnt(world, monkeypatch):
+    channel, films, sent = world
+    tt.studio_round(channel, films[0])
+    _measurable()
+    _out(films[0], 0)
+    tt.rotate(channel, T0)
+    joined = tt.load("why")["rounds"][0]["videos"][0]["joined"]
+
+    def day(n):
+        return datetime.fromtimestamp(joined + n * DAY, timezone.utc).date().isoformat()
+    for n in range(0, 22):
+        tt.rotate(channel, joined + n * DAY + 3600)
+    # The first film's title runs one segment ahead: C is up on days 3 to 5
+    # and 12 to 14, the first of each a change.
+    figures = {day(n): (150, 0.09 if n in (4, 5, 13, 14) else 0.03) for n in range(1, 21)}
+    monkeypatch.setattr(reach, "days", lambda key, vid: figures)
+    added = []
+    monkeypatch.setattr("core.lessons.add", lambda key, new, source="": added.extend(new))
+    assert len(tt.finish_rotations(channel, joined + 30 * DAY)) == 1
+    data = tt.load("why")
+    assert data["rounds"][0]["result"]["title_winner"] == "C" and data["title_formats"]["C"]["wins"] == 1
+    tt.rotate(channel, joined + 30 * DAY)
+    assert sent["titles"][-1] == ("vid00000000", "Film 0 to you")
+    assert gallery.load_publish_info(films[0])["title"] == "Film 0 to you"     # the winner is its title now
+    assert added and "to the viewer" in added[0]
 
 
 def test_a_tie_crowns_no_style(world):
