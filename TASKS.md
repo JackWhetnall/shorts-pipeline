@@ -29,14 +29,8 @@ to ask. Or set the task's permission mode when you edit it.
 and `python -m core.newsroom status why_though` shows the tokens it used. If the weekly
 bar fills too fast, tell me and I'll lower the caps.
 
-### W3. Two decisions
-- **The opening rule.** Why, Though?'s setting *How it opens a video* says to start with
-  the question in the viewer's words, which is the title again, and that's where the films
-  lose people. Change it to "open on the most surprising concrete fact; the question
-  follows"? The newsroom's writers already follow that, but the setting still says otherwise.
-- **The films already made.** About ten films made the old way go out first, which is five
-  weeks at two a week. Should newsroom films go first instead, with the old ones after
-  (or their openings fixed)?
+### W3. Done 21 Oct
+The opening rule now opens on the most surprising fact, and newsroom films go out first.
 - *Worth knowing:* a small channel called **"Why Though? with Dr. Matt Agnew"** (about
   530 subscribers) exists. It turned up in the scout's searches.
 

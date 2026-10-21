@@ -78,10 +78,11 @@ ROLES = {
     "storyboard": ("newsroom-picture-editor", 1),
     "teasers": ("newsroom-teaser-editor", 1),
     "bank": ("newsroom-scout", 1),
+    "analysis": ("newsroom-analyst", 1),
 }
 # The order work is handed out in: a film nearest done first, so films
 # finish rather than all starting.
-PRIORITY = ("teasers", "storyboard", "final", "packaging", "pictures", "facts", "edit", "draft",
+PRIORITY = ("analysis", "teasers", "storyboard", "final", "packaging", "pictures", "facts", "edit", "draft",
             "proof_review", "proof", "commission", "pitch", "bank")
 # A film's state: the role due next.
 DUE = {"": "pitch", "rework_pitch": "pitch", "pitched": "commission", "commissioned": "proof",
@@ -262,6 +263,8 @@ def due(channel, ledger: dict = None) -> list:
             and not any(r["role"] == "bank" and _now() - r["issued_at"] < 86400
                         for r in list(ledger["open"].values()) + ledger["done"]):
         found.append({"role": "bank", "films": []})
+    if analysis_due(channel) and not any(r["role"] == "analysis" for r in ledger["open"].values()):
+        found.append({"role": "analysis", "films": []})
     return sorted(found, key=lambda a: PRIORITY.index(a["role"]))
 
 
@@ -335,6 +338,10 @@ SHAPES = {
     "storyboard": """{"summary": "what you redrew and approved, or why you held it"}""",
     "teasers": """{"summary": "what you changed and approved"}""",
     "bank": """{"summary": "the topic added, its subtopics, anything skipped"}""",
+    "analysis": """{"findings": {"scout": [{"text": "what to do differently", "evidence": "which films, which figures",
+                        "confidence": "strong" | "suggestive" | "hunch"}],
+              "writer": [...], "script_editor": [...], "packaging": [...], "pictures": [...]},
+ "summary": "two sentences for the owner"}""",
 }
 
 LABELS = {"pitch": "Pitch these films", "commission": "Commission, rework or scrap these pitches",
@@ -342,7 +349,8 @@ LABELS = {"pitch": "Pitch these films", "commission": "Commission, rework or scr
           "proof_review": "Review the proof", "draft": "Write the whole script", "edit": "Edit the script",
           "facts": "Check the facts and the cards", "pictures": "Plan every picture",
           "packaging": "Package the film", "final": "The last read before it's drawn",
-          "storyboard": "Review the storyboard", "teasers": "Review the teasers", "bank": "Stock the topic plan"}
+          "storyboard": "Review the storyboard", "teasers": "Review the teasers", "bank": "Stock the topic plan",
+          "analysis": "Read the published films and tell each role what they teach"}
 
 
 def _channel(key: str):
@@ -477,7 +485,8 @@ def brief(key: str, aid: str) -> str:
             f"Then run: python -m core.newsroom submit {key} {aid}",
             "If it lists problems, fix them in the file and submit again. Everything you hand in is kept, "
             "with your verdict, for the owner to read.", ""]
-    return "\n".join(head) + "\n" + _BRIEFS[role](channel, row)
+    learnt = findings_text(key, role)
+    return "\n".join(head) + "\n" + (learnt + "\n\n" if learnt else "") + _BRIEFS[role](channel, row)
 
 
 def _brief_pitch(channel, row) -> str:
@@ -703,7 +712,8 @@ def _brief_overseer(channel, row) -> str:
 _BRIEFS = {"pitch": _brief_pitch, "commission": _brief_commission, "proof": _brief_proof,
            "proof_review": _brief_proof_review, "draft": _brief_draft, "edit": _brief_edit, "facts": _brief_facts,
            "pictures": _brief_pictures, "packaging": _brief_packaging, "final": _brief_final,
-           "storyboard": _brief_overseer, "teasers": _brief_overseer, "bank": _brief_overseer}
+           "storyboard": _brief_overseer, "teasers": _brief_overseer, "bank": _brief_overseer,
+           "analysis": lambda channel, row: _brief_analysis(channel, row)}
 
 
 # --- taking the work back -----------------------------------------------------------------
@@ -1187,7 +1197,8 @@ def _take_summary(channel, row, data) -> tuple:
 _TAKE = {"pitch": _take_pitch, "commission": _take_commission, "proof": _take_proof,
          "proof_review": _take_proof_review, "draft": _take_draft, "edit": _take_edit, "facts": _take_facts,
          "pictures": _take_pictures, "packaging": _take_packaging, "final": _take_final,
-         "storyboard": _take_summary, "teasers": _take_summary, "bank": _take_summary}
+         "storyboard": _take_summary, "teasers": _take_summary, "bank": _take_summary,
+         "analysis": lambda channel, row, data: _take_analysis(channel, row, data)}
 
 
 def submit(key: str, aid: str, now: float = None) -> tuple:
@@ -1277,6 +1288,193 @@ def demand(key: str, query: str, now: float = None) -> str:
                             f"{v['snippet'].get('channelTitle', '')} ({subs.get(owner, 0):,} subs; {ratio}) | "
                             f"{v['snippet'].get('title', '')}"))
     return f'YouTube, 4-20 minute videos for "{query}":\n' + "\n".join(r for _, r in sorted(rows, reverse=True))
+
+
+# --- the analyst: what the published films teach each role --------------------------------
+#
+# The owner, 21 Oct: "is there a retrospective agent that looks at previous
+# videos, click-through and retention etc and feeds this back to the agents
+# responsible for these things eg script and thumbnails etc?" Each film's
+# own lessons (core.lessons) are two generic lines from one curve; the
+# analyst reads across every film once a week, with the tests' figures, and
+# says what it means for each role's own work, with how sure it is.
+
+ANALYSIS_EVERY_DAYS = 6
+ANALYSIS_AFTER_DAYS = 7         # a film's first week, before it's worth reading
+FINDINGS_PER_ROLE = 4
+CONFIDENCE = ("strong", "suggestive", "hunch")
+# Which findings each role is briefed with.
+READS = {"pitch": "scout", "commission": "scout", "bank": "scout", "proof": "writer", "draft": "writer",
+         "proof_review": "script_editor", "edit": "script_editor", "final": "script_editor",
+         "packaging": "packaging", "pictures": "pictures", "storyboard": "pictures"}
+FINDING_ROLES = ("scout", "writer", "script_editor", "packaging", "pictures")
+
+
+def _findings_path(key: str):
+    return CHANNELS_DIR / key / "newsroom_findings.json"
+
+
+def load_findings(key: str) -> dict:
+    try:
+        data = json.loads(_findings_path(key).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    data.setdefault("latest", {})
+    data.setdefault("from", [])
+    data.setdefault("history", [])
+    return data
+
+
+def _published(channel, now: float = None) -> list:
+    """[(production, video path, publish info, stats, days out)] for the
+    channel's films that are out."""
+    from core import gallery
+    now = now or _now()
+    out = []
+    for data in production.all_for(channel.key):
+        path = production.video_file(channel, data)
+        if path is None or not path.exists():
+            continue
+        info = gallery.load_publish_info(path)
+        if not gallery.is_out(info):
+            continue
+        try:
+            days = (now - datetime.fromisoformat(info.get("published_at") or "").timestamp()) / 86400
+        except (TypeError, ValueError):
+            days = 0
+        out.append((data, path, info, gallery.load_stats(path) or {}, days))
+    return out
+
+
+def analysis_due(channel, now: float = None) -> bool:
+    """A film has had its first week since the last analysis, and the last
+    is at least ANALYSIS_EVERY_DAYS old."""
+    now = now or _now()
+    found = load_findings(channel.key)
+    ready = [p.stem for _, p, _, _, days in _published(channel, now) if days >= ANALYSIS_AFTER_DAYS]
+    last = found["latest"].get("at_ts", 0)
+    return bool(set(ready) - set(found["from"])) and now - last >= ANALYSIS_EVERY_DAYS * 86400
+
+
+def _tests_text(key: str) -> str:
+    """The thumbnail and title tests' figures, round by round."""
+    from core import thumbnail_tests as tt
+    lines = []
+    for r in tt.load(key)["rounds"]:
+        if r.get("kind") != "film":
+            continue
+        result = r.get("result") or {}
+        changes = {v["label"]: v.get("change") or "the channel's current look" for v in r["variants"]}
+        lines.append(f"- {r.get('phase', '')} round {r['id']} ({r['status']}): thumbnails "
+                     + "; ".join(f"{l} = {c}" for l, c in changes.items()))
+        for label, c in sorted((result.get("tally") or {}).items()):
+            if c.get("impressions"):
+                lines.append(f"    thumbnail {label}: {c['impressions']} impressions, {100 * (c.get('ctr') or 0):.1f}%")
+        for label, c in sorted((result.get("title_tally") or {}).items()):
+            if c.get("impressions"):
+                lines.append(f"    title {label}: {c['impressions']} impressions, {100 * (c.get('ctr') or 0):.1f}%")
+        for v in r["videos"]:
+            if v.get("titles"):
+                lines.append(f"    {v['stem']}: titles A \"{v.get('title_a', '')}\" / " + " / ".join(
+                    f"{l} \"{t}\"" for l, t in sorted(v["titles"].items())))
+        for k in ("verdict", "winner", "title_verdict", "title_winner"):
+            if result.get(k):
+                lines.append(f"    {k}: {result[k]}")
+    return "\n".join(lines) or "No test has figures yet."
+
+
+def _brief_analysis(channel, row) -> str:
+    from core import reach, retention
+    from core.audience import video_id
+    found = load_findings(channel.key)
+    films = []
+    for data, path, info, stats, days in _published(channel):
+        scenes = (data.get("script") or {}).get("scenes") or []
+        outline_ = data.get("outline") or {}
+        vid = video_id(info.get("youtube_url") or "")
+        reach_days = reach.days(channel.key, vid) if vid else {}
+        shown = sum(d[0] for d in reach_days.values())
+        clicks = sum(d[0] * (d[1] / 100 if d[1] > 1 else d[1]) for d in reach_days.values())
+        curve = retention.for_video(path)
+        pack = production.packaging(data)
+        lines = [f"FILM {data['subtopic_id']} ({days:.0f} days out; "
+                 f"{'made by the newsroom' if (data.get('script') or {}).get('by') == 'newsroom' else 'made the old way'})",
+                 f"  Title: {info.get('title') or pack.get('title', '')} | thumbnail words "
+                 f"\"{(pack.get('thumbnail') or {}).get('words', '')}\"",
+                 f"  Views {stats.get('views', '?')}, likes {stats.get('likes', '?')}, comments {stats.get('comments', '?')}; "
+                 f"impressions {shown}, click-through {100 * clicks / shown:.1f}%" if shown else
+                 f"  Views {stats.get('views', '?')}; no impressions figures yet",
+                 f"  Average viewed {stats.get('avg_view_percent', '?')}% ({stats.get('avg_view_seconds', '?')} s); "
+                 f"kept at 30 s {curve.get('kept_30s', '?')}%; at the end {curve.get('end', '?')}%",
+                 "  Chapters: " + "; ".join(c.get("title", "") for c in outline_.get("chapters") or []),
+                 "  Opening: " + " ".join(s["narration"] for s in scenes[:3])]
+        for drop in curve.get("drops") or []:
+            s = scenes[drop["scene"]] if drop["scene"] < len(scenes) else {}
+            lines.append(f"  Lost {drop['lost']:.0f}% at {drop['at']} s during scene {drop['scene']}: said "
+                         f"\"{s.get('narration', '')}\"; showed {s.get('medium', 'picture')}: {s.get('direction', '')[:140]}")
+        log_ = newsroom_of(data).get("log") or []
+        if log_:
+            lines.append("  The newsroom's verdicts: " + "; ".join(
+                f"{r['role']} {r['verdict']}" + (f" {r['scores']}" if r.get("scores") else "") for r in log_))
+        films.append("\n".join(lines))
+    previous = found["latest"]
+    return "\n\n".join(p for p in [
+        _channel_text(channel),
+        "BENCHMARKS (typical, from large studies; a channel's own history matters more once it has one): "
+        "long-form videos average about 30% viewed; 60-70% still watching at 30 seconds is good; click-through "
+        "for channels under 1,000 subscribers is usually 2-4%, about 4.5% for education.",
+        "THE PUBLISHED FILMS:\n" + ("\n\n".join(films) or "None yet."),
+        "THE THUMBNAIL AND TITLE TESTS:\n" + _tests_text(channel.key),
+        ("YOUR LAST FINDINGS (" + previous.get("at", "") + "), to confirm, revise or drop:\n"
+         + "\n".join(f"- {role}: {f['text']} ({f['confidence']})" for role in FINDING_ROLES
+                     for f in previous.get(role) or [])) if previous else "",
+        "Which role reads what: `scout` (topics and pitches), `writer` (openings, structure, lines), "
+        "`script_editor` (what to judge drafts by), `packaging` (titles and thumbnails), `pictures`."] if p)
+
+
+def _take_analysis(channel, row, data) -> tuple:
+    problems, kept = [], {}
+    given = data.get("findings") or {}
+    for role in FINDING_ROLES:
+        rows = []
+        for f in given.get(role) or []:
+            text, evidence, sure = _text((f or {}).get("text")), _text((f or {}).get("evidence")), (f or {}).get("confidence")
+            if not text or not evidence:
+                problems.append(f"{role}: every finding needs its text and its evidence (films and figures)")
+                continue
+            if sure not in CONFIDENCE:
+                problems.append(f"{role}: confidence must be strong, suggestive or hunch")
+                continue
+            rows.append({"text": text, "evidence": evidence, "confidence": sure})
+        if len(rows) > FINDINGS_PER_ROLE:
+            problems.append(f"{role}: at most {FINDINGS_PER_ROLE} findings; keep the ones that matter most")
+        kept[role] = rows
+    if not any(kept.values()):
+        problems.append("no findings: if the figures are too thin to say anything, say that as a hunch, with them")
+    if problems:
+        return problems, ""
+    store = load_findings(channel.key)
+    stems = [p.stem for _, p, _, _, days in _published(channel) if days >= ANALYSIS_AFTER_DAYS]
+    if store["latest"]:
+        store["history"] = (store["history"] + [store["latest"]])[-12:]
+    store["latest"] = {"at": _stamp(), "at_ts": _now(), "summary": _text(data.get("summary")), **kept}
+    store["from"] = sorted(set(store["from"]) | set(stems))
+    path = _findings_path(channel.key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(store, indent=1, ensure_ascii=False), encoding="utf-8")
+    return [], f"{sum(len(v) for v in kept.values())} finding(s)"
+
+
+def findings_text(key: str, role: str) -> str:
+    """The analyst's latest findings for the role doing `role`'s work."""
+    reader = READS.get(role)
+    latest = load_findings(key)["latest"]
+    rows = latest.get(reader) or [] if reader else []
+    if not rows:
+        return ""
+    return (f"WHAT THE ANALYST FOUND IN THE PUBLISHED FILMS ({latest.get('at', '')[:10]}), for your work. "
+            "Act on the strong ones; weigh the rest:\n"
+            + "\n".join(f"- [{f['confidence']}] {f['text']} (evidence: {f['evidence']})" for f in rows))
 
 
 # --- the command line ---------------------------------------------------------------------

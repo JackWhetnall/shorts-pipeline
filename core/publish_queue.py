@@ -131,13 +131,26 @@ def queued(channel, long: bool = False) -> list:
     directory = gallery.resolve_output_dir(channel.output_dir)
     if not directory.exists():
         return []
+    # Decision 127: on a newsroom channel, the newsroom's films go out
+    # before the films made the old way (the owner, 21 Oct).
+    first = _newsroom_films(channel, directory) if long else set()
     items = []
     for path in gallery.videos_in(directory, long=long):
         info = gallery.load_publish_info(path)
         if gallery.is_queued(info):
             number = number_of(path)
-            items.append(((0, number) if number else (1, 0), info["queued_at"], path))
+            tier = 0 if str(Path(path).resolve()) in first else 1
+            items.append(((tier, 0, number) if number else (tier, 1, 0), info["queued_at"], path))
     return [path for _, _, path in sorted(items, key=lambda row: (row[0], row[1]))]
+
+
+def _newsroom_films(channel, directory: Path) -> set:
+    """Resolved paths of the films a newsroom channel's newsroom wrote."""
+    if not getattr(getattr(channel, "documentary", None), "newsroom", False):
+        return set()
+    from core import production
+    return {str((directory / d["video"]["path"]).resolve()) for d in production.all_for(channel.key)
+            if (d.get("script") or {}).get("by") == "newsroom" and (d.get("video") or {}).get("path")}
 
 
 def waiting_for(channel, video_path: Path) -> int:

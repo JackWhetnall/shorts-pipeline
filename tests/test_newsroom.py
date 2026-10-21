@@ -282,3 +282,45 @@ def test_what_each_role_used_of_the_subscription_is_recorded(world):
     assert newsroom.spent("why", row["id"], 117542)
     assert newsroom.tokens_used(newsroom.load_ledger("why"), 24) == 117542
     assert not newsroom.spent("why", "no-such-assignment", 5)
+
+
+def test_a_newsroom_film_goes_out_before_films_made_the_old_way(world, tmp_path, monkeypatch):
+    # The owner, 21 Oct: "put newsroom films first".
+    from core import publish_queue
+    out = tmp_path / "out"
+    old, new = out / "longform" / "old.mp4", out / "longform" / "new.mp4"
+    monkeypatch.setattr(publish_queue.gallery, "resolve_output_dir", lambda d: out)
+    monkeypatch.setattr(publish_queue.gallery, "videos_in", lambda d, long=False: [old, new])
+    monkeypatch.setattr(publish_queue.gallery, "load_publish_info", lambda p: {"queued_at": p.stem == "new" and "2" or "1"})
+    monkeypatch.setattr(publish_queue.gallery, "is_queued", lambda info: True)
+    out.mkdir()
+    production.update("why", "t0001", lambda d: d.update(script={"by": "newsroom"}, video={"path": "longform/new.mp4"}),
+                      "Why Does Thing 0 Happen?")
+    assert publish_queue.queued(world, long=True) == [new, old]
+    world.documentary.newsroom = False                     # any other channel: approval order
+    assert publish_queue.queued(world, long=True) == [old, new]
+
+
+def test_the_analyst_reads_a_weeks_films_and_its_findings_reach_each_role(world, monkeypatch):
+    # The owner, 21 Oct: "is there a retrospective agent that looks at
+    # previous videos, click-through and retention ... and feeds this back".
+    import time as clock
+    out = [(production.load("why", "t0005", "x"), type("P", (), {"stem": "film_a"})(), {}, {}, 9.0)]
+    monkeypatch.setattr(newsroom, "_published", lambda channel, now=None: out)
+    monkeypatch.setattr(newsroom, "_brief_analysis", lambda channel, row: "the figures")
+    assert newsroom.analysis_due(world)
+    row = _issue(world, "analysis")
+    assert row["agent"] == "newsroom-analyst"
+    ok, problems, _ = _hand_in(world, row["id"], {"findings": {"writer": [{"text": "Open on the number."}]}})
+    assert not ok and "evidence" in problems[0]
+    assert _hand_in(world, row["id"], {"summary": "Openings matter.", "findings": {
+        "writer": [{"text": "Open on the number.", "evidence": "film_a lost 48% by 0:15", "confidence": "hunch"}],
+        "packaging": [{"text": "Name the thing.", "evidence": "film_a 2.6%", "confidence": "suggestive"}]}})[0]
+    assert not newsroom.analysis_due(world)                  # read; not again until a new film's week is up
+    assert "Open on the number." in newsroom.findings_text("why", "draft")
+    assert "Name the thing." in newsroom.findings_text("why", "packaging")
+    assert newsroom.findings_text("why", "facts") == ""
+    assert newsroom._findings_path("why").parent == newsroom.CHANNELS_DIR / "why"
+    out.append((production.load("why", "t0006", "y"), type("P", (), {"stem": "film_b"})(), {}, {}, 8.0))
+    assert not newsroom.analysis_due(world)                  # a new film, but the last read is under a week old
+    assert newsroom.analysis_due(world, now=clock.time() + 7 * 86400)
