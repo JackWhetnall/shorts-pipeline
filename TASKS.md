@@ -4,10 +4,35 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 20 Oct 2026. Start with N1 to N3 (the two new channels), then V1,
-G7 and T1, and keep G6 going for each new film. Everything below those is older and mostly
-done or on hold. The app's home page, **Today**, lists what needs you as it happens; this
-file is for steps outside the app.*
+*Last updated: 21 Oct 2026. Start with O1 to O3 (the outlook's decisions), then N2 and
+N3, then V1, G7 and T1, and keep G6 going for each new film. Everything below those is older
+and mostly done or on hold. The app's home page, **Today**, lists what needs you as it
+happens; this file is for steps outside the app.*
+
+---
+
+## The channel outlook (21 Oct)
+
+The outlook is at https://claude.ai/artifact/P6ooJegZET7tGgg2goujj9: where each channel
+stands, what earning takes, the odds, how often to publish and when to change course.
+
+### O1. Three decisions (5 minutes)
+Tell me, and I'll set them up:
+- **Slow Why, Though? to 2 films a week?** Recommended. It saves about $20 a month,
+  and the 9 films already made last a month at that rate, time to fix the openings.
+- **Which channel launches second, for a 20-film trial?** History's Bottom Drawer is
+  recommended, then Clocking In or One Day In History. About $60 for the trial.
+- **Keep Minute Pastor and Pub Quiz Buzz running?** About $35 a month together, with no
+  route to earning. They stay exactly as they are unless you say otherwise.
+
+### O2. Once a week (10 minutes)
+**YouTube Studio → Content → each film → Analytics**: look at the retention graph
+(where people leave) and **Traffic source**. The outlook's gates say what to look for at
+10, 20 and 40 films.
+
+### O3. End screens (about 1 minute a film)
+**Studio → the film → Editor → End screen → Add element**: another film and Subscribe.
+The API can't add them, and they're the cheapest way to more watch time.
 
 ---
 
@@ -32,6 +57,10 @@ ElevenLabs' own free samples, under "Voice Library":
 - History's Bottom Drawer: **Emily - Soft & Sweet** is Emily's voice;
   **Katie - Relatable & Humorous** narrates. Also shortlisted: **Cleo**,
   **Zibby**, **Canny**.
+- **Other narrators to try (21 Oct):** set the filters to **Female · British · Voice
+  Library**: **Verity** (chatty, fun), **Evelyn** (dry, ironic), **Zoe** (witty, posh),
+  **Tamsin** (seasoned storyteller), **Imogen** (documentary RP), **Amelia** (young,
+  bright), **Leona G** (easy, observational) and **Cate** (deep, elegant).
 
 Nothing has spent a credit. Before anything is voiced, add the ones you
 keep in ElevenLabs (**Voices → Voice Library**, search the name, **Add to
