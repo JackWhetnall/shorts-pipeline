@@ -286,3 +286,20 @@ def test_a_title_change_keeps_the_rest_of_the_videos_details(monkeypatch):
     youtube.set_title("why", "vid", "New <title>")
     sent = calls[0]["snippet"]
     assert sent == {"title": "New title", "description": "Words", "tags": ["a"], "categoryId": "27"}
+
+
+def test_a_written_title_that_breaks_the_rules_is_asked_for_again_never_cut(monkeypatch):
+    # Found on 21 Oct: titles cut to sixty characters mid-word ("...mapped
+    # in detail, whi"), and a "You Won't Believe".
+    from pipeline.documentary import title_variants
+    answers = [{"statement": "Most of the ocean floor has never been mapped in detail, which is odd",
+                "viewer": "You Won't Believe How Little We Know"},
+               {"statement": "We Mapped Mars Before Our Own Ocean Floor", "viewer": "The Seabed You've Never Seen"}]
+    asked = []
+    monkeypatch.setattr(title_variants.llm, "call_json", lambda system, prompt, *a, **k: asked.append(prompt)
+                        or answers[len(asked) - 1])
+    assert title_variants.write("Why We Know Mars Better", "") == {
+        "B": "We Mapped Mars Before Our Own Ocean Floor", "C": "The Seabed You've Never Seen"}
+    assert "over 60" in asked[1] and "banned phrase" in asked[1] and "Title Case" in asked[1]
+    assert title_variants.problems("Why Rivers Are Salty", "x", "B") and not title_variants.problems(
+        "Why Rivers Are Salty", "x", "C")

@@ -252,6 +252,9 @@ def _write_titles(channel) -> None:
             continue
         try:
             titles = title_variants.write(title, title_variants.about_film(path))
+            # Both or neither: a missing turn would leave the last title up,
+            # counted for a turn that wasn't its own.
+            titles = titles if set(titles) == {"B", "C"} else {}
         except PipelineError as exc:
             log.warning(f"{channel.key}: no title options for {stem}: {exc}")
             titles = {}
