@@ -18,8 +18,9 @@ stands, what earning takes, the odds, how often to publish and when to change co
 
 ### O1. Three decisions (5 minutes)
 Tell me, and I'll set them up:
-- **Slow Why, Though? to 2 films a week?** Recommended. It saves about $20 a month,
-  and the 9 films already made last a month at that rate, time to fix the openings.
+- **Fix the openings of the films already made?** Their first 30 seconds rewritten and
+  re-voiced before they go out. (Slowing to 2 a week was withdrawn on 21 Oct: no evidence
+  it helps growth.)
 - **Which channel launches second, for a 20-film trial?** History's Bottom Drawer is
   recommended, then Clocking In or One Day In History. About $60 for the trial.
 - **Keep Minute Pastor and Pub Quiz Buzz running?** About $35 a month together, with no
