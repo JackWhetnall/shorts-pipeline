@@ -318,24 +318,41 @@ def review_cards(script: dict, packaging: dict = None) -> tuple:
     descriptions, "by the mile" as a number, and the same figure twice. One
     call for all of a film's cards; then, whatever it said, a figure shown
     twice keeps only its first card."""
+    asked = cards_prompt(script, packaging)
+    data = call_json(CARDS, asked, _cards_schema(), operation="documentary_cards", max_tokens=8000,
+                     effort="medium") if asked else {}
+    return apply_cards(script, data)
+
+
+def cards_prompt(script: dict, packaging: dict = None) -> str:
+    """What the card review reads: each card with the lines around it, or
+    "" for a film without cards."""
+    scenes = script["scenes"]
+    cards = [i for i, s in enumerate(scenes) if s.get("medium") == "card" and s.get("card")]
+    if not cards:
+        return ""
+    listed = []
+    for i in cards:
+        before = scenes[i - 1]["narration"] if i > 0 else ""
+        after = scenes[i + 1]["narration"] if i + 1 < len(scenes) else ""
+        listed.append(f"Scene {i}: [card: {_card_text(scenes[i]['card'])}]\n  said over it: {scenes[i]['narration']}"
+                      f"\n  before: {before}\n  after: {after}")
+    packaged = ""
+    if packaging:
+        packaged = (f"The title: {packaging.get('title', '')}\n"
+                    f"The thumbnail words: {(packaging.get('thumbnail') or {}).get('words', '')}\n\n")
+    return packaged + "The cards:\n\n" + "\n\n".join(listed)
+
+
+def apply_cards(script: dict, data: dict) -> tuple:
+    """(the script with a card review's fixes made, [{scene, problem}]),
+    then one figure, one card, whatever the review said."""
     from pipeline.documentary import script as scripts
     scenes = [dict(s) for s in script["scenes"]]
     cards = [i for i, s in enumerate(scenes) if s.get("medium") == "card" and s.get("card")]
     notes = []
     if cards:
-        listed = []
-        for i in cards:
-            before = scenes[i - 1]["narration"] if i > 0 else ""
-            after = scenes[i + 1]["narration"] if i + 1 < len(scenes) else ""
-            listed.append(f"Scene {i}: [card: {_card_text(scenes[i]['card'])}]\n  said over it: {scenes[i]['narration']}"
-                          f"\n  before: {before}\n  after: {after}")
-        packaged = ""
-        if packaging:
-            packaged = (f"The title: {packaging.get('title', '')}\n"
-                        f"The thumbnail words: {(packaging.get('thumbnail') or {}).get('words', '')}\n\n")
-        data = call_json(CARDS, packaged + "The cards:\n\n" + "\n\n".join(listed), _cards_schema(),
-                         operation="documentary_cards", max_tokens=8000, effort="medium")
-        for row in data.get("fixes") or []:
+        for row in (data or {}).get("fixes") or []:
             i = row.get("scene")
             if i not in cards:
                 continue
@@ -369,16 +386,28 @@ def fact_check(script: dict, packaging: dict = None) -> tuple:
     call over the whole narration, for explainers (decision 091). The first
     explainer needed nine lines fixed by hand: sixty times closer said as
     "six and a half", a 180-degree bit "glowing red", a prompt word left in."""
-    scenes = script["scenes"]
+    data = call_json(FACTS, facts_prompt(script, packaging), _facts_schema(),
+                     operation="documentary_fact_check", max_tokens=8000, effort="medium")
+    return apply_facts(script, data, packaging)
+
+
+def facts_prompt(script: dict, packaging: dict = None) -> str:
+    """What the fact check reads: every line numbered, with its card, then
+    the description, title and thumbnail words."""
     lines = [f"{i}. {s['narration']}" + (f"  [card: {_card_text(s.get('card'))}]" if s.get("card") else "")
-             for i, s in enumerate(scenes)]
+             for i, s in enumerate(script["scenes"])]
     described = f"\n\nThe YouTube description:\n{script['description']}" if script.get("description") else ""
     if packaging:
         # A title said "ten thousand hooks per inch" over cards saying 300 (decision 113).
         described += (f"\n\nThe title it goes out with: {packaging.get('title', '')}"
                       f"\nIts thumbnail words: {(packaging.get('thumbnail') or {}).get('words', '')}")
-    data = call_json(FACTS, "The script:\n" + "\n".join(lines) + described, _facts_schema(),
-                     operation="documentary_fact_check", max_tokens=8000, effort="medium")
+    return "The script:\n" + "\n".join(lines) + described
+
+
+def apply_facts(script: dict, data: dict, packaging: dict = None) -> tuple:
+    """(the script with a fact check's fixes made, [{scene, problem}]):
+    the API's answer or the newsroom's fact checker's, in FACTS's shape."""
+    scenes = script["scenes"]
     fixed, notes = [dict(s) for s in scenes], []
     for row in data.get("fixes") or []:
         i, text = row.get("scene"), " ".join(str(row.get("narration") or "").split())

@@ -4,10 +4,41 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 21 Oct 2026. Start with O1 to O3 (the outlook's decisions), then N2 and
+*Last updated: 21 Oct 2026 (evening). Start with W1 to W3 (the newsroom), then O1 to O3, then N2 and
 N3, then V1, G7 and T1, and keep G6 going for each new film. Everything below those is older
 and mostly done or on hold. The app's home page, **Today**, lists what needs you as it
 happens; this file is for steps outside the app.*
+
+---
+
+## The Why, Though? newsroom (21 Oct)
+
+Why, Though?'s films are now written by a newsroom of agents on your Claude subscription
+(decision 127): a scout, a commissioning editor, a writer, a script editor, a fact
+checker, a picture editor, a packaging editor and a managing editor, each able to send
+the work back or scrap it. It runs at 23:00 and 04:00 (**Scheduled → Overnight
+newsroom**), and the old hourly overseer is paused. Films go out Tuesday and Saturday.
+
+### W1. Run it once while you're here (2 minutes, tonight)
+**Scheduled → Overnight newsroom → Run now**, and approve what it asks for (sending in its
+agents, web search). Approvals are kept for later runs, so the overnight runs don't stop
+to ask. Or set the task's permission mode when you edit it.
+
+### W2. Check your Claude usage after two nights (1 minute)
+**claude.ai → Settings → Usage.** The newsroom keeps to 4 points a session and 36 a week,
+and `python -m core.newsroom status why_though` shows the tokens it used. If the weekly
+bar fills too fast, tell me and I'll lower the caps.
+
+### W3. Two decisions
+- **The opening rule.** Why, Though?'s setting *How it opens a video* says to start with
+  the question in the viewer's words, which is the title again, and that's where the films
+  lose people. Change it to "open on the most surprising concrete fact; the question
+  follows"? The newsroom's writers already follow that, but the setting still says otherwise.
+- **The films already made.** About ten films made the old way go out first, which is five
+  weeks at two a week. Should newsroom films go first instead, with the old ones after
+  (or their openings fixed)?
+- *Worth knowing:* a small channel called **"Why Though? with Dr. Matt Agnew"** (about
+  530 subscribers) exists. It turned up in the scout's searches.
 
 ---
 
@@ -16,11 +47,8 @@ happens; this file is for steps outside the app.*
 The outlook is at https://claude.ai/artifact/P6ooJegZET7tGgg2goujj9: where each channel
 stands, what earning takes, the odds, how often to publish and when to change course.
 
-### O1. Three decisions (5 minutes)
+### O1. Two decisions (5 minutes)
 Tell me, and I'll set them up:
-- **Fix the openings of the films already made?** Their first 30 seconds rewritten and
-  re-voiced before they go out. (Slowing to 2 a week was withdrawn on 21 Oct: no evidence
-  it helps growth.)
 - **Which channel launches second, for a 20-film trial?** History's Bottom Drawer is
   recommended, then Clocking In or One Day In History. About $60 for the trial.
 - **Keep Minute Pastor and Pub Quiz Buzz running?** About $35 a month together, with no

@@ -29,6 +29,8 @@ log = get_logger(__name__)
 AUTO_APPROVED = ("pitch", "outline", "script", "stills")
 # What an overseen channel leaves for the overseer to approve (decision 094).
 REVIEWED = ("script", "stills")
+# What a newsroom channel's newsroom makes instead (decision 127).
+NEWSROOM = ("pitch", "outline", "script")
 
 
 def _busy(channel_key: str) -> bool:
@@ -158,6 +160,8 @@ def _act(channel, row: dict, data: dict, after_hours: bool) -> str:
         chars = production.narration_still_to_voice(data)
         if chars and not voice_quota.has_room_for(chars):
             return ""
+    if stage in NEWSROOM and getattr(doc, "newsroom", False):
+        return ""                       # the newsroom writes it and passes it (decision 127)
     if state == "ready" and stage in REVIEWED and getattr(doc, "overseen", False):
         return ""                       # the overseer reads it first (decision 094)
     if state == "ready" and stage in AUTO_APPROVED:

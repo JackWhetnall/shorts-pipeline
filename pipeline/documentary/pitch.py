@@ -173,11 +173,20 @@ def earlier_titles(channel_key: str, subtopic_id: str) -> list:
 
 def write(channel, row: dict, note: str = "") -> dict:
     """Angles for one plan entry, the best chosen. About two cents."""
+    system, user = prompt(channel, row, note)
+    data = call_json(system, user, schema(), operation="documentary_pitch",
+                     max_tokens=MAX_TOKENS, effort=EFFORT)
+    return clean(data, row["title"])
+
+
+def prompt(channel, row: dict, note: str = "", angles: int = ANGLES) -> tuple:
+    """(system blocks, user text) for pitching `row`: what the API call
+    sends, and what the newsroom's scout is briefed with (decision 127)."""
     from core import lessons
     from pipeline.documentary import kinds
     topic = curriculum.find_topic(channel.key, row["topic"]) or {}
     extra = kinds.PITCH[kinds.of(channel)]
-    system = [SystemBlock(SYSTEM.format(angles=ANGLES) + (f"\n\n{extra}" if extra else ""), cacheable=True),
+    system = [SystemBlock(SYSTEM.format(angles=angles) + (f"\n\n{extra}" if extra else ""), cacheable=True),
               SystemBlock(f"The channel: {channel.channel_display_name or channel.key}. Its brief for "
                           f"its writers:\n\n{channel.style_prompt}"
                           + (f"\n\nHow it opens a video: {channel.hook_style}" if channel.hook_style else ""))]
@@ -193,6 +202,4 @@ def write(channel, row: dict, note: str = "") -> dict:
                      + "\n".join(f"- {t}" for t in before))
     if note:
         parts.append(f"The owner asks: {note}")
-    data = call_json(system, "\n\n".join(parts), schema(), operation="documentary_pitch",
-                     max_tokens=MAX_TOKENS, effort=EFFORT)
-    return clean(data, row["title"])
+    return system, "\n\n".join(parts)

@@ -549,6 +549,11 @@ class Documentary(_MappingLike):
     # Claude session, tools/overseer.py) to read, fix and approve them,
     # rather than the autopilot approving them unread.
     overseen: bool = False
+    # Decision 127. The film's angle, outline and script are made by the
+    # newsroom (core.newsroom): agents on the owner's Claude subscription,
+    # each a role that can send work back or scrap it, overnight. The
+    # autopilot waits for a film the newsroom has passed, then draws it.
+    newsroom: bool = False
 
 
 @dataclass

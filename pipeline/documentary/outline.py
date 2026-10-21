@@ -231,6 +231,32 @@ def problems(outline: dict, minutes: float) -> list:
 def write(channel, row: dict, note: str = "", angle: dict = None) -> dict:
     """The outline for one plan entry, keeping `angle`'s promise. About
     three cents; one more round if it breaks the retention rules."""
+    minutes = float(channel.documentary.minutes)
+    system, user = prompt(channel, row, note, angle)
+    data = clean(call_json(system, user, schema(), operation="documentary_outline",
+                           max_tokens=MAX_TOKENS, effort=EFFORT), minutes)
+    found = problems(data, minutes)
+    if found:
+        log.info(f"  [documentary] outline breaks the retention rules ({'; '.join(found)[:200]}); once more")
+        again = clean(call_json(system, user + "\n\nYour last outline broke these rules; fix them:\n- "
+                                + "\n- ".join(found), schema(), operation="documentary_outline",
+                                max_tokens=MAX_TOKENS, effort=EFFORT), minutes)
+        if len(problems(again, minutes)) <= len(found):
+            data = again
+    return finish(channel, data, angle)
+
+
+def finish(channel, data: dict, angle: dict = None) -> dict:
+    """A cleaned outline made the film's: its title options led by the
+    angle's title, and the channel's recurring cast in it."""
+    if angle and angle.get("title"):
+        data["title_options"] = [angle["title"]] + [t for t in data["title_options"] if t != angle["title"]][:2]
+    return with_recurring(data, recurring(channel))
+
+
+def prompt(channel, row: dict, note: str = "", angle: dict = None) -> tuple:
+    """(system blocks, user text) for outlining `row`: what the API call
+    sends, and what the newsroom's writer is briefed with (decision 127)."""
     from core import lessons
     from pipeline.documentary import cast as library
     topic = curriculum.find_topic(channel.key, row["topic"]) or {}
@@ -264,20 +290,7 @@ def write(channel, row: dict, note: str = "", angle: dict = None) -> dict:
                      "pictures): " + ", ".join(channel.avoid_imagery))
     if note:
         parts.append(f"The owner asks: {note}")
-    user = "\n\n".join(p for p in parts if p)
-    data = clean(call_json(system, user, schema(), operation="documentary_outline",
-                           max_tokens=MAX_TOKENS, effort=EFFORT), minutes)
-    found = problems(data, minutes)
-    if found:
-        log.info(f"  [documentary] outline breaks the retention rules ({'; '.join(found)[:200]}); once more")
-        again = clean(call_json(system, user + "\n\nYour last outline broke these rules; fix them:\n- "
-                                + "\n- ".join(found), schema(), operation="documentary_outline",
-                                max_tokens=MAX_TOKENS, effort=EFFORT), minutes)
-        if len(problems(again, minutes)) <= len(found):
-            data = again
-    if angle and angle.get("title"):
-        data["title_options"] = [angle["title"]] + [t for t in data["title_options"] if t != angle["title"]][:2]
-    return with_recurring(data, stars)
+    return system, "\n\n".join(p for p in parts if p)
 
 
 def recurring(channel) -> list:

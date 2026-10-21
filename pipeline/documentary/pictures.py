@@ -182,10 +182,19 @@ def _brief(outline: dict, scenes: list) -> str:
             "The scenes, in order:\n" + "\n".join(lines))
 
 
-def _ask(outline: dict, scenes: list, kind: str, extra: str = "") -> dict:
+def system_text(kind: str, most: int = PER_ANSWER) -> str:
+    """The picture editor's instructions for this kind of film."""
     share, run = BALANCE.get(kind, BALANCE["story"])
-    system = SYSTEM.replace("{balance}", BALANCE_TEXT.format(share=share, run=run)).replace("{most}",
-                                                                                           str(PER_ANSWER))
+    return SYSTEM.replace("{balance}", BALANCE_TEXT.format(share=share, run=run)).replace("{most}", str(most))
+
+
+def problems(outline: dict, scenes: list, groups: list, kind: str = "story") -> list:
+    """[{scene, problem}] the code still finds in a planned storyboard."""
+    return _merged(audit(outline, scenes, kind) + crowded(groups, scenes, kind))
+
+
+def _ask(outline: dict, scenes: list, kind: str, extra: str = "") -> dict:
+    system = system_text(kind)
     brief = _brief(outline, scenes)
     context = _context(outline)
     return call_json(system, brief[len(context):] + (f"\n\n{extra}" if extra else ""), schema(),
@@ -244,7 +253,17 @@ def looks(outline: dict, scenes: list) -> list:
         "required": ["pictures"], "additionalProperties": False}
     data = call_json(SUBJECTS, (f"The cast: {cast}\n\n" if cast else "") + "The pictures:\n" + "\n".join(lines),
                      schema, operation="documentary_looks", max_tokens=6000, effort="low")
-    named = {r.get("scene"): _key(r.get("subject") or "") for r in data.get("pictures") or []}
+    return grouped(outline, scenes, {r.get("scene"): r.get("subject") or "" for r in data.get("pictures") or []})
+
+
+def grouped(outline: dict, scenes: list, subjects: dict) -> list:
+    """`looks` from {scene: its main subject}, however named: the model's
+    one call, or the newsroom's picture editor (decision 127)."""
+    pictures = [i for i, s in enumerate(scenes) if s.get("medium", "picture") != "card"
+                and not isinstance(s.get("same_as"), int)]
+    if len(pictures) < 2:
+        return [{"look": "", "scenes": pictures}]
+    named = {i: _key(subject) for i, subject in subjects.items()}
     # A cutaway is one view whatever its subject is called: the shaft cut
     # open came back eleven times as "the drill bit" and "the borehole shaft".
     cutaways = {s["name"] for s in outline.get("settings") or [] if s.get("scale") == "cutaway"}

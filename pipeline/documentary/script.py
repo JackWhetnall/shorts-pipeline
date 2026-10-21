@@ -288,17 +288,28 @@ def words_per_second(channel) -> float:
     return round(statistics.median(rates), 3) if rates else WORDS_PER_SECOND
 
 
+def chapter_target(channel, outline: dict, number: int) -> tuple:
+    """(words of narration, scenes) chapter `number` of `outline` needs to
+    fill its minutes at this channel's measured narration rate."""
+    seconds = float(outline["chapters"][number - 1]["minutes"]) * 60
+    scenes = max(2, round(seconds / float(channel.documentary.scene_seconds)))
+    return round(seconds * words_per_second(channel)), scenes
+
+
+def instructions(channel) -> str:
+    """Everything the script's system prompt tells a writer, as one text:
+    for the newsroom's writer and editors (decision 127)."""
+    return "\n\n".join(block.text for block in _system(channel))
+
+
 def _chapter(channel, title: str, outline: dict, number: int, before: list, note: str = "",
              angle: dict = None) -> dict:
     """One chapter's scenes, written knowing the narration before it."""
-    doc = channel.documentary
     chapter = outline["chapters"][number - 1]
-    seconds = float(chapter["minutes"]) * 60
-    scenes = max(2, round(seconds / float(doc.scene_seconds)))
+    target, scenes = chapter_target(channel, outline, number)
     so_far = "\n".join(f"[{s['chapter']}] {s['narration']}" for s in before)
     pictures = "\n".join(f"- [{s.get('setting') or '?'}] {' '.join(s['direction'].split()[:16])}"
                          for s in before if s.get("medium", "picture") != "card")
-    target = round(seconds * words_per_second(channel))
     each = max(12, round(target / scenes))
     # The outline is the same for every chapter: cached (decision 095).
     context = f"The video: {title}\n\n{outline_text(outline, angle)}\n\n"

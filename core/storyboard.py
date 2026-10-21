@@ -250,7 +250,9 @@ def keep_up(channels: dict) -> bool:
     wanted = [c for c in channels.values()
               if not c.archived and c.publishing.enabled and getattr(c, "content_mode", "") == "topic"]
     _last_auto = time.time()
-    outlined = sum(outline_ahead(c) for c in wanted if c.format == "documentary")
+    # A newsroom channel's angles are its scout's (decision 127).
+    outlined = sum(outline_ahead(c) for c in wanted if c.format == "documentary"
+                   and not getattr(c.documentary, "newsroom", False))
     wanted = [c for c in wanted if c.format != "documentary" and missing(c)]
     return bool(wanted) and start(wanted) or bool(outlined)
 
