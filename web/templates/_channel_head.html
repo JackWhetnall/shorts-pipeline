@@ -55,6 +55,9 @@
   <a href="{{ url_for('curriculum.page', key=channel.key) }}" class="{{ 'active' if tab == 'plan' }}">Plan</a>
   {% if channel.format == 'documentary' %}
   <a href="{{ url_for('productions.index', key=channel.key) }}" class="{{ 'active' if tab == 'productions' }}">Productions</a>
+  {% if channel.documentary.newsroom %}
+  <a href="{{ url_for('newsroom.page', key=channel.key) }}" class="{{ 'active' if tab == 'newsroom' }}">Newsroom</a>
+  {% endif %}
   {% else %}
   <a href="{{ url_for('storyboard.page', key=channel.key) }}" class="{{ 'active' if tab == 'coming' }}">Coming up</a>
   {% endif %}

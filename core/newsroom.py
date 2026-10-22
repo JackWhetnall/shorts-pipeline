@@ -74,6 +74,7 @@ ROLES = {
     "facts": ("newsroom-fact-checker", 1),
     "pictures": ("newsroom-picture-editor", 1),
     "packaging": ("newsroom-packaging-editor", 1),
+    "audience": ("newsroom-test-audience", 1),
     "final": ("newsroom-managing-editor", 1),
     "storyboard": ("newsroom-picture-editor", 1),
     "teasers": ("newsroom-teaser-editor", 1),
@@ -82,15 +83,15 @@ ROLES = {
 }
 # The order work is handed out in: a film nearest done first, so films
 # finish rather than all starting.
-PRIORITY = ("analysis", "teasers", "storyboard", "final", "packaging", "pictures", "facts", "edit", "draft",
+PRIORITY = ("analysis", "teasers", "storyboard", "final", "audience", "packaging", "pictures", "facts", "edit", "draft",
             "proof_review", "proof", "commission", "pitch", "bank")
 # A film's state: the role due next.
 DUE = {"": "pitch", "rework_pitch": "pitch", "pitched": "commission", "commissioned": "proof",
        "rework_proof": "proof", "proofed": "proof_review", "drafting": "draft", "rework_draft": "draft",
        "drafted": "edit", "edited": "facts", "checked": "pictures", "pictured": "packaging",
-       "packaged": "final"}
+       "packaged": "audience", "screened": "final"}
 IN_WRITING = {"rework_proof", "proofed", "drafting", "rework_draft", "drafted", "edited", "checked",
-              "pictured", "packaged"}
+              "pictured", "packaged", "screened"}
 DONE = {"passed", "scrapped"}
 
 # About 15 points a film, reworks included, plus its storyboard and
@@ -99,8 +100,11 @@ DONE = {"passed", "scrapped"}
 # film). The owner's usage page put the newsroom at about 1% of a day's
 # use (22 Oct): the caps are only a backstop; the bank (BANK_FILMS) is
 # what slows it once films are waiting.
-WEEK_POINTS = 240
-SESSION_POINTS = 60
+# The owner put the weekly limit at about 3,000 points (22 Oct); half of
+# it is the newsroom's, the rest left for their own use.
+WEEK_POINTS = 1500
+SESSION_POINTS = 120
+PARALLEL = 3                    # assignments a session runs at once, each a different film
 SESSION_HOURS = 4               # work issued within this long counts as one session's
 STALE_HOURS = 4                 # an assignment not handed in by then is handed out again
 FILMS_WRITING = 3               # films between their proof and their pass, at once
@@ -113,6 +117,7 @@ PITCHED_AHEAD = 3               # films pitched or commissioned, waiting to be w
 PITCH_BATCH = 3
 ROUNDS = {"pitch": 1, "proof": 2, "draft": 2, "final": 1}
 SUBMITS = 4                     # tries at handing in one assignment
+HELD_AFTER = 2                  # rejected assignments for one film's step before it's held for the owner
 LOWEST_PASS = 6                 # no score under this goes on
 DEMAND_PER_DAY = 25             # YouTube searches: 101 quota units each, of 10,000 a day
 KEEP_DONE = 300
@@ -138,6 +143,44 @@ def work_dir(key: str):
     return CHANNELS_DIR / key / "newsroom"
 
 
+class _Locked:
+    """One process at a time on a channel's ledger: several roles hand in
+    at once when a session runs them in parallel (decision 130), and a
+    write from one would undo the other's."""
+
+    def __init__(self, key: str, wait: float = 30.0):
+        self.path = CHANNELS_DIR / key / "newsroom.lock"
+        self.wait = wait
+
+    def __enter__(self):
+        import os
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        deadline = time.time() + self.wait
+        while True:
+            try:
+                os.close(os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+                return self
+            except FileExistsError:
+                try:
+                    if time.time() - self.path.stat().st_mtime > 120:
+                        self.path.unlink(missing_ok=True)        # left by a process that died
+                        continue
+                except OSError:
+                    pass
+                if time.time() > deadline:
+                    raise PipelineError("newsroom ledger busy", user_message="The newsroom's ledger is busy; "
+                                                                             "try again in a moment.")
+                time.sleep(0.1)
+
+    def __exit__(self, *exc):
+        self.path.unlink(missing_ok=True)
+        return False
+
+
+def locked(key: str) -> _Locked:
+    return _Locked(key)
+
+
 def load_ledger(key: str) -> dict:
     try:
         data = json.loads(_ledger_path(key).read_text(encoding="utf-8"))
@@ -146,6 +189,7 @@ def load_ledger(key: str) -> dict:
     data.setdefault("open", {})
     data.setdefault("done", [])
     data.setdefault("demand", [])
+    data.setdefault("released", {})
     return data
 
 
@@ -174,6 +218,11 @@ def tokens_used(ledger: dict, hours: float, now: float = None) -> int:
 
 def spent(key: str, aid: str, tokens: int) -> bool:
     """Record what an assignment's role used of the subscription."""
+    with locked(key):
+        return _spent(key, aid, tokens)
+
+
+def _spent(key: str, aid: str, tokens: int) -> bool:
     ledger = load_ledger(key)
     for row in reversed(ledger["done"]):
         if row["id"] == aid:
@@ -196,6 +245,44 @@ def _prune(ledger: dict, now: float) -> None:
 
 
 # --- the films ----------------------------------------------------------------------------
+
+def rejections(ledger: dict, sid: str, role: str) -> list:
+    """The problems of each rejected assignment for film `sid`'s `role`
+    since it last moved on (or the owner released it)."""
+    since = ledger["released"].get(sid, 0)
+    out = []
+    for row in ledger["done"]:
+        if sid not in row["films"] or row["issued_at"] < since:
+            continue
+        if row["role"] == role and row.get("verdict") == "rejected":
+            out.append(row.get("problems") or [])
+        elif row.get("verdict") not in ("rejected", "not handed in"):
+            out = [] if row["role"] == role else out
+    return out
+
+
+def held(channel, ledger: dict = None) -> dict:
+    """{film: (role, last problems)} for films whose next step has been
+    rejected HELD_AFTER times: held for the owner rather than tried again
+    every session."""
+    ledger = ledger or load_ledger(channel.key)
+    out = {}
+    for _, d in _films(channel):
+        role = DUE.get(state_of(d))
+        if role and role not in ("pitch", "commission"):
+            tries = rejections(ledger, d["subtopic_id"], role)
+            if len(tries) >= HELD_AFTER:
+                out[d["subtopic_id"]] = (role, tries[-1])
+    return out
+
+
+def release(key: str, sid: str) -> None:
+    """The owner lets a held film try again."""
+    with locked(key):
+        ledger = load_ledger(key)
+        ledger["released"][sid] = _now()
+        save_ledger(key, ledger)
+
 
 def newsroom_of(data: dict) -> dict:
     return data.get("newsroom") or {}
@@ -253,7 +340,9 @@ def due(channel, ledger: dict = None) -> list:
             found.append({"role": "teasers", "films": [f["id"]]})
         if "stills" in f["waiting"]:
             found.append({"role": "storyboard", "films": [f["id"]]})
-    films = [(row, d) for row, d in _films(channel) if d["subtopic_id"] not in taken and row is not None]
+    stuck = held(channel, ledger)
+    films = [(row, d) for row, d in _films(channel)
+             if d["subtopic_id"] not in taken and row is not None and d["subtopic_id"] not in stuck]
     writing = sum(1 for _, d in films if state_of(d) in IN_WRITING)
     room = writing < FILMS_WRITING and _passed_waiting(channel) < FILMS_PASSED_WAITING \
         and _in_hand(channel) < BANK_FILMS
@@ -289,11 +378,20 @@ def due(channel, ledger: dict = None) -> list:
 
 def next_assignment(channel, now: float = None) -> tuple:
     """(assignment, "") for the next piece of work, handed out; or (None,
-    why there's none)."""
+    why there's none). Each call hands out work for a film no open
+    assignment has, so a session can run several at once."""
+    with locked(channel.key):
+        return _next_assignment(channel, now)
+
+
+def _next_assignment(channel, now: float = None) -> tuple:
     now = now or _now()
     ledger = load_ledger(channel.key)
     _prune(ledger, now)
     week, session = points_used(ledger, 7 * 24, now), points_used(ledger, SESSION_HOURS, now)
+    if len(ledger["open"]) >= PARALLEL:
+        save_ledger(channel.key, ledger)
+        return None, f"{PARALLEL} assignments are already out; wait for one to finish"
     for item in due(channel, ledger):
         agent, points = ROLES[item["role"]]
         if week + points > WEEK_POINTS:
@@ -323,7 +421,8 @@ SHAPES = {
    "beats": [{"beat": "what this part of the film does", "reveal": "the new thing the viewer learns"}],
    "angle": {"title": "...", "thumbnail": {"subject": "...", "words": "..."}, "promise": "...",
              "hook": "the first spoken line or two", "open_loop": "..."},
-   "risks": "what could make this film weak"}]}""",
+   "risks": "what could make this film weak",
+   "sources": ["each real source you used: where, and what it confirms"]}]}""",
     "commission": """{"verdicts": [{"film": "<film id>", "verdict": "commission" | "rework" | "scrap",
    "scores": {"curiosity": 1-10, "demand": 1-10, "material": 1-10, "pictures": 1-10},
    "notes": ["what the scout or the writer must do or keep"], "reason": "why, in a sentence"}]}""",
@@ -352,6 +451,11 @@ SHAPES = {
               "direction": "...", "setting": "...", "cast": ["..."], "why": "..."}]}""",
     "packaging": """{"title": "...", "thumbnail": {"subject": "...", "words": "at most four words, or empty"},
  "description": "the YouTube description", "why": "why this will win the click and keep its promise"}""",
+    "audience": """{"viewers": [{"who": "who this viewer is, in a few words",
+   "clicks": true | false, "click_why": "what the title and thumbnail made them think",
+   "leaves_at": <the scene number they'd leave at, or -1 if they'd stay to the end of what you read>,
+   "leave_why": "why they'd go, or what kept them", "confused_by": [<scene numbers>]}],
+ "summary": "one sentence: what the panel says"}""",
     "final": """{"verdict": "pass" | "back" | "scrap", "back_to": "draft" | "edit" | "pictures" | "packaging" | "",
  "notes": ["what must change, if it goes back"], "summary": "two sentences for the owner"}""",
     "storyboard": """{"summary": "what you redrew and approved, or why you held it"}""",
@@ -367,7 +471,8 @@ LABELS = {"pitch": "Pitch these films", "commission": "Commission, rework or scr
           "proof": "Write the proof: the outline and the whole first chapter",
           "proof_review": "Review the proof", "draft": "Write the whole script", "edit": "Edit the script",
           "facts": "Check the facts and the cards", "pictures": "Plan every picture",
-          "packaging": "Package the film", "final": "The last read before it's drawn",
+          "packaging": "Package the film", "audience": "Be its first three viewers",
+          "final": "The last read before it's drawn",
           "storyboard": "Review the storyboard", "teasers": "Review the teasers", "bank": "Stock the topic plan",
           "analysis": "Read the published films and tell each role what they teach"}
 
@@ -532,9 +637,32 @@ def _brief_pitch(channel, row) -> str:
         if nr.get("notes"):
             film.append(_notes_text(nr))
         parts.append("\n".join(film))
+    lessons_ = _pitch_verdicts(channel)
+    if lessons_:
+        parts.append("WHAT THE EDITORS SAID ABOUT RECENT PITCHES AND PROOFS (don't make the same mistakes):\n"
+                     + lessons_)
     parts.append(f"Search demand with: python -m core.newsroom demand {channel.key} \"search words\" "
                  f"(at most {DEMAND_PER_DAY} a day across the newsroom; a few per film is plenty).")
     return "\n\n".join(parts)
+
+
+def _pitch_verdicts(channel, most: int = 10) -> str:
+    """The commissioning editor's and the script editor's sent-back and
+    scrapped verdicts, newest first, for the scout to learn from."""
+    rows = []
+    for _, d in _films(channel):
+        for r in newsroom_of(d).get("log") or []:
+            if r["role"] in ("commission", "proof_review", "final") and r["verdict"] in ("rework", "scrap") \
+                    and r.get("reason"):
+                rows.append((r["at"], f"- {d.get('title', d['subtopic_id'])}: {r['role']} said {r['verdict']}: "
+                                      f"{r['reason']}"))
+    return "\n".join(text for _, text in sorted(rows, reverse=True)[:most])
+
+
+def _sources_text(nr: dict) -> str:
+    sources = (nr.get("pitch") or {}).get("sources") or []
+    return ("THE SCOUT'S SOURCES (start from these):\n" + "\n".join(f"- {_text(x)}" for x in sources)) \
+        if sources else ""
 
 
 def _brief_commission(channel, row) -> str:
@@ -567,6 +695,7 @@ def _brief_proof(channel, row) -> str:
     system, user = outline.prompt(channel, entry, angle=_angle(nr))
     parts = [_channel_text(channel),
              "THE COMMISSIONED PITCH:\n" + _pitch_text(nr.get("pitch") or {}),
+             _sources_text(nr),
              _notes_text(nr),
              "HOW THE OUTLINE IS WRITTEN:\n" + "\n\n".join(b.text for b in system) + "\n\n" + user,
              "THE OUTLINE SHAPE:\n" + json.dumps(outline.schema(), indent=1),
@@ -652,6 +781,7 @@ def _brief_facts(channel, row) -> str:
     return "\n\n".join(p for p in [
         _channel_text(channel),
         "HOW TO CHECK THE FACTS:\n" + editor.FACTS,
+        _sources_text(nr),
         "Check the film's central claims against real sources (search the web); work every ratio out yourself.",
         editor.facts_prompt(draft, _angle(nr)),
         ("HOW TO REVIEW THE CARDS:\n" + editor.CARDS + "\n\n" + cards) if cards
@@ -708,9 +838,60 @@ def _brief_final(channel, row) -> str:
         f"TITLE: {pack.get('title', '')}\nTHUMBNAIL: {thumb.get('subject', '')} / words \"{thumb.get('words', '')}\""
         f"\nDESCRIPTION: {pack.get('description', '')}",
         "THE PITCH:\n" + _pitch_text(nr.get("pitch") or {}),
+        _audience_text(nr),
         "THE OUTLINE:\n" + script.outline_text(outline_, _angle(nr)),
         "THE SCRIPT AS IT WILL BE VOICED AND DRAWN:\n" + _sheet(outline_, draft["scenes"]),
         f"Sending it back: {ROUNDS['final'] - used} time(s) left."] if p)
+
+
+AUDIENCE_SECONDS = 100          # how much of the film the test audience hears
+
+
+def _opening_scenes(channel, scenes: list, seconds: float = AUDIENCE_SECONDS) -> list:
+    """The scenes in the film's first `seconds`, at the narrator's rate."""
+    from pipeline.documentary import script
+    rate, said, out = script.words_per_second(channel), 0.0, []
+    for s in scenes:
+        if said > seconds:
+            break
+        out.append(s)
+        said += len(s["narration"].split()) / rate
+    return out
+
+
+def _audience_text(nr: dict) -> str:
+    panel = nr.get("audience") or {}
+    if not panel.get("viewers"):
+        return ""
+    lines = [f"- {v['who']}: {'clicks' if v['clicks'] else 'scrolls past'} ({v.get('click_why', '')}); "
+             + (f"leaves at scene {v['leaves_at']} ({v.get('leave_why', '')})" if v.get("leaves_at", -1) >= 0
+                else f"stays ({v.get('leave_why', '')})")
+             + (f"; confused by scene(s) {', '.join(map(str, v['confused_by']))}" if v.get("confused_by") else "")
+             for v in panel["viewers"]]
+    return "THE TEST AUDIENCE (three cold viewers, the title, thumbnail and first minutes):\n" + "\n".join(lines)
+
+
+def _brief_audience(channel, row) -> str:
+    entry, data, nr = _film(channel, row)
+    pack = nr.get("packaging") or {}
+    thumb = pack.get("thumbnail") or {}
+    opening = _opening_scenes(channel, nr["draft"]["scenes"])
+    lines = []
+    for i, s in enumerate(opening):
+        shown = "a card: " + _text((s.get("card") or {}).get("heading")) if s.get("medium") == "card" \
+            else "picture: " + s.get("direction", "")[:160]
+        lines.append(f"[{i}] ({shown})\n     {s['narration']}")
+    return "\n\n".join([
+        "You are three different people who have never heard of this channel. Each of you sees the video in "
+        "YouTube's suggestions among a dozen others, then (if you click) watches from the start. Be honest, "
+        "not kind: most videos are scrolled past, and most viewers who click leave in the first minute.",
+        "THE VIEWERS: (1) someone scrolling on their phone after work, mildly curious, easily bored; (2) a curious "
+        "adult who likes science explainers and has seen the big channels' versions of most questions; (3) a "
+        "sceptical teenager who will leave the moment it feels like a lesson or repeats itself.",
+        f"IN THE SUGGESTIONS: title \"{pack.get('title', '')}\"; thumbnail: {thumb.get('subject', '')}, with the words "
+        f"\"{thumb.get('words', '')}\".",
+        f"THE FIRST {AUDIENCE_SECONDS} SECONDS OR SO, scene by scene (what's on screen, then what's said):",
+        "\n".join(lines)])
 
 
 def _brief_overseer(channel, row) -> str:
@@ -730,7 +911,8 @@ def _brief_overseer(channel, row) -> str:
 
 _BRIEFS = {"pitch": _brief_pitch, "commission": _brief_commission, "proof": _brief_proof,
            "proof_review": _brief_proof_review, "draft": _brief_draft, "edit": _brief_edit, "facts": _brief_facts,
-           "pictures": _brief_pictures, "packaging": _brief_packaging, "final": _brief_final,
+           "pictures": _brief_pictures, "packaging": _brief_packaging, "audience": _brief_audience,
+           "final": _brief_final,
            "storyboard": _brief_overseer, "teasers": _brief_overseer, "bank": _brief_overseer,
            "analysis": lambda channel, row: _brief_analysis(channel, row)}
 
@@ -1189,6 +1371,42 @@ def _take_packaging(channel, row, data) -> tuple:
 
 
 BACK = {"draft": "rework_draft", "edit": "drafted", "pictures": "checked", "packaging": "pictured"}
+# The steps a film's work goes through, for the board (decision 130).
+STEPS = (("pitch", "Pitch"), ("commission", "Commission"), ("proof", "Proof"), ("proof_review", "Proof read"),
+         ("draft", "Draft"), ("edit", "Edit"), ("facts", "Facts"), ("pictures", "Pictures"),
+         ("packaging", "Package"), ("audience", "Test viewers"), ("final", "Final read"))
+
+
+def _take_audience(channel, row, data) -> tuple:
+    sid = row["films"][0]
+    viewers = [v for v in data.get("viewers") or [] if isinstance(v, dict)]
+    problems = []
+    if len(viewers) != 3:
+        problems.append("give exactly three viewers")
+    kept = []
+    for v in viewers:
+        try:
+            leaves = int(v.get("leaves_at", -1))
+        except (TypeError, ValueError):
+            leaves = None
+        if not _text(v.get("who")) or not isinstance(v.get("clicks"), bool) or leaves is None:
+            problems.append("each viewer needs `who`, `clicks` (true or false) and `leaves_at` (a scene or -1)")
+            continue
+        kept.append({"who": _text(v["who"]), "clicks": v["clicks"], "click_why": _text(v.get("click_why")),
+                     "leaves_at": leaves, "leave_why": _text(v.get("leave_why")),
+                     "confused_by": [int(x) for x in v.get("confused_by") or [] if str(x).lstrip("-").isdigit()]})
+    if problems:
+        return problems, ""
+    clicks = sum(v["clicks"] for v in kept)
+    early = sum(1 for v in kept if 0 <= v["leaves_at"] < 4)
+    what = f"{clicks} of 3 click; {early} of 3 leave in the first few scenes"
+
+    def change(d, nr):
+        nr["audience"] = {"viewers": kept, "summary": _text(data.get("summary"))}
+        nr["state"] = "screened"
+        _logged(nr, "audience", row["id"], what, _text(data.get("summary")), clicks=clicks, early=early)
+    _change(channel, sid, change)
+    return [], what
 
 
 def _take_final(channel, row, data) -> tuple:
@@ -1258,19 +1476,19 @@ def commit(channel, sid: str, aid: str = "", summary: str = "") -> None:
 
 
 def _take_summary(channel, row, data) -> tuple:
+    """A storyboard's, teasers' or plan's review: its summary is kept in the
+    ledger, not the film's production, which the app may be writing at the
+    same moment once a film is past the newsroom (decision 130)."""
     summary = _text(data.get("summary"))
     if not summary:
         return ["write the summary"], ""
-    if row["films"]:
-        def change(d, nr):
-            _logged(nr, row["role"], row["id"], "done", summary)
-        _change(channel, row["films"][0], change)
     return [], summary
 
 
 _TAKE = {"pitch": _take_pitch, "commission": _take_commission, "proof": _take_proof,
          "proof_review": _take_proof_review, "draft": _take_draft, "edit": _take_edit, "facts": _take_facts,
-         "pictures": _take_pictures, "packaging": _take_packaging, "final": _take_final,
+         "pictures": _take_pictures, "packaging": _take_packaging, "audience": _take_audience,
+         "final": _take_final,
          "storyboard": _take_summary, "teasers": _take_summary, "bank": _take_summary,
          "analysis": lambda channel, row, data: _take_analysis(channel, row, data)}
 
@@ -1278,6 +1496,11 @@ _TAKE = {"pitch": _take_pitch, "commission": _take_commission, "proof": _take_pr
 def submit(key: str, aid: str, now: float = None) -> tuple:
     """(accepted, [problems], what happened) for an assignment's work as
     its role handed it in."""
+    with locked(key):
+        return _submit(key, aid, now)
+
+
+def _submit(key: str, aid: str, now: float = None) -> tuple:
     now = now or _now()
     ledger = load_ledger(key)
     row = ledger["open"].get(aid)
@@ -1331,7 +1554,12 @@ def demand(key: str, query: str, now: float = None) -> str:
     import requests
     from core import youtube
     now = now or _now()
-    ledger = load_ledger(key)
+    with locked(key):
+        ledger = load_ledger(key)
+    asked = " ".join(query.lower().split())
+    for d in reversed(ledger["demand"]):
+        if d.get("query", "").lower() == asked and d.get("result") and now - d["at"] < 7 * 86400:
+            return d["result"] + f"\n(from the same search on {_stamp(d['at'])[:10]}; no quota used)"
     today = [d for d in ledger["demand"] if now - d["at"] < 86400]
     if len(today) >= DEMAND_PER_DAY:
         return f"No searches left today ({DEMAND_PER_DAY} a day). Judge from what you have."
@@ -1339,8 +1567,6 @@ def demand(key: str, query: str, now: float = None) -> str:
     found = requests.get(SEARCH_URL, headers=headers, timeout=20, params={
         "part": "snippet", "q": query, "type": "video", "maxResults": 15, "relevanceLanguage": "en",
         "videoDuration": "medium", "safeSearch": "none"})
-    ledger["demand"] = [d for d in ledger["demand"] if now - d["at"] < 7 * 86400] + [{"at": now, "query": query}]
-    save_ledger(key, ledger)
     if not found.ok:
         raise PipelineError(f"search {found.status_code}: {found.text[:200]}",
                             user_message=f"The YouTube search failed ({found.status_code}).")
@@ -1361,7 +1587,13 @@ def demand(key: str, query: str, now: float = None) -> str:
         rows.append((views, f"{views:>12,} views | {_age(v['snippet'].get('publishedAt'), now):>9} | "
                             f"{v['snippet'].get('channelTitle', '')} ({subs.get(owner, 0):,} subs; {ratio}) | "
                             f"{v['snippet'].get('title', '')}"))
-    return f'YouTube, 4-20 minute videos for "{query}":\n' + "\n".join(r for _, r in sorted(rows, reverse=True))
+    result = f'YouTube, 4-20 minute videos for "{query}":\n' + "\n".join(r for _, r in sorted(rows, reverse=True))
+    with locked(key):
+        ledger = load_ledger(key)
+        ledger["demand"] = [d for d in ledger["demand"] if now - d["at"] < 7 * 86400] + [
+            {"at": now, "query": asked, "result": result}]
+        save_ledger(key, ledger)
+    return result
 
 
 # --- the analyst: what the published films teach each role --------------------------------
@@ -1380,6 +1612,7 @@ CONFIDENCE = ("strong", "suggestive", "hunch")
 # Which findings each role is briefed with.
 READS = {"pitch": "scout", "commission": "scout", "bank": "scout", "proof": "writer", "draft": "writer",
          "proof_review": "script_editor", "edit": "script_editor", "final": "script_editor",
+         "audience": "script_editor",
          "packaging": "packaging", "pictures": "pictures", "storyboard": "pictures"}
 FINDING_ROLES = ("scout", "writer", "script_editor", "packaging", "pictures")
 
@@ -1499,11 +1732,36 @@ def _brief_analysis(channel, row) -> str:
         "for channels under 1,000 subscribers is usually 2-4%, about 4.5% for education.",
         "THE PUBLISHED FILMS:\n" + ("\n\n".join(films) or "None yet."),
         "THE THUMBNAIL AND TITLE TESTS:\n" + _tests_text(channel.key),
+        "THE NEWSROOM'S OWN RECORD (what its editors keep sending back and changing, whether or not the film "
+        "is out: a writer's habit shows here long before the viewers' numbers do):\n" + _record_text(channel),
         ("YOUR LAST FINDINGS (" + previous.get("at", "") + "), to confirm, revise or drop:\n"
          + "\n".join(f"- {role}: {f['text']} ({f['confidence']})" for role in FINDING_ROLES
                      for f in previous.get(role) or [])) if previous else "",
         "Which role reads what: `scout` (topics and pitches), `writer` (openings, structure, lines), "
         "`script_editor` (what to judge drafts by), `packaging` (titles and thumbnails), `pictures`."] if p)
+
+
+def _record_text(channel) -> str:
+    out = []
+    for _, d in _films(channel):
+        nr = newsroom_of(d)
+        if not nr.get("log"):
+            continue
+        lines = [f"- {d.get('title', d['subtopic_id'])} ({nr.get('state') or 'new'})"]
+        for r in nr["log"]:
+            if r["verdict"] in ("rework", "scrap") or r["role"] in ("final", "audience"):
+                lines.append(f"    {r['role']} {r['verdict']}: {(r.get('reason') or '')[:220]}")
+        whys = [e["why"] for e in nr.get("edits") or [] if e.get("why")]
+        if whys:
+            lines.append(f"    {len(whys)} lines edited; why: " + "; ".join(whys[:6]))
+        facts = [f["problem"] for f in nr.get("facts") or [] if f.get("problem")]
+        if facts:
+            lines.append(f"    {len(facts)} facts fixed: " + "; ".join(facts[:4]))
+        changes = (nr.get("pictures") or {}).get("changes") or []
+        if changes:
+            lines.append(f"    {len(changes)} pictures changed; why: " + "; ".join(c["why"] for c in changes[:4] if c.get("why")))
+        out.append("\n".join(lines))
+    return "\n".join(out) or "Nothing yet."
 
 
 def _take_analysis(channel, row, data) -> tuple:
@@ -1549,6 +1807,266 @@ def findings_text(key: str, role: str) -> str:
     return (f"WHAT THE ANALYST FOUND IN THE PUBLISHED FILMS ({latest.get('at', '')[:10]}), for your work. "
             "Act on the strong ones; weigh the rest:\n"
             + "\n".join(f"- [{f['confidence']}] {f['text']} (evidence: {f['evidence']})" for f in rows))
+
+
+# --- the board: what the newsroom page shows (decision 130) --------------------------------
+#
+# The owner, 22 Oct: "a flowchart style display that shows the process and
+# where it is up to, and also showing what is expected to be completed
+# next time it runs ... mostly visual rather than text based ... one glance
+# should give me an overview". Each film is a row of steps, each step a
+# state and a badge, with the detail kept for hovering.
+
+RUN_HOURS = (23, 4)             # the newsroom task's runs, local time
+WRITING_ORDER = ("proof", "proof_review", "draft", "edit", "facts", "pictures", "packaging", "audience", "final")
+STUDIO = (("storyboard", "Storyboard"), ("video", "Video"), ("review", "Your look"), ("out", "Out"))
+AGENT_NAMES = {"pitch": "Scout", "commission": "Commissioning editor", "proof": "Writer", "proof_review": "Script editor",
+               "draft": "Writer", "edit": "Script editor", "facts": "Fact checker", "pictures": "Picture editor",
+               "packaging": "Packaging editor", "audience": "Test audience", "final": "Managing editor",
+               "storyboard": "Picture editor", "video": "The app", "review": "You", "out": "YouTube"}
+
+
+def next_run(now: datetime = None) -> datetime:
+    from datetime import timedelta
+    now = now or datetime.now()
+    times = [now.replace(hour=h, minute=0, second=0, microsecond=0) + timedelta(days=d)
+             for d in (0, 1) for h in RUN_HOURS]
+    return min(t for t in times if t > now)
+
+
+def plan_next(channel, now: float = None) -> dict:
+    """{film: [roles]} the next session should get through if every verdict
+    goes the film's way (reworks would take more), within its points; and
+    "reviews", "pitches", "points"."""
+    now = now or _now()
+    ledger = load_ledger(channel.key)
+    budget = min(SESSION_POINTS, WEEK_POINTS - points_used(ledger, 7 * 24, now))
+    stuck = held(channel, ledger)
+    out, used = {}, 0
+
+    def take(sid, role) -> bool:
+        nonlocal used
+        cost = ROLES[role][1]
+        if used + cost > budget:
+            return False
+        used += cost
+        out.setdefault(sid, []).append(role)
+        return True
+
+    try:
+        from core import overseer
+        for f in overseer.status():
+            if f["channel"] == channel.key:
+                for w in f["waiting"]:
+                    take(f["id"], "storyboard" if w == "stills" else "teasers")
+    except Exception:  # noqa: BLE001 - a board without the reviews is still a board
+        pass
+    films = [(row, d) for row, d in _films(channel) if row and d["subtopic_id"] not in stuck]
+    writing = [d for _, d in films if state_of(d) in IN_WRITING]
+    writing.sort(key=lambda d: -WRITING_ORDER.index(DUE[state_of(d)]))
+    room = FILMS_WRITING - len(writing)
+    for d in writing:
+        for role in WRITING_ORDER[WRITING_ORDER.index(DUE[state_of(d)]):]:
+            if not take(d["subtopic_id"], role):
+                break
+    queue = [d for _, d in films if state_of(d) == "commissioned"]
+    pitched = [d for _, d in films if state_of(d) == "pitched"]
+    for d in pitched:
+        take(d["subtopic_id"], "commission")
+    for d in queue + pitched:
+        if room <= 0:
+            break
+        room -= 1
+        for role in WRITING_ORDER:
+            if not take(d["subtopic_id"], role):
+                break
+    fresh = [row["id"] for row, d in candidates(channel) if not state_of(d)]
+    rework = [d["subtopic_id"] for _, d in films if state_of(d) == "rework_pitch"]
+    want = (rework + fresh)[:PITCH_BATCH] if _in_hand(channel) < BANK_FILMS else rework[:PITCH_BATCH]
+    pitches = 0
+    for sid in want:
+        if used + 1 <= budget:
+            out.setdefault(sid, []).append("pitch")
+            pitches += 1
+    if pitches:
+        used += 1
+    return {"films": out, "points": used, "budget": budget}
+
+
+def _step_detail(role: str, nr: dict, rows: list) -> tuple:
+    """(badge, [detail lines], sent back) for one newsroom step of a film."""
+    lines, badge, back = [], "", 0
+    for r in rows:
+        if r["verdict"] in ("rework", "scrap") or r["verdict"].startswith("back"):
+            back += 1
+        head = r["verdict"] + (f": {r['reason']}" if r.get("reason") else "")
+        lines.append(head[:260])
+        if r.get("scores") and isinstance(r["scores"], dict):
+            lines.append(" · ".join(f"{k} {v}" for k, v in r["scores"].items()))
+    if role == "pitch" and nr.get("pitch"):
+        p = nr["pitch"]
+        lines = [f"Pitched: {(p.get('angle') or {}).get('title', '')}", f"Answer: {p.get('answer', '')[:200]}",
+                 f"{len(p.get('beats') or [])} beats · {len(p.get('demand') or [])} searches"] + lines[1:]
+        badge = f"×{len(rows)}" if len(rows) > 1 else ""
+    elif role in ("proof", "draft"):
+        badge = f"×{len(rows)}" if len(rows) > 1 else ""
+        if role == "draft" and nr.get("draft"):
+            lines.append(f"{sum(len(s['narration'].split()) for s in nr['draft']['scenes'])} words, "
+                         f"{len(nr['draft']['scenes'])} scenes")
+        if role == "proof" and nr.get("proof"):
+            first = (nr["proof"].get("scenes") or [{}])[0].get("narration", "")
+            lines.append(f"Opens: {first[:200]}")
+    elif role == "edit":
+        edits = nr.get("edits") or []
+        badge = f"✎{len(edits)}" if edits else ""
+        lines += [f"• {e['why']}" for e in edits[:6] if e.get("why")]
+    elif role == "facts":
+        facts = nr.get("facts") or []
+        badge = str(len(facts)) if facts else ""
+        lines += [f"• {f['problem']}" for f in facts[:5] if f.get("problem")]
+        lines += [f"Checked: {c}" for c in (nr.get("checked") or [])[:3]]
+    elif role == "pictures":
+        changes = (nr.get("pictures") or {}).get("changes") or []
+        badge = str(len(changes)) if changes else ""
+        lines += [f"• scene {c['scene']}: {c['why']}" for c in changes[:5] if c.get("why")]
+    elif role == "packaging" and nr.get("packaging"):
+        pack, pitched = nr["packaging"], _angle(nr).get("title", "")
+        lines = [f"Title: {pack['title']}", f"Thumbnail: {pack['thumbnail'].get('subject', '')} · "
+                                           f"\"{pack['thumbnail'].get('words', '')}\""]
+        if pitched and pitched != pack["title"]:
+            badge = "new title"
+            lines.append(f"Pitched as: {pitched}")
+    elif role == "audience" and nr.get("audience"):
+        viewers = nr["audience"]["viewers"]
+        badge = f"{sum(v['clicks'] for v in viewers)}/3"
+        lines = [f"{'Clicks' if v['clicks'] else 'Scrolls past'} · "
+                 + (f"leaves at scene {v['leaves_at']}" if v["leaves_at"] >= 0 else "stays")
+                 + f" — {v['who']}" for v in viewers] + ([nr["audience"]["summary"]] if nr["audience"].get("summary") else [])
+    if back and role in ("commission", "proof_review", "edit", "final"):
+        badge = f"↺{back}"
+    return badge, [x for x in lines if x], back
+
+
+def board(channel, now: float = None) -> dict:
+    """Everything the newsroom page draws."""
+    from core import gallery, voice_quota
+    now = now or _now()
+    ledger = load_ledger(channel.key)
+    expected = plan_next(channel, now)
+    stuck = held(channel, ledger)
+    working = {}
+    for row in ledger["open"].values():
+        for sid in row["films"]:
+            working[sid] = row["role"]
+    reviews = {}
+    for row in ledger["done"]:
+        if row["role"] in ("storyboard", "teasers") and row["films"]:
+            reviews[(row["films"][0], row["role"])] = str(row.get("verdict") or "")
+    films = []
+    for data in production.all_for(channel.key):
+        nr = newsroom_of(data)
+        state = nr.get("state", "")
+        if not state:
+            continue
+        sid = data["subtopic_id"]
+        row = curriculum.find(channel.key, sid) or {}
+        log_ = nr.get("log") or []
+        steps = []
+        if state == "passed":
+            at = len(STEPS)
+        elif state == "scrapped":
+            scrapper = next((r["role"] for r in reversed(log_) if r["verdict"] == "scrap"), "commission")
+            at = [k for k, _ in STEPS].index(scrapper)
+        else:
+            at = [k for k, _ in STEPS].index(DUE.get(state, "pitch"))
+        coming = expected["films"].get(sid, [])
+        for i, (key, label) in enumerate(STEPS):
+            rows = [r for r in log_ if r["role"] == key]
+            badge, detail, back = _step_detail(key, nr, rows)
+            if state == "scrapped":
+                status = "done" if i < at else ("scrapped" if i == at else "skipped")
+            elif state == "passed" and key == "audience" and not rows:
+                status = "skipped"              # passed before there was a test audience
+            elif i < at:
+                status = "done"
+            elif i == at:
+                status = "held" if sid in stuck else ("working" if working.get(sid) == key else "current")
+            else:
+                status = "todo"
+            if sid in stuck and i == at:
+                detail = [f"Held: rejected {HELD_AFTER} times", *[f"• {p}" for p in stuck[sid][1][:4]]] + detail
+            steps.append({"key": key, "label": label, "status": status, "badge": badge, "detail": detail,
+                          "back": back, "next": key in coming, "who": AGENT_NAMES.get(key, "")})
+        stage = {s: production.state(data, s) for s in production.STAGES}
+        video = production.video_file(channel, data)
+        info = gallery.load_publish_info(video) if video is not None and video.exists() else {}
+        out = bool(info) and gallery.is_out(info)
+        for key, label in STUDIO:
+            detail, badge = [], ""
+            if state != "passed":
+                status = "skipped" if state == "scrapped" else "todo"
+            elif key == "storyboard":
+                status = {"approved": "done", "working": "working", "ready": "current", "failed": "failed"}.get(
+                    stage["stills"], "todo")
+                if data["stages"]["stills"].get("interrupted") and stage["stills"] == "failed":
+                    status = "current"
+                    detail.append("Cut short by a restart; it carries on from where it stopped")
+                if (sid, "storyboard") in reviews:
+                    detail.append(reviews[(sid, "storyboard")])
+                if stage["stills"] == "working":
+                    detail.append("Drawing the pictures")
+                status = "working" if working.get(sid) == "storyboard" else status
+            elif key == "video":
+                status = {"approved": "done", "ready": "done", "working": "working", "failed": "failed"}.get(
+                    stage["video"], "todo")
+                if data["stages"]["video"].get("interrupted") and stage["video"] == "failed":
+                    status = "current"
+                elif stage["video"] == "failed":
+                    detail.append((data["stages"]["video"].get("error") or "Failed")[:260])
+            elif key == "review":
+                status = {"approved": "done", "ready": "you"}.get(stage["video"], "todo")
+            else:
+                queued = bool(info) and gallery.is_queued(info)
+                status = "done" if out else ("current" if queued else "todo")
+                if out:
+                    detail.append(f"Out {str(info.get('published_at', ''))[:10]}")
+                elif info and gallery.is_queued(info):
+                    detail.append("Queued to go out")
+            steps.append({"key": key, "label": label, "status": status, "badge": badge, "detail": detail,
+                          "back": 0, "next": key in coming, "who": AGENT_NAMES.get(key, "")})
+        group = ("scrapped" if state == "scrapped" else "out" if out
+                 else "studio" if state == "passed" else "writing")
+        done_count = sum(1 for s in steps if s["status"] == "done")
+        pack = nr.get("packaging") or {}
+        title = production.packaging(data).get("title") if state == "passed" else ""
+        films.append({"id": sid, "title": title or pack.get("title") or _angle(nr).get("title") or data.get("title", sid),
+                      "question": row.get("title") or data.get("title", ""), "state": state, "group": group,
+                      "steps": steps, "progress": done_count / len(steps), "held": sid in stuck,
+                      "reason": next((r.get("reason", "") for r in reversed(log_) if r["verdict"] == "scrap"), ""),
+                      "touched": max([r["at"] for r in log_] or [""])})
+    order = {"writing": 0, "studio": 1, "out": 2, "scrapped": 3}
+    films.sort(key=lambda f: (order[f["group"]], -f["progress"], f["touched"]))
+    findings = load_findings(channel.key)["latest"]
+    tops = [(role, f) for role in FINDING_ROLES for f in findings.get(role) or []]
+    recent = [r for r in ledger["done"] if now - r.get("done_at", r["issued_at"]) < 12 * 3600]
+    return {
+        "films": films,
+        "next_run": next_run(),
+        "expected": expected,
+        "expected_count": sum(len(v) for v in expected["films"].values()),
+        "week": points_used(ledger, 7 * 24, now), "week_cap": WEEK_POINTS, "session_cap": SESSION_POINTS,
+        "tokens": tokens_used(ledger, 7 * 24, now),
+        "voice": voice_quota.summary([channel.key]),
+        "findings": {"at": findings.get("at", "")[:10], "summary": findings.get("summary", ""),
+                     "tops": tops[:8], "counts": {c: sum(1 for _, f in tops if f["confidence"] == c)
+                                                  for c in CONFIDENCE}},
+        "recent": {"count": len(recent), "accepted": sum(1 for r in recent if r.get("verdict") not in
+                                                         ("rejected", "not handed in")),
+                   "tokens": sum(r.get("tokens") or 0 for r in recent)},
+        "open": list(ledger["open"].values()),
+        "held": stuck,
+        "on": bool(getattr(channel.documentary, "newsroom", False)),
+    }
 
 
 # --- the command line ---------------------------------------------------------------------

@@ -130,6 +130,10 @@ def _to(channel, state):
                                   "changes": []}),
         ("packaging", "packaged", {"title": "Why Does Thing 0 Happen Every Day", "description": "A film about it.",
                                    "thumbnail": {"subject": "a kettle", "words": "EVERY DAY"}, "why": "clear"}),
+        ("audience", "screened", {"summary": "Two would watch.", "viewers": [
+            {"who": "a commuter", "clicks": True, "click_why": "odd", "leaves_at": -1, "leave_why": "kept"},
+            {"who": "a science fan", "clicks": True, "click_why": "new", "leaves_at": -1, "leave_why": "kept"},
+            {"who": "a teenager", "clicks": False, "click_why": "dull", "leaves_at": 2, "leave_why": "slow"}]}),
     ]
     for role, reached, data in steps:
         row = _issue(channel, role)
@@ -217,7 +221,7 @@ def test_a_short_chapter_goes_back_and_an_editor_edits_lines(world):
 
 
 def test_a_passed_film_is_approved_by_the_newsroom_and_drawn_by_the_autopilot(world, monkeypatch):
-    sid = _to(world, "packaged")
+    sid = _to(world, "screened")
     final = _issue(world, "final")
     assert _hand_in(world, final["id"], {"verdict": "pass", "summary": "A good film about a kettle."})[0]
     data = production.load("why", sid)
@@ -352,3 +356,106 @@ def test_an_opening_or_title_that_echoes_the_other_is_refused(world):
              for s in row["films"]]
     ok, problems, _ = _hand_in(world, row["id"], {"pitches": colon})
     assert not ok and any("X: Y" in p for p in problems)
+
+
+
+def test_a_films_step_rejected_twice_is_held_until_the_owner_releases_it(world):
+    sid = _to(world, "drafting")
+    for _ in range(2):
+        row, _ = newsroom.next_assignment(world)
+        assert row["role"] == "draft"
+        for _ in range(newsroom.SUBMITS):
+            ok, problems, _ = _hand_in(world, row["id"], {"scenes": [_scene(1, 5)], "description": "d"})
+        assert not ok
+    assert sid in newsroom.held(world)
+    assert all(a["films"] != [sid] for a in newsroom.due(world))   # not handed out again
+    newsroom.release("why", sid)
+    assert sid not in newsroom.held(world) and newsroom.due(world)[0]["films"] == [sid]
+
+
+def test_a_session_runs_up_to_three_assignments_at_once_each_a_different_film(world):
+    sid = _to(world, "drafted")
+    first, _ = newsroom.next_assignment(world)
+    second, _ = newsroom.next_assignment(world)
+    assert first["films"] != second["films"] and sid in first["films"] + second["films"]
+    newsroom.next_assignment(world)
+    fourth, why = newsroom.next_assignment(world)
+    assert fourth is None and "already out" in why
+
+
+def test_a_review_of_a_drawn_film_doesnt_write_its_production(world, monkeypatch):
+    # The app writes a film's production once it's past the newsroom; a
+    # second writer could undo either's change.
+    monkeypatch.setattr(overseer, "status", lambda: [{"channel": "why", "id": "t0005", "waiting": ["stills"]}])
+    before = production.load("why", "t0005", "x")
+    row = _issue(world, "storyboard")
+    assert _hand_in(world, row["id"], {"summary": "Redrew 2."})[0]
+    assert production.load("why", "t0005", "x") == before
+    assert newsroom.load_ledger("why")["done"][-1]["verdict"] == "Redrew 2."
+
+
+def test_the_scout_hears_what_the_editors_said_about_earlier_pitches(world):
+    pitch = _issue(world, "pitch")
+    _hand_in(world, pitch["id"], {"pitches": [_pitch(s, f"Why Does Thing {s[-1]} Happen") for s in pitch["films"]]})
+    row = _issue(world, "commission")
+    good = {"curiosity": 8, "demand": 7, "material": 7, "pictures": 8}
+    _hand_in(world, row["id"], {"verdicts": [
+        {"film": s, "verdict": "scrap", "reason": "everyone knows this already", "scores": good} for s in row["films"]]})
+    assert "everyone knows this already" in newsroom._pitch_verdicts(world)
+
+
+def test_a_search_made_this_week_is_answered_from_the_cache(world, monkeypatch):
+    with newsroom.locked("why"):
+        ledger = newsroom.load_ledger("why")
+        ledger["demand"].append({"at": newsroom._now(), "query": "why is the sky blue", "result": "CACHED"})
+        newsroom.save_ledger("why", ledger)
+    monkeypatch.setattr("core.youtube.access_token", lambda key: (_ for _ in ()).throw(AssertionError("searched")))
+    assert newsroom.demand("why", "Why is the  sky blue").startswith("CACHED")
+
+
+def test_the_ledger_is_one_writer_at_a_time(world):
+    with newsroom.locked("why"):
+        with pytest.raises(newsroom.PipelineError):
+            newsroom._Locked("why", wait=0.3).__enter__()
+    with newsroom.locked("why"):
+        pass                                                  # free again afterwards
+
+
+def test_the_test_audience_is_three_viewers_and_the_final_read_hears_them(world):
+    sid = _to(world, "packaged")
+    row = _issue(world, "audience")
+    ok, problems, _ = _hand_in(world, row["id"], {"viewers": [{"who": "x", "clicks": True, "leaves_at": -1}]})
+    assert not ok and "three" in problems[0]
+    viewers = [{"who": w, "clicks": True, "click_why": "y", "leaves_at": 1, "leave_why": "slow"} for w in "abc"]
+    assert _hand_in(world, row["id"], {"viewers": viewers, "summary": "All leave early."})[1] == []
+    final = _issue(world, "final")
+    assert "leaves at scene 1" in newsroom.brief("why", final["id"])
+
+
+def test_the_board_shows_each_films_steps_and_what_the_next_run_should_do(world, monkeypatch):
+    # The owner, 22 Oct: "a flowchart style display that shows the process
+    # and where it is up to, and also showing what is expected to be
+    # completed next time it runs".
+    monkeypatch.setattr("core.voice_quota.summary", lambda keys: None)
+    sid = _to(world, "drafted")
+    b = newsroom.board(world)
+    film = next(f for f in b["films"] if f["id"] == sid)
+    by = {s["key"]: s for s in film["steps"]}
+    assert by["draft"]["status"] == "done" and by["edit"]["status"] == "current"
+    assert by["proof"]["status"] == "done" and by["storyboard"]["status"] == "todo"
+    assert by["edit"]["next"] and by["final"]["next"]                # the whole film fits in the next run
+    assert film["group"] == "writing"
+    assert b["expected"]["films"][sid][0] == "edit"
+    assert newsroom.next_run().hour in newsroom.RUN_HOURS
+
+
+def test_the_newsroom_board_draws(world, monkeypatch):
+    from web import create_app
+    monkeypatch.setattr("core.voice_quota.summary", lambda keys: None)
+    monkeypatch.setattr("web.blueprints.newsroom.channel_or_404", lambda key: world)
+    _to(world, "edited")
+    app = create_app()
+    app.config.update(TESTING=True)
+    with app.test_client() as client:
+        page = client.get("/channels/why/newsroom?partial=1").get_data(as_text=True)
+    assert 'class="nr-step s-done' in page and "s-current" in page and "Next run" in page

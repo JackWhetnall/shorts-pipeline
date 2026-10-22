@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Newsroom · {{ channel.channel_display_name }}{% endblock %}
+{% block content %}
+{% set tab = 'newsroom' %}
+{% include "_channel_head.html" %}
+
+<div id="nr-board" class="nr" data-refresh="{{ url_for('newsroom.page', key=key, partial=1) }}">
+{% include "_newsroom_board.html" %}
+</div>
+
+<style>
+  .nr { --nr-dot: 34px; --nr-gapw: 10px; display: flex; flex-direction: column; gap: var(--sp-5); margin-top: var(--sp-4); }
+
+  /* The four tiles: next run, the week, voice, the analyst. */
+  .nr-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--sp-3); }
+  .nr-tile { position: relative; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4);
+    background: linear-gradient(180deg, var(--surface-2), var(--surface)); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); min-width: 0; }
+  .nr-tile.is-bad { border-color: rgba(255, 93, 85, .45); background: linear-gradient(180deg, rgba(255, 93, 85, .10), var(--surface)); }
+  .nr-tile.is-bad .nr-big { color: var(--danger); }
+  .nr-tile-k { font-size: .7rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--text-faint); }
+  .nr-big { font-size: 1.9rem; font-weight: 800; font-stretch: 112%; line-height: 1; display: flex; align-items: baseline; gap: .45rem; }
+  .nr-big small { font-size: .78rem; font-weight: 500; font-stretch: 100%; color: var(--text-dim); }
+  .nr-dim { font-size: .78rem; color: var(--text-faint); }
+  .nr-expect { display: flex; flex-wrap: wrap; gap: 6px; }
+  .nr-chip { position: relative; display: inline-flex; gap: 3px; align-items: center; padding: 5px 7px; border-radius: 999px;
+    border: 1px dashed rgba(255, 212, 0, .55); background: var(--accent-soft); cursor: default; }
+  .nr-pip { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: .9; }
+  .nr-chip-pop { display: none; position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; width: max-content; max-width: 260px;
+    padding: var(--sp-2) var(--sp-3); background: var(--surface-2); border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow); font-size: .78rem; line-height: 1.4; }
+  .nr-chip-pop em { font-style: normal; color: var(--text-dim); text-transform: capitalize; }
+  .nr-chip:hover .nr-chip-pop, .nr-chip:focus .nr-chip-pop { display: block; animation: fade-in .12s ease-out; }
+  .nr-ring-row { display: flex; gap: var(--sp-3); align-items: center; }
+  .nr-ring { width: 54px; height: 54px; transform: rotate(-90deg); flex: none; }
+  .nr-ring circle { fill: none; stroke: var(--border-light); stroke-width: 3.2; }
+  .nr-ring circle.v { stroke: var(--success); stroke-linecap: round; transition: stroke-dasharray .6s var(--ease); }
+  .nr-bar { display: block; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .nr-bar i { display: block; height: 100%; width: calc(var(--p) * 100%); background: var(--success); border-radius: inherit; }
+  .nr-tile.is-bad .nr-bar i { background: var(--danger); }
+  .nr-conf { display: flex; gap: 4px; flex-wrap: wrap; }
+  .nr-conf i { width: 9px; height: 9px; border-radius: 3px; background: var(--text-faint); }
+  .nr-conf i.c-strong { background: var(--success); } .nr-conf i.c-suggestive { background: var(--accent); }
+  .nr-analyst { cursor: default; }
+  .nr-analyst:hover .nr-pop, .nr-analyst:focus .nr-pop { display: block; animation: fade-in .12s ease-out; }
+
+  /* Working now. */
+  .nr-live { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; padding: var(--sp-2) var(--sp-3);
+    border-radius: 999px; background: var(--accent-soft); border: 1px solid rgba(255, 212, 0, .3); width: fit-content; font-size: .82rem; }
+  .nr-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(255, 212, 0, .6);
+    animation: nr-pulse 1.6s infinite; }
+  .nr-live-item + .nr-live-item::before { content: "·"; margin-right: var(--sp-2); color: var(--text-faint); }
+  .nr-off { color: var(--text-dim); }
+
+  .nr-group { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .nr-group-h { font-size: .75rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--text-faint);
+    margin: 0; display: flex; gap: var(--sp-2); align-items: center; }
+  .nr-group-h span { font-size: .7rem; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--text-dim); }
+
+  /* A film: its name, then its steps as a flow. */
+  .nr-film { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: var(--sp-4) var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3);
+    transition: border-color .15s var(--ease); }
+  .nr-film:hover { border-color: var(--border-light); }
+  .nr-film.is-held { border-color: rgba(255, 93, 85, .45); }
+  .nr-film-head { display: flex; justify-content: space-between; gap: var(--sp-3); align-items: flex-start; }
+  .nr-film-name { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .nr-film-name h3 { margin: 0; font-size: 1.02rem; font-weight: 700; font-stretch: 106%; }
+  .nr-q { font-size: .78rem; color: var(--text-faint); }
+  .nr-film-meta { display: flex; gap: var(--sp-2); align-items: center; flex: none; }
+  .nr-meter { width: 64px; height: 5px; border-radius: 999px; background: var(--border); overflow: hidden; display: block; }
+  .nr-meter i { display: block; height: 100%; width: calc(var(--p) * 100%); background: linear-gradient(90deg, var(--success), #7be3b1); }
+  .g-out .nr-film-head h3 { color: var(--text-dim); }
+  .nr-scrap-why { margin: 0; font-size: .82rem; color: var(--text-dim); }
+  .nr-scrapped .nr-film { opacity: .7; }
+
+  /* No overflow here: it would clip the hover cards. Narrow screens wrap. */
+  .nr-flow { list-style: none; margin: 0; padding: 4px 2px 2px; display: flex; align-items: flex-start; gap: 0; }
+  @media (max-width: 900px) { .nr-flow { flex-wrap: wrap; row-gap: var(--sp-3); } .nr-gap { display: none; } }
+  .nr-step { position: relative; flex: 1 1 0; min-width: 52px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    outline: none; cursor: default; }
+  /* The line from the step before. */
+  .nr-step::before { content: ""; position: absolute; top: calc(var(--nr-dot) / 2); right: calc(50% + var(--nr-dot) / 2 + 3px);
+    left: calc(-50% + var(--nr-dot) / 2 + 3px); height: 2px; background: repeating-linear-gradient(90deg, var(--border-light) 0 4px, transparent 4px 8px); }
+  .nr-flow > .nr-step:first-child::before, .nr-gap + .nr-step::before { display: none; }
+  .nr-step.c-done::before { background: var(--success); opacity: .7; }
+  .nr-dot { width: var(--nr-dot); height: var(--nr-dot); border-radius: 11px; display: grid; place-items: center; position: relative;
+    border: 1.5px solid var(--border-light); background: var(--surface-2); color: var(--text-faint);
+    transition: transform .15s var(--ease), box-shadow .15s var(--ease); }
+  .nr-step:hover .nr-dot, .nr-step:focus .nr-dot { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+  .nr-label { font-size: .64rem; color: var(--text-faint); text-align: center; line-height: 1.15; white-space: nowrap; }
+
+  .s-done .nr-dot { border-color: rgba(63, 209, 139, .55); background: var(--success-bg); color: var(--success); }
+  .s-current .nr-dot { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .s-current .nr-label, .s-working .nr-label, .s-you .nr-label { color: var(--text); font-weight: 600; }
+  .s-working .nr-dot { border-color: transparent; background: var(--accent-soft); color: var(--accent); }
+  .s-working .nr-dot::after { content: ""; position: absolute; inset: -2px; border-radius: 12px; padding: 2px;
+    background: conic-gradient(from 0deg, var(--accent), transparent 65%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; animation: nr-spin 1.1s linear infinite; }
+  .s-you .nr-dot { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .s-failed .nr-dot, .s-held .nr-dot, .s-scrapped .nr-dot { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
+  .s-skipped { opacity: .28; }
+  .nr-step.is-next .nr-dot { border-style: dashed; border-color: rgba(255, 212, 0, .75); color: var(--accent); }
+  .nr-step.is-next.s-current .nr-dot { border-style: solid; animation: nr-glow 2.2s ease-in-out infinite; }
+
+  .nr-badge { position: absolute; top: -7px; left: calc(50% + 8px); min-width: 18px; height: 17px; padding: 0 5px; border-radius: 999px;
+    background: var(--surface-hover); border: 1px solid var(--border-light); color: var(--text-dim); font-size: .62rem; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center; gap: 2px; white-space: nowrap; letter-spacing: 0; }
+  .nr-badge.warn { background: rgba(240, 168, 58, .16); border-color: rgba(240, 168, 58, .6); color: var(--warning); }
+  .nr-badge svg { flex: none; }
+
+  .nr-gap { flex: 0 0 auto; align-self: stretch; display: flex; align-items: flex-start; padding: 0 var(--nr-gapw); }
+  .nr-gap span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: .58rem; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-faint); border-left: 1px solid var(--border); padding-left: 6px; height: var(--nr-dot); display: grid; place-items: center; }
+
+  /* Hover detail: one card, the same everywhere. */
+  .nr-pop { display: none; position: absolute; z-index: 40; top: calc(var(--nr-dot) + 12px); left: 50%; transform: translateX(-50%);
+    width: max-content; max-width: min(320px, calc(100vw - 32px)); padding: var(--sp-3); background: var(--surface-2);
+    border: 1px solid var(--border-light); border-radius: var(--radius); box-shadow: var(--shadow); text-align: left; cursor: auto; }
+  .nr-tile .nr-pop { top: calc(100% + 8px); left: 0; transform: none; }
+  .nr-analyst .nr-pop { left: auto; right: 0; }
+  .nr-pop-wide { max-width: min(460px, calc(100vw - 32px)); }
+  .nr-step.tip-end .nr-pop { left: auto; right: -6px; transform: none; }
+  .nr-step.tip-start .nr-pop { left: -6px; transform: none; }
+  .nr-step:hover .nr-pop, .nr-step:focus .nr-pop { display: block; animation: fade-in .12s ease-out; }
+  .nr-pop-head { display: flex; gap: var(--sp-2); align-items: baseline; justify-content: space-between; }
+  .nr-pop-head b { font-size: .86rem; }
+  .nr-pop-who { font-size: .72rem; color: var(--text-faint); }
+  .nr-pop-tags { display: flex; gap: 5px; margin: 6px 0 2px; }
+  .nr-pop ul { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px;
+    font-size: .76rem; line-height: 1.42; color: var(--text-dim); }
+  .nr-pop ul b { color: var(--text); font-weight: 600; text-transform: capitalize; }
+  .nr-tag { font-size: .64rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--surface-hover); color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: .05em; }
+  .t-done { background: var(--success-bg); color: var(--success); }
+  .t-current, .t-working, .t-next, .t-suggestive { background: var(--accent-soft); color: var(--accent); }
+  .t-you { background: var(--accent); color: var(--accent-contrast); }
+  .t-failed, .t-held, .t-scrapped { background: var(--danger-bg); color: var(--danger); }
+  .t-strong { background: var(--success-bg); color: var(--success); }
+
+  .nr-legend { display: flex; flex-wrap: wrap; gap: var(--sp-4); font-size: .72rem; color: var(--text-faint); padding-top: var(--sp-2);
+    border-top: 1px solid var(--border); }
+  .nr-legend span { display: inline-flex; gap: 6px; align-items: center; }
+  .nr-legend .lg { width: 12px; height: 12px; border-radius: 4px; border: 1.5px solid var(--border-light); display: inline-block; }
+  .nr-legend .lg.s-done { border-color: var(--success); background: var(--success-bg); }
+  .nr-legend .lg.s-current { border-color: var(--accent); background: var(--accent-soft); }
+  .nr-legend .lg.s-working { border-color: var(--accent); border-right-color: transparent; animation: nr-spin 1.1s linear infinite; }
+  .nr-legend .lg.is-next { border-style: dashed; border-color: var(--accent); }
+  .nr-legend .lg.s-you { border-color: var(--accent); background: var(--accent); }
+  .nr-legend .lg.s-failed { border-color: var(--danger); background: var(--danger-bg); }
+  .nr-legend .nr-badge { position: static; }
+
+  @keyframes nr-spin { to { transform: rotate(360deg); } }
+  @keyframes nr-pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 212, 0, .55); } 70% { box-shadow: 0 0 0 8px rgba(255, 212, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 212, 0, 0); } }
+  @keyframes nr-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 212, 0, .0); } 50% { box-shadow: 0 0 0 5px rgba(255, 212, 0, .14); } }
+  @media (prefers-reduced-motion: reduce) { .nr *, .nr *::after { animation: none !important; transition: none !important; } }
+  @media (max-width: 720px) { .nr-step { min-width: 46px; } .nr { --nr-dot: 30px; } }
+</style>
+
+<script>
+  // Redrawn every half minute while the page is open and nothing is being
+  // hovered, so a run can be watched as it goes.
+  (function () {
+    const root = document.getElementById("nr-board");
+    if (!root) return;
+    function place(event) {
+      const step = event.target.closest && event.target.closest(".nr-step");
+      if (!step) return;
+      const rect = step.getBoundingClientRect(), room = 170;
+      step.classList.toggle("tip-end", rect.right > window.innerWidth - room);
+      step.classList.toggle("tip-start", rect.left < room && rect.right <= window.innerWidth - room);
+    }
+    root.addEventListener("mouseover", place);
+    root.addEventListener("focusin", place);
+    async function refresh() {
+      if (document.visibilityState !== "visible" || root.querySelector(":hover.nr-step, .nr-step:focus, .nr-chip:hover, .nr-analyst:hover")) return;
+      try {
+        const res = await fetch(root.dataset.refresh, {headers: {"Accept": "text/html"}});
+        if (res.ok) root.innerHTML = await res.text();
+      } catch (e) { /* offline for a moment: the next try will do */ }
+    }
+    setInterval(refresh, 30000);
+  })();
+</script>
+{% endblock %}

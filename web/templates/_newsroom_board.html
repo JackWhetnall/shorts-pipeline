@@ -1,0 +1,140 @@
+{# The newsroom board (decision 130): drawn on the page and redrawn every
+   half minute while it's open. One film a row of steps; detail on hover. #}
+{% macro icon(k) -%}
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if k == 'pitch' %}<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
+{%- elif k == 'commission' %}<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+{%- elif k == 'proof' %}<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M12 17H8"/>
+{%- elif k == 'proof_review' %}<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+{%- elif k == 'draft' %}<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>
+{%- elif k == 'edit' %}<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9"/><path d="M14.5 14.5L20 20"/><path d="M8.1 8.1L12 12"/>
+{%- elif k == 'facts' %}<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>
+{%- elif k == 'pictures' %}<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/>
+{%- elif k == 'packaging' %}<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/>
+{%- elif k == 'audience' %}<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/>
+{%- elif k == 'final' %}<circle cx="12" cy="8" r="6"/><path d="M15.5 13L17 22l-5-3-5 3 1.5-9"/>
+{%- elif k == 'storyboard' %}<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+{%- elif k == 'video' %}<rect x="2" y="4" width="20" height="16" rx="2.5"/><path d="M10 9l5 3-5 3z"/>
+{%- elif k == 'review' %}<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M16 11l2 2 4-4"/>
+{%- elif k == 'out' %}<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
+{%- endif %}</svg>
+{%- endmacro %}
+{% macro back_icon() %}<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-label="sent back"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>{% endmacro %}
+{% macro pen_icon() %}<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-label="lines edited"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>{% endmacro %}
+{% set words = {'done': 'Done', 'current': 'Up next', 'working': 'Working', 'todo': 'To do', 'you': 'Waiting on you',
+                'failed': 'Failed', 'held': 'Held', 'scrapped': 'Scrapped', 'skipped': 'Skipped'} %}
+
+{% macro step(s, prev) -%}
+<li class="nr-step s-{{ s.status }}{{ ' is-next' if s.next and s.status not in ('done', 'skipped') }}{{ ' c-done' if prev and prev.status == 'done' and s.status != 'skipped' }}" tabindex="0">
+  <span class="nr-dot">{{ icon(s.key) }}</span>
+  {% if s.badge %}<span class="nr-badge{{ ' warn' if s.back }}">{% if s.badge.startswith('↺') %}{{ back_icon() }}{{ s.badge[1:] }}{% elif s.badge.startswith('✎') %}{{ pen_icon() }}{{ s.badge[1:] }}{% else %}{{ s.badge }}{% endif %}</span>{% endif %}
+  <span class="nr-label">{{ s.label }}</span>
+  <div class="nr-pop" role="tooltip">
+    <div class="nr-pop-head"><b>{{ s.label }}</b><span class="nr-pop-who">{{ s.who }}</span></div>
+    <div class="nr-pop-tags"><span class="nr-tag t-{{ s.status }}">{{ words[s.status] }}</span>{% if s.next and s.status not in ('done', 'skipped') %}<span class="nr-tag t-next">Next run</span>{% endif %}</div>
+    {% if s.detail %}<ul>{% for line in s.detail[:7] %}<li>{{ line|truncate(190) }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+</li>
+{%- endmacro %}
+
+{% macro film(f, compact=False) %}
+<article class="nr-film g-{{ f.group }}{{ ' is-held' if f.held }}">
+  <header class="nr-film-head">
+    <div class="nr-film-name">
+      <h3>{{ f.title }}</h3>
+      {% if f.question and f.question != f.title %}<span class="nr-q">{{ f.question }}</span>{% endif %}
+    </div>
+    <div class="nr-film-meta">
+      {% if f.held %}
+      <form method="post" action="{{ url_for('newsroom.release', key=key, subtopic_id=f.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-ghost btn-small">Try again</button>
+      </form>
+      {% endif %}
+      <span class="nr-meter" aria-label="{{ (f.progress * 100)|round|int }}% done"><i style="--p: {{ f.progress }}"></i></span>
+    </div>
+  </header>
+  {% if f.group == 'scrapped' %}
+  <p class="nr-scrap-why">{{ f.reason }}</p>
+  {% else %}
+  <ol class="nr-flow">
+    {% for s in f.steps[:steps|length] %}{{ step(s, loop.previtem if not loop.first else none) }}{% endfor %}
+    <li class="nr-gap" aria-hidden="true"><span>Studio</span></li>
+    {% for s in f.steps[steps|length:] %}{{ step(s, loop.previtem if not loop.first else f.steps[steps|length - 1]) }}{% endfor %}
+  </ol>
+  {% endif %}
+</article>
+{% endmacro %}
+
+<section class="nr-tiles">
+  <div class="nr-tile">
+    <span class="nr-tile-k">Next run</span>
+    <div class="nr-big">{{ b.next_run.strftime('%H:%M') }}<small>in {{ until }}</small></div>
+    <div class="nr-expect">
+      {% for sid, roles in b.expected.films.items() %}
+      {% set fl = (b.films|selectattr('id', 'equalto', sid)|list) %}
+      <span class="nr-chip" tabindex="0">
+        {% for r in roles %}<i class="nr-pip" title="{{ r }}"></i>{% endfor %}
+        <span class="nr-chip-pop">{{ (fl[0].title if fl else sid) }}<br><em>{{ roles|map('replace', '_', ' ')|join(' → ') }}</em></span>
+      </span>
+      {% else %}<span class="nr-dim">Nothing due</span>{% endfor %}
+    </div>
+  </div>
+  <div class="nr-tile">
+    <span class="nr-tile-k">This week</span>
+    {% set pct = (b.week / b.week_cap) if b.week_cap else 0 %}
+    <div class="nr-ring-row">
+      <svg class="nr-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5"/><circle class="v" cx="18" cy="18" r="15.5" style="stroke-dasharray: {{ [pct * 97.4, 97.4]|min }} 97.4"/></svg>
+      <div><div class="nr-big">{{ b.week }}<small>of {{ b.week_cap }} points</small></div>
+        <span class="nr-dim">{{ '{:,.1f}'.format(b.tokens / 1000000) }}M tokens</span></div>
+    </div>
+  </div>
+  <div class="nr-tile{{ ' is-bad' if b.voice and b.voice.remaining < b.voice.per_video }}">
+    <span class="nr-tile-k">Voice</span>
+    {% if b.voice %}
+    {% set vp = b.voice.remaining / b.voice.limit if b.voice.limit else 0 %}
+    <div class="nr-big">{{ b.voice.videos_left }}<small>{{ 'film' if b.voice.videos_left == 1 else 'films' }} left</small></div>
+    <span class="nr-bar"><i style="--p: {{ vp }}"></i></span>
+    <span class="nr-dim">{{ '{:,}'.format(b.voice.remaining) }} credits · resets {{ b.voice.resets_label }}</span>
+    {% else %}<span class="nr-dim">Not readable</span>{% endif %}
+  </div>
+  <div class="nr-tile nr-analyst" tabindex="0">
+    <span class="nr-tile-k">Analyst</span>
+    <div class="nr-big">{{ b.findings.tops|length }}<small>findings{% if b.findings.at %} · {{ b.findings.at[5:] }}{% endif %}</small></div>
+    <div class="nr-conf">
+      {% for c in ['strong', 'suggestive', 'hunch'] %}{% for _ in range(b.findings.counts[c]) %}<i class="c-{{ c }}"></i>{% endfor %}{% endfor %}
+    </div>
+    {% if b.findings.tops %}
+    <div class="nr-pop nr-pop-wide" role="tooltip">
+      <div class="nr-pop-head"><b>What the published films say</b></div>
+      <ul>{% for role, f in b.findings.tops %}<li><span class="nr-tag t-{{ f.confidence }}">{{ f.confidence }}</span> <b>{{ role|replace('_', ' ') }}</b> · {{ f.text }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+{% if b.open %}
+<div class="nr-live">
+  <span class="nr-live-dot"></span>
+  {% for o in b.open %}<span class="nr-live-item">{{ o.role|replace('_', ' ')|capitalize }}{% if o.films %} · {% set fl = (b.films|selectattr('id', 'equalto', o.films[0])|list) %}{{ (fl[0].title if fl else o.films|join(', '))|truncate(34) }}{% endif %}</span>{% endfor %}
+</div>
+{% endif %}
+{% if not b.on %}<p class="nr-off">The newsroom is off for this channel.</p>{% endif %}
+
+{% set groups = [('writing', 'In the newsroom'), ('studio', 'In the studio'), ('out', 'Out'), ('scrapped', 'Scrapped')] %}
+{% for g, name in groups %}
+{% set fs = b.films|selectattr('group', 'equalto', g)|list %}
+{% if fs %}
+<section class="nr-group nr-{{ g }}">
+  <h2 class="nr-group-h">{{ name }} <span>{{ fs|length }}</span></h2>
+  {% for f in fs %}{{ film(f) }}{% endfor %}
+</section>
+{% endif %}
+{% endfor %}
+
+<footer class="nr-legend" aria-label="Key">
+  <span><i class="lg s-done"></i>Done</span><span><i class="lg s-current"></i>Up next</span>
+  <span><i class="lg s-working"></i>Working</span><span><i class="lg is-next"></i>Next run</span>
+  <span><i class="lg s-you"></i>Waiting on you</span><span><i class="lg s-failed"></i>Stopped</span>
+  <span><b class="nr-badge warn">{{ back_icon() }}1</b>Sent back</span>
+</footer>
