@@ -94,9 +94,14 @@ IN_WRITING = {"rework_proof", "proofed", "drafting", "rework_draft", "drafted", 
 DONE = {"passed", "scrapped"}
 
 # Two films a week (the owner, 21 Oct): about 15 points a film, reworks
-# included, plus its storyboard and teasers.
-WEEK_POINTS = 36
-SESSION_POINTS = 4
+# included, plus its storyboard and teasers. A point is about 22,000
+# subscription tokens, measured over the first night (a scout's pitches
+# with their searches, about 40,000 a film). 4 a session and 36 a week
+# let one film take four sessions, and the week's cap ran out after nine
+# of fourteen; a session now has room for a whole film, and the week for
+# about three with their reworks (the owner, 22 Oct: "progress is slow").
+WEEK_POINTS = 60
+SESSION_POINTS = 16
 SESSION_HOURS = 4               # work issued within this long counts as one session's
 STALE_HOURS = 4                 # an assignment not handed in by then is handed out again
 FILMS_WRITING = 2               # films between their proof and their pass, at once

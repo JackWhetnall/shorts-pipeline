@@ -25,7 +25,7 @@ agents, web search). Approvals are kept for later runs, so the overnight runs do
 to ask. Or set the task's permission mode when you edit it.
 
 ### W2. Check your Claude usage after two nights (1 minute)
-**claude.ai → Settings → Usage.** The newsroom keeps to 4 points a session and 36 a week,
+**claude.ai → Settings → Usage.** The newsroom keeps to 16 points a session and 60 a week (a point is about 22,000 tokens),
 and `python -m core.newsroom status why_though` shows the tokens it used. If the weekly
 bar fills too fast, tell me and I'll lower the caps.
 
