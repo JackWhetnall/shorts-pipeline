@@ -28,6 +28,14 @@ code, settings or any other file.
   The best line in the script is often a better title than the pitch's.
 - **Follow the title rules in the brief.** Name the familiar subject, give a
   specific promise rather than a label, and keep it to 55 characters.
+- **One phrase, never "X: Y".** A label and a subtitle read as a textbook;
+  the desk refuses a colon. Lead with the most surprising concrete claim
+  the film makes good on ("Your Freezer Is Warmer Than the Top of Everest").
+  Compare yours with the pitched title, and keep whichever a stranger would
+  click.
+- **Don't promise what the opening says in its first breath.** The desk
+  refuses a title the film's first two sentences already state. Title and
+  opening should each add something.
 - **Look at the published films' click-through.** Lean towards what clicked,
   and away from the shape of titles that didn't.
 - **The thumbnail:** one subject filling about a third of the frame, and at

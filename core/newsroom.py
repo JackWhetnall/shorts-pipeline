@@ -100,7 +100,7 @@ DONE = {"passed", "scrapped"}
 # use (22 Oct): the caps are only a backstop; the bank (BANK_FILMS) is
 # what slows it once films are waiting.
 WEEK_POINTS = 240
-SESSION_POINTS = 48
+SESSION_POINTS = 60
 SESSION_HOURS = 4               # work issued within this long counts as one session's
 STALE_HOURS = 4                 # an assignment not handed in by then is handed out again
 FILMS_WRITING = 3               # films between their proof and their pass, at once
@@ -785,6 +785,38 @@ def _scrap(channel, sid: str, role: str, aid: str, reason: str) -> None:
     curriculum.skip(channel.key, sid, f"newsroom: {reason}")
 
 
+_PLAIN = {"about", "after", "again", "before", "being", "could", "does", "doesn't", "don't", "every", "from",
+          "have", "into", "isn't", "just", "know", "make", "makes", "more", "most", "much", "only", "other",
+          "really", "should", "some", "than", "that", "their", "them", "then", "there", "these", "they",
+          "this", "those", "what", "when", "where", "which", "while", "with", "would", "your", "you're", "why",
+          "how", "really", "actually", "never", "always"}
+
+
+def _keywords(text: str) -> set:
+    words = re.findall(r"[a-z0-9']+", (text or "").lower())
+    return {w.rstrip("s") for w in words if len(w) > 3 and w not in _PLAIN}
+
+
+def echoes(line: str, *titles: str) -> str:
+    """The title a film's first two sentences restate, or "": half or more
+    of the title's key words back in them (decision 129; every
+    first proof on 22 Oct went back for this, and the Mars film lost half
+    its viewers to it)."""
+    first = " ".join(re.split(r"(?<=[.!?])\s+", re.sub(r"^\s*\[[^\]]*\]\s*", "", line or "").strip())[:2])
+    said = _keywords(first)
+    for title in titles:
+        wanted = _keywords(title)
+        if len(wanted) >= 2 and len(wanted & said) >= 0.5 * len(wanted):
+            return title
+    return ""
+
+
+def colon_title(title: str) -> bool:
+    """A two-part "X: Y" title (decision 129): one phrase that promises
+    something does better than a label and a subtitle."""
+    return ":" in (title or "")
+
+
 def _take_pitch(channel, row, data) -> tuple:
     from pipeline.documentary import pitch as pitches
     given = {str(p.get("film")): p for p in data.get("pitches") or [] if isinstance(p, dict)}
@@ -814,6 +846,12 @@ def _take_pitch(channel, row, data) -> tuple:
             problems.append(f"{sid}: thumbnail words are at most {pitches.THUMB_WORDS}")
         problems += [f"{sid}: the title {x}" for x in
                      pitches.title_problems(_text(angle.get("title")), _text(thumb.get("words")), entry.get("title", ""))]
+        if colon_title(_text(angle.get("title"))):
+            problems.append(f"{sid}: no 'X: Y' titles; one phrase that makes the promise")
+        said = echoes(_text(angle.get("hook")), _text(angle.get("title")), entry.get("title", ""))
+        if said:
+            problems.append(f"{sid}: the hook's first sentence restates the title (\"{said}\"); open on the most "
+                            f"surprising concrete fact instead, a thing the title doesn't say")
     if problems:
         return problems, ""
     for sid in row["films"]:
@@ -902,6 +940,11 @@ def _take_proof(channel, row, data) -> tuple:
     except (PipelineError, KeyError, TypeError, ValueError) as exc:
         return problems + [f"chapter 1's scenes aren't in the scene shape ({exc})"], ""
     problems += _short_chapters(channel, made, opening, [1])
+    entry = curriculum.find(channel.key, sid) or {}
+    said = echoes(opening[0]["narration"] if opening else "", _angle(nr).get("title", ""), entry.get("title", ""))
+    if said:
+        problems.append(f"the first sentence restates the title (\"{said}\"); open on the most surprising concrete "
+                        f"fact, a thing the title doesn't already say")
     if problems:
         return problems, ""
 
@@ -971,6 +1014,11 @@ def _take_draft(channel, row, data) -> tuple:
     problems += _short_chapters(channel, outline_, made["scenes"], range(1, count + 1))
     if not made["description"]:
         problems.append("the description is empty")
+    entry = curriculum.find(channel.key, sid) or {}
+    said = echoes(made["scenes"][0]["narration"] if made["scenes"] else "", _angle(nr).get("title", ""),
+                  entry.get("title", ""))
+    if said:
+        problems.append(f"the first sentence restates the title (\"{said}\"); keep the passed opening's surprise")
     if problems:
         return problems, ""
 
@@ -1115,6 +1163,13 @@ def _take_packaging(channel, row, data) -> tuple:
     problems = [f"the title {p}" for p in pitch.title_problems(title, words, entry.get("title", ""))]
     if not title:
         problems.append("the title is empty")
+    if colon_title(title):
+        problems.append("no 'X: Y' titles; one phrase that makes the promise")
+    nr = newsroom_of(production.load(channel.key, sid))
+    scenes = (nr.get("draft") or {}).get("scenes") or []
+    if scenes and echoes(scenes[0]["narration"], title):
+        problems.append("the film's first sentence already says this title; a title the opening repeats wastes the "
+                        "first seconds: promise what the opening doesn't say")
     if not _text(thumb.get("subject")):
         problems.append("say what the thumbnail shows (`thumbnail.subject`)")
     if len(words.split()) > pitch.THUMB_WORDS:

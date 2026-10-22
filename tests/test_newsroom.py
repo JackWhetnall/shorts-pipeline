@@ -79,7 +79,7 @@ def _pitch(sid, title):
             "demand": [{"query": "why thing", "found": "a 40,000-view video on a 2,000-sub channel"}],
             "beats": [{"beat": f"part {n}", "reveal": f"reveal {n}"} for n in range(6)],
             "angle": {"title": title, "thumbnail": {"subject": "a thing", "words": "NOT WHAT YOU THINK"},
-                      "promise": "You'll know why.", "hook": "The thing happens a million times a day.",
+                      "promise": "You'll know why.", "hook": "A kettle boils at seventy degrees on Everest.",
                       "open_loop": "But why?"},
             "risks": "It could be thin."}
 
@@ -332,3 +332,23 @@ def test_no_new_film_is_started_once_enough_are_in_hand(world, monkeypatch):
     _to(world, "drafted")
     monkeypatch.setattr(newsroom, "BANK_FILMS", 1)
     assert [a["role"] for a in newsroom.due(world)] == ["edit"]   # no proof, no pitch
+
+
+def test_an_opening_or_title_that_echoes_the_other_is_refused(world):
+    # 22 Oct: every first proof went back for an opening that restated the
+    # title, and a two-part "X: Y" title got through.
+    assert newsroom.echoes("We have a map of Mars. We have never mapped our own ocean floor.",
+                           "Why We Know Mars Better Than Our Own Ocean Floor")
+    assert not newsroom.echoes("Put the Sun a football pitch away, and climbing Everest brings you closer.",
+                               "Your Freezer Is Warmer Than the Top of Everest")
+    row = _issue(world, "pitch")
+    echoing = [{**_pitch(s, f"Why Does Thing {s[-1]} Happen"), "angle": {
+        **_pitch(s, "x")["angle"], "title": f"Why Does Thing {s[-1]} Happen", "hook": "Thing happens. Why?"}}
+        for s in row["films"]]
+    ok, problems, _ = _hand_in(world, row["id"], {"pitches": echoing})
+    assert not ok and any("restates the title" in p for p in problems)
+    colon = [{**_pitch(s, f"Thing {s[-1]}: The Truth"), "angle": {**_pitch(s, "x")["angle"],
+                                                              "title": f"Thing {s[-1]}: The Truth"}}
+             for s in row["films"]]
+    ok, problems, _ = _hand_in(world, row["id"], {"pitches": colon})
+    assert not ok and any("X: Y" in p for p in problems)

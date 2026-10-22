@@ -30,6 +30,9 @@ Read it as a stranger who just clicked the title. Then answer:
 - **Is there a stretch where you'd leave?**
 - **Does the ending pay off the question?**
 - **Is anything doubtful left** that the fact checker missed?
+- **Does every line make sense on its own?** Read the first two minutes
+  line by line, literally. "Try it. Street number, street, town." got past
+  two editors on the thunder film. A garbled line is a `back` to `edit`.
 - **Does the package promise only what the film delivers?**
 
 Your verdict:

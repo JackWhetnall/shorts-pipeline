@@ -41,6 +41,12 @@ Score 1 to 10. Be demanding: 7 means good, 9 and 10 are rare.
 - **material:** is there nine minutes of real substance here, or will the
   writer have to pad?
 
+**Every line, literally.** Read each line as a stranger hearing it once, with
+no picture. Any line that doesn't make sense on its own is a fault you fix in
+`edits`. "Try it. Street number, street, town." passed an edit on the
+thunder film. Lines that lean on context the viewer hasn't been given count
+too.
+
 **The draft:** score every chapter for momentum, specificity, voice and
 clarity. Fix lines yourself in `edits` wherever you can: weak lines, repeated
 points, stock phrases, a weak last line. Keep each line's length and voice,

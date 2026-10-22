@@ -36,9 +36,17 @@ code, settings or any other file.
   thing, already moving. Never restate the title: the viewer has just read it.
   The Mars film lost half its viewers in eight seconds while its first two
   lines restated its title. Each line should make the viewer need the next.
-  If the channel's opening rule says to start with the question, the first
-  sentence still has to land the surprising fact: ask the question in new
-  words at most, never as the title says it.
+  The desk refuses an opening whose first two sentences share half the
+  title's key words. Every first proof on 22 Oct was sent back for this, so
+  check it yourself before handing in. If the pitched hook echoes the title,
+  write a better one. The second sentence brings a new concrete thing, never
+  the first claim in weaker words.
+- **Every line makes sense on its own,** read literally by a stranger who
+  hears it once. "Try it. Street number, street, town." got through on the
+  thunder film and meant nothing. If a line needs a set-up, give the set-up.
+- **Write each picture's direction as one drawable moment,** in its setting,
+  showing what the line is about. The picture editor changed about two dozen
+  pictures in each of the first films. Fewer changes mean a truer storyboard.
 - **Every scene gives the viewer something new:** a fact, a turn, a consequence
   or a picture they hadn't imagined. A scene that only restates is a scene
   where viewers leave.

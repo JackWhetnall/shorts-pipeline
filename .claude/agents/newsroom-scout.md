@@ -46,7 +46,13 @@ For each film in the brief:
    the film's first line. In its first ten seconds it gives the most surprising
    concrete thing, and it never restates the title, which the viewer has just
    read. The channel's Mars film lost half its viewers while its opening
-   restated the title.
+   restated the title. The desk refuses a hook whose first two sentences
+   share half the title's key words. Good hooks from this newsroom:
+   "A robot on Mars once photographed a sunset that was blue." and "Put the
+   Sun a football pitch away, and climbing Everest brings you six millionths
+   of a metre closer." Each is one concrete, checkable thing, and odd enough
+   to need explaining.
+   The title is one phrase that makes the promise, never "X: Y".
 5. **Write `risks`.** What could make this film weak.
 
 Learn from the published films in the brief: which questions clicked, which
