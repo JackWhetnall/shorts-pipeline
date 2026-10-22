@@ -93,19 +93,22 @@ IN_WRITING = {"rework_proof", "proofed", "drafting", "rework_draft", "drafted", 
               "pictured", "packaged"}
 DONE = {"passed", "scrapped"}
 
-# Two films a week (the owner, 21 Oct): about 15 points a film, reworks
-# included, plus its storyboard and teasers. A point is about 22,000
-# subscription tokens, measured over the first night (a scout's pitches
-# with their searches, about 40,000 a film). 4 a session and 36 a week
-# let one film take four sessions, and the week's cap ran out after nine
-# of fourteen; a session now has room for a whole film, and the week for
-# about three with their reworks (the owner, 22 Oct: "progress is slow").
-WEEK_POINTS = 60
-SESSION_POINTS = 16
+# About 15 points a film, reworks included, plus its storyboard and
+# teasers. A point is about 22,000 subscription tokens, measured over the
+# first night (a scout's pitches with their searches, about 40,000 a
+# film). The owner's usage page put the newsroom at about 1% of a day's
+# use (22 Oct): the caps are only a backstop; the bank (BANK_FILMS) is
+# what slows it once films are waiting.
+WEEK_POINTS = 240
+SESSION_POINTS = 48
 SESSION_HOURS = 4               # work issued within this long counts as one session's
 STALE_HOURS = 4                 # an assignment not handed in by then is handed out again
-FILMS_WRITING = 2               # films between their proof and their pass, at once
-FILMS_PASSED_WAITING = 2        # films passed and not yet drawn
+FILMS_WRITING = 3               # films between their proof and their pass, at once
+FILMS_PASSED_WAITING = 3        # films passed and not yet drawn
+# Newsroom films passed and not yet out: three weeks of films at two a
+# week. With this many in hand no new film is started, so the newsroom
+# slows by itself (the owner, 22 Oct).
+BANK_FILMS = 6
 PITCHED_AHEAD = 3               # films pitched or commissioned, waiting to be written
 PITCH_BATCH = 3
 ROUNDS = {"pitch": 1, "proof": 2, "draft": 2, "final": 1}
@@ -223,6 +226,15 @@ def _films(channel) -> list:
     return out
 
 
+def _in_hand(channel) -> int:
+    """Newsroom films passed and not yet published, being written included."""
+    out = 0
+    for row, d in _films(channel):
+        if state_of(d) in IN_WRITING or (state_of(d) == "passed" and (row or {}).get("status") != curriculum.PUBLISHED):
+            out += 1
+    return out
+
+
 def _passed_waiting(channel) -> int:
     return sum(1 for _, d in _films(channel)
                if state_of(d) == "passed" and production.state(d, "stills") in ("todo", "stale"))
@@ -243,7 +255,8 @@ def due(channel, ledger: dict = None) -> list:
             found.append({"role": "storyboard", "films": [f["id"]]})
     films = [(row, d) for row, d in _films(channel) if d["subtopic_id"] not in taken and row is not None]
     writing = sum(1 for _, d in films if state_of(d) in IN_WRITING)
-    room = writing < FILMS_WRITING and _passed_waiting(channel) < FILMS_PASSED_WAITING
+    room = writing < FILMS_WRITING and _passed_waiting(channel) < FILMS_PASSED_WAITING \
+        and _in_hand(channel) < BANK_FILMS
     pitched = [d["subtopic_id"] for _, d in films if state_of(d) == "pitched"]
     if pitched:
         found.append({"role": "commission", "films": pitched})
@@ -261,7 +274,8 @@ def due(channel, ledger: dict = None) -> list:
     waiting = sum(1 for _, d in films if state_of(d) in ("pitched", "commissioned"))
     rework = [d["subtopic_id"] for _, d in films if state_of(d) == "rework_pitch"]
     fresh = [row["id"] for row, d in candidates(channel) if not state_of(d) and row["id"] not in taken]
-    wanted = rework + fresh[:max(0, PITCHED_AHEAD - waiting - len(rework))]
+    wanted = rework + (fresh[:max(0, PITCHED_AHEAD - waiting - len(rework))]
+                       if _in_hand(channel) < BANK_FILMS else [])
     if wanted:
         found.append({"role": "pitch", "films": wanted[:PITCH_BATCH]})
     if curriculum.exists(channel.key) and curriculum.progress(channel.key)["running_low"] \

@@ -251,7 +251,8 @@ def test_work_is_handed_out_within_a_sessions_and_a_weeks_points(world, monkeypa
     assert last is None and "week" in why
 
 
-def test_the_film_nearest_done_goes_first(world):
+def test_the_film_nearest_done_goes_first(world, monkeypatch):
+    monkeypatch.setattr(newsroom, "FILMS_WRITING", 2)
     _to(world, "drafted")
     due = newsroom.due(world)
     # The draft's edit first; then one more film's proof (two in writing at
@@ -324,3 +325,10 @@ def test_the_analyst_reads_a_weeks_films_and_its_findings_reach_each_role(world,
     out.append((production.load("why", "t0006", "y"), type("P", (), {"stem": "film_b"})(), {}, {}, 8.0))
     assert not newsroom.analysis_due(world)                  # a new film, but the last read is under a week old
     assert newsroom.analysis_due(world, now=clock.time() + 7 * 86400)
+
+
+def test_no_new_film_is_started_once_enough_are_in_hand(world, monkeypatch):
+    # The owner, 22 Oct: usage "should slow down naturally" once films are waiting.
+    _to(world, "drafted")
+    monkeypatch.setattr(newsroom, "BANK_FILMS", 1)
+    assert [a["role"] for a in newsroom.due(world)] == ["edit"]   # no proof, no pitch
