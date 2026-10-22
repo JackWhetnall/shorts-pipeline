@@ -158,7 +158,7 @@ def _act(channel, row: dict, data: dict, after_hours: bool) -> str:
     if stage == "video" and state in ("todo", "stale"):
         from core import voice_quota
         chars = production.narration_still_to_voice(data)
-        if chars and not voice_quota.has_room_for(chars):
+        if chars and not voice_quota.has_room_for(chars, channel_key=channel.key):
             return ""
     if stage in NEWSROOM and getattr(doc, "newsroom", False):
         return ""                       # the newsroom writes it and passes it (decision 127)

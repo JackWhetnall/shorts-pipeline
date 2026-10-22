@@ -591,6 +591,11 @@ class Publishing(_MappingLike):
     # Thumbnail tests (core.thumbnail_tests, decision 083): shorts that go
     # out rotate three thumbnails; long videos get three for Studio's test.
     thumbnail_tests: bool = False
+    # Decision 131. When the month's voice credits run short, the channels
+    # with a priority are voiced in its order (1 first): a channel starts a
+    # video only if what's left still covers what every channel ahead of it
+    # needs before the reset. 0: no priority, after every channel that has one.
+    voice_priority: int = 0
 
 
 @dataclass

@@ -219,11 +219,69 @@ def typical_video_characters(channel_key: str) -> int:
     return int(statistics.median(totals)) if totals else DEFAULT_VIDEO_CHARACTERS
 
 
-def has_room_for(characters: int, force: bool = False) -> bool:
+def has_room_for(characters: int, force: bool = False, channel_key: str = "") -> bool:
     """Whether narrating this many characters fits what's left. False only
-    when the quota is known and too small."""
+    when the quota is known and too small. With `channel_key`, what the
+    channels ahead of it in the voice priority still need before the reset
+    is kept back first (decision 131)."""
     quota = current(force=force)
-    return quota is None or quota.remaining >= credits_for(characters)
+    if quota is None:
+        return True
+    kept = reserve_for(channel_key, quota) if channel_key else 0
+    return quota.remaining - kept >= credits_for(characters)
+
+
+RESERVE_SECONDS = 300
+_reserved = {}          # channel key -> (worked out at, credits)
+
+
+def _rank(channel) -> float:
+    priority = int(getattr(channel.publishing, "voice_priority", 0) or 0)
+    return priority if priority > 0 else float("inf")
+
+
+def need_before_reset(channel, quota: Quota) -> int:
+    """Credits `channel` still needs before the quota resets for the videos
+    that fill its slots until then (and teasers it owes), as the Voice page
+    counts them (core.voice_budget)."""
+    from core import costs, voice_budget
+    until = float(quota.resets_at or (time.time() + 31 * 86400))
+    blocks, _ = voice_budget.to_come({channel.key: channel}, costs.read_records(), credits_per_character(),
+                                     time.time(), until)
+    # Only what fills a slot before the reset (and teasers owed): films or
+    # shorts it would make further ahead don't take credits from the
+    # channels after it.
+    return int(sum(b["credits"] for b in blocks if not b.get("spent")
+                   and (b.get("release") or b.get("state") == "teasers to make")))
+
+
+def reserve_for(channel_key: str, quota: Quota = None) -> int:
+    """Credits kept back from `channel_key` for the channels ahead of it in
+    the voice priority (the owner, 23 Oct: "prioritise why though films
+    when credits are short. then the quiz channel. then minute pastor")."""
+    with _lock:
+        cached = _reserved.get(channel_key)
+        if cached and time.time() - cached[0] < RESERVE_SECONDS:
+            return cached[1]
+    from core.channels import load_channels
+    quota = quota or current()
+    if quota is None:
+        return 0
+    channels = load_channels(validate=False)
+    me = channels.get(channel_key)
+    if me is None:
+        return 0
+    ahead = [c for k, c in channels.items() if k != channel_key and not c.archived and c.publishing.enabled
+             and _rank(c) < _rank(me)]
+    kept = 0
+    for channel in ahead:
+        try:
+            kept += need_before_reset(channel, quota)
+        except Exception as exc:  # noqa: BLE001 - a need that can't be worked out keeps nothing back
+            log.warning(f"voice priority: couldn't work out what {channel.key} needs: {exc}")
+    with _lock:
+        _reserved[channel_key] = (time.time(), kept)
+    return kept
 
 
 def require_room(characters: int) -> None:

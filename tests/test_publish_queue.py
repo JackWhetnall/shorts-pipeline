@@ -221,7 +221,7 @@ class TestPublishing:
 
 class TestGeneration:
     def test_fills_up_to_the_buffer_then_stops(self, world, monkeypatch):
-        monkeypatch.setattr(scheduler.voice_quota, "has_room_for", lambda n: True)
+        monkeypatch.setattr(scheduler.voice_quota, "has_room_for", lambda n, **k: True)
         block = lambda **state: scheduler.generation_block(
             "c", world.channel, state={"queued": 0, "waiting": 0, **state}, active={})
         assert block() is None
@@ -231,7 +231,7 @@ class TestGeneration:
         assert "off" in block()
 
     def test_one_held_video_does_not_stop_the_channel(self, world, monkeypatch):
-        monkeypatch.setattr(scheduler.voice_quota, "has_room_for", lambda n: True)
+        monkeypatch.setattr(scheduler.voice_quota, "has_room_for", lambda n, **k: True)
         assert scheduler.generation_block(
             "c", world.channel, state={"queued": 1, "waiting": 1}, active={}) is None
 

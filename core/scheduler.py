@@ -71,8 +71,8 @@ def generation_block(key: str, channel, state: dict = None, active: dict = None)
     if state["waiting"] >= plan.buffer:
         return (f"{state['waiting']} video{'s' if state['waiting'] != 1 else ''} waiting for "
                 f"a look in review. It makes more once those are dealt with.")
-    if not voice_quota.has_room_for(voice_quota.typical_video_characters(key)):
-        return "Not enough ElevenLabs characters left this month."
+    if not voice_quota.has_room_for(voice_quota.typical_video_characters(key), channel_key=key):
+        return "Not enough ElevenLabs characters left this month (or they're kept for the channels voiced first)."
     return None
 
 
