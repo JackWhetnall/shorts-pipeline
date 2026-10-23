@@ -65,6 +65,13 @@ Windows, project at `C:\Users\JackW\Documents\YT\`, Python 3.10, Git Bash.
   expected cost in $ (voice credits converted too), and a batch-or-now
   choice shows both prices and when each would be done. The owner's
   standing instruction (decision 081).
+- **Never spend money or voice credits on testing.** Tests can't
+  (tests/conftest.py blocks every live call), and `core.paid` refuses any
+  billable request from a program that isn't the project's own, so a
+  one-off script or `python -c` can't voice, draw or call Claude. A check
+  that needs real audio uses clips recorded once and kept in the tests'
+  fixtures, and new tests reuse those clips and that voice. The owner's
+  rule, 23 Oct; decision 132.
 - **Frozen channels** — Minute Pastor and Pub Quiz Buzz must keep making
   exactly what they make. Shared code changes only additively, behind
   defaults they keep. `tests/frozen/` (in the fast suite, or alone with

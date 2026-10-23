@@ -201,6 +201,8 @@ def client() -> Anthropic:
     """Lazily constructed so importing this module never requires a key -
     the test suite and every pure-function path import it freely."""
     global _client
+    from core import paid
+    paid.check("a Claude reply")            # decision 132: never from a one-off script
     if _client is None:
         if not os.environ.get("ANTHROPIC_API_KEY"):
             raise MissingCredentialError(

@@ -36,7 +36,10 @@ front.
 4. **Record what each used.** When they've all finished, each result shows
    its usage (`subagent_tokens: N`). Record it with
    `python -m core.newsroom spent why_though <id> <N>`.
-5. **Go back to step 1.**
+5. **Go back to step 1,** for at most eight rounds and two hours in all.
+   Then stop, even if work is still due: the next run carries on. A session
+   that goes on for hours blocks the next scheduled run (on 22 Oct one
+   stalled overnight and the 04:00 run never started).
 
 ## If something goes wrong
 
