@@ -1,12 +1,16 @@
 """
-The voice priority (decision 131). The owner, 23 Oct: "prioritise why
-though films when credits are short. then the quiz channel. then minute
-pastor." And 25 Oct: "i dont want one channel to miss a video just so Why
-Though gets one made 3 weeks in advance."
+The voice priority (decisions 131 and 134). The owner, 23 Oct: "prioritise
+why though films when credits are short. then the quiz channel. then minute
+pastor." And 25 Oct: "if there is enough credit for the month, then all the
+months videos should be made. what i dont want to happen is Why Though
+having the whole month made plus the three premade videos prioritised over
+another channel's videos that need to be published this month."
 
-- what goes out sooner is voiced first, whichever channel it's for;
-- between videos due within half a day of each other, the priority decides;
-- a video made ahead of any slot comes after every channel's dated ones;
+- a video for a channel's own slots before the reset keeps back what the
+  channels ahead of it in the priority need for theirs;
+- once its slots are covered, a video made ahead keeps back what every
+  other channel needs;
+- with enough credits for the month, every channel's month is made;
 - a channel with no priority comes after every channel that has one.
 """
 
@@ -18,6 +22,7 @@ from types import SimpleNamespace
 import pytest
 
 from core import voice_quota
+from core.voice_quota import Need
 
 DAY = 86400
 
@@ -30,42 +35,54 @@ def _channel(key, priority):
 def world(monkeypatch):
     now = time.time()
     channels = {"why": _channel("why", 1), "quiz": _channel("quiz", 2), "pastor": _channel("pastor", 3)}
-    plan = {"why": [(now + 3 * DAY, 1500), (now + 7 * DAY, 1500)],
-            "quiz": [(now + 1 * DAY, 300), (now + 3 * DAY + 3600, 300)],
-            "pastor": [(now + 2 * DAY, 100)]}
+    plan = {"why": [Need(now + 3 * DAY, 1500, True), Need(now + 7 * DAY, 1500, True)],
+            "quiz": [Need(now + 1 * DAY, 300, True), Need(now + 3 * DAY, 300, True)],
+            "pastor": [Need(now + 2 * DAY, 100, True)]}
     monkeypatch.setattr("core.channels.load_channels", lambda validate=True: channels)
     monkeypatch.setattr(voice_quota, "needs", lambda channel, quota: plan[channel.key])
     monkeypatch.setattr(voice_quota, "credits_for", lambda characters: characters)
     monkeypatch.setattr(voice_quota, "_reserved", {})
     quota = voice_quota.Quota(used=31545 - 2000, limit=31545, resets_at=None)
     monkeypatch.setattr(voice_quota, "current", lambda force=False: quota)
-    return SimpleNamespace(channels=channels, plan=plan, now=now)
+    return SimpleNamespace(channels=channels, plan=plan, now=now, quota=quota)
 
 
-def test_a_video_due_sooner_is_voiced_first_whichever_channel(world):
-    # The quiz short tomorrow and Minute Pastor's in two days go before Why,
-    # Though?'s film in three; the quiz short an hour after that film, a
-    # near-tie, goes after it.
-    assert voice_quota.reserve_for("why") == 300 + 100
-    assert voice_quota.reserve_for("quiz") == 0                 # its short tomorrow is the first due
-    assert voice_quota.reserve_for("pastor") == 300             # only the quiz short a day before it
-
-
-def test_a_film_made_ahead_comes_after_everyone_elses_dated_videos(world):
-    world.plan["why"] = []                                      # its slots are filled: a film would be ahead
-    voice_quota._reserved.clear()
-    assert voice_quota.reserve_for("why") == 300 + 300 + 100
-
-
-def test_a_tie_goes_to_the_channel_first_in_the_priority(world):
-    world.plan["quiz"] = [(world.now + 3 * DAY + 3600, 300)]
-    voice_quota._reserved.clear()
-    # Why, Though?'s film an hour before it, a near-tie, and Minute Pastor's a day before that.
-    assert voice_quota.reserve_for("quiz") == 1500 + 100
-
-
-def test_room_is_what_is_left_after_whats_kept_back(world):
-    # 2,000 left: the quiz short tomorrow and Minute Pastor's are due before the film.
+def test_when_short_the_channels_month_goes_in_priority_order(world):
+    assert voice_quota.reserve_for("why") == 0
+    assert voice_quota.reserve_for("quiz") == 1500 + 1500
+    assert voice_quota.reserve_for("pastor") == 3000 + 600
+    # 2,000 left: Why, Though?'s film goes ahead of the quiz short due sooner.
     assert voice_quota.has_room_for(1500, channel_key="why")
-    assert not voice_quota.has_room_for(1700, channel_key="why")
-    assert voice_quota.has_room_for(1700)                       # without a channel, as before
+    assert not voice_quota.has_room_for(300, channel_key="quiz")
+
+
+def test_a_film_made_ahead_waits_for_every_other_channels_month(world):
+    world.plan["why"] = []                                      # its month is covered: a bank film
+    assert voice_quota.reserve_for("why") == 600 + 100
+    assert voice_quota.has_room_for(1300, channel_key="why")
+    assert not voice_quota.has_room_for(1500, channel_key="why")
+
+
+def test_teasers_owed_dont_make_a_bank_film_a_months_one(world):
+    world.plan["why"] = [Need(world.now, 400, False)]           # teasers to make, no slot left to fill
+    assert voice_quota.reserve_for("why") == 600 + 100
+
+
+def test_with_enough_for_the_month_every_channels_month_is_made(world, monkeypatch):
+    plenty = voice_quota.Quota(used=0, limit=31545, resets_at=None)
+    monkeypatch.setattr(voice_quota, "current", lambda force=False: plenty)
+    for key in ("why", "quiz", "pastor"):
+        voice_quota._reserved.clear()
+        assert voice_quota.has_room_for(1500, channel_key=key)
+
+
+def test_a_channel_with_no_priority_comes_last(world):
+    world.channels["new"] = _channel("new", 0)
+    world.plan["new"] = [Need(world.now + DAY, 200, True)]
+    assert voice_quota.reserve_for("new") == 3000 + 600 + 100
+    voice_quota._reserved.clear()
+    assert voice_quota.reserve_for("pastor") == 3000 + 600      # not kept back for the new channel
+
+
+def test_without_a_channel_nothing_is_kept_back(world):
+    assert voice_quota.has_room_for(1700)

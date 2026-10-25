@@ -483,6 +483,24 @@ def test_the_newsroom_board_draws(world, monkeypatch):
     assert 'class="nr-step s-done' in page and "s-current" in page and "Next run" in page
 
 
+def test_an_approved_storyboard_can_be_put_back_for_both_reads(world):
+    # The owner, 25 Oct: "yes lets make sure the storyboards checks work
+    # properly", of the six films passed before the frame checker existed.
+    from core.errors import PipelineError
+    sid = _to(world, "screened")
+    production.update("why", sid, lambda d: d["stages"]["stills"].update(state="approved"))
+    newsroom.recheck("why", sid)
+    data = production.load("why", sid)
+    assert production.state(data, "stills") == "ready"
+    assert data["history"][-1]["did"] == "put back for the frame and continuity checks"
+    with pytest.raises(PipelineError):
+        newsroom.recheck("why", sid)                          # only an approved one
+    production.update("why", sid, lambda d: (d["stages"]["stills"].update(state="approved"),
+                                             d["stages"]["video"].update(state="ready")))
+    with pytest.raises(PipelineError):
+        newsroom.recheck("why", sid)                          # not once its video is made from it
+
+
 def test_a_drawn_storyboard_is_read_frame_by_frame_then_as_one_film(world, monkeypatch):
     # The owner, 25 Oct: "an agent that checks the storyboard as a whole ...
     # as well as an agent that checks individual pictures to make sure they

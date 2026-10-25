@@ -25,10 +25,15 @@ How you work:
      they're wearing, where it is) drawn differently?
    - Is there text or gibberish writing, broken anatomy, extra limbs, a face
      on an object, or panels or a collage instead of one picture?
+   - Does every person have a face? A blank face, with no eyes or mouth, is
+     a fault even when the line doesn't mention faces: the viewer sees it.
+     (The image model draws them now and then, and one first check left two.)
 4. Redraw only real faults, with a note saying exactly what the picture must
    show:
    `python -m core.overseer redraw <channel> <film> 12,31 --note "..."`.
-   At most 15 pictures, and each only once. Don't redraw for taste or small
+   At most 15 pictures. Look at each redraw; if it still has the fault,
+   redraw it once more with a sharper note (what must not be in it), but
+   no picture a third time. Don't redraw for taste or small
    background details. Don't approve the storyboard.
 5. Write your summary as JSON to the path the brief gives, with the Write
    tool, and run `python -m core.newsroom submit <channel> <assignment>`.

@@ -395,6 +395,23 @@ def frames_checked(ledger: dict, key: str, sid: str) -> bool:
     return count("frames") > count("continuity")
 
 
+def recheck(key: str, sid: str) -> str:
+    """An approved storyboard put back for the frame checker and the
+    continuity editor (decision 134): the films passed before those roles
+    were read only as contact sheets of forty, too small to see a face."""
+    def change(d):
+        stills, video = production.state(d, "stills"), production.state(d, "video")
+        if stills != "approved":
+            raise PipelineError(f"stills {stills}", user_message=f"{sid}'s storyboard is {stills}, not approved.")
+        if video in ("working", "ready", "approved"):
+            raise PipelineError(f"video {video}", user_message=f"{sid}'s video is already made from it.")
+        production.mark(d, "stills", "ready")
+        d.setdefault("history", []).append({"at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                                            "stage": "stills", "did": "put back for the frame and continuity checks"})
+    production.update(key, sid, change)
+    return f"{sid}: its storyboard is due a frame check, then a continuity read"
+
+
 def frame_sheets(key: str, sid: str) -> list:
     """[(sheet path, [scene numbers])]: the storyboard six pictures at a
     time, big enough to read each one (decision 133: forty to a contact
@@ -993,14 +1010,14 @@ def _brief_overseer(channel, row) -> str:
                 f"over it. Run: python -m core.newsroom frames {channel.key} {sid}\nIt prints each frame sheet "
                 f"(six numbered pictures) with every scene's line and the picture that was asked for. Read every "
                 f"sheet image. Redraw real faults with: python -m core.overseer redraw {channel.key} {sid} <scenes> "
-                f"--note \"what the picture must show\" (at most 15 pictures, each once). Don't approve the "
+                f"--note \"what the picture must show\" (at most 15 pictures; a second time only if the first redraw kept the fault). Don't approve the "
                 f"storyboard: the continuity editor reads it next. Hand in a summary: what you redrew and why.")
     if role == "continuity":
         return (f"FILM {channel.key}/{sid}: its pictures have each been checked against their lines. Now read the "
                 f"whole storyboard in order as one film. Run: python -m core.overseer script {channel.key} {sid} "
                 f"(the cast, the settings and every scene) and python -m core.overseer board {channel.key} {sid} "
                 f"(the contact sheets, in order); for a closer look at any stretch, python -m core.newsroom frames "
-                f"{channel.key} {sid}. Redraw real faults (at most 12, each once) with python -m core.overseer "
+                f"{channel.key} {sid}. Redraw real faults (at most 12; a second time only if the first redraw kept the fault) with python -m core.overseer "
                 f"redraw ..., then approve it: python -m core.overseer approve {channel.key} {sid} stills, and leave "
                 f"a note: python -m core.overseer note {channel.key} {sid} \"...\". Hand in a one-line summary.")
     if role == "teasers":
@@ -2224,6 +2241,9 @@ def main(argv=None) -> int:
     p = sub.add_parser("frames")
     p.add_argument("channel")
     p.add_argument("film")
+    p = sub.add_parser("recheck")
+    p.add_argument("channel")
+    p.add_argument("films", nargs="+")
     p = sub.add_parser("spent")
     p.add_argument("channel")
     p.add_argument("assignment")
@@ -2260,6 +2280,9 @@ def main(argv=None) -> int:
             print(demand(args.channel, args.query))
         elif args.command == "frames":
             print(frames_text(args.channel, args.film))
+        elif args.command == "recheck":
+            for sid in args.films:
+                print(recheck(args.channel, sid))
         elif args.command == "spent":
             print("recorded" if spent(args.channel, args.assignment, args.tokens) else "no such assignment")
     except PipelineError as exc:

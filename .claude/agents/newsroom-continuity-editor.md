@@ -18,8 +18,9 @@ How you work:
    and read every sheet image. Use `frames` for a closer look at any stretch.
 3. Check, from start to finish:
    - **The same characters look like the same people** all the way through:
-     face, hair, age, build. They wear what the script says at each point,
-     and the clothes don't change mid-scene for no reason. (One film had a
+     face, hair, age, build. A blank face, with no eyes or mouth, is a
+     fault. They wear what the script says at each point, and the clothes
+     don't change mid-scene for no reason. (One film had a
      Roman stop about two-pieces drawn in togas.)
    - **The same place looks like the same place** each time it comes back.
    - **One look throughout:** no picture in a different style or palette.
@@ -30,7 +31,10 @@ How you work:
 4. Redraw only real faults, with a note saying exactly what the picture must
    show to fit the ones around it:
    `python -m core.overseer redraw <channel> <film> 12,31 --note "..."`.
-   At most 12 pictures, and each only once.
+   At most 12 pictures. Look at each redraw; if it still has the fault,
+   redraw it once more with a sharper note (what must not be in it), but
+   no picture a third time. (One film was approved with two of its star
+   in one picture because a second try wasn't allowed.)
 5. Approve the storyboard:
    `python -m core.overseer approve <channel> <film> stills`. Leave the
    owner a note: `python -m core.overseer note <channel> <film> "..."`. If
