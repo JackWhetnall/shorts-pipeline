@@ -194,10 +194,13 @@ def redraw(key: str, sid: str, scenes: list, note: str = "") -> dict:
 def teaser_sheet(key: str, sid: str) -> str:
     """The teasers' scripts as a reviewer reads them, each line numbered,
     with the picture it's shown over (decision 111)."""
+    clashes = teaser_title_clashes(key, sid)
     data = production.load(key, sid)
     scenes = (data.get("script") or {}).get("scenes") or []
     lines = [f"TEASERS for {key}/{sid}: {data.get('title', '')}",
              "Read them against the film's narration (python -m core.overseer script ...).", ""]
+    if clashes:
+        lines += ["TITLE CLASH (fix before approving: every video needs its own title): " + "; ".join(clashes), ""]
     for n, t in enumerate((data.get("teasers") or {}).get("scripts") or []):
         lines.append(f"== Teaser {n}: {t.get('title', '')}")
         lines.append(f"   description: {t.get('description', '')}")
@@ -221,7 +224,32 @@ def edit_teaser(key: str, sid: str, teaser: int, line: int, narration: str = Non
     production.update(key, sid, change)
 
 
+def teaser_title_clashes(key: str, sid: str) -> list:
+    """Titles a film's teasers share with each other or with the channel's
+    other videos."""
+    from core import gallery
+    data = production.load(key, sid)
+    titles = [" ".join((t.get("title") or "").lower().split()) for t in (data.get("teasers") or {}).get("scripts") or []]
+    clashes = [t for i, t in enumerate(titles) if t and t in titles[:i]]
+    channel = channel_config.load_channels().get(key)
+    if channel is None:
+        return sorted(set(clashes))
+    root = gallery.resolve_output_dir(channel.output_dir)
+    mine = {str((root / v).resolve()) for v in (data.get("teasers") or {}).get("videos") or []}
+    for path in gallery.videos_in(root):
+        info = gallery.load_publish_info(path)
+        if str(path.resolve()) in mine or info.get("discarded"):
+            continue
+        title = " ".join((info.get("title") or "").lower().split())
+        if title and title in titles:
+            clashes.append(title)
+    return sorted(set(clashes))
+
+
 def approve(key: str, sid: str, stage: str) -> None:
+    if stage == "teasers" and teaser_title_clashes(key, sid):
+        raise SystemExit("Two videos would share a title: " + "; ".join(teaser_title_clashes(key, sid))
+                         + ". Give each teaser its own title (edit-teaser ... --title) first.")
     if stage == "teasers":
         # Their scripts read: the autopilot makes them now (decision 111).
         def change(d):

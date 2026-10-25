@@ -110,7 +110,7 @@ def dashboard(key):
         progress=info,
         social_links=social_links, monetization_links=monetization_links,
         has_logo=has_logo(key),
-        upcoming=[_upcoming_row(path, when) for path, when in publish_queue.in_order(channel)],
+        upcoming=[_upcoming_row(path, when, channel) for path, when in publish_queue.in_order(channel)],
         generation_status=scheduler.generation_block(key, channel),
         weekday_names=("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
         plan_estimate=_plan_estimate(key, channel),
@@ -134,9 +134,10 @@ def _plan_estimate(key: str, channel):
             "limit": quota.limit if quota else None}
 
 
-def _upcoming_row(path, when) -> dict:
+def _upcoming_row(path, when, channel=None) -> dict:
     """A queued video on the channel page: its slot, or that it's going
-    out right now (decision 102)."""
+    out right now (decision 102), and its kind: a long video, a film's
+    teaser, or a short (the owner, 25 Oct)."""
     from core import publish_queue
     now_text = publish_queue.slot_text(when) if when else ""
     if now_text == "After its film":
@@ -147,9 +148,15 @@ def _upcoming_row(path, when) -> dict:
         day = when.strftime("%a") if when else "Next"
         date = when.strftime("%d %b").lstrip("0") if when else ""
         time_ = when.strftime("%H:%M") if when else "check"
+    if gallery.is_long(path):
+        kind = "long"
+    elif channel is not None and channel.format == "documentary":
+        kind = "teaser"
+    else:
+        kind = "short"
     return {"title": gallery.load_publish_info(path)["title"] or path.stem,
             "when": now_text or "on the next check", "day": day, "date": date, "time": time_,
-            "relpath": _relpath_or_none(path)}
+            "relpath": _relpath_or_none(path), "kind": kind}
 
 
 def _relpath_or_none(path):

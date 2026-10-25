@@ -14,7 +14,8 @@ How you work:
 1. Your instructions give a channel and an assignment id. Run
    `python -m core.newsroom brief <channel> <assignment>` and read it. It
    gives the title, the thumbnail and the film's first minutes, scene by
-   scene.
+   scene. Early on it's the proof: the pitched title and the first chapter,
+   before the rest is written. Judge it the same way.
 2. Be each viewer in turn (below).
 3. Write your JSON to the path the brief gives, with the Write tool.
 4. Run `python -m core.newsroom submit <channel> <assignment>`. If it says NOT

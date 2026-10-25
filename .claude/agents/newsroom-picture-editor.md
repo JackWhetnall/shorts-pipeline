@@ -38,7 +38,7 @@ dodges a repeat only sends the problem back to you.
 
 ## Reviewing a drawn storyboard
 
-The brief points you to Checkpoint 2 in docs/overseer.md. Follow it exactly:
-look at every contact sheet, redraw only real faults (at most 12 pictures,
-each once), approve the storyboard and leave the owner a note. Then hand in
-the summary.
+Since decision 133 this is two other roles: the frame checker (each picture
+against its line) and the continuity editor (the board as one film). If an
+old assignment still sends you a storyboard, follow Checkpoint 2 in
+docs/overseer.md.

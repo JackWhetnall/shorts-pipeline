@@ -80,6 +80,28 @@ def retire_video(channel, subtopic_id: str, keep: str = "") -> bool:
     return True
 
 
+def retire_teasers(channel, data: dict, keep: list) -> list:
+    """Teasers made before these, for the same film, discarded unless they've
+    gone out: remade teasers are new files, and on 25 Oct the old "Before
+    the Stop Sign Existed" was still queued beside the new one, the same
+    teaser twice. Returns the ones discarded."""
+    from core import gallery
+    out = []
+    for rel in (data.get("teasers") or {}).get("videos") or []:
+        if rel in keep:
+            continue
+        path = _root(channel) / rel
+        if not path.exists():
+            continue
+        info = gallery.load_publish_info(path)
+        if gallery.is_out(info) or info.get("discarded"):
+            continue
+        gallery.set_discarded(path, True, reason="remade")
+        out.append(rel)
+        log.info(f"  [teasers] {rel} discarded: its teasers were made again")
+    return out
+
+
 def _making_teasers(data: dict) -> bool:
     return bool((data.get("teasers") or {}).get("scripts"))
 
@@ -285,10 +307,13 @@ def _do(channel, row, data, stage, note, only, chapter, notes) -> SimpleNamespac
             scripts = teasers.write(channel, title, data["outline"], data["script"], note, angle,
                                     stills=data.get("stills"), recent=teasers.recent_lines(others))
             scripts = teasers.checked(scripts, data["script"])    # against the film's narration (decision 110)
+            # New scripts forget the old teasers' videos: retire them first.
+            retire_teasers(channel, data, keep=[])
             production.update(key, sid, lambda d: production.made(d, "teasers", {"scripts": scripts, "videos": []}))
             return done
         paths = teasers.make(channel, data, folder)
         rel = [str(p.relative_to(_root(channel))).replace("\\", "/") for p in paths]
+        retire_teasers(channel, data, keep=rel)
 
         def store(d):
             d["teasers"]["videos"] = rel

@@ -212,7 +212,11 @@ def latest_slot(publishing, now: datetime):
     for _ in range(8):
         if day.weekday() in publishing.weekdays:
             for hour, minute in reversed(times):
-                slot = day.replace(hour=hour, minute=minute)
+                # The day's own offset, as upcoming_slots does: replacing the
+                # hour kept today's, so just after the clocks went back on
+                # 25 Oct Saturday's 16:30 read as 17:30, looked missed, and
+                # a film went out at 02:05 on Sunday.
+                slot = datetime(day.year, day.month, day.day, hour, minute).astimezone()
                 if slot <= now:
                     return slot
         day -= timedelta(days=1)
@@ -557,6 +561,35 @@ def send(channel, video_path: Path, may_retry: bool = False) -> str:
         _sending.pop(key, None)
 
 
+def _title_key(title: str) -> str:
+    return " ".join(str(title or "").lower().split())
+
+
+def title_clash(channel, video_path: Path):
+    """Another video of a documentary channel, out or queued, with this
+    video's title, or None (the owner, 25 Oct: "make sure that all videos
+    have distinct titles!"). Documentary channels only: the frozen channels
+    keep what they do (decision 075)."""
+    from core import long_pairs
+    if channel.format != "documentary":
+        return None
+    title = _title_key(gallery.load_publish_info(video_path).get("title"))
+    if not title:
+        return None
+    partner = long_pairs.partner(video_path)
+    root = gallery.resolve_output_dir(channel.output_dir)
+    mine = Path(video_path).resolve()
+    for path in gallery.videos_in(root):
+        if path.resolve() == mine or (partner is not None and path.resolve() == Path(partner).resolve()):
+            continue
+        info = gallery.load_publish_info(path)
+        if info.get("discarded") or not (gallery.is_out(info) or gallery.is_queued(info)):
+            continue
+        if _title_key(info.get("title")) == title:
+            return path
+    return None
+
+
 def _send(channel, video_path: Path, may_retry: bool = False) -> str:
     """Put one video out on every platform this channel uses.
 
@@ -572,6 +605,12 @@ def _send(channel, video_path: Path, may_retry: bool = False) -> str:
         # Never both versions of one long quiz (decision 078).
         gallery.set_aside(video_path, other.stem)
         return f"{channel.channel_display_name}: not sent, its other version already went out"
+    clash = title_clash(channel, video_path)
+    if clash:
+        unqueue(video_path)
+        _note_on_report(video_path, f"Not sent: \"{clash.stem}\" has the same title. Give this one its own; "
+                                    f"it's back in review.")
+        return f"{channel.channel_display_name}: not sent, another video has the same title"
     try:
         result = put_out(channel, video_path)
     except NowhereToPublish:

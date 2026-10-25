@@ -814,7 +814,7 @@ a newsroom channel (decision [127](docs/decisions/127-the-newsroom.md),
 subagents on the owner's subscription (`.claude/agents/newsroom-*.md`),
 handed out, briefed and checked by `core/newsroom.py` and sent in by the
 overnight `newsroom` scheduled task (docs/newsroom.md); the autopilot
-draws a film once the newsroom has passed it; its **Newsroom** tab (`web/blueprints/newsroom.py`, `newsroom.board`, decision [130](docs/decisions/130-newsroom-audit-and-board.md)) draws each film as a flow of steps;
+draws a film once the newsroom has passed it; its **Newsroom** tab (`web/blueprints/newsroom.py`, `newsroom.board`, decision [130](docs/decisions/130-newsroom-audit-and-board.md)) draws each film as a flow of steps; a drawn storyboard is read by a frame checker, then a continuity editor who approves it (decision [133](docs/decisions/133-storyboards-read-twice-fair-voice-one-title.md));
 `kinds.py` holds the parts of the pitch, outline, script and critic
 prompts that differ.
 Depth is used only where `depth.suits` (zooms; pans across a whole wide
@@ -964,7 +964,7 @@ voice allowance resets, what's left of it is spent on videos made ahead
 for the slots nothing covers yet, filled in date order across every
 channel so there are no gaps, one at a time and within a Claude reserve
 (`core.spare_voice`, decision
-[069](docs/decisions/069-spare-voice-and-credits.md)). Before any of it,
+[069](docs/decisions/069-spare-voice-and-credits.md)). When credits are short, the video due soonest is voiced first, whichever channel it's for, with `publishing.voice_priority` deciding only within 12 hours (`core.voice_quota.reserve_for`, decisions 131 and 133). On a documentary channel no two videos out or queued share a title (`publish_queue.title_clash`). Before any of it,
 the narration still owed to documentaries in production is kept back
 (`core.production.narration_still_to_voice`), and a documentary
 channel's own slots are never filled with shorts (decision

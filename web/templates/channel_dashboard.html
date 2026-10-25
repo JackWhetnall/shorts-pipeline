@@ -79,9 +79,10 @@
       {% if upcoming %}
       <ol class="schedule">
         {% for item in upcoming %}
-        <li>
+        <li class="kind-{{ item.kind }}">
           <span class="schedule-when"><b>{{ item.day }}</b><span>{{ item.date }}</span></span>
           <span class="schedule-time">{{ item.time }}</span>
+          <span class="schedule-kind k-{{ item.kind }}">{{ {'long': 'Long', 'teaser': 'Teaser', 'short': 'Short'}[item.kind] }}</span>
           {% if item.relpath %}
           <a class="schedule-title" href="{{ url_for('gallery.video_detail', key=key, relpath=item.relpath) }}">{{ item.title }}</a>
           {% else %}<span class="schedule-title">{{ item.title }}</span>{% endif %}

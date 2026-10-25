@@ -192,7 +192,9 @@ to watch it. Check each one against the owner's rules (decisions 106 and
    subscribe" or "link in bio".
 8. **The two teasers differ** in which part of the film they take, how
    they hook and how they end.
-9. **The title is honest** ("Blurry on Purpose" wasn't).
+9. **The title is honest** ("Blurry on Purpose" wasn't), **and its own:** no
+   two videos on the channel share a title. The sheet says TITLE CLASH when
+   they would, and approving waits until it's fixed.
 
 Fix a line or a title:
 

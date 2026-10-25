@@ -68,6 +68,7 @@ ROLES = {
     "pitch": ("newsroom-scout", 1),
     "commission": ("newsroom-commissioning-editor", 1),
     "proof": ("newsroom-writer", 2),
+    "proof_audience": ("newsroom-test-audience", 1),
     "proof_review": ("newsroom-script-editor", 1),
     "draft": ("newsroom-writer", 3),
     "edit": ("newsroom-script-editor", 2),
@@ -76,21 +77,23 @@ ROLES = {
     "packaging": ("newsroom-packaging-editor", 1),
     "audience": ("newsroom-test-audience", 1),
     "final": ("newsroom-managing-editor", 1),
-    "storyboard": ("newsroom-picture-editor", 1),
+    "storyboard": ("newsroom-picture-editor", 1),       # before decision 133: one look at the drawn board
+    "frames": ("newsroom-frame-checker", 2),
+    "continuity": ("newsroom-continuity-editor", 1),
     "teasers": ("newsroom-teaser-editor", 1),
     "bank": ("newsroom-scout", 1),
     "analysis": ("newsroom-analyst", 1),
 }
 # The order work is handed out in: a film nearest done first, so films
 # finish rather than all starting.
-PRIORITY = ("analysis", "teasers", "storyboard", "final", "audience", "packaging", "pictures", "facts", "edit", "draft",
-            "proof_review", "proof", "commission", "pitch", "bank")
+PRIORITY = ("analysis", "teasers", "continuity", "frames", "storyboard", "final", "audience", "packaging", "pictures", "facts", "edit", "draft",
+            "proof_review", "proof_audience", "proof", "commission", "pitch", "bank")
 # A film's state: the role due next.
 DUE = {"": "pitch", "rework_pitch": "pitch", "pitched": "commission", "commissioned": "proof",
-       "rework_proof": "proof", "proofed": "proof_review", "drafting": "draft", "rework_draft": "draft",
+       "rework_proof": "proof", "proofed": "proof_audience", "proof_screened": "proof_review", "drafting": "draft", "rework_draft": "draft",
        "drafted": "edit", "edited": "facts", "checked": "pictures", "pictured": "packaging",
        "packaged": "audience", "screened": "final"}
-IN_WRITING = {"rework_proof", "proofed", "drafting", "rework_draft", "drafted", "edited", "checked",
+IN_WRITING = {"rework_proof", "proofed", "proof_screened", "drafting", "rework_draft", "drafted", "edited", "checked",
               "pictured", "packaged", "screened"}
 DONE = {"passed", "scrapped"}
 
@@ -339,7 +342,10 @@ def due(channel, ledger: dict = None) -> list:
         if "teasers" in f["waiting"]:
             found.append({"role": "teasers", "films": [f["id"]]})
         if "stills" in f["waiting"]:
-            found.append({"role": "storyboard", "films": [f["id"]]})
+            # Decision 133: every picture against its line first, then the
+            # whole board for continuity, which approves it.
+            checked = frames_checked(ledger, channel.key, f["id"])
+            found.append({"role": "continuity" if checked else "frames", "films": [f["id"]]})
     stuck = held(channel, ledger)
     films = [(row, d) for row, d in _films(channel)
              if d["subtopic_id"] not in taken and row is not None and d["subtopic_id"] not in stuck]
@@ -374,6 +380,72 @@ def due(channel, ledger: dict = None) -> list:
     if analysis_due(channel) and not any(r["role"] == "analysis" for r in ledger["open"].values()):
         found.append({"role": "analysis", "films": []})
     return sorted(found, key=lambda a: PRIORITY.index(a["role"]))
+
+
+FRAMES_PER_SHEET = 6
+
+
+def frames_checked(ledger: dict, key: str, sid: str) -> bool:
+    """Whether this storyboard's frames have been read since its last
+    continuity read: each drawing of a board gets one of each, frames
+    first."""
+    def count(role):
+        return sum(1 for r in ledger["done"] if r["role"] == role and sid in r["films"]
+                   and r.get("verdict") not in ("rejected", "not handed in"))
+    return count("frames") > count("continuity")
+
+
+def frame_sheets(key: str, sid: str) -> list:
+    """[(sheet path, [scene numbers])]: the storyboard six pictures at a
+    time, big enough to read each one (decision 133: forty to a contact
+    sheet, no line could be checked against its picture)."""
+    from PIL import Image, ImageDraw, ImageFont
+    data = production.load(key, sid)
+    folder = production.folder(key, sid)
+    stills = data.get("stills") or {}
+    keys = sorted(stills, key=int)
+    out_dir = folder / "review"
+    out_dir.mkdir(exist_ok=True)
+    try:
+        font = ImageFont.truetype("arialbd.ttf", 34)
+    except OSError:
+        font = ImageFont.load_default()
+    w, h, cols = 640, 360, 2
+    out = []
+    for n, start in enumerate(range(0, len(keys), FRAMES_PER_SHEET), start=1):
+        chunk = keys[start:start + FRAMES_PER_SHEET]
+        rows = (len(chunk) + cols - 1) // cols
+        sheet = Image.new("RGB", (w * cols + 8, h * rows + 4 * rows), "white")
+        for j, k in enumerate(chunk):
+            im = Image.open(folder / stills[k]).convert("RGB")
+            im.thumbnail((w, h))
+            x, y = (j % cols) * (w + 8), (j // cols) * (h + 4)
+            sheet.paste(im, (x, y))
+            pen = ImageDraw.Draw(sheet)
+            pen.rectangle((x, y, x + 74, y + 44), fill="black")
+            pen.text((x + 8, y + 3), str(k), fill="yellow", font=font)
+        path = out_dir / f"frames_{n:02d}.jpg"
+        sheet.save(path, quality=88)
+        out.append((path, [int(k) for k in chunk]))
+    return out
+
+
+def frames_text(key: str, sid: str) -> str:
+    """Each frame sheet's path, then every scene on it: what's said over it,
+    and the picture it asked for."""
+    data = production.load(key, sid)
+    scenes = (data.get("script") or {}).get("scenes") or []
+    lines = []
+    for path, numbers in frame_sheets(key, sid):
+        lines.append(f"SHEET {path}")
+        for i in numbers:
+            s = scenes[i] if i < len(scenes) else {}
+            again = f" (shows scene {s['same_as']}'s picture again)" if isinstance(s.get("same_as"), int) else ""
+            what = ("CARD: " + _text((s.get("card") or {}).get("heading"))) if s.get("medium") == "card" \
+                else f"PICTURE ASKED FOR (in {s.get('setting') or '?'}){again}: {s.get('direction', '')}"
+            lines.append(f"  [{i}] SAYS: {s.get('narration', '')}\n       {what}")
+        lines.append("")
+    return "\n".join(lines)
 
 
 def next_assignment(channel, now: float = None) -> tuple:
@@ -456,9 +528,12 @@ SHAPES = {
    "leaves_at": <the scene number they'd leave at, or -1 if they'd stay to the end of what you read>,
    "leave_why": "why they'd go, or what kept them", "confused_by": [<scene numbers>]}],
  "summary": "one sentence: what the panel says"}""",
+    "proof_audience": """(the same shape as the test audience's: three viewers)""",
     "final": """{"verdict": "pass" | "back" | "scrap", "back_to": "draft" | "edit" | "pictures" | "packaging" | "",
  "notes": ["what must change, if it goes back"], "summary": "two sentences for the owner"}""",
     "storyboard": """{"summary": "what you redrew and approved, or why you held it"}""",
+    "frames": """{"summary": "each scene you redrew and why, or that every picture fits its line"}""",
+    "continuity": """{"summary": "what you redrew, and that you approved the storyboard (or why you held it)"}""",
     "teasers": """{"summary": "what you changed and approved"}""",
     "bank": """{"summary": "the topic added, its subtopics, anything skipped"}""",
     "analysis": """{"findings": {"scout": [{"text": "what to do differently", "evidence": "which films, which figures",
@@ -469,11 +544,12 @@ SHAPES = {
 
 LABELS = {"pitch": "Pitch these films", "commission": "Commission, rework or scrap these pitches",
           "proof": "Write the proof: the outline and the whole first chapter",
-          "proof_review": "Review the proof", "draft": "Write the whole script", "edit": "Edit the script",
+          "proof_review": "Review the proof", "proof_audience": "Be the proof's first three viewers", "draft": "Write the whole script", "edit": "Edit the script",
           "facts": "Check the facts and the cards", "pictures": "Plan every picture",
           "packaging": "Package the film", "audience": "Be its first three viewers",
           "final": "The last read before it's drawn",
           "storyboard": "Review the storyboard", "teasers": "Review the teasers", "bank": "Stock the topic plan",
+          "frames": "Check every picture against its line", "continuity": "Read the storyboard as one film",
           "analysis": "Read the published films and tell each role what they teach"}
 
 
@@ -721,6 +797,7 @@ def _brief_proof_review(channel, row) -> str:
         _channel_text(channel), _learnt(channel),
         "THE COMMISSIONED PITCH:\n" + _pitch_text(nr.get("pitch") or {}),
         "THE VERDICTS SO FAR:\n" + _verdicts_text(nr),
+        _audience_text(nr, "proof_audience"),
         "THE OUTLINE:\n" + script.outline_text(proof.get("outline") or {"chapters": []}, _angle(nr)),
         "CHAPTER 1, IN FULL:\n" + _sheet(proof.get("outline") or {}, proof.get("scenes") or []),
         "WHAT THE CODE FOUND (no model): " + ("; ".join(found) or "nothing"),
@@ -793,12 +870,16 @@ def _brief_pictures(channel, row) -> str:
     entry, data, nr = _film(channel, row)
     outline_, draft = nr["proof"]["outline"], nr["draft"]
     left = row.get("left") or []
+    if not left and not row.get("tries"):
+        # Every first plan was sent back by these counts: show them first.
+        left = pictures._merged(pictures.audit(outline_, pictures.validate(outline_, draft["scenes"]),
+                                               kinds.family(kinds.of(channel))))
     return "\n\n".join(p for p in [
         "HOW TO PLAN THE PICTURES:\n" + pictures.system_text(kinds.family(kinds.of(channel)), most=60),
         "NAMING SUBJECTS (for `subjects`, every picture scene):\n" + pictures.SUBJECTS,
         "Every picture scene gets a subject. `changes` lists every change you make, all of them each time "
         "you hand in: the desk applies them to the script as edited, then counts what's still wrong.",
-        ("WHAT THE CODE STILL FOUND LAST TIME (fix each):\n"
+        ("WHAT THE CODE FINDS (fix each; it also counts repeated subjects once you name them):\n"
          + "\n".join(f"- scene {p['scene']}: {p['problem']}" for p in left)) if left else "",
         f"Tries so far: {row.get('tries', 0)} of {SUBMITS}.",
         pictures._brief(outline_, draft["scenes"])] if p)
@@ -859,8 +940,8 @@ def _opening_scenes(channel, scenes: list, seconds: float = AUDIENCE_SECONDS) ->
     return out
 
 
-def _audience_text(nr: dict) -> str:
-    panel = nr.get("audience") or {}
+def _audience_text(nr: dict, key: str = "audience") -> str:
+    panel = nr.get(key) or {}
     if not panel.get("viewers"):
         return ""
     lines = [f"- {v['who']}: {'clicks' if v['clicks'] else 'scrolls past'} ({v.get('click_why', '')}); "
@@ -868,14 +949,20 @@ def _audience_text(nr: dict) -> str:
                 else f"stays ({v.get('leave_why', '')})")
              + (f"; confused by scene(s) {', '.join(map(str, v['confused_by']))}" if v.get("confused_by") else "")
              for v in panel["viewers"]]
-    return "THE TEST AUDIENCE (three cold viewers, the title, thumbnail and first minutes):\n" + "\n".join(lines)
+    head = ("THE FIRST VIEWERS (three cold viewers heard the pitched title and chapter 1):" if key == "proof_audience"
+            else "THE TEST AUDIENCE (three cold viewers, the title, thumbnail and first minutes):")
+    return head + "\n" + "\n".join(lines)
 
 
-def _brief_audience(channel, row) -> str:
+def _brief_proof_audience(channel, row) -> str:
+    return _brief_audience(channel, row, proof=True)
+
+
+def _brief_audience(channel, row, proof: bool = False) -> str:
     entry, data, nr = _film(channel, row)
-    pack = nr.get("packaging") or {}
+    pack = (_angle(nr) if proof else nr.get("packaging")) or {}
     thumb = pack.get("thumbnail") or {}
-    opening = _opening_scenes(channel, nr["draft"]["scenes"])
+    opening = _opening_scenes(channel, (nr["proof"] if proof else nr["draft"])["scenes"])
     lines = []
     for i, s in enumerate(opening):
         shown = "a card: " + _text((s.get("card") or {}).get("heading")) if s.get("medium") == "card" \
@@ -901,6 +988,21 @@ def _brief_overseer(channel, row) -> str:
         return (f"FILM {channel.key}/{sid}: its storyboard is drawn. Follow 'Checkpoint 2: the storyboard' in "
                 f"docs/overseer.md exactly, with its commands (python -m core.overseer board {channel.key} {sid}, "
                 f"redraw, approve, note). Then hand in a one-line summary.")
+    if role == "frames":
+        return (f"FILM {channel.key}/{sid}: its storyboard is drawn. Check every picture against the line spoken "
+                f"over it. Run: python -m core.newsroom frames {channel.key} {sid}\nIt prints each frame sheet "
+                f"(six numbered pictures) with every scene's line and the picture that was asked for. Read every "
+                f"sheet image. Redraw real faults with: python -m core.overseer redraw {channel.key} {sid} <scenes> "
+                f"--note \"what the picture must show\" (at most 15 pictures, each once). Don't approve the "
+                f"storyboard: the continuity editor reads it next. Hand in a summary: what you redrew and why.")
+    if role == "continuity":
+        return (f"FILM {channel.key}/{sid}: its pictures have each been checked against their lines. Now read the "
+                f"whole storyboard in order as one film. Run: python -m core.overseer script {channel.key} {sid} "
+                f"(the cast, the settings and every scene) and python -m core.overseer board {channel.key} {sid} "
+                f"(the contact sheets, in order); for a closer look at any stretch, python -m core.newsroom frames "
+                f"{channel.key} {sid}. Redraw real faults (at most 12, each once) with python -m core.overseer "
+                f"redraw ..., then approve it: python -m core.overseer approve {channel.key} {sid} stills, and leave "
+                f"a note: python -m core.overseer note {channel.key} {sid} \"...\". Hand in a one-line summary.")
     if role == "teasers":
         return (f"FILM {channel.key}/{sid}: its teasers are written. Follow 'Checkpoint 3: the teasers' in "
                 f"docs/overseer.md exactly, with its commands. Then hand in a one-line summary.")
@@ -912,8 +1014,10 @@ def _brief_overseer(channel, row) -> str:
 _BRIEFS = {"pitch": _brief_pitch, "commission": _brief_commission, "proof": _brief_proof,
            "proof_review": _brief_proof_review, "draft": _brief_draft, "edit": _brief_edit, "facts": _brief_facts,
            "pictures": _brief_pictures, "packaging": _brief_packaging, "audience": _brief_audience,
+           "proof_audience": _brief_proof_audience,
            "final": _brief_final,
            "storyboard": _brief_overseer, "teasers": _brief_overseer, "bank": _brief_overseer,
+           "frames": _brief_overseer, "continuity": _brief_overseer,
            "analysis": lambda channel, row: _brief_analysis(channel, row)}
 
 
@@ -1372,12 +1476,17 @@ def _take_packaging(channel, row, data) -> tuple:
 
 BACK = {"draft": "rework_draft", "edit": "drafted", "pictures": "checked", "packaging": "pictured"}
 # The steps a film's work goes through, for the board (decision 130).
-STEPS = (("pitch", "Pitch"), ("commission", "Commission"), ("proof", "Proof"), ("proof_review", "Proof read"),
+STEPS = (("pitch", "Pitch"), ("commission", "Commission"), ("proof", "Proof"), ("proof_audience", "First viewers"),
+         ("proof_review", "Proof read"),
          ("draft", "Draft"), ("edit", "Edit"), ("facts", "Facts"), ("pictures", "Pictures"),
          ("packaging", "Package"), ("audience", "Test viewers"), ("final", "Final read"))
 
 
-def _take_audience(channel, row, data) -> tuple:
+def _take_proof_audience(channel, row, data) -> tuple:
+    return _take_audience(channel, row, data, key="proof_audience", after="proof_screened")
+
+
+def _take_audience(channel, row, data, key: str = "audience", after: str = "screened") -> tuple:
     sid = row["films"][0]
     viewers = [v for v in data.get("viewers") or [] if isinstance(v, dict)]
     problems = []
@@ -1402,9 +1511,9 @@ def _take_audience(channel, row, data) -> tuple:
     what = f"{clicks} of 3 click; {early} of 3 leave in the first few scenes"
 
     def change(d, nr):
-        nr["audience"] = {"viewers": kept, "summary": _text(data.get("summary"))}
-        nr["state"] = "screened"
-        _logged(nr, "audience", row["id"], what, _text(data.get("summary")), clicks=clicks, early=early)
+        nr[key] = {"viewers": kept, "summary": _text(data.get("summary"))}
+        nr["state"] = after
+        _logged(nr, key, row["id"], what, _text(data.get("summary")), clicks=clicks, early=early)
     _change(channel, sid, change)
     return [], what
 
@@ -1488,8 +1597,10 @@ def _take_summary(channel, row, data) -> tuple:
 _TAKE = {"pitch": _take_pitch, "commission": _take_commission, "proof": _take_proof,
          "proof_review": _take_proof_review, "draft": _take_draft, "edit": _take_edit, "facts": _take_facts,
          "pictures": _take_pictures, "packaging": _take_packaging, "audience": _take_audience,
+         "proof_audience": _take_proof_audience,
          "final": _take_final,
          "storyboard": _take_summary, "teasers": _take_summary, "bank": _take_summary,
+         "frames": _take_summary, "continuity": _take_summary,
          "analysis": lambda channel, row, data: _take_analysis(channel, row, data)}
 
 
@@ -1610,7 +1721,7 @@ ANALYSIS_AFTER_DAYS = 7         # a film's first week, before it's worth reading
 FINDINGS_PER_ROLE = 4
 CONFIDENCE = ("strong", "suggestive", "hunch")
 # Which findings each role is briefed with.
-READS = {"pitch": "scout", "commission": "scout", "bank": "scout", "proof": "writer", "draft": "writer",
+READS = {"frames": "pictures", "continuity": "pictures", "proof_audience": "script_editor", "pitch": "scout", "commission": "scout", "bank": "scout", "proof": "writer", "draft": "writer",
          "proof_review": "script_editor", "edit": "script_editor", "final": "script_editor",
          "audience": "script_editor",
          "packaging": "packaging", "pictures": "pictures", "storyboard": "pictures"}
@@ -1818,12 +1929,13 @@ def findings_text(key: str, role: str) -> str:
 # state and a badge, with the detail kept for hovering.
 
 RUN_HOURS = (23, 4)             # the newsroom task's runs, local time
-WRITING_ORDER = ("proof", "proof_review", "draft", "edit", "facts", "pictures", "packaging", "audience", "final")
+WRITING_ORDER = ("proof", "proof_audience", "proof_review", "draft", "edit", "facts", "pictures", "packaging", "audience", "final")
 STUDIO = (("storyboard", "Storyboard"), ("video", "Video"), ("review", "Your look"), ("out", "Out"))
-AGENT_NAMES = {"pitch": "Scout", "commission": "Commissioning editor", "proof": "Writer", "proof_review": "Script editor",
+AGENT_NAMES = {"pitch": "Scout", "commission": "Commissioning editor", "proof": "Writer",
+               "proof_audience": "Test audience", "proof_review": "Script editor",
                "draft": "Writer", "edit": "Script editor", "facts": "Fact checker", "pictures": "Picture editor",
                "packaging": "Packaging editor", "audience": "Test audience", "final": "Managing editor",
-               "storyboard": "Picture editor", "video": "The app", "review": "You", "out": "YouTube"}
+               "storyboard": "Frame checker, continuity editor", "video": "The app", "review": "You", "out": "YouTube"}
 
 
 def next_run(now: datetime = None) -> datetime:
@@ -1858,7 +1970,12 @@ def plan_next(channel, now: float = None) -> dict:
         for f in overseer.status():
             if f["channel"] == channel.key:
                 for w in f["waiting"]:
-                    take(f["id"], "storyboard" if w == "stills" else "teasers")
+                    if w != "stills":
+                        take(f["id"], "teasers")
+                        continue
+                    if not frames_checked(ledger, channel.key, f["id"]):
+                        take(f["id"], "frames")
+                    take(f["id"], "continuity")
     except Exception:  # noqa: BLE001 - a board without the reviews is still a board
         pass
     films = [(row, d) for row, d in _films(channel) if row and d["subtopic_id"] not in stuck]
@@ -1936,12 +2053,12 @@ def _step_detail(role: str, nr: dict, rows: list) -> tuple:
         if pitched and pitched != pack["title"]:
             badge = "new title"
             lines.append(f"Pitched as: {pitched}")
-    elif role == "audience" and nr.get("audience"):
-        viewers = nr["audience"]["viewers"]
+    elif role in ("audience", "proof_audience") and nr.get(role):
+        viewers = nr[role]["viewers"]
         badge = f"{sum(v['clicks'] for v in viewers)}/3"
         lines = [f"{'Clicks' if v['clicks'] else 'Scrolls past'} · "
                  + (f"leaves at scene {v['leaves_at']}" if v["leaves_at"] >= 0 else "stays")
-                 + f" — {v['who']}" for v in viewers] + ([nr["audience"]["summary"]] if nr["audience"].get("summary") else [])
+                 + f" — {v['who']}" for v in viewers] + ([nr[role]["summary"]] if nr[role].get("summary") else [])
     if back and role in ("commission", "proof_review", "edit", "final"):
         badge = f"↺{back}"
     return badge, [x for x in lines if x], back
@@ -1960,8 +2077,10 @@ def board(channel, now: float = None) -> dict:
             working[sid] = row["role"]
     reviews = {}
     for row in ledger["done"]:
-        if row["role"] in ("storyboard", "teasers") and row["films"]:
-            reviews[(row["films"][0], row["role"])] = str(row.get("verdict") or "")
+        if row["role"] in ("storyboard", "frames", "continuity", "teasers") and row["films"]:
+            role = "storyboard" if row["role"] in ("frames", "continuity") else row["role"]
+            label = {"frames": "Frames: ", "continuity": "Continuity: "}.get(row["role"], "")
+            reviews.setdefault((row["films"][0], role), []).append(label + str(row.get("verdict") or ""))
     films = []
     for data in production.all_for(channel.key):
         nr = newsroom_of(data)
@@ -1985,8 +2104,8 @@ def board(channel, now: float = None) -> dict:
             badge, detail, back = _step_detail(key, nr, rows)
             if state == "scrapped":
                 status = "done" if i < at else ("scrapped" if i == at else "skipped")
-            elif state == "passed" and key == "audience" and not rows:
-                status = "skipped"              # passed before there was a test audience
+            elif key in ("audience", "proof_audience") and not rows and i < at:
+                status = "skipped"              # past it before there was this test audience
             elif i < at:
                 status = "done"
             elif i == at:
@@ -2011,11 +2130,10 @@ def board(channel, now: float = None) -> dict:
                 if data["stages"]["stills"].get("interrupted") and stage["stills"] == "failed":
                     status = "current"
                     detail.append("Cut short by a restart; it carries on from where it stopped")
-                if (sid, "storyboard") in reviews:
-                    detail.append(reviews[(sid, "storyboard")])
+                detail += reviews.get((sid, "storyboard"), [])[-3:]
                 if stage["stills"] == "working":
                     detail.append("Drawing the pictures")
-                status = "working" if working.get(sid) == "storyboard" else status
+                status = "working" if working.get(sid) in ("storyboard", "frames", "continuity") else status
             elif key == "video":
                 status = {"approved": "done", "ready": "done", "working": "working", "failed": "failed"}.get(
                     stage["video"], "todo")
@@ -2032,8 +2150,9 @@ def board(channel, now: float = None) -> dict:
                     detail.append(f"Out {str(info.get('published_at', ''))[:10]}")
                 elif info and gallery.is_queued(info):
                     detail.append("Queued to go out")
+            soon = key in coming or (key == "storyboard" and bool({"frames", "continuity"} & set(coming)))
             steps.append({"key": key, "label": label, "status": status, "badge": badge, "detail": detail,
-                          "back": 0, "next": key in coming, "who": AGENT_NAMES.get(key, "")})
+                          "back": 0, "next": soon, "who": AGENT_NAMES.get(key, "")})
         group = ("scrapped" if state == "scrapped" else "out" if out
                  else "studio" if state == "passed" else "writing")
         done_count = sum(1 for s in steps if s["status"] == "done")
@@ -2102,6 +2221,9 @@ def main(argv=None) -> int:
     p = sub.add_parser("demand")
     p.add_argument("channel")
     p.add_argument("query")
+    p = sub.add_parser("frames")
+    p.add_argument("channel")
+    p.add_argument("film")
     p = sub.add_parser("spent")
     p.add_argument("channel")
     p.add_argument("assignment")
@@ -2136,6 +2258,8 @@ def main(argv=None) -> int:
                 return 1
         elif args.command == "demand":
             print(demand(args.channel, args.query))
+        elif args.command == "frames":
+            print(frames_text(args.channel, args.film))
         elif args.command == "spent":
             print("recorded" if spent(args.channel, args.assignment, args.tokens) else "no such assignment")
     except PipelineError as exc:

@@ -256,3 +256,14 @@ def test_the_overseer_reads_the_teasers_before_they_are_made(monkeypatch):
     overseer.approve("doc", "t1", "teasers")
     assert data["teasers"]["reviewed"] and auto_films.step(_channel(overseen=True)) and started == ["teasers"]
     assert "Checkpoint 3: the teasers" in open("docs/overseer.md", encoding="utf-8").read()
+
+
+def test_teasers_sharing_a_title_cant_be_approved(monkeypatch):
+    # 25 Oct: "Before the Stop Sign Existed" was queued twice.
+    from core import overseer
+    data = {"teasers": {"scripts": [{"title": "Same Title"}, {"title": "same  title"}], "videos": []}}
+    monkeypatch.setattr(overseer.production, "load", lambda key, sid: data)
+    monkeypatch.setattr(overseer.channel_config, "load_channels", lambda: {})
+    assert overseer.teaser_title_clashes("doc", "t1") == ["same title"]
+    with pytest.raises(SystemExit):
+        overseer.approve("doc", "t1", "teasers")

@@ -2673,7 +2673,7 @@ td.actions > * + * { margin-left: var(--sp-2); }
 /* The next videos going out, as a run sheet. */
 .publishing-line { margin: 0 0 var(--sp-3); }
 .schedule { list-style: none; margin: 0 0 var(--sp-3); padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.schedule li { display: grid; grid-template-columns: 4.2rem 3.4rem minmax(0, 1fr); align-items: center; gap: var(--sp-3);
+.schedule li { display: grid; grid-template-columns: 4.2rem 3.4rem 3.9rem minmax(0, 1fr); align-items: center; gap: var(--sp-3);
   padding: 0.55rem 0.85rem; border-top: 1px solid var(--border); font-size: 0.9rem; }
 .schedule li:first-child { border-top: 0; background: var(--surface-2); }
 .schedule-when { display: flex; gap: 0.4rem; align-items: baseline; white-space: nowrap; }
@@ -2682,6 +2682,15 @@ td.actions > * + * { margin-left: var(--sp-2); }
 .schedule-time { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .schedule-title { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 a.schedule-title:hover { color: var(--accent); text-decoration: none; }
+/* What each queued video is (the owner, 25 Oct): a long video stands out,
+   a film's teaser and a short sit quieter. A stripe down the row too. */
+.schedule li { border-left: 3px solid transparent; }
+.schedule li.kind-long { border-left-color: var(--accent); }
+.schedule li.kind-teaser { border-left-color: #6aa6ff; }
+.schedule-kind { justify-self: start; font-size: .66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px; background: var(--surface-hover); color: var(--text-dim); }
+.schedule-kind.k-long { background: var(--accent-soft); color: var(--accent); }
+.schedule-kind.k-teaser { background: rgba(106, 166, 255, .14); color: #8db8ff; }
 .making-now { display: flex; align-items: center; gap: var(--sp-2); margin: 0; }
 
 .kv-link { color: inherit; border-radius: var(--radius-sm); margin: 0 -0.4rem; padding-inline: 0.4rem; transition: background-color 0.12s; }
@@ -3058,7 +3067,7 @@ h2.tab-title { font-size: 1.2rem; margin-bottom: var(--sp-3); }
   h1 { font-size: 1.45rem; }
   .channel-head h1 { font-size: 1.4rem; }
   .channel-head-logo { width: 48px; height: 48px; border-radius: 12px; }
-  .schedule li { grid-template-columns: 3.6rem 3rem minmax(0, 1fr); gap: var(--sp-2); padding-inline: 0.65rem; }
+  .schedule li { grid-template-columns: 3.6rem 3rem 3.3rem minmax(0, 1fr); gap: var(--sp-2); padding-inline: 0.65rem; }
   .card { padding: 1rem; }
   .review-bar-inner .review-position { display: none; }
 }

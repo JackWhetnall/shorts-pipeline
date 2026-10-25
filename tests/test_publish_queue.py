@@ -385,3 +385,65 @@ class TestNumberOrder:
         monkeypatch.setattr("web.blueprints.review.load_channels", lambda validate=True: {"c": world.channel})
         html = create_app().test_client().get("/queued").get_data(as_text=True)
         assert html.index("#1") < html.index("#3") and "Waits for #2, still in review" in html
+
+
+class TestClocksGoingBack:
+    """25 Oct 2026: just after the clocks went back, latest_slot read
+    Saturday's 16:30 as 17:30 (today's offset on another day's time), took
+    it for a missed slot, and a film went out at 02:05 on Sunday."""
+
+    PLAN = SimpleNamespace(slots=["16:30"], weekdays=[1, 5])
+
+    def test_the_latest_slot_agrees_with_the_upcoming_ones_across_the_change(self):
+        start = datetime(2026, 10, 24, 12, 0).astimezone()
+        for hours in range(0, 60):
+            now = start + timedelta(hours=hours)
+            upcoming = publish_queue.upcoming_slots(self.PLAN, now - timedelta(days=8), 50)
+            expected = max(s for s in upcoming if s <= now)
+            assert publish_queue.latest_slot(self.PLAN, now) == expected, now
+
+    def test_no_film_goes_out_on_the_sunday_after_saturdays(self):
+        saturday = datetime(2026, 10, 24, 16, 30).astimezone()
+        if saturday.utcoffset() == datetime(2026, 10, 26, 16, 30).astimezone().utcoffset():
+            pytest.skip("this machine's clock has no change on 25 Oct")
+        sunday = datetime(2026, 10, 25, 2, 5).astimezone()
+        due = publish_queue.latest_slot(self.PLAN, sunday)
+        assert due == saturday
+        assert publish_queue._filled(self.PLAN, due, saturday + timedelta(minutes=5))
+
+
+class TestDistinctTitles:
+    """25 Oct: "Before the Stop Sign Existed" was queued twice, an old
+    teaser render beside the new one. The owner: "make sure that all videos
+    have distinct titles!" """
+
+    def test_a_film_channels_video_isnt_sent_under_a_title_another_has(self, world):
+        world.channel.format = "documentary"
+        first, second = world.video("one"), world.video("two")
+        gallery.save_title_and_description(second, "Title one", "About two")
+        assert publish_queue.title_clash(world.channel, second) == first
+        result = publish_queue._send(world.channel, second)
+        assert "same title" in result and not gallery.is_queued(gallery.load_publish_info(second))
+        assert world.state["uploads"] == []
+
+    def test_the_frozen_channels_are_left_as_they_are(self, world):
+        world.video("one")
+        second = world.video("two")
+        gallery.save_title_and_description(second, "Title one", "About two")
+        assert publish_queue.title_clash(world.channel, second) is None     # not a documentary channel
+
+
+def test_remade_teasers_retire_the_old_renders(tmp_path, monkeypatch):
+    from pipeline.documentary import run
+    monkeypatch.setattr("core.gallery.OUTPUT_DIR", tmp_path / "out")
+    monkeypatch.setattr("core.gallery._sync_curriculum", lambda *a: None)
+    monkeypatch.setattr(run, "_root", lambda channel: tmp_path / "out" / "c")
+    old, out, new = (tmp_path / "out" / "c" / "d" / f"{n}.mp4" for n in ("old", "out", "new"))
+    for p in (old, out, new):
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(b"v")
+        gallery.save_title_and_description(p, p.stem, "")
+    gallery.save_publish_info(out, {"youtube_url": "https://youtu.be/xxxxxxxxxxx"})
+    data = {"teasers": {"videos": ["d/old.mp4", "d/out.mp4", "d/new.mp4"]}}
+    assert run.retire_teasers(SimpleNamespace(key="c"), data, keep=["d/new.mp4"]) == ["d/old.mp4"]
+    assert gallery.load_publish_info(old)["discarded"] and not gallery.load_publish_info(out).get("discarded")

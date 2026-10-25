@@ -104,6 +104,11 @@ def _scene(chapter, words, direction="A kettle on a stove, whole and at rest"):
             "art_query": "", "card": {}, "speaker": ""}
 
 
+VIEWERS = [{"who": "a commuter", "clicks": True, "click_why": "odd", "leaves_at": -1, "leave_why": "kept"},
+           {"who": "a science fan", "clicks": True, "click_why": "new", "leaves_at": -1, "leave_why": "kept"},
+           {"who": "a teenager", "clicks": False, "click_why": "dull", "leaves_at": 2, "leave_why": "slow"}]
+
+
 def _to(channel, state):
     """Walk the first film to `state` through each role, all approving."""
     pitch = _issue(channel, "pitch")
@@ -115,6 +120,7 @@ def _to(channel, state):
             {"film": s, "verdict": "commission", "reason": "good", "notes": ["keep the hook"],
              "scores": {"curiosity": 8, "demand": 7, "material": 7, "pictures": 8}} for s in pitch["films"]]}),
         ("proof", "proofed", {"outline": OUTLINE, "scenes": [_scene(1, 30), _scene(1, 30, "A steaming kettle")]}),
+        ("proof_audience", "proof_screened", {"summary": "Two would watch.", "viewers": VIEWERS}),
         ("proof_review", "drafting", {"verdict": "go", "reason": "it hooks", "notes": [],
                                       "scores": {"opening": 8, "momentum": 7, "clarity": 8, "material": 7}}),
         ("draft", "drafted", {"scenes": [_scene(1, 30), _scene(1, 30, "A steaming kettle"),
@@ -130,10 +136,7 @@ def _to(channel, state):
                                   "changes": []}),
         ("packaging", "packaged", {"title": "Why Does Thing 0 Happen Every Day", "description": "A film about it.",
                                    "thumbnail": {"subject": "a kettle", "words": "EVERY DAY"}, "why": "clear"}),
-        ("audience", "screened", {"summary": "Two would watch.", "viewers": [
-            {"who": "a commuter", "clicks": True, "click_why": "odd", "leaves_at": -1, "leave_why": "kept"},
-            {"who": "a science fan", "clicks": True, "click_why": "new", "leaves_at": -1, "leave_why": "kept"},
-            {"who": "a teenager", "clicks": False, "click_why": "dull", "leaves_at": 2, "leave_why": "slow"}]}),
+        ("audience", "screened", {"summary": "Two would watch.", "viewers": VIEWERS}),
     ]
     for role, reached, data in steps:
         row = _issue(channel, role)
@@ -190,6 +193,8 @@ def test_a_proof_must_fill_its_first_chapter_and_a_low_score_cant_go_on(world):
     ok, problems, _ = _hand_in(world, row["id"], {"outline": OUTLINE, "scenes": [_scene(1, 10)]})
     assert not ok and "chapter 1 is 10 words" in problems[0]
     assert _hand_in(world, row["id"], {"outline": OUTLINE, "scenes": [_scene(1, 30), _scene(1, 30, "A kettle")]})[0]
+    first = _issue(world, "proof_audience")
+    assert _hand_in(world, first["id"], {"summary": "Two would watch.", "viewers": VIEWERS})[0]
     review = _issue(world, "proof_review")
     ok, problems, _ = _hand_in(world, review["id"], {"verdict": "go", "reason": "fine", "scores": {
         "opening": 4, "momentum": 7, "clarity": 8, "material": 7}})
@@ -200,6 +205,23 @@ def test_a_proof_must_fill_its_first_chapter_and_a_low_score_cant_go_on(world):
     assert newsroom.state_of(production.load("why", sid)) == "rework_proof"
     assert _issue(world, "proof")["films"] == [sid]          # back to the writer, with the notes
     assert "open on the kettle" in newsroom.brief("why", newsroom.load_ledger("why")["open"].popitem()[0])
+
+
+def test_the_proofs_first_viewers_are_heard_before_the_script_is_written(world):
+    # Three of nine final reads sent a finished script back over its first
+    # minutes; the same viewers now see the proof, before the draft is paid
+    # for in time and tokens.
+    sid = _to(world, "proofed")
+    row = _issue(world, "proof_audience")
+    assert row["agent"] == "newsroom-test-audience"
+    brief = newsroom.brief("why", row["id"])
+    assert 'title "Why Does Thing 1 Happen"' in brief and "A steaming kettle" in brief
+    viewers = [{"who": w, "clicks": True, "click_why": "y", "leaves_at": 1, "leave_why": "it repeats"} for w in "abc"]
+    assert _hand_in(world, row["id"], {"viewers": viewers, "summary": "All leave early."})[0]
+    review = _issue(world, "proof_review")
+    assert review["films"] == [sid]
+    assert "THE FIRST VIEWERS" in newsroom.brief("why", review["id"])
+    assert "leaves at scene 1" in newsroom.brief("why", review["id"])
 
 
 def test_a_short_chapter_goes_back_and_an_editor_edits_lines(world):
@@ -388,7 +410,7 @@ def test_a_review_of_a_drawn_film_doesnt_write_its_production(world, monkeypatch
     # second writer could undo either's change.
     monkeypatch.setattr(overseer, "status", lambda: [{"channel": "why", "id": "t0005", "waiting": ["stills"]}])
     before = production.load("why", "t0005", "x")
-    row = _issue(world, "storyboard")
+    row = _issue(world, "frames")
     assert _hand_in(world, row["id"], {"summary": "Redrew 2."})[0]
     assert production.load("why", "t0005", "x") == before
     assert newsroom.load_ledger("why")["done"][-1]["verdict"] == "Redrew 2."
@@ -459,3 +481,34 @@ def test_the_newsroom_board_draws(world, monkeypatch):
     with app.test_client() as client:
         page = client.get("/channels/why/newsroom?partial=1").get_data(as_text=True)
     assert 'class="nr-step s-done' in page and "s-current" in page and "Next run" in page
+
+
+def test_a_drawn_storyboard_is_read_frame_by_frame_then_as_one_film(world, monkeypatch):
+    # The owner, 25 Oct: "an agent that checks the storyboard as a whole ...
+    # as well as an agent that checks individual pictures to make sure they
+    # fit with the script at that point".
+    monkeypatch.setattr(overseer, "status", lambda: [{"channel": "why", "id": "t0005", "waiting": ["stills"]}])
+    row = _issue(world, "frames")
+    assert row["agent"] == "newsroom-frame-checker"
+    assert _hand_in(world, row["id"], {"summary": "Redrew 3: a blank face."})[0]
+    with newsroom.locked("why"):
+        ledger = newsroom.load_ledger("why")
+    assert newsroom.frames_checked(ledger, "why", "t0005")
+    nxt, _ = newsroom.next_assignment(world)
+    assert nxt["role"] == "continuity" and nxt["agent"] == "newsroom-continuity-editor"
+
+
+def test_frame_sheets_show_six_pictures_with_their_lines(world, tmp_path):
+    from PIL import Image
+    folder = production.folder("why", "t0005")
+    (folder / "stills").mkdir(parents=True, exist_ok=True)
+    scenes = []
+    for i in range(8):
+        Image.new("RGB", (64, 36), (i * 20, 40, 40)).save(folder / "stills" / f"kf_{i:02d}.jpg")
+        scenes.append(_scene(1, 5, f"Picture {i}"))
+    production.update("why", "t0005", lambda d: d.update(
+        stills={str(i): f"stills/kf_{i:02d}.jpg" for i in range(8)}, script={"scenes": scenes}), "x")
+    sheets = newsroom.frame_sheets("why", "t0005")
+    assert [n for _, n in sheets] == [[0, 1, 2, 3, 4, 5], [6, 7]] and all(p.exists() for p, _ in sheets)
+    text = newsroom.frames_text("why", "t0005")
+    assert "[7] SAYS:" in text and "Picture 7" in text and text.count("SHEET") == 2

@@ -232,6 +232,7 @@ def has_room_for(characters: int, force: bool = False, channel_key: str = "") ->
 
 
 RESERVE_SECONDS = 300
+TIE_SECONDS = 12 * 3600         # videos due within half a day of each other: the priority decides
 _reserved = {}          # channel key -> (worked out at, credits)
 
 
@@ -240,25 +241,42 @@ def _rank(channel) -> float:
     return priority if priority > 0 else float("inf")
 
 
-def need_before_reset(channel, quota: Quota) -> int:
-    """Credits `channel` still needs before the quota resets for the videos
-    that fill its slots until then (and teasers it owes), as the Voice page
-    counts them (core.voice_budget)."""
+def needs(channel, quota: Quota) -> list:
+    """[(when it goes out, credits)] for the videos that fill `channel`'s
+    slots before the quota resets, as the Voice page counts them
+    (core.voice_budget). Teasers owed for films already made count as due
+    now. Films or shorts made further ahead, with no slot before the reset,
+    aren't needs."""
     from core import costs, voice_budget
-    until = float(quota.resets_at or (time.time() + 31 * 86400))
+    now = time.time()
+    until = float(quota.resets_at or (now + 31 * 86400))
     blocks, _ = voice_budget.to_come({channel.key: channel}, costs.read_records(), credits_per_character(),
-                                     time.time(), until)
-    # Only what fills a slot before the reset (and teasers owed): films or
-    # shorts it would make further ahead don't take credits from the
-    # channels after it.
-    return int(sum(b["credits"] for b in blocks if not b.get("spent")
-                   and (b.get("release") or b.get("state") == "teasers to make")))
+                                     now, until)
+    out = []
+    for b in blocks:
+        if b.get("spent"):
+            continue
+        if b.get("release"):
+            out.append((float(b["release"]), int(b["credits"])))
+        elif b.get("state") == "teasers to make":
+            out.append((now, int(b["credits"])))
+    return sorted(out)
+
+
+def need_before_reset(channel, quota: Quota) -> int:
+    return sum(c for _, c in needs(channel, quota))
 
 
 def reserve_for(channel_key: str, quota: Quota = None) -> int:
-    """Credits kept back from `channel_key` for the channels ahead of it in
-    the voice priority (the owner, 23 Oct: "prioritise why though films
-    when credits are short. then the quiz channel. then minute pastor")."""
+    """Credits kept back from `channel_key`'s next video for other
+    channels' videos that go out first (decision 131). The owner, 23 Oct:
+    "prioritise why though films when credits are short. then the quiz
+    channel. then minute pastor"; and 25 Oct: "i dont want one channel to
+    miss a video just so Why Though gets one made 3 weeks in advance." So
+    what goes out sooner is voiced first, whichever channel it's for; the
+    priority decides only between videos due within half a day of each other;
+    and a video made ahead of any slot comes after every other channel's
+    dated ones."""
     with _lock:
         cached = _reserved.get(channel_key)
         if cached and time.time() - cached[0] < RESERVE_SECONDS:
@@ -271,14 +289,28 @@ def reserve_for(channel_key: str, quota: Quota = None) -> int:
     me = channels.get(channel_key)
     if me is None:
         return 0
-    ahead = [c for k, c in channels.items() if k != channel_key and not c.archived and c.publishing.enabled
-             and _rank(c) < _rank(me)]
+    try:
+        mine = needs(me, quota)
+    except Exception as exc:  # noqa: BLE001 - a need that can't be worked out keeps nothing back
+        log.warning(f"voice priority: couldn't work out what {channel_key} needs: {exc}")
+        mine = []
+    when = mine[0][0] if mine else float("inf")         # its next video; none due: made ahead
     kept = 0
-    for channel in ahead:
+    for key, other in channels.items():
+        if key == channel_key or other.archived or not other.publishing.enabled:
+            continue
+        ahead = _rank(other) < _rank(me)
         try:
-            kept += need_before_reset(channel, quota)
-        except Exception as exc:  # noqa: BLE001 - a need that can't be worked out keeps nothing back
-            log.warning(f"voice priority: couldn't work out what {channel.key} needs: {exc}")
+            theirs = needs(other, quota)
+        except Exception as exc:  # noqa: BLE001 - as above
+            log.warning(f"voice priority: couldn't work out what {key} needs: {exc}")
+            continue
+        for due, credits in theirs:
+            # A channel ahead in the priority wins a near-tie (within half a
+            # day); one behind gets what it needs sooner than that.
+            first = due <= when + TIE_SECONDS if ahead else due < when - TIE_SECONDS
+            if first:
+                kept += credits
     with _lock:
         _reserved[channel_key] = (time.time(), kept)
     return kept
