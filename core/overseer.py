@@ -17,7 +17,7 @@ the API.
     python -m core.overseer board <channel> <id>
     python -m core.overseer redraw <channel> <id> 4,17 --note "..."
     python -m core.overseer teasers <channel> <id>
-    python -m core.overseer edit-teaser <channel> <id> <teaser> <line> --narration "..."
+    python -m core.overseer edit-teaser <channel> <id> <teaser> <line> --narration "..." (or --picture N)
     python -m core.overseer approve <channel> <id> <script|stills|teasers>
     python -m core.overseer note <channel> <id> "what you did and why"
 
@@ -212,9 +212,20 @@ def teaser_sheet(key: str, sid: str) -> str:
     return "\n".join(lines)
 
 
-def edit_teaser(key: str, sid: str, teaser: int, line: int, narration: str = None, title: str = None) -> None:
+def edit_teaser(key: str, sid: str, teaser: int, line: int, narration: str = None, title: str = None,
+                picture: int = None) -> None:
     def change(d):
         t = d["teasers"]["scripts"][teaser]
+        if picture is not None:
+            # A teaser opening on a better picture (decision 137): one of the film's own, drawn,
+            # not already in this teaser.
+            scenes = (d.get("script") or {}).get("scenes") or []
+            drawn = str(picture) in (d.get("stills") or {}) and 0 <= picture < len(scenes)                 and scenes[picture].get("medium", "picture") == "picture"
+            if not drawn:
+                raise SystemExit(f"Picture {picture} isn't one of the film's drawn pictures.")
+            if any(s.get("picture") == picture for k, s in enumerate(t["scenes"]) if k != line):
+                raise SystemExit(f"Picture {picture} is already in teaser {teaser}.")
+            t["scenes"][line].update(picture=picture, direction=scenes[picture].get("direction", ""))
         if title is not None:
             t["title"] = " ".join(title.split())
         if narration is not None:
@@ -392,6 +403,7 @@ def main(argv=None) -> int:
     p.add_argument("line", type=int)
     p.add_argument("--narration")
     p.add_argument("--title")
+    p.add_argument("--picture", type=int)
     p = sub.add_parser("redraw")
     p.add_argument("channel")
     p.add_argument("id")
@@ -443,7 +455,7 @@ def main(argv=None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")
         print(teaser_sheet(args.channel, args.id))
     elif args.command == "edit-teaser":
-        edit_teaser(args.channel, args.id, args.teaser, args.line, args.narration, args.title)
+        edit_teaser(args.channel, args.id, args.teaser, args.line, args.narration, args.title, args.picture)
         print("edited")
     elif args.command == "board":
         for path in board(args.channel, args.id):

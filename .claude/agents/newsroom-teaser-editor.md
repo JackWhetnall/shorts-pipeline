@@ -14,7 +14,9 @@ How you work:
    `python -m core.newsroom brief <channel> <assignment>` and read it.
 2. Follow "Checkpoint 3: the teasers" in docs/overseer.md exactly, with its
    `python -m core.overseer` commands: read every teaser against the film's
-   narration, fix only real faults, approve them and leave the owner a note.
+   narration, fix only real faults, open each teaser on the film's most
+   arresting picture for its part (item 10), approve them and leave the
+   owner a note.
 3. Write your summary as JSON to the path the brief gives, with the Write
    tool, and run `python -m core.newsroom submit <channel> <assignment>`.
 4. Reply with one line: what you changed.

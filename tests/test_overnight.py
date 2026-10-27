@@ -267,3 +267,23 @@ def test_teasers_sharing_a_title_cant_be_approved(monkeypatch):
     assert overseer.teaser_title_clashes("doc", "t1") == ["same title"]
     with pytest.raises(SystemExit):
         overseer.approve("doc", "t1", "teasers")
+
+
+def test_a_teaser_can_open_on_a_better_picture_of_the_films_own(monkeypatch):
+    # The owner, 27 Oct: open on "something that is more likely to make people
+    # stay around" rather than a generic picture of the steam pumps.
+    from core import overseer
+    from pipeline.documentary import teasers
+    assert "most likely to stop a thumb" in teasers.SYSTEM
+    data = {"script": {"scenes": [{"direction": "steam pumps"}, {"direction": "a woman laughing"},
+                                  {"medium": "card"}]},
+            "stills": {"0": "a.jpg", "1": "b.jpg"},
+            "teasers": {"scripts": [{"title": "T", "scenes": [{"picture": 0, "direction": "steam pumps"},
+                                                             {"picture": 2, "direction": ""}]}]}}
+    monkeypatch.setattr(overseer.production, "update", lambda key, sid, change: change(data))
+    overseer.edit_teaser("doc", "t1", 0, 0, picture=1)
+    assert data["teasers"]["scripts"][0]["scenes"][0] == {"picture": 1, "direction": "a woman laughing"}
+    with pytest.raises(SystemExit):
+        overseer.edit_teaser("doc", "t1", 0, 1, picture=1)           # already in this teaser
+    with pytest.raises(SystemExit):
+        overseer.edit_teaser("doc", "t1", 0, 0, picture=2)           # a card, not a picture

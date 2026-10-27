@@ -152,8 +152,8 @@ The autopilot then renders the video, and it waits for the owner.
 ## Checkpoint 3: the teasers
 
 Once the owner approves a film's video, its teaser Shorts are written
-and wait for you. Their pictures are the film's own, cut tall, so only
-the words need reading.
+and wait for you. Their pictures are the film's own, cut tall: read the
+words, and look at each teaser's first picture (item 10).
 
 ```
 python -m core.overseer teasers <channel> <id>
@@ -195,12 +195,22 @@ to watch it. Check each one against the owner's rules (decisions 106 and
 9. **The title is honest** ("Blurry on Purpose" wasn't), **and its own:** no
    two videos on the channel share a title. The sheet says TITLE CLASH when
    they would, and approving waits until it's fixed.
+10. **The first picture stops a scroller** (decision 137). It's what someone
+    sees while deciding whether to stay. Look at the film's pictures
+    (`python -m core.newsroom frames <channel> <id>`) and open each teaser
+    on the most arresting one that belongs to the part it takes: a person
+    large in the frame over an object, machine, map or landscape; an
+    attractive, expressive person mid-action over a small or distant
+    figure. The first line must still be true over it. Swap it with
+    `edit-teaser <channel> <id> <teaser> 0 --picture N`, moving the old one
+    later in the teaser if it's still needed.
 
-Fix a line or a title:
+Fix a line, a title or a picture:
 
 ```
 python -m core.overseer edit-teaser <channel> <id> <teaser> <line> --narration "..."
 python -m core.overseer edit-teaser <channel> <id> <teaser> 0 --title "..."
+python -m core.overseer edit-teaser <channel> <id> <teaser> 0 --picture 12
 ```
 
 Keep numbers said as words and no dashes. Then approve them, which has
