@@ -23,7 +23,9 @@ confirms it.
 ### K2. Label the AI content on every post from now on
 When you post: **More options → AI-generated content → on**. Both channels use an AI voice and
 AI pictures. TikTok requires a label on AI content, and it can detect AI content itself, so
-unlabelled AI posts are a common cause of suppression.
+unlabelled AI posts are a common cause of suppression. (27 Oct: Why, Though?'s posts already carry
+TikTok's own "Contains AI-generated media" label, read from the pictures' metadata, so they
+don't need relabelling. That makes K1 the likelier answer.)
 
 ### K3. If the status is clean, pause for a week, then post less
 Stop posting for about 5–7 days. Then post once a day at most, from the phone app rather
