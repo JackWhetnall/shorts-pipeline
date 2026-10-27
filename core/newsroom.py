@@ -628,6 +628,10 @@ def _channel_text(channel) -> str:
     parts.append("What it can make well:\n" + kinds.TOPIC_FIT[kinds.of(channel)])
     if channel.avoid_imagery:
         parts.append("Never shown: " + ", ".join(channel.avoid_imagery))
+    people = str(getattr(doc, "people_look", "") or "").strip()
+    if people:
+        parts.append("How its people look (in cast descriptions and in the pictures' poses; never the art "
+                     "style): " + people)
     return "\n\n".join(parts)
 
 
@@ -886,12 +890,15 @@ def _brief_pictures(channel, row) -> str:
     from pipeline.documentary import kinds, pictures
     entry, data, nr = _film(channel, row)
     outline_, draft = nr["proof"]["outline"], nr["draft"]
+    people = str(getattr(channel.documentary, "people_look", "") or "").strip()
     left = row.get("left") or []
     if not left and not row.get("tries"):
         # Every first plan was sent back by these counts: show them first.
         left = pictures._merged(pictures.audit(outline_, pictures.validate(outline_, draft["scenes"]),
                                                kinds.family(kinds.of(channel))))
     return "\n\n".join(p for p in [
+        ("HOW THE CHANNEL'S PEOPLE LOOK AND STAND (in directions you change; never the art style): " + people)
+        if people else "",
         "HOW TO PLAN THE PICTURES:\n" + pictures.system_text(kinds.family(kinds.of(channel)), most=60),
         "NAMING SUBJECTS (for `subjects`, every picture scene):\n" + pictures.SUBJECTS,
         "Every picture scene gets a subject. `changes` lists every change you make, all of them each time "

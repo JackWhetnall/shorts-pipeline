@@ -81,7 +81,7 @@ The first picture is what someone scrolling sees while deciding whether to stay,
 it for that. Of the film's pictures that belong to the part this teaser takes, open on the
 one most likely to stop a thumb: a person large in the frame over an object, a machine, a
 map or a landscape; an attractive, expressive person caught mid-action over a small or
-distant figure. The first line is said over it, so it must still be true to the film:
+distant figure; and where the film has a fitting picture of an attractive woman, her. The first line is said over it, so it must still be true to the film:
 never a picture from an unrelated part chosen only for its looks.
 
 `title`: a short, honest title for the short (nothing the film doesn't support).

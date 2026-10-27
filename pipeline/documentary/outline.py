@@ -273,6 +273,10 @@ def prompt(channel, row: dict, note: str = "", angle: dict = None) -> tuple:
              f"The channel's drawn style: {look}" if look else "",
              "Real paintings of the period may be shown." if _paintings(channel) else "",
              lessons.for_prompt(channel.key)]
+    people = str(getattr(channel.documentary, "people_look", "") or "").strip()
+    if people:
+        parts.append("How the channel's people look (describe each new cast member this way, "
+                     "never the art style): " + people)
     stars = recurring(channel)
     if stars:
         parts.append("The channel's recurring cast, in every film and in this one's cast exactly as described:\n"

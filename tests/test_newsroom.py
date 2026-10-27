@@ -530,3 +530,16 @@ def test_frame_sheets_show_six_pictures_with_their_lines(world, tmp_path):
     assert [n for _, n in sheets] == [[0, 1, 2, 3, 4, 5], [6, 7]] and all(p.exists() for p, _ in sheets)
     text = newsroom.frames_text("why", "t0005")
     assert "[7] SAYS:" in text and "Picture 7" in text and text.count("SHEET") == 2
+
+
+def test_the_channels_people_look_reaches_the_cast_and_the_pictures(world):
+    # Decision 138: the owner, 27 Oct, of attractive people in the house style.
+    world.documentary.people_look = "Adults drawn attractive within the house style."
+    sid = _to(world, "commissioned")
+    row = _issue(world, "proof")
+    assert "Adults drawn attractive within the house style." in newsroom.brief("why", row["id"])
+    from pipeline.documentary import outline
+    system, user = outline.prompt(world, curriculum.find("why", sid))
+    assert "How the channel's people look" in user
+    world.documentary.people_look = ""
+    assert "How the channel's people look" not in outline.prompt(world, curriculum.find("why", sid))[1]

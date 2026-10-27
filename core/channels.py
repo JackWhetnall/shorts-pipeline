@@ -554,6 +554,10 @@ class Documentary(_MappingLike):
     # each a role that can send work back or scrap it, overnight. The
     # autopilot waits for a film the newsroom has passed, then draws it.
     newsroom: bool = False
+    # Decision 138. How the channel's people look, for the outline's cast
+    # descriptions and the pictures' poses (never the art style, which the
+    # channel's look fixes). "": no steer, as before.
+    people_look: str = ""
 
 
 @dataclass
