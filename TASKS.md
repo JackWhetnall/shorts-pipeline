@@ -14,11 +14,11 @@ happens; this file is for steps outside the app.*
 ## TikTok: zero views on Why, Though? and Pub Quiz Buzz (27 Oct)
 
 ### K1. Look at each account's status (2 minutes each)
-In the TikTok app, signed in as the channel, go to **Profile → ☰ → Settings and privacy →
-Account → Account status**. It lists any violations and whether the account's posts are
-**ineligible for the For You feed**. That is the usual reason for exactly zero views. Appeal
-each item listed there. Also open one post's **analytics**: views from **For You** at 0%
-confirms it.
+In the TikTok app, signed in as the channel: **Profile → ☰ → Settings and privacy → Support →
+Safety Center → Account check**, or **Profile → ☰ → TikTok Studio → Account check**. It shows
+your last 30 posts and any restrictions. Then open a recent post's **analytics**: a "not eligible
+for recommendation" notice appears there, with an appeal; views from **For You** at 0% says the same.
+No notice anywhere and some For You views: it's reach, not a ban.
 
 ### K2. Label the AI content on every post from now on
 When you post: **More options → AI-generated content → on**. Both channels use an AI voice and
