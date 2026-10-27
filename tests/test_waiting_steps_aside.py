@@ -146,3 +146,24 @@ def test_activity_is_told_a_job_is_waiting_on_a_batch():
     with create_app().test_request_context():
         row = page._for_activity(job, {"why": "Why"})
     assert row["waiting"] is True and row["waiting_since"] == 5.0 and row["film"] is True
+
+
+def test_no_money_goes_on_a_film_that_cant_be_voiced(monkeypatch):
+    # The owner, 27 Oct: "make sure that we dont spend any money on these
+    # videos that are doomed to fail until our voice credits refresh".
+    data = production.blank("t1", "t1")
+    for s in ("pitch", "outline", "script"):
+        data["stages"][s]["state"] = "approved"
+    started = []
+    monkeypatch.setattr(auto_films, "start", lambda channel, row, stage: started.append(stage))
+    monkeypatch.setattr(production, "narration_still_to_voice", lambda d: 1500)
+    room = {"ok": False}
+    monkeypatch.setattr("core.voice_quota.has_room_for", lambda n, **k: room["ok"])
+    monkeypatch.setattr("core.voice_quota.current", lambda force=False: object())
+    doc = type("D", (), {"teasers": 2, "newsroom": False, "overseen": False})()
+    channel = type("C", (), {"key": "why", "documentary": doc})()
+    assert auto_films._act(channel, {"id": "t1", "title": "T"}, data, after_hours=False) == ""
+    assert started == []                                         # no storyboard drawn
+    room["ok"] = True
+    assert auto_films._act(channel, {"id": "t1", "title": "T"}, data, after_hours=False)
+    assert started == ["stills"]

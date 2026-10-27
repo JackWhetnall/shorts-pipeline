@@ -48,6 +48,7 @@ HISTORY_URL = "https://api.elevenlabs.io/v1/history"
 # Credits per character of the voiceover model, measured from the account's
 # own recent requests (each history item says what it moved the counter by).
 RATIO_PATH = CACHE_DIR / "voice_credit_ratio.json"
+LAST_PATH = CACHE_DIR / "voice_quota_last.json"      # the last quota read, for when ElevenLabs can't be
 RATIO_MAX_AGE = 86400          # measured again daily
 RATIO_SAMPLE = 100             # recent requests looked at
 RATIO_MIN_CHARACTERS = 500     # fewer than this measured says nothing
@@ -120,14 +121,46 @@ def _read() -> Quota | None:
 
 
 def current(force: bool = False) -> Quota | None:
-    """The subscription's quota, or None if it can't be read right now."""
+    """The subscription's quota; while it can't be read, the last one read
+    if its month hasn't reset since (decision 135: with the credits gone, a
+    network blip read as "unknown, so go ahead" and started videos that
+    could only fail); else None."""
     global _cached
     with _lock:
         if not force and _cached and time.time() - _cached[0] < CACHE_SECONDS:
             return _cached[1]
     quota = _read()
+    if quota is not None:
+        _remember(quota)
+    else:
+        quota = _last_known()
     with _lock:
         _cached = (time.time(), quota)
+    return quota
+
+
+def _remember(quota: Quota) -> None:
+    saved = {"used": quota.used, "limit": quota.limit, "resets_at": quota.resets_at, "tier": quota.tier}
+    try:
+        if LAST_PATH.exists() and json.loads(LAST_PATH.read_text(encoding="utf-8")) == saved:
+            return
+        LAST_PATH.write_text(json.dumps(saved), encoding="utf-8")
+    except (OSError, ValueError) as exc:
+        log.warning(f"couldn't keep the voice quota for when ElevenLabs can't be reached: {exc}")
+
+
+def _last_known() -> Quota | None:
+    try:
+        saved = json.loads(LAST_PATH.read_text(encoding="utf-8"))
+        quota = Quota(used=int(saved["used"]), limit=int(saved["limit"]), resets_at=saved.get("resets_at"),
+                      tier=saved.get("tier") or "")
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        log.warning(f"the last voice quota kept couldn't be read: {exc}")
+        return None
+    if not quota.resets_at or float(quota.resets_at) <= time.time():
+        return None                     # it has reset since: unknown again
     return quota
 
 

@@ -161,6 +161,12 @@ def top_up_plans(channels: dict = None) -> list:
     return done
 
 
+def _voice_for_long(channel) -> bool:
+    """Whether a long quiz could be voiced now: none is started to fail at
+    its voiceover with its host lines paid for (decision 135)."""
+    return voice_quota.has_room_for(voice_quota.typical_video_characters(channel.key), channel_key=channel.key)
+
+
 def fill_long_quizzes(channels: dict = None) -> list:
     """Start a quiz night (the mixed series: one difficulty, a round from
     each of several categories, in no set order) for every running quiz
@@ -178,7 +184,7 @@ def fill_long_quizzes(channels: dict = None) -> list:
                 or not channel.quiz.longform_mixed_when_ready or key in active):
             continue
         try:
-            if not _long_room(channel, longform.MIXED):
+            if not _long_room(channel, longform.MIXED) or not _voice_for_long(channel):
                 continue
             mixed = [v for v, data in longform._long_videos(channel) if data["series"] == longform.MIXED]
             every = channel.quiz.longform_every_days
@@ -215,7 +221,7 @@ def fill_category_quizzes(channels: dict = None) -> list:
             continue
         try:
             ready = longform.full_ladders(channel)
-            if not _long_room(channel, longform.CATEGORY) or not ready:
+            if not _long_room(channel, longform.CATEGORY) or not ready or not _voice_for_long(channel):
                 continue
             difficulty = longform.CATEGORY_PREFIX + ready[0]
             request = longform.plan_request(channel, {"difficulty": difficulty})

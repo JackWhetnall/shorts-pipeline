@@ -293,6 +293,10 @@ def test_a_quiz_night_starts_itself_once_enough_categories_share_a_difficulty(wo
     import os
     os.utime(waiting, (old, old))
     assert scheduler.fill_long_quizzes(channels) == ["pub_quiz"]
+    # Nor when it couldn't be voiced (decision 135): its host lines would be paid for to fail.
+    os.utime(waiting, (old, old))
+    monkeypatch.setattr(scheduler.voice_quota, "has_room_for", lambda n, **k: False)
+    assert scheduler.fill_long_quizzes(channels) == []
     # And never when switched off.
     world.channel.quiz.longform_mixed_when_ready = False
     assert scheduler.fill_long_quizzes(channels) == []

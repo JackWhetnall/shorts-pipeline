@@ -400,6 +400,8 @@ STEPS = {
                "Cover: <strong>Edit cover</strong> → <strong>Upload</strong> → <strong>Ctrl+V</strong>, "
                "<strong>Enter</strong>",
                "Caption: paste into the description",
+               # AI voice and pictures unlabelled: a likely cause of zero views (decision 135).
+               "<strong>More options</strong> → <strong>AI-generated content</strong> on",
                "<strong>Post</strong>, then <strong>I've posted it</strong>"],
     "instagram": ["<strong>Create</strong> → <strong>Post</strong> → <strong>Select from computer</strong> → "
                   "<strong>Ctrl+V</strong>, <strong>Enter</strong>",

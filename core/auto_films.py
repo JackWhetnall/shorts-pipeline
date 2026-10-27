@@ -146,6 +146,18 @@ def step(channel) -> str:
     return ""
 
 
+def _voice_for(channel, data: dict) -> bool:
+    """Whether this film could be voiced now: what its narration still
+    needs, or a typical video's before it's written. The owner, 27 Oct:
+    "make sure that we dont spend any money on these videos that are doomed
+    to fail until our voice credits refresh"."""
+    from core import voice_quota
+    if voice_quota.current() is None:
+        return True                     # never read: unknown never blocks
+    chars = production.narration_still_to_voice(data) or voice_quota.typical_video_characters(channel.key)
+    return voice_quota.has_room_for(chars, channel_key=channel.key)
+
+
 def _act(channel, row: dict, data: dict, after_hours: bool) -> str:
     """Move one film on by one step, or "" when it's waiting on someone."""
     doc = channel.documentary
@@ -173,8 +185,12 @@ def _act(channel, row: dict, data: dict, after_hours: bool) -> str:
     if stage == "teasers" and state == "ready":
         if getattr(doc, "overseen", False) and not (data.get("teasers") or {}).get("reviewed"):
             return ""                   # the overseer reads the teasers' scripts first (decision 111)
+        if not _voice_for(channel, data):
+            return ""                   # nothing spent on a film that can't be voiced yet (decision 135)
         start(channel, row, "teasers")
         return f"making the teasers of {row['title']}"
+    if state in ("todo", "stale", "failed") and not after_hours and not _voice_for(channel, data):
+        return ""                       # nothing spent on a film that can't be voiced yet (decision 135)
     if state == "failed":
         entry = data["stages"][stage]
         if entry.get("interrupted"):

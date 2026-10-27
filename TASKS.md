@@ -4,10 +4,30 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 21 Oct 2026 (evening). Start with W1 to W3 (the newsroom), then O1 to O3, then N2 and
+*Last updated: 27 Oct 2026. Start with K1 to K3 (TikTok), then W1 to W3 (the newsroom), then O1 to O3, then N2 and
 N3, then V1, G7 and T1, and keep G6 going for each new film. Everything below those is older
 and mostly done or on hold. The app's home page, **Today**, lists what needs you as it
 happens; this file is for steps outside the app.*
+
+---
+
+## TikTok: zero views on Why, Though? and Pub Quiz Buzz (27 Oct)
+
+### K1. Look at each account's status (2 minutes each)
+In the TikTok app, signed in as the channel, go to **Profile → ☰ → Settings and privacy →
+Account → Account status**. It lists any violations and whether the account's posts are
+**ineligible for the For You feed**. That is the usual reason for exactly zero views. Appeal
+each item listed there. Also open one post's **analytics**: views from **For You** at 0%
+confirms it.
+
+### K2. Label the AI content on every post from now on
+When you post: **More options → AI-generated content → on**. Both channels use an AI voice and
+AI pictures. TikTok requires a label on AI content, and it can detect AI content itself, so
+unlabelled AI posts are a common cause of suppression.
+
+### K3. If the status is clean, pause for a week, then post less
+Stop posting for about 5–7 days. Then post once a day at most, from the phone app rather
+than the website. Don't delete the old posts all at once.
 
 ---
 

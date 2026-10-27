@@ -153,3 +153,16 @@ def test_the_scheduler_waits_for_quota_before_starting_a_video(quota, monkeypatc
     quota["value"] = None
     voice_quota._cached = None
     assert scheduler.generation_block("chan", channel, state=state, active={}) is None
+
+
+def test_while_elevenlabs_cant_be_reached_the_last_quota_read_stands_until_it_resets(quota, monkeypatch):
+    # Decision 135: with the credits gone, a network blip read as unknown
+    # and started videos that could only fail at their voiceover.
+    quota["value"] = Quota(used=31_545, limit=31_545, resets_at=time.time() + 5 * 86400)
+    assert not voice_quota.has_room_for(100, force=True)
+    quota["value"] = None
+    assert not voice_quota.has_room_for(100, force=True)        # still empty, not unknown
+    saved = json.loads(voice_quota.LAST_PATH.read_text(encoding="utf-8"))
+    saved["resets_at"] = time.time() - 60
+    voice_quota.LAST_PATH.write_text(json.dumps(saved), encoding="utf-8")
+    assert voice_quota.has_room_for(100, force=True)            # reset since: unknown again

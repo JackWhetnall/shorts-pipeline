@@ -63,6 +63,7 @@ def _no_live_voice_quota(monkeypatch, tmp_path):
     monkeypatch.setattr(voice_quota, "_read_ratio", lambda: None)
     monkeypatch.setattr(voice_quota, "_ratio", None)
     monkeypatch.setattr(voice_quota, "RATIO_PATH", tmp_path / "voice_credit_ratio.json")
+    monkeypatch.setattr(voice_quota, "LAST_PATH", tmp_path / "voice_quota_last.json")
 
 
 @pytest.fixture(autouse=True)
