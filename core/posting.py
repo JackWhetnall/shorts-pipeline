@@ -20,7 +20,7 @@ everything around the one step that has to be yours:
   pasting a path into its name box and pressing Enter picks that file.
   (An Explorer window to drag from was the first try: it still meant
   finding the file among a dated folder's sidecars.)
-- **The video in one plain folder**, `Videos\Shorts to post`, named by
+- **The video in one plain folder**, `OneDrive\Shorts to post`, named by
   channel and title, with nothing else in it but videos waiting to be
   posted; each goes once it's posted everywhere (`stage`, `unstage`).
 - **A caption for each platform** with its hashtags (`caption`), to copy
@@ -334,7 +334,17 @@ def with_youtube_hashtags(channel, video_path: Path, description: str) -> str:
 
 # --- one plain folder of videos to post -------------------------------------
 
-READY_DIR = Path.home() / "Videos" / "Shorts to post"
+def _ready_dir() -> Path:
+    """In OneDrive when it's set up, so the phone's OneDrive app has every
+    video to post without a cable (the owner, 27 Oct: "i dont want to have
+    to transfer them manually every time"); else in Videos."""
+    cloud = os.environ.get("OneDrive", "").strip()
+    if cloud and Path(cloud).is_dir():
+        return Path(cloud) / "Shorts to post"
+    return Path.home() / "Videos" / "Shorts to post"
+
+
+READY_DIR = _ready_dir()
 STAGED_INDEX = CACHE_DIR / "staged_posts.json"
 
 
@@ -373,12 +383,38 @@ def stage(channel, video_path: Path) -> Path:
     while target.exists() or str(target) in taken:
         target, n = READY_DIR / f"{base} ({n}){video_path.suffix}", n + 1
     try:
+        if _synced(target):
+            raise OSError("a synced folder uploads a copy, not a link")
         os.link(video_path, target)
     except OSError:
         shutil.copyfile(video_path, target)
     index[str(video_path.resolve())] = str(target)
     _save_index(index)
     return target
+
+
+def _synced(path: Path) -> bool:
+    cloud = os.environ.get("OneDrive", "").strip()
+    return bool(cloud) and Path(cloud) in Path(path).parents
+
+
+def move_staged(to: Path = None) -> int:
+    """Every staged video moved into the ready folder (once, when it moved
+    to OneDrive), copied rather than linked there. Returns how many."""
+    to = Path(to or READY_DIR)
+    index, moved = _index(), 0
+    for source, staged in list(index.items()):
+        staged = Path(staged)
+        if staged.parent == to or not staged.exists():
+            continue
+        to.mkdir(parents=True, exist_ok=True)
+        target = to / staged.name
+        shutil.copyfile(staged, target)
+        staged.unlink()
+        index[source] = str(target)
+        moved += 1
+    _save_index(index)
+    return moved
 
 
 def unstage(video_path: Path) -> None:
