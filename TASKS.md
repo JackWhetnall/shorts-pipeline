@@ -4,10 +4,20 @@ Things only you can do: account steps, console settings, decisions and
 testing. Kept up to date as the app changes. Do them top to bottom;
 each says why it matters. Done items move to the bottom with a date.
 
-*Last updated: 27 Oct 2026. Start with K1 to K3 (TikTok), then W1 to W3 (the newsroom), then O1 to O3, then N2 and
+*Last updated: 27 Oct 2026. Start with P1 (notifications), then K1 to K3 (TikTok), then W1 to W3 (the newsroom), then O1 to O3, then N2 and
 N3, then V1, G7 and T1, and keep G6 going for each new film. Everything below those is older
 and mostly done or on hold. The app's home page, **Today**, lists what needs you as it
 happens; this file is for steps outside the app.*
+
+---
+
+## Notifications on your phone (28 Oct)
+
+### P1. Turn them on (3 minutes)
+Install **ntfy** on your phone (free). Then go to **More → Phone → Notifications** in the app,
+press **Turn on**, and subscribe to the topic it shows in ntfy (**+**). Finally, **Send a test**.
+You'll get each video going out (a teaser tells you which film to link in Studio), anything new
+that needs you, a summary at 08:00 and, on Mondays, the week.
 
 ---
 
