@@ -22,6 +22,18 @@
         "5055"
       ],
       "port": 5055
+    },
+    {
+      "name": "shorts-pipeline-web-check",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "web",
+        "--no-scheduler",
+        "--port",
+        "5066"
+      ],
+      "port": 5066
     }
   ]
 }

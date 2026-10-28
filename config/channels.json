@@ -53,13 +53,13 @@
       "publishing": {
         "enabled": true,
         "slots": [
-          "11:00",
-          "21:00"
+          "11:00"
         ],
         "post_tiktok": true,
         "post_instagram": true,
         "posting_browser": "chrome",
-        "posting_profile": "Shorts minute_pastor"
+        "posting_profile": "Shorts minute_pastor",
+        "voice_priority": 3
       },
       "scenes": {
         "art": {
@@ -254,7 +254,8 @@
         "post_tiktok": true,
         "post_instagram": true,
         "posting_browser": "chrome",
-        "posting_profile": "Shorts pub_quiz_buzz"
+        "posting_profile": "Shorts pub_quiz_buzz",
+        "voice_priority": 2
       },
       "scenes": {
         "art": {
@@ -437,13 +438,38 @@
       "format": "documentary",
       "voice": "Xb7hH8MSUJpSbSDYk0k2",
       "style_prompt": "Explain one question a curious person really has about the world, the way a brilliant, funny friend would over a drink: talking to 'you', starting from something you've seen or wondered, and getting to the answer one next question at a time. Every idea is made concrete: an analogy from ordinary life, a number at human scale, a quick thought experiment, a real attempt and what went wrong. Say the wrong answer most people assume, then why it's wrong. Real science and real history, said simply but never dumbed down; when scientists aren't sure, say so and say what the best guess is. Light, quick and a little cheeky, wonder over solemnity, with the occasional absurd comparison or a cartoon character in the picture reacting to the news. Never a lecture, never a list. End on the answer and one last surprising consequence, then stop.",
-      "hook_style": "First line: the question, in the viewer's own words, then the one fact that makes the obvious answer wrong. Under twenty-five words, no greeting, no 'imagine'.",
+      "hook_style": "First line: the most surprising concrete fact in the film, said plainly, the one that makes the obvious answer wrong. Never the title's question again: the viewer has just read it. The question, in new words, can follow. Under twenty-five words, no greeting, no 'imagine'.",
       "avoid_imagery": [
         "gore",
         "text or writing",
         "brand logos",
         "real people's faces"
       ],
+      "publishing": {
+        "enabled": true,
+        "slots": [
+          "18:30",
+          "22:30"
+        ],
+        "weekdays": [
+          0,
+          2,
+          4
+        ],
+        "post_tiktok": true,
+        "post_instagram": true,
+        "posting_browser": "chrome",
+        "posting_profile": "Shorts why_though",
+        "long_slots": [
+          "16:30"
+        ],
+        "long_weekdays": [
+          1,
+          5
+        ],
+        "thumbnail_tests": true,
+        "voice_priority": 1
+      },
       "scenes": {
         "art": {
           "preset": "clean_flat",
@@ -455,8 +481,7 @@
           "accent4": "#8FD16A",
           "accent5": "#7C8CFF",
           "background": "#101A3A",
-          "font_display": "Segoe UI Black",
-          "font_text": "Segoe UI"
+          "font_display": "Segoe UI Black"
         }
       },
       "animation": {
@@ -470,12 +495,13 @@
           "motion": "smooth",
           "words": "none",
           "custom": {
-            "material": "flat geometric motion-graphics illustration: simple vector shapes with no outlines, a limited palette of four or five rich colours per picture: deep navy and indigo only for space, night and underground, and bright, clear daylight colours (sky blue, warm sand, fresh green, white cloud) for anything in daylight; soft inner glows and rim light, long soft shadows, subtle film grain and noise texture over everything, clean negative space, a polished popular-science animation look",
+            "material": "flat geometric motion-graphics illustration: simple vector shapes with no outlines, a limited palette of four or five rich colours per picture: deep navy and indigo only for space, night and underground, and bright, clear daylight colours (sky blue, warm sand, fresh green, white cloud) for anything",
             "people": "tiny simple adult figures made of rounded shapes, grown-up proportions, dot eyes, no mouths, no fingers, small in the frame"
           }
         }
       },
       "sound": {
+        "music_level": 0.12,
         "music_moods": [
           "light curious electronic",
           "playful pizzicato strings",
@@ -483,22 +509,166 @@
         ]
       },
       "documentary": {
-        "minutes": 9,
+        "minutes": 9.0,
         "teasers": 2,
-        "scene_seconds": 7,
+        "scene_seconds": 7.0,
+        "auto_make": true,
+        "ahead": 4,
+        "parallel": 4,
         "voice_model": "eleven_v4_turbo",
         "atmosphere": false,
-        "kind": "explainer",
         "captions": "none",
-        "auto_make": true,
+        "kind": "explainer",
         "overseen": true,
-        "hours": "22-8",
-        "ahead": 3
+        "newsroom": true,
+        "people_look": "Adults drawn attractive within the channel's own simple, rounded style: the women slim and shapely, in fitted, flattering everyday clothes (a fitted top or tee, a cropped jacket, high-waisted jeans, short skirts or dresses), confident and expressive; the men fit and good-looking. Where the line is about the body, natural body-led poses (stretching, laughing, a hand on her waist or side, pressing her own ribs). Keep the house style exactly: the same simple shapes, dot eyes, flat colours. Nothing revealing, and nothing posed to draw the eye to the chest."
       },
-      "content_mode": "topic",
-      "publishing": {
-        "enabled": true
-      }
+      "manual_checklist_overrides": [
+        "audit"
+      ],
+      "content_mode": "topic"
+    },
+    "clocking_in": {
+      "format": "documentary",
+      "voice": "5QLE0oVq6XTzbjGTJ34H",
+      "style_prompt": "Explain one job from the past by walking through a real working day, from the first bell to lights out, like a deadpan careers adviser who has read every logbook. Third person, present tense: 'the keeper', 'a legionary', never 'you are'. Every stretch of the day gets the task, how it was actually done, the number it turns on (hours, pay in today's money, weight, calories) and how we know, the source named in a few words: a logbook, a pay slip, a rule book, a dig. The comedy is in true facts said flatly: understatement, and now and then a dry comparison with a modern job ('a night shift with no break room, and a sea that wants you dead'). Never wacky, never shouting, never a list. Bust the film version of the job with evidence, and say plainly where historians aren't sure. End on pay day: what they kept, how it ended for most of them, and one comparison that lands it in the viewer's own working week.",
+      "hook_style": "First line: the strangest true detail of the job's day, said flat, as if it were obvious. Then what everyone assumes instead. Under twenty-five words; no question, no greeting, no 'imagine'.",
+      "avoid_imagery": [
+        "gore",
+        "graphic violence",
+        "text or writing",
+        "maps",
+        "modern objects",
+        "brand logos"
+      ],
+      "speed": 0.95,
+      "scenes": {
+        "share": 100,
+        "art": {
+          "preset": "clean_flat",
+          "ink": "#2B2620",
+          "ink_soft": "#6F6352",
+          "accent1": "#C8372D",
+          "accent2": "#2F5E8C",
+          "accent3": "#D99A1E",
+          "accent4": "#4F7A45",
+          "accent5": "#7B5032",
+          "background": "#E9DCB5",
+          "pattern_color": "#D6C590",
+          "pattern": "lines",
+          "font_display": "Consolas",
+          "font_text": "Bahnschrift",
+          "card_design": "time_card"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "style": {
+          "approach": "acted",
+          "stage": "animated_film",
+          "material": "custom",
+          "people": "custom",
+          "mood": "playful",
+          "motion": "stop_motion",
+          "words": "none",
+          "custom": {
+            "material": "a flat stop-motion cartoon made of cut paper, never clay, felt or 3D: chunky rounded shapes cut from smooth, brightly coloured card, bold flat colours and soft rounded corners, a few flat layers with a small soft shadow between them, tiny brass split pins at the joints, uncluttered backgrounds; comical, casual and cute, like a modern cartoon built from paper",
+            "people": "flat, chunky paper cut-out cartoon grown-ups: a huge round head nearly as big as the body, a small rounded body, stubby arms and legs, simple faces with dot eyes and big expressive eyebrows, comically deadpan, weary or smug expressions, each told apart by one bold costume detail"
+          }
+        }
+      },
+      "sound": {
+        "music_moods": [
+          "quirky bassoon and pizzicato",
+          "light jazz brushes and upright bass",
+          "plucky acoustic folk"
+        ]
+      },
+      "documentary": {
+        "teasers": 2,
+        "scene_seconds": 8.0,
+        "chapter_titles": true,
+        "voice_model": "eleven_v4_turbo",
+        "atmosphere": false,
+        "captions": "tag",
+        "kind": "working_day"
+      },
+      "channel_display_name": "Clocking In",
+      "content_mode": "topic"
+    },
+    "historys_bottom_drawer": {
+      "channel_display_name": "History's Bottom Drawer",
+      "format": "documentary",
+      "voice": "zxPaDs5RuZh7fQDkY6mP",
+      "style_prompt": "Every film follows Emily, the channel's star: shy, curious, easily flustered and funny about it. Each film starts with her in an awkward moment today that raises a cheeky question about bodies, bathing, swimwear, beauty, flirting, dancing or love, and the bottom drawer of an old chest of drawers pulls her back through time and around the world to find the answer by living it: she bathes with Romans, sweats in a Finnish sauna, tries on what women really wore, gets flirted with at a Regency ball. The narrator is playful and warm, sets each time and place, gives the facts she can't know and teases her gently; Emily reacts, asks and joins in, a little braver at every stop; real people of the time speak only where they matter. Titillating, never explicit: the fun is her nerves and delight, the glamour, the steam, the swimwear, the flirting, and where people really had little or nothing on, it's shown that way and tastefully hidden. Real history, exact dates and places, myths busted. She ends back home, changed, summing up what she found.",
+      "hook_style": "First line: Emily today, in the awkward moment that raises the question, said by the narrator or by her; then her question aloud. Under twenty-five words; no greeting, no 'imagine'.",
+      "avoid_imagery": [
+        "visible nudity not hidden by steam, water, a towel or clothing",
+        "anyone who looks under twenty",
+        "children",
+        "text or writing",
+        "gore"
+      ],
+      "speed": 1.05,
+      "scenes": {
+        "share": 100,
+        "art": {
+          "preset": "clean_flat",
+          "ink": "#FFF3F7",
+          "ink_soft": "#F3B6CF",
+          "accent1": "#FF3E8A",
+          "accent2": "#E0103A",
+          "accent3": "#F2C14E",
+          "accent4": "#18C8C1",
+          "accent5": "#7B2FF7",
+          "background": "#1E0B24",
+          "pattern": "none",
+          "font_display": "Impact",
+          "card_design": "scandal"
+        }
+      },
+      "animation": {
+        "enabled": true,
+        "style": {
+          "approach": "acted",
+          "stage": "animated_film",
+          "material": "custom",
+          "people": "custom",
+          "mood": "playful",
+          "motion": "smooth",
+          "words": "none",
+          "custom": {
+            "material": "a frame from a modern YouTube story-animation channel made today: clean flat vector shapes, smooth flat colours with minimal shading, big expressive faces, bright and fresh; never retro, vintage or painterly",
+            "people": "modern cartoon grown-ups, clearly adults, conventionally attractive, with big expressive faces and clear readable emotions (blushing, flustered, smug, delighted), dressed in what people of their time and place really wore"
+          }
+        },
+        "cast": [
+          {
+            "name": "Emily",
+            "description": "the channel's star: a conventionally attractive woman in her mid-twenties, clearly a grown adult, slim with soft curves, long wavy chestnut hair, a few freckles and big hazel eyes; shy, curious and easily flustered, blushing pink when she's embarrassed, with a warm, awkward little smile"
+          }
+        ]
+      },
+      "sound": {
+        "music_moods": [
+          "jaunty seaside brass band",
+          "music hall piano romp",
+          "playful swing clarinet"
+        ]
+      },
+      "documentary": {
+        "minutes": 8.0,
+        "teasers": 2,
+        "scene_seconds": 6.0,
+        "voice_model": "eleven_v4_turbo",
+        "dialogue": true,
+        "voices": {
+          "Emily": "Pq1mYZe3vRvysasMNyaJ"
+        },
+        "atmosphere": false,
+        "kind": "time_trip"
+      },
+      "content_mode": "topic"
     }
   }
 }

@@ -1,0 +1,10 @@
+{
+ "topic": "yt-xtznpdoslelsv5z",
+ "server": "https://ntfy.sh",
+ "kinds": {
+  "out": true,
+  "needs": true,
+  "daily": true,
+  "weekly": true
+ }
+}
