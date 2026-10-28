@@ -1,0 +1,89 @@
+{# Week by week (decision 139): every comparison a week with a week; the week
+   under way only with the same days of the one before. #}
+{% macro delta(value) %}
+{%- if value is none -%}<span class="wk-delta wk-flat">—</span>
+{%- elif value > 0 -%}<span class="wk-delta wk-up">&#9650; {{ value }}%</span>
+{%- elif value < 0 -%}<span class="wk-delta wk-down">&#9660; {{ -value }}%</span>
+{%- else -%}<span class="wk-delta wk-flat">0%</span>{%- endif -%}
+{% endmacro %}
+{% macro amount(unit, v) %}{% if unit == 'hours' %}{{ '%.1f'|format(v) }} h{% else %}{{ '{:,}'.format(v|int) }}{% endif %}{% endmacro %}
+
+{% set w = weeks.total %}
+{% if w.weeks and (w.peak.short_views or w.peak.long_views) %}
+<div class="card" id="weekly">
+  <div class="card-head">
+    <h2>Week by week</h2>
+    {% if w.so_far %}
+    <span class="meta">{% if w.so_far.days < 7 %}This week to {{ w.so_far.through }} vs last week to {{ w.so_far.through }}{% else %}Last week vs the week before{% endif %}</span>
+    {% endif %}
+  </div>
+  {% if w.so_far %}
+  <div class="wk-tiles">
+    {% for key, label, unit in weeks.measures %}
+    <div class="wk-tile">
+      <span class="wk-num">{{ amount(unit, w.so_far.now[key]) }}</span>
+      <span class="wk-lab">{{ label }}{% if key == 'per_short' %} <button type="button" class="info-dot" data-tooltip="The week's Shorts views over the Shorts that went out that week">?</button>{% endif %}</span>
+      <span class="wk-was">{{ delta(w.so_far.change[key]) }} <span class="meta">from {{ amount(unit, w.so_far.then[key]) }}</span></span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="wk-charts">
+    {% for key, label, unit in weeks.measures if key in ('short_views', 'per_short', 'long_views', 'hours') %}
+    <figure class="wk-chart" aria-label="{{ label }}, week by week">
+      <figcaption>{{ label }}</figcaption>
+      <div class="wk-bars">
+        {% for r in w.weeks %}
+        <div class="wk-col" data-tooltip="Week of {{ r.label }}{{ ' (so far)' if r.partial }}: {{ amount(unit, r[key]) }}{% if r.change[key] is not none %}, {{ '+' if r.change[key] > 0 }}{{ r.change[key] }}%{% endif %}">
+          <span class="wk-bar{{ ' wk-part' if r.partial }}" style="height: {{ (100 * r[key] / w.peak[key]) if w.peak[key] else 0 }}%"></span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="wk-axis">
+        {% for r in w.weeks %}<span>{{ r.label }}</span>{% endfor %}
+      </div>
+    </figure>
+    {% endfor %}
+  </div>
+  {% if weeks.channels|length > 1 %}
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Channel</th>{% for key, label, unit in weeks.measures %}<th class="num">{{ label }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for c in weeks.channels if c.so_far %}
+        <tr>
+          <td><a href="{{ url_for('channels.dashboard', key=c.key) }}">{{ c.name }}</a></td>
+          {% for key, label, unit in weeks.measures %}
+          <td class="num">{{ amount(unit, c.so_far.now[key]) }} {{ delta(c.so_far.change[key]) }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if weeks.error %}<p class="meta">{{ weeks.error }}</p>{% endif %}
+</div>
+<style>
+  .wk-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: .6rem; margin-bottom: 1rem; }
+  .wk-tile { background: var(--surface-2); border-radius: var(--radius-sm); padding: .65rem .8rem; display: flex; flex-direction: column; gap: .15rem; }
+  .wk-num { font-size: 1.35rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .wk-lab { color: var(--text-dim); font-size: .82rem; display: flex; align-items: center; gap: .3rem; }
+  .wk-was { font-size: .8rem; }
+  .wk-delta { font-weight: 600; font-size: .8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .wk-up { color: var(--success); }
+  .wk-down { color: var(--danger); }
+  .wk-flat { color: var(--text-faint); }
+  .wk-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+  .wk-chart { margin: 0; min-width: 0; }
+  .wk-chart figcaption { color: var(--text-dim); font-size: .82rem; margin-bottom: .35rem; }
+  .wk-bars { display: flex; align-items: flex-end; gap: 4px; height: 6.5rem; border-bottom: 1px solid var(--border); }
+  .wk-col { flex: 1; height: 100%; display: flex; align-items: flex-end; cursor: default; }
+  .wk-col:hover .wk-bar { background: var(--accent); }
+  .wk-bar { display: block; width: 100%; min-height: 2px; background: var(--accent-dim); border-radius: 4px 4px 0 0; }
+  .wk-part { background: repeating-linear-gradient(45deg, var(--accent-dim) 0 4px, transparent 4px 7px); border: 1px solid var(--accent-dim); border-bottom: 0; }
+  .wk-axis { display: flex; gap: 4px; margin-top: .25rem; }
+  .wk-axis span { flex: 1; text-align: center; font-size: .66rem; color: var(--text-faint); white-space: nowrap; overflow: hidden; }
+  @media (max-width: 640px) { .wk-axis span:nth-child(odd) { visibility: hidden; } }
+</style>
+{% endif %}

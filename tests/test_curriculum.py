@@ -732,6 +732,8 @@ class TestWebRoutes:
     def test_the_home_page_warns_before_a_channel_runs_out(self, client, planned):
         """Running out stops generation dead, so the warning is only
         useful in advance."""
+        # The fixture's channel isn't publishing: a test channel, shown with Tests on (decision 139).
+        client.set_cookie("include_tests", "1")
         html = client.get("/").get_data(as_text=True)
         assert "Running low on topics" in html
         assert "5 left" in html

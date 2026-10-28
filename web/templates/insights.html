@@ -35,11 +35,17 @@
     <span class="stat-lab">Awaiting review</span>
   </div>
   <div class="stat">
+    <span class="stat-num">{{ t.queued }}</span>
+    <span class="stat-lab">Queued</span>
+  </div>
+  <div class="stat">
     <span class="stat-num">${{ '%.2f'|format(data.spend.per_published_usd) }}</span>
     <span class="stat-lab">Per published video
       <button type="button" class="info-dot" data-tooltip="Everything spent, divided by what was published: discarded videos are part of the price.">?</button></span>
   </div>
 </div>
+
+{% include "_weekly.html" %}
 
 {% set a = data.audience %}
 <div class="card" id="audience">

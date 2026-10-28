@@ -43,6 +43,15 @@
       <a href="{{ url_for('review.insights_page') }}" class="{% if ep == 'review.insights_page' %}active{% endif %}">Insights</a>
     </nav>
     <div class="header-tools">
+      {% if has_tests %}
+      <form method="post" action="{{ url_for('today.set_tests') }}" class="tests-switch"
+            data-tooltip="Show channels not publishing yet">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ request.full_path if request.method == 'GET' else url_for('today.page') }}">
+        <button type="submit" name="include" value="{{ '' if include_tests else '1' }}" class="tests-toggle"
+                role="switch" aria-checked="{{ 'true' if include_tests else 'false' }}"><span class="tests-box" aria-hidden="true">{{ '&#10003;'|safe if include_tests }}</span>Tests</button>
+      </form>
+      {% endif %}
       {% if focus_choices|length > 1 %}
       <form method="post" action="{{ url_for('today.set_focus') }}" class="focus-switch"
             title="Review, Queued, To post, Insights and the menu's counts show this channel only; Today and Activity show everything">

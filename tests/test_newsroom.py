@@ -409,6 +409,7 @@ def test_a_review_of_a_drawn_film_doesnt_write_its_production(world, monkeypatch
     # The app writes a film's production once it's past the newsroom; a
     # second writer could undo either's change.
     monkeypatch.setattr(overseer, "status", lambda: [{"channel": "why", "id": "t0005", "waiting": ["stills"]}])
+    production.update("why", "t0005", lambda d: None, "x")   # on disk, so loading it twice reads the same
     before = production.load("why", "t0005", "x")
     row = _issue(world, "frames")
     assert _hand_in(world, row["id"], {"summary": "Redrew 2."})[0]

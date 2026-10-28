@@ -172,15 +172,16 @@ def queued_page():
 def insights_page():
     from web import focus
     channels = load_channels(validate=False)
-    # The channel chosen in the header, if one is (everything otherwise).
+    # The channel chosen in the header, if one is (everything shown otherwise).
     key = focus.current(channels)
-    if key:
-        channels = {key: channels[key]} if key in channels else channels
-    data = insights.collect(list(channels) if key else None)
+    channels = {key: channels[key]} if key else focus.visible(channels)
+    data = insights.collect(list(channels))
+    weeks = insights.weekly(channels)
     connections = {key: youtube.connection(key) for key in channels}
     return render_template(
         "insights.html",
         data=data,
+        weeks=weeks,
         headline=insights.headline(data),
         reason_labels=gallery.DISCARD_REASON_LABELS,
         # Channels whose connection predates the statistics permission:

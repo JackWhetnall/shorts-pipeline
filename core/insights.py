@@ -74,11 +74,19 @@ def _totals(videos: list, purged: list = ()) -> dict:
     discarded = sum(1 for v in videos if v["discarded"]) + len(purged)
     published = sum(1 for v in videos if v["published"])
     kept = total - discarded
+    # Waiting for a look is what the review queue shows: not approved and
+    # queued for a slot, not set aside for its pair, not out. "Kept minus
+    # published" counted 35 queued videos and 3 set aside as 38 to review
+    # with the queue empty (28 Oct).
+    live = [v for v in videos if not v["discarded"] and not v["published"] and not v.get("out")
+            and not v.get("set_aside")]
+    queued = sum(1 for v in live if v.get("queued"))
     return {
         "total": total,
         "published": published,
         "discarded": discarded,
-        "awaiting_review": kept - published,
+        "awaiting_review": len(live) - queued,
+        "queued": queued,
         # The number that matters: how much of what the machine makes is
         # good enough to use.
         "keep_rate": (kept / total) if total else 0.0,
@@ -333,12 +341,18 @@ def _recent(videos: list, limit: int = 30) -> list:
 
 def _by_channel(videos: list, channels: dict) -> list:
     rows = []
+    # Everything the cost log has for the channel: a film's cost is never
+    # beside its video, so summing the videos' own cost files showed Why,
+    # Though?, the biggest spender, at $0 (28 Oct).
+    spent = {}
+    for r in costs.read_records():
+        if r.get("channel_key"):
+            spent[r["channel_key"]] = spent.get(r["channel_key"], 0.0) + float(r.get("cost_usd") or 0)
     for key, channel in channels.items():
         mine = [v for v in videos if v["channel_key"] == key]
         if not mine:
             continue
         discarded = sum(1 for v in mine if v["discarded"])
-        costed = [v for v in mine if v.get("cost") and v["cost"].get("calls")]
         rows.append({
             "key": key,
             "name": channel.channel_display_name,
@@ -346,7 +360,7 @@ def _by_channel(videos: list, channels: dict) -> list:
             "published": sum(1 for v in mine if v["published"]),
             "discarded": discarded,
             "discard_rate": discarded / len(mine),
-            "spend_usd": sum(v["cost"]["total_usd"] for v in costed),
+            "spend_usd": spent.get(key, 0.0),
         })
     rows.sort(key=lambda r: -r["total"])
     return rows
@@ -378,3 +392,127 @@ def headline(data: dict) -> str:
         return f"{totals['awaiting_review']} videos are waiting to be reviewed."
     return (f"{totals['published']} published, "
             f"{totals['keep_rate']:.0%} of everything made was kept.")
+
+
+# --- week by week (decision 139) ------------------------------------------------------
+#
+# The owner, 28 Oct: the page showed only the straight line to the targets,
+# "but doesn't show the trajectory eg if my shorts a week ago were getting
+# 10 views and this week they are getting 50 views then it's actually a
+# marked improvement". Days swing with the schedule (nothing goes out on a
+# Monday), so every comparison is a week with a week, and the week under
+# way only with the same days of the one before.
+
+WEEKS = 8
+MEASURES = (("short_views", "Shorts views", "int"), ("per_short", "Views per Short out", "int"),
+            ("long_views", "Long views", "int"), ("hours", "Watch hours", "hours"),
+            ("subs", "Subscribers", "int"))
+
+
+def _week_of(day: str):
+    from datetime import date, timedelta
+    d = date.fromisoformat(day)
+    return d - timedelta(days=d.weekday())
+
+
+def _sum_days(days: list) -> dict:
+    return {"short_views": sum(d.get("short_views", 0) for d in days),
+            "long_views": sum(d.get("long_views", 0) for d in days),
+            "hours": round(sum(d.get("long_minutes", 0.0) for d in days) / 60, 1),
+            "subs": sum(d.get("subs_net", 0) for d in days)}
+
+
+def _change(now: float, before: float):
+    """Percent change, or None when there's nothing to compare with."""
+    if not before:
+        return None
+    return round((now - before) / abs(before) * 100)
+
+
+def _weeks_of(days: list, out: list, today=None) -> dict:
+    """{"weeks": [...], "so_far": {...}} from one or more channels' days
+    (core.outlook.daily) and the videos that went out [(day, long)]."""
+    from datetime import date, timedelta
+    today = today or date.today()
+    this_week = today - timedelta(days=today.weekday())
+    starts = [this_week - timedelta(weeks=n) for n in range(WEEKS - 1, -1, -1)]
+    by_week = {s: [] for s in starts}
+    for d in days:
+        s = _week_of(d["day"])
+        if s in by_week:
+            by_week[s].append(d)
+    rows = []
+    for s in starts:
+        row = {"start": s.isoformat(), "label": s.strftime("%d %b").lstrip("0"), "partial": s == this_week,
+               **_sum_days(by_week[s]),
+               "shorts_out": sum(1 for day, long in out if not long and _week_of(day) == s),
+               "long_out": sum(1 for day, long in out if long and _week_of(day) == s)}
+        row["per_short"] = round(row["short_views"] / row["shorts_out"]) if row["shorts_out"] else 0
+        rows.append(row)
+    for prev, row in zip(rows, rows[1:]):
+        # The week under way is compared day for day in `so_far`, never whole.
+        row["change"] = {m: None if row["partial"] else _change(row[m], prev[m]) for m, _, _ in MEASURES}
+    if rows:
+        rows[0]["change"] = {m: None for m, _, _ in MEASURES}
+    # The week under way against the same days of last week. YouTube's
+    # figures run a day or two behind, so "the same days" are the days of
+    # this week it has figures for.
+    have = sorted({d["day"] for d in days if _week_of(d["day"]) == this_week})
+    so_far = None
+    if have:
+        n = date.fromisoformat(have[-1]).weekday() + 1
+        last_week = this_week - timedelta(weeks=1)
+        now_days = [d for d in by_week[this_week] if date.fromisoformat(d["day"]).weekday() < n]
+        then_days = [d for d in by_week.get(last_week, []) if date.fromisoformat(d["day"]).weekday() < n]
+        a, b = _sum_days(now_days), _sum_days(then_days)
+        for part, chosen, week in ((a, now_days, this_week), (b, then_days, last_week)):
+            shorts = sum(1 for day, long in out if not long and _week_of(day) == week
+                         and date.fromisoformat(day).weekday() < n)
+            part["per_short"] = round(part["short_views"] / shorts) if shorts else 0
+        so_far = {"days": n, "through": date.fromisoformat(have[-1]).strftime("%a"),
+                  "now": a, "then": b, "change": {m: _change(a[m], b[m]) for m, _, _ in MEASURES}}
+    else:
+        # No figures for this week yet: the last full week against the one before.
+        full = [r for r in rows if not r["partial"]]
+        if len(full) >= 2:
+            so_far = {"days": 7, "through": "", "now": {m: full[-1][m] for m, _, _ in MEASURES},
+                      "then": {m: full[-2][m] for m, _, _ in MEASURES}, "change": full[-1]["change"]}
+    peak = {m: max([r[m] for r in rows] + [0]) for m, _, _ in MEASURES}
+    return {"weeks": rows, "so_far": so_far, "peak": peak}
+
+
+def weekly(channels: dict, today=None) -> dict:
+    """Week by week for these channels, together and one by one:
+    {"total": {...}, "channels": [{"key", "name", **}], "measures",
+    "error"}. Read from YouTube's day-by-day figures (core.outlook, cached
+    twelve hours); a channel without a connection that can read them is
+    left out."""
+    from core import outlook, youtube
+    every, out_all, per, errors = [], [], [], []
+    for key, channel in channels.items():
+        try:
+            if not youtube.connection(key).get("stats"):
+                continue
+            figures = outlook.daily(key)
+        except Exception as exc:  # noqa: BLE001 - one channel's figures mustn't take the page down
+            errors.append(f"{channel.channel_display_name or key}: {getattr(exc, 'user_message', '') or exc}")
+            continue
+        if figures.get("error"):
+            errors.append(f"{channel.channel_display_name or key}: {figures['error']}")
+        days = figures.get("days") or []
+        out = []
+        for v in gallery.list_videos(channel.output_dir):
+            stamp = (v.get("links") or {}).get("published_at")
+            if stamp and not v["discarded"]:
+                out.append((stamp[:10], gallery.is_long(v["relpath"])))
+        every += days
+        out_all += out
+        per.append({"key": key, "name": channel.channel_display_name or key, **_weeks_of(days, out, today)})
+    merged = {}
+    for d in every:
+        m = merged.setdefault(d["day"], {"day": d["day"], "short_views": 0, "long_views": 0,
+                                         "long_minutes": 0.0, "subs_net": 0})
+        for f in ("short_views", "long_views", "long_minutes", "subs_net"):
+            m[f] += d.get(f, 0)
+    return {"total": _weeks_of(sorted(merged.values(), key=lambda d: d["day"]), out_all, today),
+            "channels": per, "measures": MEASURES, "error": "; ".join(errors)}

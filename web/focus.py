@@ -32,3 +32,31 @@ def keep(rows, key_of=lambda r: r["channel_key"], channels: dict = None):
     """Only the focused channel's rows (all of them with no focus)."""
     focus = current(channels)
     return [r for r in rows if not focus or key_of(r) == focus]
+
+
+# --- channels not yet publishing (decision 139) ---------------------------------------
+#
+# The owner, 28 Oct: the channels still being set up are "mostly just tests
+# for now", so Today, Insights and the channel picker leave them out unless
+# this browser asks for them.
+
+TESTS_COOKIE = "include_tests"
+
+
+def include_tests() -> bool:
+    try:
+        return request.cookies.get(TESTS_COOKIE) == "1"
+    except RuntimeError:              # outside a request: everything
+        return True
+
+
+def is_test(channel) -> bool:
+    """Not archived and not publishing yet: a channel still being tried out."""
+    return not channel.archived and not channel.publishing.enabled
+
+
+def visible(channels: dict) -> dict:
+    """The channels to show: unarchived, and publishing unless tests are
+    included."""
+    tests = include_tests()
+    return {k: c for k, c in channels.items() if not c.archived and (tests or not is_test(c))}

@@ -3188,3 +3188,20 @@ font-size: .8rem; color: var(--text); box-shadow: var(--shadow-sm); }
 .vb-inline { display: inline; margin: 0; font-size: 1.1rem; }
 .vb-pill { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: .75rem; font-weight: 600;
   background: var(--accent-soft); color: var(--accent); vertical-align: 1px; }
+
+/* Today: going out, and what went out (decision 139). */
+.dg-day { font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin: .6rem 0 .2rem; }
+.dg-day:first-of-type { margin-top: .2rem; }
+.dg-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: .5rem; padding: .28rem 0; font-size: .88rem; }
+.dg-group .dg-row { grid-template-columns: auto minmax(0, 1fr); }
+.dg-group .dg-where { grid-column: 2; font-size: .78rem; color: var(--text-dim); }
+.dg-time { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.dg-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dg-title b { color: var(--text-dim); font-weight: 600; margin-right: .25rem; }
+.dg-group { border-top: 1px solid var(--border); padding: .35rem 0; }
+.dg-group:first-of-type { border-top: 0; }
+.dg-group summary { cursor: pointer; display: flex; gap: .5rem; align-items: baseline; padding: .15rem 0; }
+.tests-toggle { display: flex; align-items: center; gap: .35rem; font: inherit; font-size: .8rem; color: var(--text-dim); background: none; border: 0; padding: .2rem .3rem; cursor: pointer; white-space: nowrap; }
+.tests-toggle:hover { color: var(--text); }
+.tests-box { display: inline-grid; place-items: center; width: .95rem; height: .95rem; border: 1.5px solid var(--border-light); border-radius: 4px; font-size: .7rem; line-height: 1; color: var(--accent-contrast); }
+.tests-toggle[aria-checked="true"] .tests-box { background: var(--accent); border-color: var(--accent); }

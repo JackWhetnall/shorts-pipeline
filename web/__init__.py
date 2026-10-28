@@ -133,11 +133,14 @@ def create_app(debug: bool = False) -> Flask:
             from core import code_freshness
             return {**nav_counts(channels, key), "update_pending": code_freshness.update_pending(),
                     "focus_key": key, "focus_channel": channels.get(key),
-                    "focus_choices": sorted(((k, c.channel_display_name or k) for k, c in channels.items()
-                                             if not c.archived), key=lambda kv: kv[1].lower())}
+                    "focus_choices": sorted(((k, c.channel_display_name or k)
+                                             for k, c in focus.visible(channels).items()),
+                                            key=lambda kv: kv[1].lower()),
+                    "include_tests": focus.include_tests(),
+                    "has_tests": any(focus.is_test(c) for c in channels.values())}
         except Exception:  # noqa: BLE001 - chrome must never break a page
             return {"review_waiting": 0, "to_post": 0, "active_job_count": 0, "focus_key": "",
-                    "focus_channel": None, "focus_choices": []}
+                    "focus_channel": None, "focus_choices": [], "include_tests": False, "has_tests": False}
 
     @app.context_processor
     def inject_channel_head():

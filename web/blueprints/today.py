@@ -33,6 +33,21 @@ def set_focus():
     return response
 
 
+@bp.route("/tests", methods=["POST"])
+def set_tests():
+    """Show the channels not yet publishing, or not (web.focus, decision 139)."""
+    from web import focus
+    back = request.form.get("next") or url_for("today.page")
+    if not back.startswith("/") or back.startswith("//"):
+        back = url_for("today.page")
+    response = redirect(back)
+    if request.form.get("include") == "1":
+        response.set_cookie(focus.TESTS_COOKIE, "1", max_age=focus.YEAR, samesite="Lax")
+    else:
+        response.delete_cookie(focus.TESTS_COOKIE)
+    return response
+
+
 @bp.route("/api/nav-counts")
 def nav_counts():
     from flask import jsonify
@@ -63,10 +78,27 @@ def dismiss(job_id):
     return redirect(url_for("today.page", note="Discarded."))
 
 
+@bp.route("/today/clear", methods=["POST"])
+def clear_out():
+    """What went out, cleared: the list starts again from now (decision 139)."""
+    from core import digest
+    digest.clear()
+    return redirect(url_for("today.page"))
+
+
+def _grouped(rows: list) -> list:
+    """[{name, channel, rows}] by channel, each newest first, busiest first."""
+    groups = {}
+    for r in rows:
+        groups.setdefault(r["channel"], {"name": r["name"], "channel": r["channel"], "rows": []})["rows"].append(r)
+    return sorted(groups.values(), key=lambda g: -len(g["rows"]))
+
+
 @bp.route("/")
 def page():
     from core import money
-    channels = load_channels(validate=False)
+    from web import focus
+    channels = focus.visible(load_channels(validate=False))
     try:
         forecast = money.forecast(channels)
     except Exception as exc:  # noqa: BLE001 - the page says money couldn't be read; the rest still shows
@@ -78,7 +110,15 @@ def page():
     except Exception as exc:  # noqa: BLE001 - shown on the page as unavailable
         log.warning(f"Today: couldn't read what's running: {exc}")
         running, background = None, None
+    from core import digest
+    try:
+        after = digest.since()
+        out, coming = _grouped(digest.went_out(channels, after)), digest.going_out(channels)
+    except Exception as exc:  # noqa: BLE001 - shown on the page as unavailable
+        log.warning(f"Today: couldn't read what went out: {exc}")
+        after, out, coming = None, None, None
     return render_template("today.html", items=today.needs_you(channels, url_for, forecast=forecast),
+                           out=out, out_since=after, coming=coming,
                            note=request.args.get("note", ""),
                            running=running, background=background, forecast=forecast,
                            has_channels=bool(channels))

@@ -744,6 +744,8 @@ class TestAudienceCard:
                             lambda key: {"connected": True, "stats": False,
                                          "account": "", "connected_at": ""})
 
+        # The fixture's channel isn't publishing: a test channel, shown with Tests on (decision 139).
+        client.set_cookie("include_tests", "1")
         html = client.get("/insights").get_data(as_text=True)
         assert "1,234" in html and "71%" in html
         assert "Reconnect to see numbers" in html
