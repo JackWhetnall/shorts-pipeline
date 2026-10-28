@@ -588,6 +588,9 @@ class Publishing(_MappingLike):
     post_instagram: bool = False
     posting_browser: str = ""      # "chrome" | "edge" | "" for the default browser
     posting_profile: str = ""      # the browser's profile folder, e.g. "Shorts minute_pastor"
+    # Decision 141: every video handed off for TikTok or Instagram also
+    # copied to OneDrive for posting from the phone; the PC's copy stays.
+    phone_copies: bool = False
     instagram_account: str = ""    # core.instagram's account id; "" posts to Instagram by hand
     # Long videos (pipeline.longform) go out in their own slots, YouTube only.
     long_slots: list = field(default_factory=lambda: ["19:00"])

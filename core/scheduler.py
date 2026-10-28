@@ -308,7 +308,8 @@ def tick() -> None:
                        ("films", lambda: _auto_films(channels)),
                        ("thumbnail tests", lambda: _thumbnail_tests(channels)),
                        ("statistics", lambda: _refresh_audience(channels)),
-                       ("remake kits", lambda: _sweep_kits(channels))):
+                       ("remake kits", lambda: _sweep_kits(channels)),
+                       ("notifications", lambda: _notify(channels))):
         try:
             duty()
         except Exception as exc:  # noqa: BLE001 - the ticker must never die
@@ -321,6 +322,13 @@ def _instagram(channels: dict) -> None:
     from core import instagram
     for line in instagram.post_due(channels):
         log.info(line)
+
+
+def _notify(channels: dict) -> None:
+    """What's new, on the owner's phone (core.notify, decision 141)."""
+    from core import notify
+    for title in notify.tick(channels):
+        log.info(f"Notified: {title}")
 
 
 def _sweep_kits(channels: dict) -> None:

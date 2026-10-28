@@ -92,6 +92,9 @@ def _isolated_ready_to_post(tmp_path, monkeypatch):
     monkeypatch.setattr("core.posting.READY_DIR", tmp_path / "ready_to_post")
     monkeypatch.setattr("core.posting.PHONE_DIR", tmp_path / "phone_to_post")
     monkeypatch.setattr("core.posting.PHONE_INDEX", tmp_path / "phone_posts.json")
+    # Never a real notification from a test (decision 141).
+    monkeypatch.setattr("core.notify.SETTINGS_PATH", tmp_path / "notify.json")
+    monkeypatch.setattr("core.notify.STATE_PATH", tmp_path / "notify_state.json")
     monkeypatch.setattr("core.posting.STAGED_INDEX", tmp_path / "staged_posts.json")
 
 

@@ -3205,3 +3205,10 @@ font-size: .8rem; color: var(--text); box-shadow: var(--shadow-sm); }
 .tests-toggle:hover { color: var(--text); }
 .tests-box { display: inline-grid; place-items: center; width: .95rem; height: .95rem; border: 1.5px solid var(--border-light); border-radius: 4px; font-size: .7rem; line-height: 1; color: var(--accent-contrast); }
 .tests-toggle[aria-checked="true"] .tests-box { background: var(--accent); border-color: var(--accent); }
+
+/* The phone copy (decision 140): small and apart from the posting buttons. */
+.post-steps { position: relative; }
+.phone-toggle { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 1.7rem; height: 1.7rem;
+  border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-faint); cursor: pointer; }
+.phone-toggle:hover { color: var(--text); border-color: var(--border-light); }
+.phone-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }

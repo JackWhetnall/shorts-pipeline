@@ -133,6 +133,8 @@ def _apply_publishing_plan(plan, form) -> None:
         plan.thumbnail_tests = form.get("thumbnail_tests") == "on"
     plan.post_tiktok = form.get("post_tiktok") == "on"
     plan.post_instagram = form.get("post_instagram") == "on"
+    if "phone_copies_present" in form:
+        plan.phone_copies = form.get("phone_copies") == "on"
     # The Instagram account it posts to by itself (core.instagram): one
     # the page offered, or "" for posting by hand.
     if "instagram_account" in form:

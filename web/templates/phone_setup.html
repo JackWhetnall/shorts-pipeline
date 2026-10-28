@@ -4,7 +4,7 @@
 <div class="page-head">
   <div>
     <h1>Phone</h1>
-    <p class="page-sub">Review, check questions and start videos from a phone on the same Wi-Fi.</p>
+    <p class="page-sub">The app on a phone on the same Wi-Fi, and notifications anywhere.</p>
   </div>
 </div>
 
@@ -43,6 +43,38 @@
     <p class="meta">Turning it on makes an access code and restarts the app (once nothing is being made) so it
       listens on your home network.</p>
   {% endif %}
+</div>
+
+<div class="card" id="notifications">
+  <h2>Notifications</h2>
+  {% set n = notify %}
+  <ol class="meta">
+    <li>Install <strong>ntfy</strong> on the phone (free, App Store or Google Play).</li>
+    <li>In it, <strong>+</strong> → subscribe to <code>{{ n.topic or suggested }}</code>{% if n.server != 'https://ntfy.sh' %} on <code>{{ n.server }}</code>{% endif %}.</li>
+    <li>Save here, then <strong>Send a test</strong>.</li>
+  </ol>
+  <form method="post" action="{{ url_for('phone.set_notify') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Topic
+      <input type="text" name="topic" value="{{ n.topic or suggested }}" maxlength="64" spellcheck="false"
+             data-tooltip="Anyone who knows it can read it: keep it long and random">
+    </label>
+    <label>Server <input type="text" name="server" value="{{ n.server }}" spellcheck="false"></label>
+    <fieldset>
+      <legend>Send</legend>
+      {% for key, label in notify_kinds %}
+      <label class="checkbox-label"><input type="checkbox" name="kind_{{ key }}" {% if n.kinds[key] %}checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+    </fieldset>
+    <div class="actions">
+      <button type="submit" name="action" value="save" class="btn-primary">{{ 'Save' if n.topic else 'Turn on' }}</button>
+      {% if n.topic %}
+      <button type="submit" name="action" value="test" class="btn-ghost">Send a test</button>
+      <button type="submit" name="action" value="off" class="btn-ghost danger-text">Turn off</button>
+      {% endif %}
+    </div>
+  </form>
+  <p class="meta">{{ 'On' if n.topic else 'Off' }}{% if n.topic and not state.enabled %} · links open on the PC only until phone access is on{% endif %}</p>
 </div>
 
 <h2>If the phone can't connect</h2>

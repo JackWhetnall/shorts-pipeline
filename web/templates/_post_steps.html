@@ -4,6 +4,13 @@
    Copy buttons turn green once used, remembered in this browser, and
    leaving with a post half done asks first (decision 119). #}
 <div class="post-steps" data-relpath="{{ relpath }}" data-file="{{ post.file }}" data-thumb="{{ post.thumb }}">
+  {% if post.phone_ok and post.file %}
+  <button type="button" class="phone-toggle" onclick="postPhone(this)" aria-pressed="{{ 'true' if post.phone else 'false' }}"
+          aria-label="Copy on phone"
+          data-on="On phone too (OneDrive) · click to remove; this PC's copy stays"
+          data-off="Also put a copy on the phone (OneDrive); this PC's copy stays"
+          data-tooltip="{{ 'On phone too (OneDrive) · click to remove; this PC\'s copy stays' if post.phone else 'Also put a copy on the phone (OneDrive); this PC\'s copy stays' }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg></button>
+  {% endif %}
   {% if post.youtube_url %}
   <p class="meta post-done-line">&#10003; On YouTube: <a href="{{ post.youtube_url }}" target="_blank" rel="noopener">{{ post.youtube_url }}</a></p>
   {% endif %}
@@ -38,8 +45,6 @@
       <button type="button" class="btn-ghost post-copy" data-copy="file" onclick="postCopy(this, 'file')" title="{{ post.file }}">Copy video location</button>
       {% if post.thumb %}<button type="button" class="btn-ghost post-copy" data-copy="thumb" onclick="postCopy(this, 'thumb')" title="{{ post.thumb }}">Copy thumbnail</button>{% endif %}
       <button type="button" class="btn-ghost post-copy" data-copy="caption" onclick="postCopy(this, 'caption')">Copy caption</button>
-      {% if post.phone_ok %}<button type="button" class="btn-ghost" onclick="postToPhone(this)" {{ 'disabled' if post.phone }}
-              data-tooltip="A copy in OneDrive → Shorts to post">{{ 'On phone' if post.phone else 'Send to phone' }}</button>{% endif %}
     </div>
     <details class="post-caption">
       <summary class="hint">See or change the caption</summary>

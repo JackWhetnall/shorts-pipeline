@@ -523,6 +523,11 @@ def put_out(channel, video_path: Path, privacy: str = "public", platforms: list 
             posting.stage(channel, video_path)
         except OSError as exc:  # it's made again when its posting steps are shown
             log.warning(f"{channel.key}: couldn't put the video in the ready-to-post folder: {exc}")
+        if getattr(channel.publishing, "phone_copies", False):
+            try:
+                posting.to_phone(channel, video_path)
+            except (OSError, PipelineError) as exc:  # the To post page can still send it by hand
+                log.warning(f"{channel.key}: couldn't copy the video to the phone: {exc}")
         if not posting.social(video_path):
             try:
                 posting.write_social(channel, video_path)

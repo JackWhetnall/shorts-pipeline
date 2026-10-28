@@ -431,6 +431,11 @@ def to_phone(channel, video_path: Path) -> Path:
     return target
 
 
+def off_phone(video_path: Path) -> None:
+    """The phone copy taken away; the PC's copy stays."""
+    _off_phone(video_path)
+
+
 def _off_phone(video_path: Path) -> None:
     index = _phone_index()
     copy = index.pop(str(Path(video_path).resolve()), None)

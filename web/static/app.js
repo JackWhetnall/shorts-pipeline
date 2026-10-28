@@ -3084,18 +3084,22 @@ async function postCopy(button, what) {
   }
 }
 
-async function postToPhone(button) {
-  const p = postParts(button);
-  let done = false;
-  await withButtonLoading(button, "Copying…", async () => {
-    const res = await apiFetch(`/api/videos/${p.relpath}/to-phone`, {method: "POST"});
+// The phone copy (decision 140): a second copy in OneDrive, on or off.
+// The PC's own copy is never touched.
+async function postPhone(button) {
+  const relpath = button.closest(".post-steps").dataset.relpath;
+  const on = button.getAttribute("aria-pressed") !== "true";
+  button.disabled = true;
+  try {
+    const res = await apiFetch(`/api/videos/${relpath}/to-phone`, {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({on}),
+    });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { if (p.status) p.status.textContent = data.error || "Couldn't copy it."; return; }
-    done = true;
-  });
-  if (!done) return;
-  for (const b of document.querySelectorAll(`[onclick="postToPhone(this)"]`)) {
-    if (postParts(b).relpath === p.relpath) { b.textContent = "On phone"; b.disabled = true; }
+    if (!res.ok) { button.dataset.tooltip = data.error || "Couldn't do that."; return; }
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+    button.dataset.tooltip = on ? button.dataset.on : button.dataset.off;
+  } finally {
+    button.disabled = false;
   }
 }
 

@@ -409,13 +409,18 @@ def start_post(relpath):
 
 @bp.route("/api/videos/<path:relpath>/to-phone", methods=["POST"])
 def to_phone(relpath):
-    """This one video copied to OneDrive, for posting from the phone (decision 140)."""
+    """This one video's phone copy in OneDrive put there, or taken away
+    ({"on": false}); the PC's copy is never touched (decision 140)."""
     target = video_or_404(relpath)
     key = gallery._channel_key_for(target)
     channel = load_channels(validate=False).get(key) if key else None
     if channel is None:
         return jsonify({"error": "Couldn't tell which channel this video belongs to."}), 400
+    on = (request.get_json(force=True, silent=True) or {}).get("on", True)
     try:
+        if not on:
+            posting.off_phone(target)
+            return jsonify({"ok": True, "file": ""})
         copy = posting.to_phone(channel, target)
     except PipelineError as exc:
         return jsonify({"error": exc.user_message}), 400

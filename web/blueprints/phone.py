@@ -143,10 +143,36 @@ def setup():
         abort(403, description="Phone access is set up from the PC itself.")
     state = phone_access.settings()
     port = request.host.split(":")[1] if ":" in request.host else "5000"
+    from core import notify
     return render_template("phone_setup.html", state=state, port=port,
+                           notify=notify.settings(), notify_kinds=notify.KINDS, suggested=notify.new_topic(),
                            addresses=phone_access.addresses(),
                            listening=current_app.config.get("LISTEN_HOST") == "0.0.0.0",
                            restarting=code_freshness.is_stale(), note=request.args.get("note", ""))
+
+
+@bp.route("/phone/notify", methods=["POST"])
+def set_notify():
+    """Notifications on the phone, through ntfy (core.notify, decision 141)."""
+    from core import notify
+    if not phone_access.is_local(request.remote_addr):
+        abort(403, description="Notifications are set up from the PC itself.")
+    action = request.form.get("action")
+    if action == "off":
+        current = notify.settings()
+        notify.save("", current["server"], current["kinds"])
+        return redirect(url_for("phone.setup", note="Notifications off.", _anchor="notifications"))
+    kinds = {k: request.form.get(f"kind_{k}") == "on" for k, _ in notify.KINDS}
+    saved = notify.save(request.form.get("topic", ""), request.form.get("server", ""), kinds)
+    if not saved["topic"]:
+        return redirect(url_for("phone.setup", note="Give it a topic first.", _anchor="notifications"))
+    if action == "test":
+        ok = notify.send("Shorts Pipeline", "Notifications work. You'll hear about videos going out, "
+                         "what needs you, the morning summary and Monday's week.", force=True, tags="tada")
+        note = "Test sent: check the phone." if ok else "The test didn't send: check the server address."
+    else:
+        note = "Saved."
+    return redirect(url_for("phone.setup", note=note, _anchor="notifications"))
 
 
 @bp.route("/phone/set", methods=["POST"])

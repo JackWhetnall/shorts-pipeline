@@ -1037,6 +1037,12 @@
         <input type="checkbox" name="post_instagram" {% if channel.publishing.post_instagram %}checked{% endif %}>
         Also post each one to Instagram
       </label>
+      <input type="hidden" name="phone_copies_present" value="1">
+      <label class="checkbox-label">
+        <input type="checkbox" name="phone_copies" {% if channel.publishing.phone_copies %}checked{% endif %}>
+        Copy each to the phone too
+        <button type="button" class="info-dot" data-tooltip="A copy in OneDrive → Shorts to post; this PC's copy stays">?</button>
+      </label>
       {% include "_instagram_account.html" %}
       <label>Post from
         <select name="posting_profile">

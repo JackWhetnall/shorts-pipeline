@@ -320,6 +320,12 @@
         <input type="checkbox" name="post_instagram" {% if channel.publishing.post_instagram %}checked{% endif %}>
         Also post teasers to Instagram
       </label>
+      <input type="hidden" name="phone_copies_present" value="1">
+      <label class="checkbox-label">
+        <input type="checkbox" name="phone_copies" {% if channel.publishing.phone_copies %}checked{% endif %}>
+        Copy teasers to the phone too
+        <button type="button" class="info-dot" data-tooltip="A copy in OneDrive → Shorts to post; this PC's copy stays">?</button>
+      </label>
       {% include "_instagram_account.html" %}
       {% if posting_error %}<p class="error">{{ posting_error }}</p>{% endif %}
       {% if posting_ready %}<p class="meta info-banner">Sign in to this channel's TikTok in the new window.</p>{% endif %}
