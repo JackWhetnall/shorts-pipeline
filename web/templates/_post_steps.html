@@ -38,6 +38,8 @@
       <button type="button" class="btn-ghost post-copy" data-copy="file" onclick="postCopy(this, 'file')" title="{{ post.file }}">Copy video location</button>
       {% if post.thumb %}<button type="button" class="btn-ghost post-copy" data-copy="thumb" onclick="postCopy(this, 'thumb')" title="{{ post.thumb }}">Copy thumbnail</button>{% endif %}
       <button type="button" class="btn-ghost post-copy" data-copy="caption" onclick="postCopy(this, 'caption')">Copy caption</button>
+      {% if post.phone_ok %}<button type="button" class="btn-ghost" onclick="postToPhone(this)" {{ 'disabled' if post.phone }}
+              data-tooltip="A copy in OneDrive → Shorts to post">{{ 'On phone' if post.phone else 'Send to phone' }}</button>{% endif %}
     </div>
     <details class="post-caption">
       <summary class="hint">See or change the caption</summary>

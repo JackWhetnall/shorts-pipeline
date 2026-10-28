@@ -90,6 +90,8 @@ def _isolated_ready_to_post(tmp_path, monkeypatch):
     """Publishing puts a video in the owner's Videos\Shorts to post folder
     (core.posting.stage); no test may touch the real one."""
     monkeypatch.setattr("core.posting.READY_DIR", tmp_path / "ready_to_post")
+    monkeypatch.setattr("core.posting.PHONE_DIR", tmp_path / "phone_to_post")
+    monkeypatch.setattr("core.posting.PHONE_INDEX", tmp_path / "phone_posts.json")
     monkeypatch.setattr("core.posting.STAGED_INDEX", tmp_path / "staged_posts.json")
 
 

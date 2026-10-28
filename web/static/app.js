@@ -3084,6 +3084,21 @@ async function postCopy(button, what) {
   }
 }
 
+async function postToPhone(button) {
+  const p = postParts(button);
+  let done = false;
+  await withButtonLoading(button, "Copying…", async () => {
+    const res = await apiFetch(`/api/videos/${p.relpath}/to-phone`, {method: "POST"});
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { if (p.status) p.status.textContent = data.error || "Couldn't copy it."; return; }
+    done = true;
+  });
+  if (!done) return;
+  for (const b of document.querySelectorAll(`[onclick="postToPhone(this)"]`)) {
+    if (postParts(b).relpath === p.relpath) { b.textContent = "On phone"; b.disabled = true; }
+  }
+}
+
 async function postRewrite(button) {
   const p = postParts(button);
   await withButtonLoading(button, "Writing…", async () => {

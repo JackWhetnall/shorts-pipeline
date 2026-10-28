@@ -489,7 +489,7 @@ platform (`posting.plan`, `_post_steps.html`, on To post and the video's
 page): the upload page opens with the video's path on the clipboard to
 paste into the file picker, and each platform has its own caption and
 hashtags (`posting.hashtags`). Videos waiting are hard-linked into
-`OneDrive\Shorts to post` (`Videos\Shorts to post` without OneDrive; `posting.stage`, decision 136) and removed once posted. See
+`Videos\Shorts to post` (`posting.stage`; one video copied to OneDrive only on **Send to phone**, decision 140) and removed once posted. See
 decision [059](docs/decisions/059-posting-steps.md).
 
 Instagram is posted to by itself on a channel with a

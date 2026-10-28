@@ -20,7 +20,7 @@ everything around the one step that has to be yours:
   pasting a path into its name box and pressing Enter picks that file.
   (An Explorer window to drag from was the first try: it still meant
   finding the file among a dated folder's sidecars.)
-- **The video in one plain folder**, `OneDrive\Shorts to post`, named by
+- **The video in one plain folder**, `Videos\Shorts to post`, named by
   channel and title, with nothing else in it but videos waiting to be
   posted; each goes once it's posted everywhere (`stage`, `unstage`).
 - **A caption for each platform** with its hashtags (`caption`), to copy
@@ -334,17 +334,18 @@ def with_youtube_hashtags(channel, video_path: Path, description: str) -> str:
 
 # --- one plain folder of videos to post -------------------------------------
 
-def _ready_dir() -> Path:
-    """In OneDrive when it's set up, so the phone's OneDrive app has every
-    video to post without a cable (the owner, 27 Oct: "i dont want to have
-    to transfer them manually every time"); else in Videos."""
+READY_DIR = Path.home() / "Videos" / "Shorts to post"
+
+
+def _phone_dir():
+    """OneDrive's own folder for videos to post from the phone, or None
+    without OneDrive (decision 140)."""
     cloud = os.environ.get("OneDrive", "").strip()
-    if cloud and Path(cloud).is_dir():
-        return Path(cloud) / "Shorts to post"
-    return Path.home() / "Videos" / "Shorts to post"
+    return Path(cloud) / "Shorts to post" if cloud and Path(cloud).is_dir() else None
 
 
-READY_DIR = _ready_dir()
+PHONE_DIR = _phone_dir()
+PHONE_INDEX = CACHE_DIR / "phone_posts.json"
 STAGED_INDEX = CACHE_DIR / "staged_posts.json"
 
 
@@ -383,8 +384,6 @@ def stage(channel, video_path: Path) -> Path:
     while target.exists() or str(target) in taken:
         target, n = READY_DIR / f"{base} ({n}){video_path.suffix}", n + 1
     try:
-        if _synced(target):
-            raise OSError("a synced folder uploads a copy, not a link")
         os.link(video_path, target)
     except OSError:
         shutil.copyfile(video_path, target)
@@ -393,28 +392,51 @@ def stage(channel, video_path: Path) -> Path:
     return target
 
 
-def _synced(path: Path) -> bool:
-    cloud = os.environ.get("OneDrive", "").strip()
-    return bool(cloud) and Path(cloud) in Path(path).parents
+def _phone_index() -> dict:
+    try:
+        return json.loads(PHONE_INDEX.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
 
 
-def move_staged(to: Path = None) -> int:
-    """Every staged video moved into the ready folder (once, when it moved
-    to OneDrive), copied rather than linked there. Returns how many."""
-    to = Path(to or READY_DIR)
-    index, moved = _index(), 0
-    for source, staged in list(index.items()):
-        staged = Path(staged)
-        if staged.parent == to or not staged.exists():
-            continue
-        to.mkdir(parents=True, exist_ok=True)
-        target = to / staged.name
-        shutil.copyfile(staged, target)
-        staged.unlink()
-        index[source] = str(target)
-        moved += 1
-    _save_index(index)
-    return moved
+def on_phone(video_path: Path) -> str:
+    """Where this video's phone copy is, or ""."""
+    found = _phone_index().get(str(Path(video_path).resolve()), "")
+    return found if found and Path(found).exists() else ""
+
+
+def to_phone(channel, video_path: Path) -> Path:
+    """A copy of this one video in OneDrive's Shorts to post, for posting
+    from the phone's OneDrive app (decision 140). Only when asked: the
+    owner, 28 Oct, "if i want to post something from my phone then i should
+    be able to do that OPTIONALLY". A copy, not a link: OneDrive doesn't
+    upload a linked file reliably."""
+    if PHONE_DIR is None:
+        raise PipelineError("no OneDrive folder", user_message="OneDrive isn't set up on this PC.")
+    known = on_phone(video_path)
+    if known:
+        return Path(known)
+    info = gallery.load_publish_info(video_path)
+    title = info["title"] or Path(video_path).stem.replace("_", " ")
+    PHONE_DIR.mkdir(parents=True, exist_ok=True)
+    base = _safe_name(f"{channel.channel_display_name or channel.key} - {title}")
+    target, n = PHONE_DIR / f"{base}{Path(video_path).suffix}", 2
+    while target.exists():
+        target, n = PHONE_DIR / f"{base} ({n}){Path(video_path).suffix}", n + 1
+    shutil.copyfile(video_path, target)
+    index = _phone_index()
+    index[str(Path(video_path).resolve())] = str(target)
+    PHONE_INDEX.parent.mkdir(parents=True, exist_ok=True)
+    PHONE_INDEX.write_text(json.dumps(index, indent=1, ensure_ascii=False), encoding="utf-8")
+    return target
+
+
+def _off_phone(video_path: Path) -> None:
+    index = _phone_index()
+    copy = index.pop(str(Path(video_path).resolve()), None)
+    if copy:
+        Path(copy).unlink(missing_ok=True)
+        PHONE_INDEX.write_text(json.dumps(index, indent=1, ensure_ascii=False), encoding="utf-8")
 
 
 def unstage(video_path: Path) -> None:
@@ -425,6 +447,7 @@ def unstage(video_path: Path) -> None:
     if staged:
         Path(staged).unlink(missing_ok=True)
         _save_index(index)
+    _off_phone(video_path)
 
 
 # --- the steps, per platform ------------------------------------------------
@@ -477,6 +500,7 @@ def plan(channel, video_path: Path) -> dict:
         "where": profile_label(channel),
         "has_profile": bool(channel.publishing.posting_browser and channel.publishing.posting_profile),
         "youtube_url": info["youtube_url"],
+        "phone": on_phone(video_path), "phone_ok": PHONE_DIR is not None,
         "platforms": [{"key": p, "label": LABELS[p], "caption": caption(video_path, p, channel),
                        "for_search": bool(social(video_path).get(p)),
                        "steps": STEPS[p], "posted": bool(handoff[p].get("posted_at")),
